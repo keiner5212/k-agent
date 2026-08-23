@@ -8,7 +8,8 @@
     "predev": "node ../../scripts/check-deno.mjs",
     "prebuild": "node ../../scripts/sync-web.mjs",
     "dev": "deno task dev",
-    "build": "deno task compile"
+    "build": "deno task compile",
+    "lint": "deno task lint"
   },
   "dependencies": {
     "@k-agent/shared": "workspace:*",

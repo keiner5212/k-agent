@@ -1,0 +1,22 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@hono/hono@^4.6.0": "4.13.3"
+  },
+  "jsr": {
+    "@hono/hono@4.13.3": {
+      "integrity": "2d277e78219ea145202359af5296cfa136eba5e75ffb08fda6fbd54d72032b4f"
+    }
+  },
+  "remote": {
+    "https://deno.land/x/webview@0.8.0/deno.json": "4651eca7ce6639d14b7bfb28e940f6e118e915a8003757193da2d9e9f47defc7",
+    "https://deno.land/x/webview@0.8.0/mod.ts": "281b770b148b97ad17f675e7a1dff9f5d13b879d08c611c133391d5a45a791c0",
+    "https://deno.land/x/webview@0.8.0/src/ffi.ts": "953cfdf2c8e0cee528b1df2ff0e88f0b674454736e8cd65c2abcb3d812343d29",
+    "https://deno.land/x/webview@0.8.0/src/webview.ts": "86b778e001cbfb8dc40f7bd806b7543e59853026f18550c4cd517930c2accf1c"
+  },
+  "workspace": {
+    "dependencies": [
+      "jsr:@hono/hono@^4.6.0"
+    ]
+  }
+}

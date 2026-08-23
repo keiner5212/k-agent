@@ -1,6 +1,6 @@
 # k-agent
 
-Desktop AI agent orchestrator. Empty template.
+Desktop AI agent orchestrator.
 
 Stack: Deno + Hono + WebView + Next.js (static export) in a pnpm monorepo.
 

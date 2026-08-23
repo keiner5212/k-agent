@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { API, type HealthResponse, type WsServerMessage } from "@k-agent/shared";
+import { type HealthResponse, type WsServerMessage } from "@k-agent/shared";
 import { getHealth, openSocket, send } from "../lib/api";
 import { useTranslation } from "../lib/i18n";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
