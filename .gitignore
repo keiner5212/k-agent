@@ -1,0 +1,45 @@
+# Node
+node_modules/
+.npm/
+.pnpm-store/
+
+# Build output
+.next/
+out/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# Deno
+.deno_build/
+deno-compile/
+
+# Desktop binary output
+apps/desktop/bin/
+apps/desktop/public/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# CommandCode
+.commandcode/
+
+# autoskills
+.agents/
+skills-lock.json

@@ -1,0 +1,21 @@
+{
+  "name": "k-agent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Desktop AI agent orchestrator. Deno + Hono + WebView + Next.js (static export).",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "dev:desktop": "pnpm --filter desktop dev",
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "build:web": "pnpm --filter web build",
+    "build:desktop": "pnpm --filter desktop build",
+    "build": "pnpm -r build",
+    "sync:web": "node scripts/sync-web.mjs",
+    "clean": "pnpm -r exec rm -rf node_modules .next out dist .deno_build"
+  }
+}
