@@ -6,7 +6,7 @@ Stack: Deno + Hono + WebView + Next.js (static export) in a pnpm monorepo.
 
 ## Author
 
-Maintained by [Your Name]. Contact: <ja8542159@gmail.com>
+Maintained by Keiner Jose Alvarado Quintero. Contact: <keinerjosealvaradoquintero@gmail.com>
 
 ## Install
 
@@ -29,20 +29,19 @@ irm https://deno.land/install.ps1 | iex
 Restart your shell after installing Deno.
 
 ## Run
-
-Web dev (browser only):
-
-```
-pnpm dev:web
-```
-
-Desktop (Hono server, native window when binding is installed):
+Dev mode:
 
 ```
-pnpm build:web && pnpm sync:web && pnpm dev:desktop
+pnpm dev
+# or
+pnpm dev:[web|desktop]
 ```
 
-Server runs at <http://127.0.0.1:7421>.
+Build and sync:
+
+```
+pnpm build:[web|desktop] && pnpm sync:[web|desktop]
+```
 
 ## Contributing
 
