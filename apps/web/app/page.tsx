@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { API, type HealthResponse, type WsServerMessage } from "@k-agent/shared";
 import { getHealth, openSocket, send } from "../lib/api";
+import { useTranslation } from "../lib/i18n";
+import { LanguageSwitcher } from "./components/LanguageSwitcher";
 
 type WsStatus = "disconnected" | "connecting" | "open";
 
 export default function HomePage() {
+  const { t } = useTranslation();
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [wsStatus, setWsStatus] = useState<WsStatus>("disconnected");
   const [lastMessage, setLastMessage] = useState<WsServerMessage | null>(null);
@@ -40,31 +43,43 @@ export default function HomePage() {
     setWsStatus("disconnected");
   }
 
+  const statusLabel =
+    wsStatus === "open"
+      ? t.ws.statusOpen
+      : wsStatus === "connecting"
+        ? t.ws.statusConnecting
+        : t.ws.statusDisconnected;
+
   return (
     <main className="container">
-      <h1>k-agent</h1>
-      <p className="subtitle">Desktop AI agent orchestrator. Empty template.</p>
+      <header className="page-header">
+        <div>
+          <h1>k-agent</h1>
+          <p className="subtitle">{t.app.subtitle}</p>
+        </div>
+        <LanguageSwitcher />
+      </header>
 
       <section>
-        <h2>REST</h2>
+        <h2>{t.sections.rest}</h2>
         <button onClick={() => getHealth().then(setHealth).catch(() => setHealth(null))}>
-          GET {API.health}
+          {t.rest.button}
         </button>
-        <pre>{health ? JSON.stringify(health, null, 2) : "click to fetch"}</pre>
+        <pre>{health ? JSON.stringify(health, null, 2) : t.rest.placeholder}</pre>
       </section>
 
       <section>
-        <h2>WebSocket</h2>
+        <h2>{t.sections.ws}</h2>
         {wsStatus === "open" || wsStatus === "connecting" ? (
-          <button className="secondary" onClick={disconnect}>Disconnect</button>
+          <button className="secondary" onClick={disconnect}>{t.ws.disconnect}</button>
         ) : (
-          <button onClick={connect}>Connect</button>
+          <button onClick={connect}>{t.ws.connect}</button>
         )}
         <p>
           <span className={`dot ${wsStatus === "open" ? "open" : wsStatus === "connecting" ? "connecting" : "closed"}`} />
-          {wsStatus}
+          {t.ws.status}: {statusLabel}
         </p>
-        <pre>{lastMessage ? JSON.stringify(lastMessage, null, 2) : "no messages yet"}</pre>
+        <pre>{lastMessage ? JSON.stringify(lastMessage, null, 2) : t.ws.placeholder}</pre>
       </section>
     </main>
   );
