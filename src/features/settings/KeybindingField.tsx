@@ -17,6 +17,9 @@ export const KeybindingField = ({ action }: KeybindingFieldProps): ReactNode => 
   useEffect(() => {
     if (!recording) return;
 
+    const isModifierKey = (key: string): boolean =>
+      key === "Control" || key === "Shift" || key === "Alt" || key === "Meta";
+
     const handleKey = (event: KeyboardEvent): void => {
       event.preventDefault();
       event.stopPropagation();
@@ -38,22 +41,18 @@ export const KeybindingField = ({ action }: KeybindingFieldProps): ReactNode => 
       if (event.ctrlKey) parts.push("Ctrl");
       if (event.altKey) parts.push("Alt");
       if (event.shiftKey) parts.push("Shift");
+
+      if (isModifierKey(event.key)) {
+        setDraft(parts.length > 0 ? `${parts.join("+")}+` : "");
+        return;
+      }
+
       const key = event.key === " " ? "Space" : event.key;
       const formatted = key.length === 1 ? key.toUpperCase() : key;
-      if (
-        formatted &&
-        formatted !== "Meta" &&
-        formatted !== "Ctrl" &&
-        formatted !== "Alt" &&
-        formatted !== "Shift"
-      ) {
-        parts.push(formatted);
-        setKeybinding(action, parts.join("+"));
-        setRecording(false);
-        setDraft(null);
-      } else {
-        setDraft(parts.length > 0 ? `${parts.join("+")}+` : "");
-      }
+      parts.push(formatted);
+      setKeybinding(action, parts.join("+"));
+      setRecording(false);
+      setDraft(null);
     };
 
     window.addEventListener("keydown", handleKey, { capture: true });

@@ -92,6 +92,11 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
       open={open}
       onOpenChange={onOpenChange}
       titleKey="settings.title"
+      size="wide"
+      surfaceStyle={{
+        height: "calc(100vh - var(--titlebar-height) - var(--space-6))",
+        maxHeight: "calc(100vh - var(--titlebar-height) - var(--space-6))",
+      }}
       footer={
         <GlassButton variant="primary" onClick={() => onOpenChange(false)}>
           {t("settings.close")}

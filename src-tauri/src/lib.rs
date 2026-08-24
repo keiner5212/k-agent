@@ -293,6 +293,12 @@ pub fn run() {
             delete_provider_model,
             set_model_favorite,
             skills::list_skills,
+            skills::read_skill_meta,
+            skills::read_skill_file,
+            skills::create_skill,
+            skills::update_skill,
+            skills::update_skill_content,
+            skills::delete_skill,
         ])
         .setup(|app| {
             if let Ok(home) = app.path().home_dir() {

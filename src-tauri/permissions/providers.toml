@@ -21,6 +21,12 @@ permissions = [
   "allow-window-start-drag",
   "allow-window-open-devtools",
   "allow-list-skills",
+  "allow-read-skill-meta",
+  "allow-read-skill-file",
+  "allow-create-skill",
+  "allow-update-skill",
+  "allow-update-skill-content",
+  "allow-delete-skill",
   "allow-get-workspace-path",
   "allow-get-repo-info",
 ]
@@ -124,6 +130,36 @@ commands.allow = ["window_open_devtools"]
 identifier = "allow-list-skills"
 description = "List global and workspace skills."
 commands.allow = ["list_skills"]
+
+[[permission]]
+identifier = "allow-read-skill-meta"
+description = "Read a skill's metadata from its SKILL.md frontmatter."
+commands.allow = ["read_skill_meta"]
+
+[[permission]]
+identifier = "allow-read-skill-file"
+description = "Read the raw SKILL.md contents of a skill."
+commands.allow = ["read_skill_file"]
+
+[[permission]]
+identifier = "allow-create-skill"
+description = "Create a new skill folder with a SKILL.md manifest."
+commands.allow = ["create_skill"]
+
+[[permission]]
+identifier = "allow-update-skill"
+description = "Rename a skill folder and rewrite its SKILL.md frontmatter."
+commands.allow = ["update_skill"]
+
+[[permission]]
+identifier = "allow-update-skill-content"
+description = "Overwrite the SKILL.md contents of an existing skill."
+commands.allow = ["update_skill_content"]
+
+[[permission]]
+identifier = "allow-delete-skill"
+description = "Delete a skill folder and its contents."
+commands.allow = ["delete_skill"]
 
 [[permission]]
 identifier = "allow-get-workspace-path"

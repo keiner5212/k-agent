@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@/lib/platform";
-import type { SkillContext } from "@/types/skills";
+import type { SkillContext, SkillFile, SkillMeta } from "@/types/skills";
 
 const DESKTOP_REQUIRED = "Desktop shell required";
 
@@ -20,6 +20,20 @@ type SkillsStore = {
   error?: string;
   load: (globalPath: string) => Promise<void>;
   refresh: (globalPath: string) => Promise<{ error?: string; payload?: FetchPayload }>;
+  readMeta: (
+    rootPath: string,
+    name: string,
+  ) => Promise<{ error?: string; meta?: SkillMeta }>;
+  readFile: (
+    path: string,
+  ) => Promise<{ error?: string; file?: SkillFile }>;
+  create: (
+    rootPath: string,
+    name: string,
+    description: string,
+  ) => Promise<{ error?: string }>;
+  updateContent: (path: string, content: string) => Promise<{ error?: string }>;
+  remove: (rootPath: string, name: string) => Promise<{ error?: string }>;
 };
 
 const fetchPayload = async (globalPath: string): Promise<FetchPayload> => {
@@ -30,7 +44,7 @@ const fetchPayload = async (globalPath: string): Promise<FetchPayload> => {
   return { contexts, workspacePath };
 };
 
-export const useSkillsStore = create<SkillsStore>((set) => ({
+export const useSkillsStore = create<SkillsStore>((set, get) => ({
   contexts: [],
   workspacePath: null,
   loading: false,
@@ -59,6 +73,63 @@ export const useSkillsStore = create<SkillsStore>((set) => ({
       const message = toMessage(error);
       set({ error: message });
       return { error: message };
+    }
+  },
+
+  readMeta: async (rootPath, name) => {
+    if (!isTauri()) return { error: DESKTOP_REQUIRED };
+    try {
+      const meta = await invoke<SkillMeta>("read_skill_meta", {
+        input: { rootPath, name },
+      });
+      return { meta };
+    } catch (error) {
+      return { error: toMessage(error) };
+    }
+  },
+
+  readFile: async (path) => {
+    if (!isTauri()) return { error: DESKTOP_REQUIRED };
+    try {
+      const file = await invoke<SkillFile>("read_skill_file", {
+        input: { path },
+      });
+      return { file };
+    } catch (error) {
+      return { error: toMessage(error) };
+    }
+  },
+
+  create: async (rootPath, name, description) => {
+    if (!isTauri()) return { error: DESKTOP_REQUIRED };
+    try {
+      await invoke("create_skill", { input: { rootPath, name, description } });
+      await get().refresh(
+        (await invoke<string>("get_global_skills_path").catch(() => "")) || "",
+      ).catch(() => undefined);
+      return {};
+    } catch (error) {
+      return { error: toMessage(error) };
+    }
+  },
+
+  updateContent: async (path, content) => {
+    if (!isTauri()) return { error: DESKTOP_REQUIRED };
+    try {
+      await invoke("update_skill_content", { input: { path, content } });
+      return {};
+    } catch (error) {
+      return { error: toMessage(error) };
+    }
+  },
+
+  remove: async (rootPath, name) => {
+    if (!isTauri()) return { error: DESKTOP_REQUIRED };
+    try {
+      await invoke("delete_skill", { input: { rootPath, name } });
+      return {};
+    } catch (error) {
+      return { error: toMessage(error) };
     }
   },
 }));

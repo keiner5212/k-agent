@@ -901,22 +901,28 @@ pub async fn delete_provider_model(
     Ok(redact(updated))
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RefreshSingleModelInput {
+    pub id: String,
+    pub model_id: String,
+}
+
 #[tauri::command]
 pub async fn refresh_single_model(
     app: AppHandle,
-    id: String,
-    model_id: String,
+    input: RefreshSingleModelInput,
 ) -> Result<Provider, ProviderError> {
     let mut providers = load_all(&app).await?;
     let provider = providers
         .iter_mut()
-        .find(|p| p.id == id)
-        .ok_or_else(|| ProviderError::NotFound(id.clone()))?;
+        .find(|p| p.id == input.id)
+        .ok_or_else(|| ProviderError::NotFound(input.id.clone()))?;
 
     let favorite = provider
         .models
         .iter()
-        .find(|model| model.id == model_id)
+        .find(|model| model.id == input.model_id)
         .map(|model| {
             if model.user_edited {
                 None
@@ -929,10 +935,10 @@ pub async fn refresh_single_model(
     }
     let favorite = favorite.flatten().unwrap_or(false);
 
-    let mut detail = fetch_model_details(provider, &model_id).await;
+    let mut detail = fetch_model_details(provider, &input.model_id).await;
     crate::catalog::load(&app).await.apply(&mut detail);
     detail.favorite = favorite;
-    if let Some(existing) = provider.models.iter_mut().find(|m| m.id == model_id) {
+    if let Some(existing) = provider.models.iter_mut().find(|m| m.id == input.model_id) {
         *existing = detail;
     } else {
         provider.models.push(detail);
@@ -943,25 +949,31 @@ pub async fn refresh_single_model(
     Ok(redact(updated))
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetFavoriteInput {
+    pub id: String,
+    pub model_id: String,
+    pub favorite: bool,
+}
+
 #[tauri::command]
 pub async fn set_model_favorite(
     app: AppHandle,
-    id: String,
-    model_id: String,
-    favorite: bool,
+    input: SetFavoriteInput,
 ) -> Result<Provider, ProviderError> {
     let mut providers = load_all(&app).await?;
     let provider = providers
         .iter_mut()
-        .find(|p| p.id == id)
-        .ok_or_else(|| ProviderError::NotFound(id.clone()))?;
+        .find(|p| p.id == input.id)
+        .ok_or_else(|| ProviderError::NotFound(input.id.clone()))?;
 
     let model = provider
         .models
         .iter_mut()
-        .find(|model| model.id == model_id)
-        .ok_or_else(|| ProviderError::NotFound(model_id))?;
-    model.favorite = favorite;
+        .find(|model| model.id == input.model_id)
+        .ok_or_else(|| ProviderError::NotFound(input.model_id))?;
+    model.favorite = input.favorite;
 
     let updated = provider.clone();
     save_all(&app, &providers).await?;

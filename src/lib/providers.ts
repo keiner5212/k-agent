@@ -41,7 +41,6 @@ type ProvidersStore = {
   save: (draft: ProviderDraft) => Promise<ProviderMutationResult>;
   remove: (id: string) => Promise<ProviderMutationResult>;
   refresh: (id: string) => Promise<ProviderMutationResult>;
-  refreshModel: (providerId: string, modelId: string) => Promise<ProviderMutationResult>;
   upsertModel: (providerId: string, draft: ModelDraft) => Promise<ProviderMutationResult>;
   removeModel: (providerId: string, modelId: string) => Promise<ProviderMutationResult>;
   setFavorite: (
@@ -101,16 +100,6 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
       return provider;
     }),
 
-  refreshModel: async (providerId, modelId) =>
-    runMutation(async () => {
-      const provider = await invoke<Provider>("refresh_single_model", {
-        id: providerId,
-        modelId,
-      });
-      set((state) => ({ providers: replaceProvider(state.providers, provider) }));
-      return provider;
-    }),
-
   upsertModel: async (providerId, draft) =>
     runMutation(async () => {
       const provider = await invoke<Provider>("upsert_provider_model", {
@@ -123,6 +112,7 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
           contextWindow: draft.contextWindow ?? null,
           maxOutputTokens: draft.maxOutputTokens ?? null,
           multimodal: draft.multimodal,
+          effortLevels: draft.effortLevels ?? null,
         },
       });
       set((state) => ({ providers: replaceProvider(state.providers, provider) }));
@@ -142,9 +132,7 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
   setFavorite: async (providerId, modelId, favorite) =>
     runMutation(async () => {
       const provider = await invoke<Provider>("set_model_favorite", {
-        id: providerId,
-        modelId,
-        favorite,
+        input: { id: providerId, modelId, favorite },
       });
       set((state) => ({ providers: replaceProvider(state.providers, provider) }));
       return provider;

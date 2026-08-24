@@ -37,6 +37,7 @@ export const ModelForm = ({
   const [contextRaw, setContextRaw] = useState(tokenField(model?.contextWindow));
   const [outputRaw, setOutputRaw] = useState(tokenField(model?.maxOutputTokens));
   const [multimodal, setMultimodal] = useState(model?.multimodal ?? false);
+  const [effortLevelsRaw, setEffortLevelsRaw] = useState((model?.effortLevels ?? []).join(", "));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +66,10 @@ export const ModelForm = ({
 
     setSubmitting(true);
     setError(null);
+    const effortLevels = effortLevelsRaw
+      .split(",")
+      .map((level) => level.trim())
+      .filter(Boolean);
     const saveError = await onSave({
       originalId: model?.id,
       id: id.trim(),
@@ -73,6 +78,7 @@ export const ModelForm = ({
       contextWindow,
       maxOutputTokens,
       multimodal,
+      effortLevels,
     });
     setSubmitting(false);
     if (saveError) setError(saveError);
@@ -166,6 +172,21 @@ export const ModelForm = ({
         label={t("providers.model.multimodal")}
         description={t("providers.modelForm.multimodalHint")}
       />
+      <div className="field">
+        <label className="field__label" htmlFor="model-effort-levels">
+          {t("providers.modelForm.effortLevels.label")}
+        </label>
+        <input
+          id="model-effort-levels"
+          className="input input--mono"
+          value={effortLevelsRaw}
+          onChange={(event) => setEffortLevelsRaw(event.target.value)}
+          placeholder={t("providers.modelForm.effortLevels.placeholder")}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <span className="field__hint">{t("providers.modelForm.effortLevels.hint")}</span>
+      </div>
       {error ? (
         <div className="form-error" role="alert">
           {error}

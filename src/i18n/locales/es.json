@@ -140,6 +140,8 @@
     "model": {
       "context": "Contexto",
       "output": "Salida",
+      "multimodal": "Multimodal",
+      "textOnly": "Solo texto",
       "custom": "Personalizado",
       "edited": "Editado",
       "favorite": "Favorito",
@@ -159,17 +161,22 @@
         "attachment": "Adjuntos"
       }
     },
-    "modelForm": {
+"modelForm": {
       "id": "Id del modelo",
       "displayName": "Nombre visible",
       "family": "Familia / grupo de variantes",
-      "familyHint": "Agrupa modos del mismo modelo, por ejemplo MiniMax-M2.7.",
-      "tokenHint": "Tokens. Sufijos k y M validos, por ejemplo 512k o 1M.",
-      "multimodalHint": "El modelo acepta imagen u otra entrada que no sea texto.",
+      "familyHint": "Agrupa modos del mismo modelo, p.ej. MiniMax-M2.7.",
+      "tokenHint": "Cantidades de tokens. Acepta sufijos k y M, p.ej. 512k o 1M.",
+      "multimodalHint": "El modelo acepta imagen u otra entrada no textual.",
+      "effortLevels": {
+        "label": "Niveles de esfuerzo",
+        "placeholder": "bajo, medio, alto",
+        "hint": "Lista separada por comas de modos de esfuerzo admitidos. Vacia si no aplica."
+      },
       "saving": "Guardando",
       "errors": {
         "required": "El id del modelo es obligatorio.",
-        "tokens": "Valor de {{field}} invalido."
+        "tokens": "Valor invalido para {{field}}."
       }
     },
     "form": {
@@ -205,10 +212,62 @@
       "local": "Local"
     },
     "empty": "Aun no se detectan habilidades en esta carpeta.",
+    "emptyTab": "Inicia la app con una ruta de workspace para ver habilidades locales.",
     "count": "{{count}} habilidad",
     "count_plural": "{{count}} habilidades",
     "actions": {
-      "refresh": "Actualizar habilidades"
+      "refresh": "Actualizar habilidades",
+      "create": "Nueva habilidad",
+      "edit": "Editar habilidad",
+      "delete": "Eliminar habilidad"
+    },
+    "form": {
+      "createTitle": "Nueva habilidad",
+      "editTitle": "Editar habilidad",
+      "name": "Nombre",
+      "namePlaceholder": "mi-habilidad",
+      "nameHint": "Letras minusculas, numeros, guiones y guiones bajos.",
+      "description": "Descripcion",
+      "descriptionPlaceholder": "¿Que hace esta habilidad?",
+      "descriptionHint": "Se guarda en el frontmatter de SKILL.md.",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "saving": "Guardando",
+      "errors": {
+        "nameRequired": "El nombre es obligatorio."
+      }
+    },
+    "editor": {
+      "title": "Editar SKILL.md",
+      "loading": "Cargando habilidad",
+      "cancel": "Cancelar",
+      "revert": "Revertir",
+      "save": "Guardar",
+      "saving": "Guardando",
+      "clean": "Guardado",
+      "dirty": "Cambios sin guardar"
+    },
+    "form": {
+      "createTitle": "Nueva habilidad",
+      "name": "Nombre",
+      "namePlaceholder": "mi-habilidad",
+      "nameHint": "Letras minusculas, numeros, guiones y guiones bajos.",
+      "description": "Descripcion",
+      "descriptionPlaceholder": "¿Que hace esta habilidad?",
+      "descriptionHint": "Se guarda en el frontmatter de SKILL.md.",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "saving": "Guardando",
+      "errors": {
+        "nameRequired": "El nombre es obligatorio."
+      }
+    },
+    "delete": {
+      "title": "Eliminar habilidad",
+      "body": "¿Eliminar \"{{name}}\"? Se borrara la carpeta y todo su contenido.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar",
+      "deleting": "Eliminando"
     }
   },
   "chat": {
@@ -227,6 +286,9 @@
       "placeholder": "Escribe un mensaje",
       "send": "Enviar",
       "disabledHint": "Elige un modelo para enviar."
+    },
+    "effort": {
+      "label": "Esfuerzo"
     }
   },
   "sessions": {

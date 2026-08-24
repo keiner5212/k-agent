@@ -17,6 +17,7 @@ export const ContextStrip = (): ReactNode => {
   const globalSkillsPath = useSettingsStore((state) => state.globalSkillsPath);
   const loadSkills = useSkillsStore((state) => state.load);
   const workspacePath = useSkillsStore((state) => state.workspacePath);
+
   const repo = useRepoInfo(workspacePath);
 
   useEffect(() => {
@@ -25,19 +26,21 @@ export const ContextStrip = (): ReactNode => {
 
   return (
     <footer className="context-strip">
-      <span className="context-strip__chip" title={workspacePath ?? t("workspace.unset")}>
-        <Folder size={12} strokeWidth={1.5} />
-        <span className="context-strip__chip-label">{t("workspace.label")}</span>
-        <span className="context-strip__chip-value">
-          {workspacePath ? shortPath(workspacePath) : t("workspace.unset")}
+      <div className="context-strip__row">
+        <span className="context-strip__chip" title={workspacePath ?? t("workspace.unset")}>
+          <Folder size={12} strokeWidth={1.5} />
+          <span className="context-strip__chip-label">{t("workspace.label")}</span>
+          <span className="context-strip__chip-value">
+            {workspacePath ? shortPath(workspacePath) : t("workspace.unset")}
+          </span>
         </span>
-      </span>
-      {repo.isRepo && repo.branch ? (
-        <span className="context-strip__chip context-strip__chip--accent" title={repo.branch}>
-          <GitBranch size={12} strokeWidth={1.5} />
-          <span className="context-strip__chip-value">{repo.branch}</span>
-        </span>
-      ) : null}
+        {repo.isRepo && repo.branch ? (
+          <span className="context-strip__chip context-strip__chip--accent" title={repo.branch}>
+            <GitBranch size={12} strokeWidth={1.5} />
+            <span className="context-strip__chip-value">{repo.branch}</span>
+          </span>
+        ) : null}
+      </div>
     </footer>
   );
 };

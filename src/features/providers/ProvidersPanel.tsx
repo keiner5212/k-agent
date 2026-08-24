@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Copy,
   Loader2,
   Pencil,
   Plug,
@@ -69,28 +68,14 @@ const uniqueModalities = (values: string[] | undefined): string[] => {
 
 const ModelRow = ({
   model,
-  onRefresh,
   onEdit,
-  onAddVariant,
   onToggleFavorite,
 }: {
   model: ModelInfo;
-  onRefresh: () => Promise<void>;
   onEdit: () => void;
-  onAddVariant: () => void;
   onToggleFavorite: () => Promise<void>;
 }): ReactNode => {
   const { t } = useTranslation();
-  const [busy, setBusy] = useState(false);
-
-  const handleRefresh = async (): Promise<void> => {
-    setBusy(true);
-    try {
-      await onRefresh();
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const context = formatContextWindow(model.contextWindow);
   const hasContext = model.contextWindow !== undefined;
@@ -192,21 +177,6 @@ const ModelRow = ({
             className={model.favorite ? "model-row__star model-row__star--on" : "model-row__star"}
           />
         </IconButton>
-        <IconButton
-          className="model-row__refresh"
-          label={t("providers.actions.refreshModel")}
-          onClick={() => void handleRefresh()}
-          disabled={busy}
-        >
-          {busy ? (
-            <Loader2 size={12} strokeWidth={1.5} className="spin" />
-          ) : (
-            <RefreshCw size={12} strokeWidth={1.5} />
-          )}
-        </IconButton>
-        <IconButton label={t("providers.actions.addVariant")} onClick={onAddVariant}>
-          <Copy size={12} strokeWidth={1.5} />
-        </IconButton>
         <IconButton label={t("providers.actions.edit")} onClick={onEdit}>
           <Pencil size={12} strokeWidth={1.5} />
         </IconButton>
@@ -220,14 +190,12 @@ const ProviderCard = ({
   locale,
   onEdit,
   onRefresh,
-  onRefreshModel,
   onDelete,
 }: {
   provider: Provider;
   locale: string;
   onEdit: () => void;
   onRefresh: () => Promise<void>;
-  onRefreshModel: (modelId: string) => Promise<void>;
   onDelete: () => Promise<void>;
 }): ReactNode => {
   const { t } = useTranslation();
@@ -313,66 +281,59 @@ const ProviderCard = ({
         <span>{t("providers.modelsCount", { count: provider.models.length })}</span>
         {synced ? <span className="provider-card__synced">{synced}</span> : null}
       </div>
-      {editor ? (
-        <ModelForm
-          key={editor.model?.id ?? editor.familyPreset ?? "new"}
-          model={editor.model}
-          familyPreset={editor.familyPreset}
-          onCancel={() => setEditor(null)}
-          onSave={async (draft: ModelDraft) => {
-            const result = await upsertModel(provider.id, draft);
-            if (result.error) return result.error;
-            setEditor(null);
-            return undefined;
-          }}
-          onDelete={
-            editor.model
-              ? async () => {
-                  const result = await removeModel(provider.id, editor.model?.id ?? "");
-                  if (result.error) return result.error;
-                  setEditor(null);
-                  return undefined;
-                }
-              : undefined
-          }
-        />
-      ) : (
-        <details className="provider-card__models">
-          <summary>{t("providers.viewModels")}</summary>
-          <div className="model-list-actions">
-            <GlassButton variant="ghost" onClick={() => setEditor({})}>
-              <Plus size={14} strokeWidth={1.5} />
-              <span>{t("providers.actions.addModel")}</span>
-            </GlassButton>
-          </div>
-          {provider.models.length > 0 ? (
-            <ul className="model-list">
-              {sortModels(provider.models).map((model) => (
-                <ModelRow
-                  key={model.id}
-                  model={model}
-                  onRefresh={async () => {
-                    await onRefreshModel(model.id);
-                  }}
-                  onEdit={() => setEditor({ model })}
-                  onAddVariant={() =>
-                    setEditor({
-                      familyPreset: model.family ?? model.id,
-                    })
+      <div className="provider-card__editor" hidden={editor === null}>
+        {editor ? (
+          <ModelForm
+            key={editor.model?.id ?? editor.familyPreset ?? "new"}
+            model={editor.model}
+            familyPreset={editor.familyPreset}
+            onCancel={() => setEditor(null)}
+            onSave={async (draft: ModelDraft) => {
+              const result = await upsertModel(provider.id, draft);
+              if (result.error) return result.error;
+              setEditor(null);
+              return undefined;
+            }}
+            onDelete={
+              editor.model
+                ? async () => {
+                    const result = await removeModel(provider.id, editor.model?.id ?? "");
+                    if (result.error) return result.error;
+                    setEditor(null);
+                    return undefined;
                   }
-                  onToggleFavorite={async () => {
-                    await setFavorite(provider.id, model.id, !model.favorite);
-                  }}
-                />
-              ))}
-            </ul>
-          ) : (
-            <div className="provider-card__meta">
-              <span className="provider-card__muted">{t("providers.noModels")}</span>
-            </div>
-          )}
-        </details>
-      )}
+                : undefined
+            }
+          />
+        ) : null}
+      </div>
+      <details className="provider-card__models" hidden={editor !== null}>
+        <summary>{t("providers.viewModels")}</summary>
+        <div className="model-list-actions">
+          <GlassButton variant="ghost" onClick={() => setEditor({})}>
+            <Plus size={14} strokeWidth={1.5} />
+            <span>{t("providers.actions.addModel")}</span>
+          </GlassButton>
+        </div>
+        {provider.models.length > 0 ? (
+          <ul className="model-list">
+            {sortModels(provider.models).map((model) => (
+              <ModelRow
+                key={model.id}
+                model={model}
+                onEdit={() => setEditor({ model })}
+                onToggleFavorite={async () => {
+                  await setFavorite(provider.id, model.id, !model.favorite);
+                }}
+              />
+            ))}
+          </ul>
+        ) : (
+          <div className="provider-card__meta">
+            <span className="provider-card__muted">{t("providers.noModels")}</span>
+          </div>
+        )}
+      </details>
     </li>
   );
 };
@@ -384,7 +345,6 @@ const ProvidersList = (): ReactNode => {
   const load = useProvidersStore((state) => state.load);
   const remove = useProvidersStore((state) => state.remove);
   const refresh = useProvidersStore((state) => state.refresh);
-  const refreshModel = useProvidersStore((state) => state.refreshModel);
   const [editing, setEditing] = useState<Provider | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -422,9 +382,6 @@ const ProvidersList = (): ReactNode => {
               onEdit={() => setEditing(provider)}
               onRefresh={async () => {
                 await refresh(provider.id);
-              }}
-              onRefreshModel={async (modelId) => {
-                await refreshModel(provider.id, modelId);
               }}
               onDelete={async () => {
                 await remove(provider.id);

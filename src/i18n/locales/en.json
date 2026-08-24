@@ -140,6 +140,8 @@
     "model": {
       "context": "Context",
       "output": "Output",
+      "multimodal": "Multimodal",
+      "textOnly": "Text only",
       "custom": "Custom",
       "edited": "Edited",
       "favorite": "Favorite",
@@ -166,6 +168,11 @@
       "familyHint": "Group modes of the same model, e.g. MiniMax-M2.7.",
       "tokenHint": "Token counts. k and M suffixes work, e.g. 512k or 1M.",
       "multimodalHint": "Model accepts image or other non-text input.",
+      "effortLevels": {
+        "label": "Effort levels",
+        "placeholder": "low, medium, high",
+        "hint": "Comma-separated list of supported reasoning effort modes. Leave empty if not applicable."
+      },
       "saving": "Saving",
       "errors": {
         "required": "Model id is required.",
@@ -205,10 +212,46 @@
       "local": "Local"
     },
     "empty": "No skills detected in this folder yet.",
+    "emptyTab": "Launch the app with a workspace path to see local skills.",
     "count": "{{count}} skill",
     "count_plural": "{{count}} skills",
     "actions": {
-      "refresh": "Refresh skills"
+      "refresh": "Refresh skills",
+      "create": "New skill",
+      "edit": "Edit skill",
+      "delete": "Delete skill"
+    },
+    "form": {
+      "createTitle": "New skill",
+      "name": "Name",
+      "namePlaceholder": "my-skill",
+      "nameHint": "Lowercase letters, numbers, dashes, and underscores.",
+      "description": "Description",
+      "descriptionPlaceholder": "What does this skill do?",
+      "descriptionHint": "Stored in SKILL.md frontmatter.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving",
+      "errors": {
+        "nameRequired": "Name is required."
+      }
+    },
+    "editor": {
+      "title": "Edit SKILL.md",
+      "loading": "Loading skill",
+      "cancel": "Cancel",
+      "revert": "Revert",
+      "save": "Save",
+      "saving": "Saving",
+      "clean": "Saved",
+      "dirty": "Unsaved changes"
+    },
+    "delete": {
+      "title": "Delete skill",
+      "body": "Delete \"{{name}}\"? The folder and all its contents will be removed.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting"
     }
   },
   "chat": {
@@ -227,6 +270,9 @@
       "placeholder": "Write a message",
       "send": "Send",
       "disabledHint": "Pick a model to send."
+    },
+    "effort": {
+      "label": "Effort"
     }
   },
   "sessions": {

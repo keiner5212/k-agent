@@ -10,6 +10,7 @@ import { SessionsSidebar } from "@/features/sessions/SessionsSidebar";
 import { ChatComposer } from "@/features/chat/ChatComposer";
 import { ChatThread } from "@/features/chat/ChatThread";
 import { ContextStrip } from "@/features/chat/ContextStrip";
+import { EffortSelector } from "@/features/chat/EffortSelector";
 import { ModelSelector } from "@/features/chat/ModelSelector";
 import { useGlobalKeybindings } from "@/lib/use-global-keybindings";
 import { useSettingsStore } from "@/lib/settings";
@@ -100,6 +101,8 @@ export const App = (): ReactNode => {
         <main className="app-main" aria-live="polite">
           <div className="model-bar">
             <ModelSelector />
+            <div className="model-bar__spacer" />
+            <EffortSelector />
           </div>
           <ChatThread />
           <ChatComposer />
