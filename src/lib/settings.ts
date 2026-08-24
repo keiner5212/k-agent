@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import { LazyStore } from "@tauri-apps/plugin-store";
+import { invoke } from "@tauri-apps/api/core";
 import {
   DEFAULT_SETTINGS,
+  DEFAULT_TRANSLUCENCY_ENABLED,
   SUPPORTED_LANGUAGES,
   type AppLanguage,
   type AppTheme,
@@ -21,6 +23,9 @@ const sanitizeLanguage = (value: unknown): AppLanguage =>
 const sanitizeTheme = (value: unknown): AppTheme =>
   value === "light" || value === "dark" ? value : DEFAULT_SETTINGS.theme;
 
+const sanitizeBoolean = (value: unknown, fallback: boolean): boolean =>
+  typeof value === "boolean" ? value : fallback;
+
 const sanitizeKeybindings = (value: unknown): Keybindings => {
   if (!value || typeof value !== "object") return DEFAULT_SETTINGS.keybindings;
   const merged: Keybindings = { ...DEFAULT_SETTINGS.keybindings };
@@ -39,15 +44,24 @@ const sanitizeSettings = (raw: unknown): Settings => {
   return {
     language: sanitizeLanguage(obj.language),
     theme: sanitizeTheme(obj.theme),
+    minimizeToTray: sanitizeBoolean(obj.minimizeToTray, DEFAULT_SETTINGS.minimizeToTray),
+    translucencyEnabled: sanitizeBoolean(obj.translucencyEnabled, DEFAULT_TRANSLUCENCY_ENABLED),
     keybindings: sanitizeKeybindings(obj.keybindings),
   };
 };
+
+type Persistable = Pick<
+  Settings,
+  "language" | "theme" | "minimizeToTray" | "translucencyEnabled" | "keybindings"
+>;
 
 type SettingsStore = Settings & {
   hydrated: boolean;
   hydrate: () => Promise<void>;
   setLanguage: (language: AppLanguage) => void;
   setTheme: (theme: AppTheme) => void;
+  setMinimizeToTray: (enabled: boolean) => void;
+  setTranslucencyEnabled: (enabled: boolean) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
   resetKeybindings: () => void;
   resetAll: () => void;
@@ -59,14 +73,10 @@ const getStore = (): LazyStore => {
   return storeHandle;
 };
 
-const persist = async (settings: {
-  language: AppLanguage;
-  theme: AppTheme;
-  keybindings: Keybindings;
-}): Promise<void> => {
+const persist = async (next: Persistable): Promise<void> => {
   if (!isTauri()) return;
   try {
-    await getStore().set(STORE_KEY, settings);
+    await getStore().set(STORE_KEY, next);
     await getStore().save();
   } catch (error) {
     console.warn("settings persist failed", error);
@@ -78,6 +88,28 @@ const applyTheme = (theme: AppTheme): void => {
   document.documentElement.dataset.theme = theme;
 };
 
+const applyTranslucency = (enabled: boolean): void => {
+  if (typeof document === "undefined") return;
+  document.documentElement.dataset.translucent = enabled ? "true" : "false";
+};
+
+const syncMinimizeToTray = async (enabled: boolean): Promise<void> => {
+  if (!isTauri()) return;
+  try {
+    await invoke("set_minimize_to_tray", { enabled });
+  } catch (error) {
+    console.warn("tray sync failed", error);
+  }
+};
+
+const snapshot = (state: SettingsStore): Persistable => ({
+  language: state.language,
+  theme: state.theme,
+  minimizeToTray: state.minimizeToTray,
+  translucencyEnabled: state.translucencyEnabled,
+  keybindings: state.keybindings,
+});
+
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
   ...DEFAULT_SETTINGS,
   hydrated: false,
@@ -85,6 +117,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   hydrate: async () => {
     if (!isTauri()) {
       applyTheme(DEFAULT_SETTINGS.theme);
+      applyTranslucency(DEFAULT_TRANSLUCENCY_ENABLED);
       set({ hydrated: true });
       return;
     }
@@ -92,67 +125,56 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       const raw = await getStore().get<Settings>(STORE_KEY);
       const next = sanitizeSettings(raw);
       applyTheme(next.theme);
+      applyTranslucency(next.translucencyEnabled);
+      void syncMinimizeToTray(next.minimizeToTray);
       set({ ...next, hydrated: true });
     } catch (error) {
       console.warn("settings hydrate failed", error);
       applyTheme(DEFAULT_SETTINGS.theme);
+      applyTranslucency(DEFAULT_TRANSLUCENCY_ENABLED);
       set({ hydrated: true });
     }
   },
 
   setLanguage: (language) => {
-    const next: Pick<Settings, "language" | "theme" | "keybindings"> = {
-      language,
-      theme: get().theme,
-      keybindings: get().keybindings,
-    };
     set({ language });
-    void persist(next);
+    void persist(snapshot(get()));
   },
 
   setTheme: (theme) => {
     applyTheme(theme);
-    const next: Pick<Settings, "language" | "theme" | "keybindings"> = {
-      language: get().language,
-      theme,
-      keybindings: get().keybindings,
-    };
     set({ theme });
-    void persist(next);
+    void persist(snapshot(get()));
+  },
+
+  setMinimizeToTray: (enabled) => {
+    set({ minimizeToTray: enabled });
+    void syncMinimizeToTray(enabled);
+    void persist(snapshot(get()));
+  },
+
+  setTranslucencyEnabled: (enabled) => {
+    applyTranslucency(enabled);
+    set({ translucencyEnabled: enabled });
+    void persist(snapshot(get()));
   },
 
   setKeybinding: (action, chord) => {
     const keybindings = { ...get().keybindings, [action]: chord };
-    const next: Pick<Settings, "language" | "theme" | "keybindings"> = {
-      language: get().language,
-      theme: get().theme,
-      keybindings,
-    };
     set({ keybindings });
-    void persist(next);
+    void persist(snapshot(get()));
   },
 
   resetKeybindings: () => {
-    const keybindings = DEFAULT_SETTINGS.keybindings;
-    const next: Pick<Settings, "language" | "theme" | "keybindings"> = {
-      language: get().language,
-      theme: get().theme,
-      keybindings,
-    };
-    set({ keybindings });
-    void persist(next);
+    set({ keybindings: DEFAULT_SETTINGS.keybindings });
+    void persist(snapshot(get()));
   },
 
   resetAll: () => {
     applyTheme(DEFAULT_SETTINGS.theme);
+    applyTranslucency(DEFAULT_TRANSLUCENCY_ENABLED);
+    void syncMinimizeToTray(DEFAULT_SETTINGS.minimizeToTray);
     set({ ...DEFAULT_SETTINGS, hydrated: true });
     void persist(DEFAULT_SETTINGS);
   },
 }));
-
-export const settingsSelector = {
-  language: (s: SettingsStore): AppLanguage => s.language,
-  theme: (s: SettingsStore): AppTheme => s.theme,
-  keybindings: (s: SettingsStore): Keybindings => s.keybindings,
-  hydrated: (s: SettingsStore): boolean => s.hydrated,
-};

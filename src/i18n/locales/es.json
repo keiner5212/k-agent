@@ -1,4 +1,8 @@
 {
+  "common": {
+    "on": "Activado",
+    "off": "Desactivado"
+  },
   "app": {
     "name": "k-agent",
     "shortcut_hint": "Pulsa {{shortcut}} para abrir ajustes"
@@ -11,8 +15,7 @@
     "title": "Ajustes",
     "close": "Cerrar",
     "sections": {
-      "language": "Idioma",
-      "theme": "Tema",
+      "general": "General",
       "keybindings": "Atajos de teclado"
     },
     "language": {
@@ -30,6 +33,14 @@
         "dark": "Oscuro",
         "light": "Claro"
       }
+    },
+    "tray": {
+      "label": "Minimizar a la bandeja del sistema",
+      "description": "Al cerrar la ventana la app sigue ejecutandose en la bandeja del sistema en lugar de salir."
+    },
+    "translucency": {
+      "label": "Desactivar transparencia",
+      "description": "Las superficies usan un desenfoque tipo cristal por defecto. Activa esto para superficies solidas."
     },
     "keybindings": {
       "description": "Haz clic en un atajo y pulsa la nueva combinacion. Pulsa Escape para cancelar.",

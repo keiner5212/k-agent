@@ -1,4 +1,8 @@
 {
+  "common": {
+    "on": "On",
+    "off": "Off"
+  },
   "app": {
     "name": "k-agent",
     "shortcut_hint": "Press {{shortcut}} for settings"
@@ -11,8 +15,7 @@
     "title": "Settings",
     "close": "Close",
     "sections": {
-      "language": "Language",
-      "theme": "Theme",
+      "general": "General",
       "keybindings": "Keybindings"
     },
     "language": {
@@ -30,6 +33,14 @@
         "dark": "Dark",
         "light": "Light"
       }
+    },
+    "tray": {
+      "label": "Minimize to system tray",
+      "description": "Closing the window keeps the app running in the system tray instead of quitting."
+    },
+    "translucency": {
+      "label": "Disable translucency",
+      "description": "Surfaces use a frosted, glass-like blur by default. Turn this on for solid surfaces."
     },
     "keybindings": {
       "description": "Click a shortcut and press the new combination. Press Escape to cancel.",

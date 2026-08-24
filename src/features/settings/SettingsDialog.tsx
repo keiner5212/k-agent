@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/Dialog";
-import { LanguageSection } from "./LanguageSection";
-import { ThemeSection } from "./ThemeSection";
+import { GeneralSection } from "./GeneralSection";
 import { KeybindingSection } from "./KeybindingSection";
 
 type SettingsDialogProps = {
@@ -24,8 +23,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
         </button>
       }
     >
-      <LanguageSection />
-      <ThemeSection />
+      <GeneralSection />
       <KeybindingSection />
     </Dialog>
   );

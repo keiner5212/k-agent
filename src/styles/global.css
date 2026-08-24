@@ -12,6 +12,7 @@
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
   user-select: none;
+  background-color: var(--background);
 }
 
 .app-titlebar__brand {
@@ -69,7 +70,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(520px, calc(100vw - var(--space-8)));
+  width: min(540px, calc(100vw - var(--space-8)));
   max-height: 85vh;
   display: flex;
   flex-direction: column;
@@ -210,7 +211,7 @@
   background-color: var(--surface-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  min-width: 80px;
+  min-width: 96px;
   justify-content: center;
   text-align: center;
 }
@@ -260,6 +261,133 @@
   background-color: var(--surface-elevated);
 }
 
+.toggle-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-elevated);
+}
+
+.toggle-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  cursor: pointer;
+}
+
+.toggle-row__label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.toggle-row__hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  line-height: var(--leading-normal);
+}
+
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 34px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.toggle__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.toggle__input:focus-visible + .toggle__track {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.toggle__input:disabled {
+  cursor: not-allowed;
+}
+
+.toggle__track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: var(--border-strong);
+  border-radius: var(--radius-sm);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background-color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.toggle[data-on="true"] .toggle__track {
+  background-color: var(--accent);
+}
+
+.toggle[data-on="true"] .toggle__thumb {
+  transform: translateX(14px);
+  background-color: var(--accent-fg);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:root[data-translucent="true"] .app-titlebar {
+  background-color: color-mix(in oklch, var(--background) 65%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  backdrop-filter: saturate(180%) blur(14px);
+}
+
+:root[data-translucent="true"] .dialog-overlay {
+  background-color: rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+:root[data-translucent="true"] .dialog-content {
+  background-color: color-mix(in oklch, var(--surface) 72%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
+}
+
+:root[data-translucent="true"] .kbd-capture,
+:root[data-translucent="true"] .toggle-row,
+:root[data-translucent="true"] .kbd-row {
+  background-color: color-mix(in oklch, var(--background) 60%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
 @keyframes overlay-in {
   from {
     opacity: 0;
@@ -277,5 +405,16 @@
   to {
     opacity: 1;
     transform: translate(-50%, -50%);
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  :root[data-translucent="true"] .app-titlebar,
+  :root[data-translucent="true"] .dialog-content,
+  :root[data-translucent="true"] .dialog-overlay,
+  :root[data-translucent="true"] .kbd-capture,
+  :root[data-translucent="true"] .toggle-row,
+  :root[data-translucent="true"] .kbd-row {
+    background-color: var(--surface);
   }
 }
