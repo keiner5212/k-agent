@@ -3,30 +3,33 @@ import { matchesChordString } from "./keybindings";
 import { useSettingsStore } from "./settings";
 import type { KeybindingAction } from "@/types/settings";
 
+const isEditableTarget = (target: EventTarget | null): boolean =>
+  target instanceof HTMLInputElement ||
+  target instanceof HTMLTextAreaElement ||
+  target instanceof HTMLSelectElement ||
+  (target instanceof HTMLElement && target.isContentEditable);
+
 export const useGlobalKeybindings = (onAction: (action: KeybindingAction) => void): void => {
   const keybindings = useSettingsStore((state) => state.keybindings);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent): void => {
-      const target = event.target as HTMLElement | null;
-      const inEditableField =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement ||
-        (target?.isContentEditable ?? false);
+      if (event.defaultPrevented) return;
+      if (document.querySelector(".kbd-capture[data-recording='true']")) return;
 
-      if (inEditableField && !(event.ctrlKey || event.metaKey)) return;
+      const hasModifier = event.ctrlKey || event.metaKey || event.altKey;
+      if (isEditableTarget(event.target) && !hasModifier && event.key !== "Escape") return;
 
       for (const [action, chord] of Object.entries(keybindings)) {
-        if (matchesChordString(event, chord)) {
-          event.preventDefault();
-          onAction(action as KeybindingAction);
-          return;
-        }
+        if (!matchesChordString(event, chord)) continue;
+        event.preventDefault();
+        event.stopPropagation();
+        onAction(action as KeybindingAction);
+        return;
       }
     };
 
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
   }, [keybindings, onAction]);
 };

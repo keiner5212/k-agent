@@ -3,6 +3,7 @@ import { LazyStore } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import {
   DEFAULT_ANIMATIONS_ENABLED,
+  DEFAULT_GLOBAL_SKILLS_PATH,
   DEFAULT_MAX_WORKER_CORES,
   DEFAULT_SETTINGS,
   DEFAULT_TEXT_SCALE,
@@ -83,6 +84,14 @@ const sanitizeMaxWorkerCores = (value: unknown): number => {
   return Math.min(max, Math.max(1, rounded));
 };
 
+const sanitizePath = (value: unknown): string => {
+  if (typeof value !== "string") return DEFAULT_GLOBAL_SKILLS_PATH;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return DEFAULT_GLOBAL_SKILLS_PATH;
+  if (trimmed === "~/.k-agent" || trimmed === "~/.k-agent/") return DEFAULT_GLOBAL_SKILLS_PATH;
+  return trimmed;
+};
+
 const sanitizeSettings = (raw: unknown): Settings => {
   if (!raw || typeof raw !== "object") return DEFAULT_SETTINGS;
   const obj = raw as Record<string, unknown>;
@@ -100,6 +109,8 @@ const sanitizeSettings = (raw: unknown): Settings => {
     textScale: sanitizeTextScale(obj.textScale),
     maxWorkerCores: sanitizeMaxWorkerCores(obj.maxWorkerCores),
     keybindings: sanitizeKeybindings(obj.keybindings),
+    globalSkillsPath: sanitizePath(obj.globalSkillsPath),
+    sessionSidebarOpen: sanitizeBoolean(obj.sessionSidebarOpen, DEFAULT_SETTINGS.sessionSidebarOpen),
   };
 };
 
@@ -116,6 +127,8 @@ type SettingsStore = Settings & {
   setTextScale: (scale: TextScale) => void;
   setMaxWorkerCores: (cores: number) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
+  setGlobalSkillsPath: (path: string) => void;
+  setSessionSidebarOpen: (open: boolean) => void;
   resetKeybindings: () => void;
   resetAll: () => void;
 };
@@ -188,6 +201,8 @@ const snapshot = (state: SettingsStore): Settings => ({
   textScale: state.textScale,
   maxWorkerCores: state.maxWorkerCores,
   keybindings: state.keybindings,
+  globalSkillsPath: state.globalSkillsPath,
+  sessionSidebarOpen: state.sessionSidebarOpen,
 });
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
@@ -278,6 +293,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setKeybinding: (action, chord) => {
     const keybindings = { ...get().keybindings, [action]: chord };
     set({ keybindings });
+    void persist(snapshot(get()));
+  },
+
+  setGlobalSkillsPath: (path) => {
+    set({ globalSkillsPath: sanitizePath(path) });
+    void persist(snapshot(get()));
+  },
+
+  setSessionSidebarOpen: (open) => {
+    set({ sessionSidebarOpen: open });
     void persist(snapshot(get()));
   },
 

@@ -24,6 +24,9 @@
     "allow-window-apply-bounds",
     "allow-window-start-resize",
     "allow-window-start-drag",
-    "allow-window-open-devtools"
+    "allow-window-open-devtools",
+    "allow-list-skills",
+    "allow-get-workspace-path",
+    "allow-get-repo-info"
   ]
 }

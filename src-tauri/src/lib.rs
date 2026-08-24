@@ -1,16 +1,19 @@
 mod catalog;
 mod providers;
+mod repo;
 mod secret;
+mod skills;
 
 pub const APP_CONFIG_DIR: &str = ".k-agent";
 
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    LogicalSize, Manager, Size, WindowEvent,
+    LogicalSize, Manager, Size, State, WindowEvent,
 };
 
 use providers::{
@@ -19,6 +22,11 @@ use providers::{
 };
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
+
+#[derive(Default)]
+struct LocalWorkspace {
+    path: Option<PathBuf>,
+}
 
 #[tauri::command]
 fn set_minimize_to_tray(enabled: bool) {
@@ -197,6 +205,58 @@ fn register_linux_identity() {
 #[cfg(not(target_os = "linux"))]
 fn register_linux_identity() {}
 
+#[tauri::command]
+fn get_workspace_path(state: State<'_, LocalWorkspace>) -> Option<String> {
+    state.path.as_ref().map(|path| path.display().to_string())
+}
+
+fn expand_user_path(input: &str) -> Option<PathBuf> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if trimmed == "~" {
+        return std::env::var_os("HOME").map(PathBuf::from);
+    }
+    if let Some(suffix) = trimmed.strip_prefix("~/") {
+        let home = std::env::var_os("HOME").map(PathBuf::from)?;
+        return Some(home.join(suffix));
+    }
+    Some(PathBuf::from(trimmed))
+}
+
+fn resolve_existing_path(input: &str) -> Option<PathBuf> {
+    let expanded = expand_user_path(input)?;
+    std::fs::canonicalize(&expanded).ok().or(Some(expanded))
+}
+
+fn parse_workspace_arg() -> Option<PathBuf> {
+    if let Ok(from_env) = std::env::var("K_AGENT_WORKSPACE") {
+        if let Some(path) = resolve_existing_path(&from_env) {
+            return Some(path);
+        }
+    }
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        if let Some(value) = arg.strip_prefix("--workspace=") {
+            return resolve_existing_path(value);
+        }
+        if arg == "--workspace" || arg == "-w" {
+            return args.get(index + 1).and_then(|value| resolve_existing_path(value));
+        }
+        index += 1;
+    }
+    None
+}
+
+fn default_workspace() -> PathBuf {
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     register_linux_identity();
@@ -204,6 +264,12 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
+        .manage(LocalWorkspace {
+            path: parse_workspace_arg().or_else(|| {
+                let home = default_workspace();
+                std::fs::canonicalize(&home).ok().or(Some(home))
+            }),
+        })
         .invoke_handler(tauri::generate_handler![
             set_minimize_to_tray,
             get_minimize_to_tray,
@@ -216,6 +282,8 @@ pub fn run() {
             window_start_resize,
             window_start_drag,
             window_open_devtools,
+            get_workspace_path,
+            repo::get_repo_info,
             list_providers,
             save_provider,
             delete_provider,
@@ -224,6 +292,7 @@ pub fn run() {
             upsert_provider_model,
             delete_provider_model,
             set_model_favorite,
+            skills::list_skills,
         ])
         .setup(|app| {
             if let Ok(home) = app.path().home_dir() {

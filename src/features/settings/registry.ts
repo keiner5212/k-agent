@@ -1,4 +1,4 @@
-export type SettingItemType = "select" | "toggle" | "keybinding" | "action";
+export type SettingItemType = "select" | "toggle" | "keybinding" | "action" | "path";
 
 export type SettingOption = {
   value: string;
@@ -15,7 +15,7 @@ export type SettingItem = {
 };
 
 export type SettingsSectionDef = {
-  id: "general" | "providers" | "keybindings" | "debug";
+  id: "general" | "providers" | "skills" | "keybindings" | "debug";
   titleKey: string;
   descriptionKey?: string;
   keywords?: string[];

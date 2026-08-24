@@ -20,6 +20,9 @@ permissions = [
   "allow-window-start-resize",
   "allow-window-start-drag",
   "allow-window-open-devtools",
+  "allow-list-skills",
+  "allow-get-workspace-path",
+  "allow-get-repo-info",
 ]
 
 [[permission]]
@@ -116,3 +119,18 @@ commands.allow = ["window_start_drag"]
 identifier = "allow-window-open-devtools"
 description = "Open the webview developer tools."
 commands.allow = ["window_open_devtools"]
+
+[[permission]]
+identifier = "allow-list-skills"
+description = "List global and workspace skills."
+commands.allow = ["list_skills"]
+
+[[permission]]
+identifier = "allow-get-workspace-path"
+description = "Read the current workspace path."
+commands.allow = ["get_workspace_path"]
+
+[[permission]]
+identifier = "allow-get-repo-info"
+description = "Read git metadata for the current workspace."
+commands.allow = ["get_repo_info"]

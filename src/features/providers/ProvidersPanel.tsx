@@ -2,8 +2,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Copy,
-  Eye,
-  EyeOff,
   Loader2,
   Pencil,
   Plug,
@@ -48,6 +46,27 @@ const sortModels = (models: ModelInfo[]): ModelInfo[] =>
     (left, right) => Number(Boolean(right.favorite)) - Number(Boolean(left.favorite)),
   );
 
+const MODALITY_KEY: Record<string, string> = {
+  text: "providers.model.modalities.text",
+  image: "providers.model.modalities.image",
+  audio: "providers.model.modalities.audio",
+  video: "providers.model.modalities.video",
+  pdf: "providers.model.modalities.pdf",
+};
+
+const uniqueModalities = (values: string[] | undefined): string[] => {
+  if (!values) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const key = value.trim().toLowerCase();
+    if (!MODALITY_KEY[key] || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+  }
+  return out;
+};
+
 const ModelRow = ({
   model,
   onRefresh,
@@ -78,24 +97,65 @@ const ModelRow = ({
   const hasOutput = model.maxOutputTokens !== undefined;
   const display = model.displayName ?? model.id;
 
+  const inputModalities = uniqueModalities(model.input);
+  const outputModalities = uniqueModalities(model.output).filter(
+    (modality) => !inputModalities.includes(modality),
+  );
+
   return (
     <li className="model-row">
       <div className="model-row__head">
         <span className="model-row__id">{model.id}</span>
-        {model.multimodal ? (
-          <span className="model-row__chip" title={t("providers.model.multimodal")}>
-            <Eye size={10} strokeWidth={1.5} />
-            <span>{t("providers.model.multimodal")}</span>
-          </span>
-        ) : (
+        {inputModalities.map((modality) => (
           <span
-            className="model-row__chip model-row__chip--muted"
-            title={t("providers.model.textOnly")}
+            key={`in-${modality}`}
+            className="model-row__chip"
+            title={`${t("providers.model.input")}: ${t(MODALITY_KEY[modality])}`}
           >
-            <EyeOff size={10} strokeWidth={1.5} />
-            <span>{t("providers.model.textOnly")}</span>
+            {t(MODALITY_KEY[modality])}
           </span>
-        )}
+        ))}
+        {outputModalities.map((modality) => (
+          <span
+            key={`out-${modality}`}
+            className="model-row__chip model-row__chip--muted"
+            title={`${t("providers.model.outputModalities")}: ${t(MODALITY_KEY[modality])}`}
+          >
+            {t(MODALITY_KEY[modality])}
+          </span>
+        ))}
+        {model.reasoning ? (
+          <span
+            className="model-row__chip"
+            title={t("providers.model.capability.reasoning")}
+          >
+            {t("providers.model.capability.reasoning")}
+          </span>
+        ) : null}
+        {model.toolCall ? (
+          <span
+            className="model-row__chip"
+            title={t("providers.model.capability.toolCall")}
+          >
+            {t("providers.model.capability.toolCall")}
+          </span>
+        ) : null}
+        {model.structuredOutput ? (
+          <span
+            className="model-row__chip"
+            title={t("providers.model.capability.structuredOutput")}
+          >
+            {t("providers.model.capability.structuredOutput")}
+          </span>
+        ) : null}
+        {model.attachment ? (
+          <span
+            className="model-row__chip"
+            title={t("providers.model.capability.attachment")}
+          >
+            {t("providers.model.capability.attachment")}
+          </span>
+        ) : null}
         {model.source === "custom" ? (
           <span className="model-row__chip">{t("providers.model.custom")}</span>
         ) : null}
@@ -277,7 +337,7 @@ const ProviderCard = ({
           }
         />
       ) : (
-        <details className="provider-card__models" open={provider.models.length > 0}>
+        <details className="provider-card__models">
           <summary>{t("providers.viewModels")}</summary>
           <div className="model-list-actions">
             <GlassButton variant="ghost" onClick={() => setEditor({})}>

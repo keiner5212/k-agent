@@ -95,6 +95,21 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
     items: [],
   },
   {
+    id: "skills",
+    titleKey: "settings.sections.skills",
+    descriptionKey: "skills.description",
+    keywords: ["skill", "ability", "habilidad", "context", "contexto"],
+    items: [
+      {
+        id: "globalSkillsPath",
+        type: "path",
+        titleKey: "settings.skillsPath.label",
+        descriptionKey: "settings.skillsPath.description",
+        keywords: ["path", "folder", "directory", "ruta", "carpeta"],
+      },
+    ],
+  },
+  {
     id: "keybindings",
     titleKey: "settings.sections.keybindings",
     descriptionKey: "settings.keybindings.description",
@@ -113,6 +128,20 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         titleKey: "settings.keybindings.actions.settings.close",
         descriptionKey: "settings.keybindings.description",
         keywords: ["shortcut", "hotkey", "atajo"],
+      },
+      {
+        id: "sidebar.toggle",
+        type: "keybinding",
+        titleKey: "settings.keybindings.actions.sidebar.toggle",
+        descriptionKey: "settings.keybindings.description",
+        keywords: ["shortcut", "hotkey", "sidebar"],
+      },
+      {
+        id: "chat.clear",
+        type: "keybinding",
+        titleKey: "settings.keybindings.actions.chat.clear",
+        descriptionKey: "settings.keybindings.description",
+        keywords: ["shortcut", "hotkey", "clear", "composer"],
       },
     ],
   },
