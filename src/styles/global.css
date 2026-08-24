@@ -1253,6 +1253,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background-color: var(--surface-elevated);
+  max-height: calc(100vh - var(--titlebar-height) - 18rem); /* TODO: find the propper value to restrict the height */
   min-height: 0;
   overflow: hidden;
   transition: border-color var(--duration-fast) var(--ease-standard);

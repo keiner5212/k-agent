@@ -124,39 +124,17 @@ fn normalize_global_root(path: PathBuf) -> PathBuf {
 }
 
 fn local_skills_root(workspace: &Path) -> PathBuf {
-    for program in LOCAL_PROGRAMS {
-        let candidate = workspace.join(program).join("skills");
-        if candidate.is_dir() {
-            return candidate;
-        }
-    }
     workspace.join(".k-agent").join("skills")
 }
-
-const LOCAL_PROGRAMS: &[&str] = &[
-    ".agents",
-    ".k-agent",
-    ".agent",
-    ".opencode",
-    ".claude",
-    ".codex",
-    ".cursor",
-    ".gemini",
-    ".github",
-    ".continue",
-    ".aider",
-];
 
 fn scan_local_skills(workspace: &Path) -> (Vec<PathBuf>, Vec<SkillInfo>) {
     let mut roots = Vec::new();
     let mut skills = Vec::new();
-    for program in LOCAL_PROGRAMS {
-        let candidate = workspace.join(program).join("skills");
-        if candidate.is_dir() {
-            roots.push(candidate.clone());
-            if let Ok(items) = list_skills_in(&candidate) {
-                skills.extend(items);
-            }
+    let candidate = workspace.join(".agents").join("skills");
+    if candidate.is_dir() {
+        roots.push(candidate.clone());
+        if let Ok(items) = list_skills_in(&candidate) {
+            skills.extend(items);
         }
     }
     skills.sort_by(|left, right| left.id.cmp(&right.id));
@@ -408,11 +386,12 @@ pub async fn update_skill_content(input: UpdateSkillContentInput) -> Result<(), 
     if !skill_path.is_dir() {
         return Err(SkillError::NotFound(input.path));
     }
-    let skill_md = if skill_path.join("SKILL.md").is_file() || !skill_path.join("skill.md").is_file() {
-        skill_path.join("SKILL.md")
-    } else {
-        skill_path.join("skill.md")
-    };
+    let skill_md =
+        if skill_path.join("SKILL.md").is_file() || !skill_path.join("skill.md").is_file() {
+            skill_path.join("SKILL.md")
+        } else {
+            skill_path.join("skill.md")
+        };
     fs::write(&skill_md, input.content).map_err(|error| SkillError::Io(error.to_string()))?;
     Ok(())
 }
@@ -451,7 +430,12 @@ pub async fn update_skill(input: UpdateSkillInput) -> Result<SkillInfo, SkillErr
     ensure_inside(&skill_path, &root_canon)?;
     let validated = validate_skill_name(&input.name)?;
     let new_path = root_canon.join(&validated);
-    if validated != skill_path.file_name().and_then(|n| n.to_str()).unwrap_or("") {
+    if validated
+        != skill_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+    {
         if new_path.exists() {
             return Err(SkillError::InvalidName(format!(
                 "{validated} already exists"
