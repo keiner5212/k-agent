@@ -7,6 +7,12 @@
     "name": "k-agent",
     "shortcut_hint": "Press {{shortcut}} for settings"
   },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "unmaximize": "Restore",
+    "close": "Close"
+  },
   "empty": {
     "title": "Nothing here yet",
     "description": "This is a blank shell. Build your orchestrator on top of it."
@@ -14,8 +20,10 @@
   "settings": {
     "title": "Settings",
     "close": "Close",
+    "searchPlaceholder": "Search settings",
     "sections": {
       "general": "General",
+      "providers": "Providers",
       "keybindings": "Keybindings"
     },
     "language": {
@@ -46,6 +54,10 @@
       "label": "Disable animations",
       "description": "Turn off all transitions and motion. Also follows your system reduce-motion setting."
     },
+    "textScale": {
+      "label": "Text size",
+      "description": "Scale all text in the app."
+    },
     "keybindings": {
       "description": "Click a shortcut and press the new combination. Press Escape to cancel.",
       "actions": {
@@ -59,6 +71,7 @@
   },
   "providers": {
     "title": "Providers",
+    "description": "AI provider endpoints. Models are auto-detected on save.",
     "add": "Add provider",
     "close": "Close",
     "empty": "No providers configured yet.",

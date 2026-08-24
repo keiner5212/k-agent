@@ -7,6 +7,12 @@
     "name": "k-agent",
     "shortcut_hint": "Pulsa {{shortcut}} para abrir ajustes"
   },
+  "window": {
+    "minimize": "Minimizar",
+    "maximize": "Maximizar",
+    "unmaximize": "Restaurar",
+    "close": "Cerrar"
+  },
   "empty": {
     "title": "Todavia no hay nada aqui",
     "description": "Esta es una aplicacion vacia. Construye tu orquestador encima."
@@ -14,8 +20,10 @@
   "settings": {
     "title": "Ajustes",
     "close": "Cerrar",
+    "searchPlaceholder": "Buscar ajustes",
     "sections": {
       "general": "General",
+      "providers": "Proveedores",
       "keybindings": "Atajos de teclado"
     },
     "language": {
@@ -45,6 +53,10 @@
     "animations": {
       "label": "Desactivar animaciones",
       "description": "Apaga todas las transiciones y movimientos. Tambien respeta el ajuste reducir movimiento del sistema."
+    },
+    "textScale": {
+      "label": "Tamano del texto",
+      "description": "Escala todo el texto de la aplicacion."
     },
     "keybindings": {
       "description": "Haz clic en un atajo y pulsa la nueva combinacion. Pulsa Escape para cancelar.",

@@ -4,12 +4,15 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   DEFAULT_ANIMATIONS_ENABLED,
   DEFAULT_SETTINGS,
+  DEFAULT_TEXT_SCALE,
   DEFAULT_TRANSLUCENCY_ENABLED,
   SUPPORTED_LANGUAGES,
+  TEXT_SCALE_OPTIONS,
   type AppLanguage,
   type AppTheme,
   type Keybindings,
   type Settings,
+  type TextScale,
 } from "@/types/settings";
 import { isTauri } from "@/lib/platform";
 
@@ -26,6 +29,12 @@ const sanitizeTheme = (value: unknown): AppTheme =>
 
 const sanitizeBoolean = (value: unknown, fallback: boolean): boolean =>
   typeof value === "boolean" ? value : fallback;
+
+const sanitizeTextScale = (value: unknown): TextScale => {
+  if (typeof value !== "number") return DEFAULT_TEXT_SCALE;
+  const match = TEXT_SCALE_OPTIONS.find((option) => Math.abs(option - value) < 0.001);
+  return match ?? DEFAULT_TEXT_SCALE;
+};
 
 const sanitizeKeybindings = (value: unknown): Keybindings => {
   if (!value || typeof value !== "object") return DEFAULT_SETTINGS.keybindings;
@@ -48,6 +57,7 @@ const sanitizeSettings = (raw: unknown): Settings => {
     minimizeToTray: sanitizeBoolean(obj.minimizeToTray, DEFAULT_SETTINGS.minimizeToTray),
     translucencyEnabled: sanitizeBoolean(obj.translucencyEnabled, DEFAULT_TRANSLUCENCY_ENABLED),
     animationsEnabled: sanitizeBoolean(obj.animationsEnabled, DEFAULT_ANIMATIONS_ENABLED),
+    textScale: sanitizeTextScale(obj.textScale),
     keybindings: sanitizeKeybindings(obj.keybindings),
   };
 };
@@ -59,6 +69,7 @@ type Persistable = Pick<
   | "minimizeToTray"
   | "translucencyEnabled"
   | "animationsEnabled"
+  | "textScale"
   | "keybindings"
 >;
 
@@ -70,6 +81,7 @@ type SettingsStore = Settings & {
   setMinimizeToTray: (enabled: boolean) => void;
   setTranslucencyEnabled: (enabled: boolean) => void;
   setAnimationsEnabled: (enabled: boolean) => void;
+  setTextScale: (scale: TextScale) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
   resetKeybindings: () => void;
   resetAll: () => void;
@@ -106,6 +118,11 @@ const applyAnimations = (enabled: boolean): void => {
   document.documentElement.dataset.animations = enabled ? "enabled" : "disabled";
 };
 
+const applyTextScale = (scale: TextScale): void => {
+  if (typeof document === "undefined") return;
+  document.documentElement.style.setProperty("--text-scale", String(scale));
+};
+
 const systemPrefersReducedMotion = (): boolean => {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -126,6 +143,7 @@ const snapshot = (state: SettingsStore): Persistable => ({
   minimizeToTray: state.minimizeToTray,
   translucencyEnabled: state.translucencyEnabled,
   animationsEnabled: state.animationsEnabled,
+  textScale: state.textScale,
   keybindings: state.keybindings,
 });
 
@@ -138,6 +156,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       applyTheme(DEFAULT_SETTINGS.theme);
       applyTranslucency(DEFAULT_TRANSLUCENCY_ENABLED);
       applyAnimations(DEFAULT_ANIMATIONS_ENABLED && !systemPrefersReducedMotion());
+      applyTextScale(DEFAULT_TEXT_SCALE);
       set({ hydrated: true });
       return;
     }
@@ -147,6 +166,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       applyTheme(next.theme);
       applyTranslucency(next.translucencyEnabled);
       applyAnimations(next.animationsEnabled && !systemPrefersReducedMotion());
+      applyTextScale(next.textScale);
       void syncMinimizeToTray(next.minimizeToTray);
       set({ ...next, hydrated: true });
     } catch (error) {
@@ -154,6 +174,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       applyTheme(DEFAULT_SETTINGS.theme);
       applyTranslucency(DEFAULT_TRANSLUCENCY_ENABLED);
       applyAnimations(DEFAULT_ANIMATIONS_ENABLED && !systemPrefersReducedMotion());
+      applyTextScale(DEFAULT_TEXT_SCALE);
       set({ hydrated: true });
     }
   },
@@ -187,6 +208,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     void persist(snapshot(get()));
   },
 
+  setTextScale: (scale) => {
+    applyTextScale(scale);
+    set({ textScale: scale });
+    void persist(snapshot(get()));
+  },
+
   setKeybinding: (action, chord) => {
     const keybindings = { ...get().keybindings, [action]: chord };
     set({ keybindings });
@@ -202,6 +229,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     applyTheme(DEFAULT_SETTINGS.theme);
     applyTranslucency(DEFAULT_TRANSLUCENCY_ENABLED);
     applyAnimations(DEFAULT_ANIMATIONS_ENABLED && !systemPrefersReducedMotion());
+    applyTextScale(DEFAULT_TEXT_SCALE);
     void syncMinimizeToTray(DEFAULT_SETTINGS.minimizeToTray);
     set({ ...DEFAULT_SETTINGS, hydrated: true });
     void persist(DEFAULT_SETTINGS);

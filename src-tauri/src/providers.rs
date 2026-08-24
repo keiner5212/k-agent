@@ -12,14 +12,17 @@ const PROVIDERS_FILE: &str = "providers.json";
 const HTTP_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
 pub enum ProviderKind {
+    #[serde(rename = "openai-like")]
     OpenAiLike,
+    #[serde(rename = "anthropic-like")]
     AnthropicLike,
+    #[serde(rename = "gemini-like")]
     GeminiLike,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Provider {
     pub id: String,
     pub name: String,
@@ -34,6 +37,7 @@ pub struct Provider {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SaveProviderInput {
     #[serde(default)]
     pub id: Option<String>,

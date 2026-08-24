@@ -33,9 +33,10 @@ pnpm format:check
 
 ## Settings
 
-Open with the gear icon or `Mod+P` (`Cmd+P` / `Ctrl+P`). All settings persist via `tauri-plugin-store`.
+Open with the gear icon or `Mod+P` (`Cmd+P` / `Ctrl+P`). Sidebar nav + content pane.
 
-- **General**: language, theme, minimize to system tray, translucency
+- **General**: language, theme, text size, minimize to system tray, translucency, animations
+- **Providers**: AI endpoints (OpenAI / Anthropic / Gemini compatible). Models auto-detect on save.
 - **Keybindings**: rebind any shortcut inline
 
 ## Donations

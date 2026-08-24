@@ -1,6 +1,15 @@
 [default]
-description = "Default permissions for provider commands."
-permissions = ["allow-list", "allow-save", "allow-delete", "allow-refresh"]
+description = "Default permissions for provider and window commands."
+permissions = [
+  "allow-list",
+  "allow-save",
+  "allow-delete",
+  "allow-refresh",
+  "allow-window-minimize",
+  "allow-window-toggle-maximize",
+  "allow-window-is-maximized",
+  "allow-window-close",
+]
 
 [[permission]]
 identifier = "allow-list"
@@ -21,3 +30,23 @@ commands.allow = ["delete_provider"]
 identifier = "allow-refresh"
 description = "Refresh the model list for a provider."
 commands.allow = ["refresh_provider_models"]
+
+[[permission]]
+identifier = "allow-window-minimize"
+description = "Minimize the main window."
+commands.allow = ["window_minimize"]
+
+[[permission]]
+identifier = "allow-window-toggle-maximize"
+description = "Toggle maximize on the main window."
+commands.allow = ["window_toggle_maximize"]
+
+[[permission]]
+identifier = "allow-window-is-maximized"
+description = "Query whether the main window is maximized."
+commands.allow = ["window_is_maximized"]
+
+[[permission]]
+identifier = "allow-window-close"
+description = "Close the main window."
+commands.allow = ["window_close"]

@@ -14,7 +14,7 @@ body,
 
 body {
   font-family: var(--font-sans);
-  font-size: var(--text-base);
+  font-size: calc(var(--size-base) * var(--text-scale));
   line-height: var(--leading-normal);
   font-weight: var(--weight-regular);
   color: var(--text-primary);

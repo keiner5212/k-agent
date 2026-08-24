@@ -24,6 +24,31 @@ fn get_minimize_to_tray() -> bool {
     MINIMIZE_TO_TRAY.load(Ordering::Relaxed)
 }
 
+#[tauri::command]
+fn window_minimize(window: tauri::Window) -> Result<(), String> {
+    window.minimize().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
+    let maximized = window.is_maximized().unwrap_or(false);
+    if maximized {
+        window.unmaximize().map_err(|e| e.to_string())
+    } else {
+        window.maximize().map_err(|e| e.to_string())
+    }
+}
+
+#[tauri::command]
+fn window_is_maximized(window: tauri::Window) -> bool {
+    window.is_maximized().unwrap_or(false)
+}
+
+#[tauri::command]
+fn window_close(window: tauri::Window) -> Result<(), String> {
+    window.close().map_err(|e| e.to_string())
+}
+
 fn toggle_window_visibility(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         match window.is_visible() {
@@ -46,6 +71,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             set_minimize_to_tray,
             get_minimize_to_tray,
+            window_minimize,
+            window_toggle_maximize,
+            window_is_maximized,
+            window_close,
             list_providers,
             save_provider,
             delete_provider,

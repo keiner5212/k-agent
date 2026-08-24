@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { GearButton } from "@/components/GearButton";
-import { ProvidersButton } from "@/components/ProvidersButton";
+import { WindowControls } from "@/components/WindowControls";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
-import { ProvidersDialog } from "@/features/providers/ProvidersDialog";
 import { useGlobalKeybindings } from "@/lib/use-global-keybindings";
 import { useSettingsStore } from "@/lib/settings";
 import i18n from "@/i18n";
@@ -11,7 +10,6 @@ import i18n from "@/i18n";
 export const App = (): ReactNode => {
   const { t } = useTranslation();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [providersOpen, setProvidersOpen] = useState(false);
   const language = useSettingsStore((state) => state.language);
   const hydrated = useSettingsStore((state) => state.hydrated);
   const hydrate = useSettingsStore((state) => state.hydrate);
@@ -39,9 +37,10 @@ export const App = (): ReactNode => {
     <div className="app-shell">
       <header className="app-titlebar">
         <span className="app-titlebar__brand">{t("app.name")}</span>
+        <span className="app-titlebar__drag" aria-hidden="true" />
         <div className="app-titlebar__actions">
-          <ProvidersButton onClick={() => setProvidersOpen(true)} />
           <GearButton onClick={() => setSettingsOpen(true)} />
+          <WindowControls />
         </div>
       </header>
       <main className="app-main" aria-live="polite">
@@ -52,7 +51,6 @@ export const App = (): ReactNode => {
         ) : null}
       </main>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
-      <ProvidersDialog open={providersOpen} onOpenChange={setProvidersOpen} />
     </div>
   );
 };

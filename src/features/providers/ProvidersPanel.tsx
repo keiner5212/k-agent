@@ -1,12 +1,27 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, Pencil, Plug, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { useProvidersStore, providerKindLabel } from "@/lib/providers";
+import { providerKindLabel, useProvidersStore } from "@/lib/providers";
 import type { Provider } from "@/types/providers";
 import { ProviderForm } from "./ProviderForm";
 
-type ProviderListProps = {
-  onClose: () => void;
+export const ProvidersPanel = (): ReactNode => {
+  const { t } = useTranslation();
+  const load = useProvidersStore((state) => state.load);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return (
+    <section className="section">
+      <header>
+        <h2 className="section__heading">{t("providers.title")}</h2>
+        <p className="section__description">{t("providers.description")}</p>
+      </header>
+      <ProvidersList />
+    </section>
+  );
 };
 
 const formatSyncedAt = (timestamp: number | undefined, locale: string): string => {
@@ -129,7 +144,7 @@ const ProviderCard = ({
   );
 };
 
-export const ProviderList = ({ onClose }: ProviderListProps): ReactNode => {
+const ProvidersList = (): ReactNode => {
   const { t, i18n } = useTranslation();
   const providers = useProvidersStore((state) => state.providers);
   const loading = useProvidersStore((state) => state.loading);
@@ -160,7 +175,7 @@ export const ProviderList = ({ onClose }: ProviderListProps): ReactNode => {
     <>
       {providers.length === 0 ? (
         <div className="provider-empty">
-          <Plug size={20} strokeWidth={1.5} />
+          <Plug size={18} strokeWidth={1.5} />
           <p>{t("providers.empty")}</p>
         </div>
       ) : (
@@ -189,10 +204,7 @@ export const ProviderList = ({ onClose }: ProviderListProps): ReactNode => {
         </div>
       ) : null}
 
-      <div className="dialog-footer" style={{ marginTop: "var(--space-2)" }}>
-        <button type="button" className="btn btn--ghost" onClick={onClose}>
-          {t("providers.close")}
-        </button>
+      <div className="provider-actions">
         <button
           type="button"
           className="btn btn--primary"

@@ -24,6 +24,13 @@ thiserror = "2.0.20"
 tokio = { version = "1.53.1", features = ["fs", "sync", "macros", "rt-multi-thread"] }
 uuid = { version = "1.25.0", features = ["v4", "serde"] }
 
+# Disable deprecated libayatana-appindicator (transitively pulled by tray-icon via libappindicator).
+# libayatana-appindicator-glib is the GLib-based replacement and is what's actually needed.
+[dependencies.libappindicator]
+version = "0.9.0"
+default-features = false
+features = []
+
 [profile.release]
 panic = "abort"
 codegen-units = 1

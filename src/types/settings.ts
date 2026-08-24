@@ -8,6 +8,12 @@ export const DEFAULT_MINIMIZE_TO_TRAY = false;
 export const DEFAULT_TRANSLUCENCY_ENABLED = true;
 export const DEFAULT_ANIMATIONS_ENABLED = true;
 
+export type TextScale = 0.875 | 0.92 | 1 | 1.125 | 1.25;
+
+export const TEXT_SCALE_OPTIONS: readonly TextScale[] = [0.875, 0.92, 1, 1.125, 1.25] as const;
+
+export const DEFAULT_TEXT_SCALE: TextScale = 1;
+
 export type KeybindingAction = "settings.open" | "settings.close";
 
 export type Keybindings = Record<KeybindingAction, string>;
@@ -23,6 +29,7 @@ export type Settings = {
   minimizeToTray: boolean;
   translucencyEnabled: boolean;
   animationsEnabled: boolean;
+  textScale: TextScale;
   keybindings: Keybindings;
 };
 
@@ -32,5 +39,6 @@ export const DEFAULT_SETTINGS: Settings = {
   minimizeToTray: DEFAULT_MINIMIZE_TO_TRAY,
   translucencyEnabled: DEFAULT_TRANSLUCENCY_ENABLED,
   animationsEnabled: DEFAULT_ANIMATIONS_ENABLED,
+  textScale: DEFAULT_TEXT_SCALE,
   keybindings: DEFAULT_KEYBINDINGS,
 };

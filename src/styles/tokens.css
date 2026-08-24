@@ -59,6 +59,9 @@
   --duration-base: 150ms;
   --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
 
+  --text-scale: 1;
+  --size-base: 16px;
+
   color-scheme: dark;
 }
 
