@@ -1,0 +1,211 @@
+[
+  {
+    "id": "MiniMax-M3",
+    "displayName": "MiniMax-M3",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "multimodal": true
+  },
+  {
+    "id": "MiniMax-M2.7",
+    "displayName": "MiniMax-M2.7",
+    "contextWindow": 204800,
+    "maxOutputTokens": 131072,
+    "multimodal": false
+  },
+  {
+    "id": "MiniMax-M2.7-highspeed",
+    "displayName": "MiniMax-M2.7-highspeed",
+    "contextWindow": 204800,
+    "maxOutputTokens": 131072,
+    "multimodal": false
+  },
+  {
+    "id": "MiniMax-M2.5",
+    "displayName": "MiniMax-M2.5",
+    "contextWindow": 204800,
+    "maxOutputTokens": 131072,
+    "multimodal": false
+  },
+  {
+    "id": "MiniMax-M2.5-highspeed",
+    "displayName": "MiniMax-M2.5-highspeed",
+    "contextWindow": 204800,
+    "maxOutputTokens": 131072,
+    "multimodal": false
+  },
+  {
+    "id": "MiniMax-M2.1",
+    "displayName": "MiniMax-M2.1",
+    "contextWindow": 204800,
+    "maxOutputTokens": 131072,
+    "multimodal": false,
+    "aliases": [
+      "MiniMax-M2.1-highspeed"
+    ]
+  },
+  {
+    "id": "MiniMax-M2",
+    "displayName": "MiniMax-M2",
+    "contextWindow": 196608,
+    "maxOutputTokens": 128000,
+    "multimodal": false,
+    "aliases": [
+      "MiniMax-M2-highspeed"
+    ]
+  },
+  {
+    "id": "gpt-5",
+    "displayName": "GPT-5",
+    "contextWindow": 400000,
+    "maxOutputTokens": 128000,
+    "multimodal": true
+  },
+  {
+    "id": "gpt-5-mini",
+    "displayName": "GPT-5 Mini",
+    "contextWindow": 400000,
+    "maxOutputTokens": 128000,
+    "multimodal": true
+  },
+  {
+    "id": "gpt-4.1",
+    "displayName": "GPT-4.1",
+    "contextWindow": 1047576,
+    "maxOutputTokens": 32768,
+    "multimodal": true
+  },
+  {
+    "id": "gpt-4o",
+    "displayName": "GPT-4o",
+    "contextWindow": 128000,
+    "maxOutputTokens": 16384,
+    "multimodal": true
+  },
+  {
+    "id": "o3",
+    "displayName": "o3",
+    "contextWindow": 200000,
+    "maxOutputTokens": 100000,
+    "multimodal": true
+  },
+  {
+    "id": "o4-mini",
+    "displayName": "o4-mini",
+    "contextWindow": 200000,
+    "maxOutputTokens": 100000,
+    "multimodal": true
+  },
+  {
+    "id": "claude-opus-4-6",
+    "displayName": "Claude Opus 4.6",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "multimodal": true
+  },
+  {
+    "id": "claude-sonnet-4-6",
+    "displayName": "Claude Sonnet 4.6",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "multimodal": true
+  },
+  {
+    "id": "claude-sonnet-4-5",
+    "displayName": "Claude Sonnet 4.5 (latest)",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 64000,
+    "multimodal": true
+  },
+  {
+    "id": "claude-haiku-4-5",
+    "displayName": "Claude Haiku 4.5 (latest)",
+    "contextWindow": 200000,
+    "maxOutputTokens": 64000,
+    "multimodal": true
+  },
+  {
+    "id": "claude-opus-4-5",
+    "displayName": "Claude Opus 4.5 (latest)",
+    "contextWindow": 200000,
+    "maxOutputTokens": 64000,
+    "multimodal": true
+  },
+  {
+    "id": "gemini-2.5-pro",
+    "displayName": "Gemini 2.5 Pro",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 65536,
+    "multimodal": true
+  },
+  {
+    "id": "gemini-2.5-flash",
+    "displayName": "Gemini 2.5 Flash",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 65536,
+    "multimodal": true
+  },
+  {
+    "id": "gemini-3.5-flash",
+    "displayName": "Gemini 3.5 Flash",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 65536,
+    "multimodal": true
+  },
+  {
+    "id": "gemini-3.1-pro-preview",
+    "displayName": "Gemini 3.1 Pro Preview",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 65536,
+    "multimodal": true
+  },
+  {
+    "id": "deepseek-chat",
+    "displayName": "DeepSeek Chat",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 384000,
+    "multimodal": false
+  },
+  {
+    "id": "deepseek-reasoner",
+    "displayName": "DeepSeek Reasoner",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 384000,
+    "multimodal": false
+  },
+  {
+    "id": "deepseek-v4-pro",
+    "displayName": "DeepSeek V4 Pro",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 384000,
+    "multimodal": false
+  },
+  {
+    "id": "grok-4.5",
+    "displayName": "Grok 4.5",
+    "contextWindow": 500000,
+    "maxOutputTokens": 500000,
+    "multimodal": true
+  },
+  {
+    "id": "grok-4.6",
+    "displayName": "Grok 4.6",
+    "contextWindow": 500000,
+    "maxOutputTokens": 500000,
+    "multimodal": true
+  },
+  {
+    "id": "kimi-k2.5",
+    "displayName": "Kimi K2.5",
+    "contextWindow": 262144,
+    "maxOutputTokens": 262144,
+    "multimodal": true
+  },
+  {
+    "id": "kimi-k3",
+    "displayName": "Kimi K3",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "multimodal": true
+  }
+]

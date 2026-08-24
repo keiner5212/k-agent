@@ -74,8 +74,10 @@
     "keybindings": {
       "description": "Click a shortcut and press the new combination. Press Escape to cancel.",
       "actions": {
-        "settings.open": "Open settings",
-        "settings.close": "Close settings"
+        "settings": {
+          "open": "Open settings",
+          "close": "Close settings"
+        }
       },
       "record": "Recording",
       "unset": "Not bound",
@@ -93,7 +95,7 @@
   },
   "providers": {
     "title": "Providers",
-    "description": "AI provider endpoints. Models and their parameters are auto-detected on save.",
+    "description": "AI provider endpoints. Detected models get capability data from models.dev; you can edit or add models and variants.",
     "add": "Add provider",
     "close": "Close",
     "empty": "No providers configured yet.",
@@ -106,13 +108,30 @@
       "refresh": "Refresh models",
       "refreshModel": "Refresh this model",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "addModel": "Add model",
+      "addVariant": "Add variant"
     },
     "model": {
       "context": "Context",
       "output": "Output",
       "multimodal": "Vision",
-      "textOnly": "Text"
+      "textOnly": "Text",
+      "custom": "Custom",
+      "edited": "Edited"
+    },
+    "modelForm": {
+      "id": "Model id",
+      "displayName": "Display name",
+      "family": "Family / variant group",
+      "familyHint": "Group modes of the same model, e.g. MiniMax-M2.7.",
+      "tokenHint": "Token counts. k and M suffixes work, e.g. 512k or 1M.",
+      "multimodalHint": "Model accepts image or other non-text input.",
+      "saving": "Saving",
+      "errors": {
+        "required": "Model id is required.",
+        "tokens": "Invalid {{field}} value."
+      }
     },
     "form": {
       "name": "Name",

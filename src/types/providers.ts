@@ -6,6 +6,8 @@ export const PROVIDER_KINDS: readonly ProviderKind[] = [
   "gemini-like",
 ] as const;
 
+export type ModelSource = "detected" | "custom";
+
 export type ModelInfo = {
   id: string;
   contextWindow?: number;
@@ -13,6 +15,18 @@ export type ModelInfo = {
   displayName?: string;
   family?: string;
   multimodal?: boolean;
+  source?: ModelSource;
+  userEdited?: boolean;
+};
+
+export type ModelDraft = {
+  originalId?: string;
+  id: string;
+  displayName?: string;
+  family?: string;
+  contextWindow?: number;
+  maxOutputTokens?: number;
+  multimodal: boolean;
 };
 
 export type Provider = {
@@ -45,4 +59,15 @@ export const formatContextWindow = (tokens: number | undefined): string => {
     return `${(tokens / 1_000_000).toFixed(tokens % 1_000_000 === 0 ? 0 : 1)}M`;
   if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(0)}k`;
   return String(tokens);
+};
+
+export const parseTokenAmount = (raw: string): number | undefined => {
+  const trimmed = raw.trim().toLowerCase().replace(/[,\s]/g, "");
+  if (!trimmed) return undefined;
+  const match = trimmed.match(/^(\d+(?:\.\d+)?)(k|m)?$/);
+  if (!match) return undefined;
+  const value = Number(match[1]);
+  if (!Number.isFinite(value) || value < 0) return undefined;
+  const multiplier = match[2] === "m" ? 1_000_000 : match[2] === "k" ? 1_000 : 1;
+  return Math.round(value * multiplier);
 };

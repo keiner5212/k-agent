@@ -10,6 +10,10 @@ html,
 body,
 #root {
   height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+  background-color: var(--background);
 }
 
 body {
@@ -47,6 +51,9 @@ select,
 textarea {
   font: inherit;
   color: inherit;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 a {

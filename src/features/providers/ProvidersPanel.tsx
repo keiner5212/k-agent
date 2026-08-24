@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Eye, EyeOff, Loader2, Pencil, Plug, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Copy, Eye, EyeOff, Loader2, Pencil, Plug, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { providerKindLabel, useProvidersStore } from "@/lib/providers";
-import { formatContextWindow, type ModelInfo, type Provider } from "@/types/providers";
+import { formatContextWindow, type ModelDraft, type ModelInfo, type Provider } from "@/types/providers";
+import { ModelForm } from "./ModelForm";
 import { ProviderForm } from "./ProviderForm";
 
 export const ProvidersPanel = (): ReactNode => {
@@ -29,9 +30,13 @@ export const ProvidersPanel = (): ReactNode => {
 const ModelRow = ({
   model,
   onRefresh,
+  onEdit,
+  onAddVariant,
 }: {
   model: ModelInfo;
   onRefresh: () => Promise<void>;
+  onEdit: () => void;
+  onAddVariant: () => void;
 }): ReactNode => {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
@@ -68,6 +73,12 @@ const ModelRow = ({
             <span>{t("providers.model.textOnly")}</span>
           </span>
         )}
+        {model.source === "custom" ? (
+          <span className="model-row__chip">{t("providers.model.custom")}</span>
+        ) : null}
+        {model.userEdited && model.source !== "custom" ? (
+          <span className="model-row__chip">{t("providers.model.edited")}</span>
+        ) : null}
       </div>
       {display !== model.id ? <div className="model-row__name">{display}</div> : null}
       <div className="model-row__meta">
@@ -93,6 +104,12 @@ const ModelRow = ({
             <RefreshCw size={12} strokeWidth={1.5} />
           )}
         </IconButton>
+        <IconButton label={t("providers.actions.addVariant")} onClick={onAddVariant}>
+          <Copy size={12} strokeWidth={1.5} />
+        </IconButton>
+        <IconButton label={t("providers.actions.edit")} onClick={onEdit}>
+          <Pencil size={12} strokeWidth={1.5} />
+        </IconButton>
       </div>
     </li>
   );
@@ -114,8 +131,14 @@ const ProviderCard = ({
   onDelete: () => Promise<void>;
 }): ReactNode => {
   const { t } = useTranslation();
+  const upsertModel = useProvidersStore((state) => state.upsertModel);
+  const removeModel = useProvidersStore((state) => state.removeModel);
   const [refreshing, setRefreshing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editor, setEditor] = useState<{
+    model?: ModelInfo;
+    familyPreset?: string;
+  } | null>(null);
 
   const handleRefresh = async (): Promise<void> => {
     setRefreshing(true);
@@ -189,25 +212,62 @@ const ProviderCard = ({
         <span>{t("providers.modelsCount", { count: provider.models.length })}</span>
         {synced ? <span className="provider-card__synced">{synced}</span> : null}
       </div>
-      {provider.models.length > 0 ? (
-        <details className="provider-card__models">
-          <summary>{t("providers.viewModels")}</summary>
-          <ul className="model-list">
-            {provider.models.map((model) => (
-              <ModelRow
-                key={model.id}
-                model={model}
-                onRefresh={async () => {
-                  await onRefreshModel(model.id);
-                }}
-              />
-            ))}
-          </ul>
-        </details>
+      {editor ? (
+        <ModelForm
+          key={editor.model?.id ?? editor.familyPreset ?? "new"}
+          model={editor.model}
+          familyPreset={editor.familyPreset}
+          onCancel={() => setEditor(null)}
+          onSave={async (draft: ModelDraft) => {
+            const result = await upsertModel(provider.id, draft);
+            if (result.error) return result.error;
+            setEditor(null);
+            return undefined;
+          }}
+          onDelete={
+            editor.model
+              ? async () => {
+                  const result = await removeModel(provider.id, editor.model?.id ?? "");
+                  if (result.error) return result.error;
+                  setEditor(null);
+                  return undefined;
+                }
+              : undefined
+          }
+        />
       ) : (
-        <div className="provider-card__meta">
-          <span className="provider-card__muted">{t("providers.noModels")}</span>
-        </div>
+        <details className="provider-card__models" open={provider.models.length > 0}>
+          <summary>{t("providers.viewModels")}</summary>
+          <div className="model-list-actions">
+            <GlassButton variant="ghost" onClick={() => setEditor({})}>
+              <Plus size={14} strokeWidth={1.5} />
+              <span>{t("providers.actions.addModel")}</span>
+            </GlassButton>
+          </div>
+          {provider.models.length > 0 ? (
+            <ul className="model-list">
+              {provider.models.map((model) => (
+                <ModelRow
+                  key={model.id}
+                  model={model}
+                  onRefresh={async () => {
+                    await onRefreshModel(model.id);
+                  }}
+                  onEdit={() => setEditor({ model })}
+                  onAddVariant={() =>
+                    setEditor({
+                      familyPreset: model.family ?? model.id,
+                    })
+                  }
+                />
+              ))}
+            </ul>
+          ) : (
+            <div className="provider-card__meta">
+              <span className="provider-card__muted">{t("providers.noModels")}</span>
+            </div>
+          )}
+        </details>
       )}
     </li>
   );

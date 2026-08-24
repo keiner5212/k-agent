@@ -11,6 +11,9 @@
     "allow-delete",
     "allow-refresh",
     "allow-refresh-single",
+    "allow-upsert-model",
+    "allow-delete-model",
+    "allow-set-favorite",
     "allow-set-minimize-to-tray",
     "allow-get-minimize-to-tray",
     "allow-window-minimize",
@@ -20,6 +23,7 @@
     "allow-window-get-bounds",
     "allow-window-apply-bounds",
     "allow-window-start-resize",
+    "allow-window-start-drag",
     "allow-window-open-devtools"
   ]
 }

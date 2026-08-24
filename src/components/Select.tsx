@@ -8,8 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { GlassFill } from "@/lib/glass-warp";
-import { GLASS } from "@/lib/glass";
 
 type SelectOption = {
   value: string;
@@ -27,9 +25,29 @@ type SelectProps = {
 };
 
 type MenuPos = {
-  top: number;
+  top?: number;
+  bottom?: number;
   left: number;
   width: number;
+};
+
+const MENU_MAX_HEIGHT = 320;
+const MENU_GAP = 4;
+
+const menuPosFromRect = (rect: DOMRect): MenuPos => {
+  const width = rect.width;
+  const left = Math.min(rect.left, Math.max(8, window.innerWidth - width - 8));
+  const spaceBelow = window.innerHeight - rect.bottom - 8;
+  const openUp = spaceBelow < 160 && rect.top > spaceBelow;
+  if (openUp) {
+    return {
+      bottom: window.innerHeight - rect.top + MENU_GAP,
+      left,
+      width,
+    };
+  }
+  const maxTop = window.innerHeight - Math.min(MENU_MAX_HEIGHT, Math.max(spaceBelow, 0)) - 8;
+  return { top: Math.min(rect.bottom + MENU_GAP, maxTop), left, width };
 };
 
 export const Select = ({
@@ -64,7 +82,7 @@ export const Select = ({
     if (disabled) return;
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setMenuPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    setMenuPos(menuPosFromRect(rect));
     setActiveIndex(
       Math.max(
         0,
@@ -88,7 +106,7 @@ export const Select = ({
     const onReposition = (): void => {
       const rect = triggerRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setMenuPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+      setMenuPos(menuPosFromRect(rect));
     };
 
     const onKey = (event: globalThis.KeyboardEvent): void => {
@@ -163,10 +181,6 @@ export const Select = ({
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={onTriggerKey}
       >
-        <GlassFill
-          displacementScale={GLASS.select.displacementScale}
-          aberrationIntensity={GLASS.select.aberrationIntensity}
-        />
         <span className="select__value">{selected?.label ?? placeholder}</span>
         <span className="select__icon">
           <ChevronDown size={14} strokeWidth={1.5} />
@@ -179,16 +193,17 @@ export const Select = ({
               className="select-menu"
               role="listbox"
               tabIndex={-1}
-              style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
+              style={{
+                top: menuPos.top,
+                bottom: menuPos.bottom,
+                left: menuPos.left,
+                width: menuPos.width,
+              }}
               onKeyDown={onListKey}
               ref={(node) => {
                 node?.focus();
               }}
             >
-              <GlassFill
-                displacementScale={GLASS.menu.displacementScale}
-                aberrationIntensity={GLASS.menu.aberrationIntensity}
-              />
               {options.map((option, index) => {
                 const isSelected = option.value === value;
                 return (

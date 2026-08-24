@@ -74,8 +74,10 @@
     "keybindings": {
       "description": "Haz clic en un atajo y pulsa la nueva combinacion. Pulsa Escape para cancelar.",
       "actions": {
-        "settings.open": "Abrir ajustes",
-        "settings.close": "Cerrar ajustes"
+        "settings": {
+          "open": "Abrir ajustes",
+          "close": "Cerrar ajustes"
+        }
       },
       "record": "Grabando",
       "unset": "Sin asignar",
@@ -93,7 +95,7 @@
   },
   "providers": {
     "title": "Proveedores",
-    "description": "Endpoints de proveedores de IA. Los modelos y sus parametros se detectan al guardar.",
+    "description": "Endpoints de proveedores de IA. Los modelos detectados toman capacidades de models.dev; puedes editar o anadir modelos y variantes.",
     "add": "Anadir proveedor",
     "close": "Cerrar",
     "empty": "Aun no hay proveedores configurados.",
@@ -106,13 +108,30 @@
       "refresh": "Refrescar modelos",
       "refreshModel": "Refrescar este modelo",
       "edit": "Editar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "addModel": "Anadir modelo",
+      "addVariant": "Anadir variante"
     },
     "model": {
       "context": "Contexto",
       "output": "Salida",
       "multimodal": "Vision",
-      "textOnly": "Texto"
+      "textOnly": "Texto",
+      "custom": "Personalizado",
+      "edited": "Editado"
+    },
+    "modelForm": {
+      "id": "Id del modelo",
+      "displayName": "Nombre visible",
+      "family": "Familia / grupo de variantes",
+      "familyHint": "Agrupa modos del mismo modelo, por ejemplo MiniMax-M2.7.",
+      "tokenHint": "Tokens. Sufijos k y M validos, por ejemplo 512k o 1M.",
+      "multimodalHint": "El modelo acepta imagen u otra entrada que no sea texto.",
+      "saving": "Guardando",
+      "errors": {
+        "required": "El id del modelo es obligatorio.",
+        "tokens": "Valor de {{field}} invalido."
+      }
     },
     "form": {
       "name": "Nombre",

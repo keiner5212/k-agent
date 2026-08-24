@@ -1,3 +1,4 @@
+mod catalog;
 mod providers;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,7 +11,8 @@ use tauri::{
 };
 
 use providers::{
-    delete_provider, list_providers, refresh_provider_models, refresh_single_model, save_provider,
+    delete_provider, delete_provider_model, list_providers, refresh_provider_models,
+    refresh_single_model, save_provider, set_model_favorite, upsert_provider_model,
 };
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
@@ -115,6 +117,11 @@ fn window_start_resize(window: tauri::Window, edge: String) -> Result<(), String
 }
 
 #[tauri::command]
+fn window_start_drag(window: tauri::Window) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn window_open_devtools(window: tauri::WebviewWindow) {
     window.open_devtools();
 }
@@ -204,12 +211,16 @@ pub fn run() {
             window_get_bounds,
             window_apply_bounds,
             window_start_resize,
+            window_start_drag,
             window_open_devtools,
             list_providers,
             save_provider,
             delete_provider,
             refresh_provider_models,
             refresh_single_model,
+            upsert_provider_model,
+            delete_provider_model,
+            set_model_favorite,
         ])
         .setup(|app| {
             if let (Some(window), Some(icon)) =

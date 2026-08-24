@@ -6,6 +6,9 @@ permissions = [
   "allow-delete",
   "allow-refresh",
   "allow-refresh-single",
+  "allow-upsert-model",
+  "allow-delete-model",
+  "allow-set-favorite",
   "allow-set-minimize-to-tray",
   "allow-get-minimize-to-tray",
   "allow-window-minimize",
@@ -15,6 +18,7 @@ permissions = [
   "allow-window-get-bounds",
   "allow-window-apply-bounds",
   "allow-window-start-resize",
+  "allow-window-start-drag",
   "allow-window-open-devtools",
 ]
 
@@ -42,6 +46,21 @@ commands.allow = ["refresh_provider_models"]
 identifier = "allow-refresh-single"
 description = "Refresh a single model's details."
 commands.allow = ["refresh_single_model"]
+
+[[permission]]
+identifier = "allow-upsert-model"
+description = "Create or update a stored model and its capabilities."
+commands.allow = ["upsert_provider_model"]
+
+[[permission]]
+identifier = "allow-delete-model"
+description = "Remove a stored model from a provider."
+commands.allow = ["delete_provider_model"]
+
+[[permission]]
+identifier = "allow-set-favorite"
+description = "Mark or unmark a model as a local favorite."
+commands.allow = ["set_model_favorite"]
 
 [[permission]]
 identifier = "allow-set-minimize-to-tray"
@@ -87,6 +106,11 @@ commands.allow = ["window_apply_bounds"]
 identifier = "allow-window-start-resize"
 description = "Start edge resize dragging on the main window."
 commands.allow = ["window_start_resize"]
+
+[[permission]]
+identifier = "allow-window-start-drag"
+description = "Start moving the main window by dragging the titlebar."
+commands.allow = ["window_start_drag"]
 
 [[permission]]
 identifier = "allow-window-open-devtools"

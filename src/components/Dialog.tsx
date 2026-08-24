@@ -2,7 +2,6 @@ import { X } from "lucide-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { GlassSurface } from "./GlassSurface";
 import { IconButton } from "./IconButton";
 
 const FOCUSABLE =
@@ -77,7 +76,7 @@ export const Dialog = ({
   return createPortal(
     <div className="dialog-root">
       <div className="dialog-overlay" onClick={() => onOpenChange(false)} />
-      <GlassSurface className="dialog-surface">
+      <div className="dialog-surface">
         <div
           ref={panelRef}
           className="dialog-panel"
@@ -96,7 +95,7 @@ export const Dialog = ({
           <div className="dialog-body">{children}</div>
           {footer ? <div className="dialog-footer">{footer}</div> : null}
         </div>
-      </GlassSurface>
+      </div>
     </div>,
     document.body,
   );

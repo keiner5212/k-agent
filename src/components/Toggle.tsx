@@ -1,8 +1,6 @@
 import type { ChangeEvent, ReactNode } from "react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { GlassFill } from "@/lib/glass-warp";
-import { GLASS } from "@/lib/glass";
 
 type ToggleProps = {
   checked: boolean;
@@ -45,10 +43,6 @@ export const Toggle = ({
           disabled={disabled}
         />
         <span aria-hidden="true" className="toggle__track">
-          <GlassFill
-            displacementScale={GLASS.toggle.displacementScale}
-            aberrationIntensity={GLASS.toggle.aberrationIntensity}
-          />
           <span className="toggle__thumb" />
         </span>
         <span className="visually-hidden">{checked ? t("common.on") : t("common.off")}</span>

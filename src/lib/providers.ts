@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import type { Provider, ProviderDraft, ProviderKind } from "@/types/providers";
+import type { ModelDraft, Provider, ProviderDraft, ProviderKind } from "@/types/providers";
 import { isTauri } from "@/lib/platform";
 
 export type ProviderMutationResult = {
@@ -27,6 +27,8 @@ type ProvidersStore = {
   remove: (id: string) => Promise<{ error?: string }>;
   refresh: (id: string) => Promise<ProviderMutationResult>;
   refreshModel: (providerId: string, modelId: string) => Promise<ProviderMutationResult>;
+  upsertModel: (providerId: string, draft: ModelDraft) => Promise<ProviderMutationResult>;
+  removeModel: (providerId: string, modelId: string) => Promise<ProviderMutationResult>;
 };
 
 export const useProvidersStore = create<ProvidersStore>((set) => ({
@@ -101,6 +103,44 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
       });
       set((state) => ({
         providers: state.providers.map((p) => (p.id === providerId ? provider : p)),
+      }));
+      return { provider };
+    } catch (error) {
+      return { error: toMessage(error) };
+    }
+  },
+
+  upsertModel: async (providerId, draft) => {
+    try {
+      const provider = await invoke<Provider>("upsert_provider_model", {
+        input: {
+          providerId,
+          originalId: draft.originalId ?? null,
+          id: draft.id,
+          displayName: draft.displayName ?? null,
+          family: draft.family ?? null,
+          contextWindow: draft.contextWindow ?? null,
+          maxOutputTokens: draft.maxOutputTokens ?? null,
+          multimodal: draft.multimodal,
+        },
+      });
+      set((state) => ({
+        providers: state.providers.map((item) => (item.id === provider.id ? provider : item)),
+      }));
+      return { provider };
+    } catch (error) {
+      return { error: toMessage(error) };
+    }
+  },
+
+  removeModel: async (providerId, modelId) => {
+    try {
+      const provider = await invoke<Provider>("delete_provider_model", {
+        id: providerId,
+        modelId,
+      });
+      set((state) => ({
+        providers: state.providers.map((item) => (item.id === provider.id ? provider : item)),
       }));
       return { provider };
     } catch (error) {

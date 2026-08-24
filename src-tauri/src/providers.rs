@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -10,6 +11,7 @@ use uuid::Uuid;
 const CONFIG_DIR: &str = ".k-agent";
 const PROVIDERS_FILE: &str = "providers.json";
 const HTTP_TIMEOUT: Duration = Duration::from_secs(20);
+const DETAIL_CONCURRENCY: usize = 8;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ProviderKind {
@@ -19,6 +21,14 @@ pub enum ProviderKind {
     AnthropicLike,
     #[serde(rename = "gemini-like")]
     GeminiLike,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ModelSource {
+    #[default]
+    Detected,
+    Custom,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,10 +46,71 @@ pub struct ModelInfo {
     pub family: Option<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub multimodal: bool,
+    #[serde(default, skip_serializing_if = "is_detected")]
+    pub source: ModelSource,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub user_edited: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub favorite: bool,
+}
+
+impl ModelInfo {
+    pub fn detected(id: &str) -> Self {
+        Self {
+            id: id.to_string(),
+            context_window: None,
+            max_output_tokens: None,
+            display_name: None,
+            family: None,
+            multimodal: false,
+            source: ModelSource::Detected,
+            user_edited: false,
+            favorite: false,
+        }
+    }
+}
+
+fn keep_local(model: &ModelInfo) -> bool {
+    model.user_edited || model.source == ModelSource::Custom
+}
+
+fn is_detected(value: &ModelSource) -> bool {
+    matches!(value, ModelSource::Detected)
 }
 
 fn is_false(value: &bool) -> bool {
     !*value
+}
+
+fn deserialize_models<'de, D>(deserializer: D) -> Result<Vec<ModelInfo>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let values = Vec::<serde_json::Value>::deserialize(deserializer)?;
+    values
+        .into_iter()
+        .map(|value| {
+            if let Some(id) = value.as_str() {
+                return Ok(ModelInfo::detected(id));
+            }
+            serde_json::from_value(value).map_err(serde::de::Error::custom)
+        })
+        .collect()
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertModelInput {
+    pub provider_id: String,
+    #[serde(default)]
+    pub original_id: Option<String>,
+    pub id: String,
+    pub display_name: Option<String>,
+    pub family: Option<String>,
+    pub context_window: Option<u64>,
+    pub max_output_tokens: Option<u64>,
+    #[serde(default)]
+    pub multimodal: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,7 +122,7 @@ pub struct Provider {
     pub base_url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_models")]
     pub models: Vec<ModelInfo>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_synced_at: Option<i64>,
@@ -81,6 +152,8 @@ pub enum ProviderError {
     Http(String),
     #[error("provider with id {0} not found")]
     NotFound(String),
+    #[error("model id already exists: {0}")]
+    Duplicate(String),
     #[error("api responded with status {status}: {body}")]
     ApiStatus { status: u16, body: String },
 }
@@ -304,7 +377,7 @@ async fn fetch_models(provider: &Provider) -> Result<Vec<String>, ProviderError>
 async fn fetch_model_details(provider: &Provider, model_id: &str) -> ModelInfo {
     let client = match http_client() {
         Ok(c) => c,
-        Err(_) => return ModelInfo { id: model_id.to_string(), context_window: None, max_output_tokens: None, display_name: None, family: None, multimodal: false },
+        Err(_) => return ModelInfo::detected(model_id),
     };
     let base = provider.base_url.trim_end_matches('/').to_string();
 
@@ -315,14 +388,12 @@ async fn fetch_model_details(provider: &Provider, model_id: &str) -> ModelInfo {
             if let Ok(resp) = resp {
                 if resp.status().is_success() {
                     if let Ok(detail) = resp.json::<OpenAiSingleModelResponse>().await {
-                        return ModelInfo {
-                            id: detail.id,
-                            context_window: detail.context_window.or(detail.max_tokens),
-                            max_output_tokens: None,
-                            display_name: detail.display_name,
-                            family: detail.family,
-                            multimodal: detail.multimodal,
-                        };
+                        let mut info = ModelInfo::detected(&detail.id);
+                        info.context_window = detail.context_window.or(detail.max_tokens);
+                        info.display_name = detail.display_name;
+                        info.family = detail.family;
+                        info.multimodal = detail.multimodal;
+                        return info;
                     }
                 } else if resp.status().as_u16() == 404 {
                     let _ = resp.bytes().await;
@@ -330,14 +401,7 @@ async fn fetch_model_details(provider: &Provider, model_id: &str) -> ModelInfo {
                     let _ = resp.bytes().await;
                 }
             }
-            ModelInfo {
-                id: model_id.to_string(),
-                context_window: None,
-                max_output_tokens: None,
-                display_name: None,
-                family: None,
-                multimodal: false,
-            }
+            ModelInfo::detected(model_id)
         }
         ProviderKind::AnthropicLike => {
             let url = format!("{base}/v1/models/{model_id}");
@@ -345,27 +409,18 @@ async fn fetch_model_details(provider: &Provider, model_id: &str) -> ModelInfo {
             if let Ok(resp) = resp {
                 if resp.status().is_success() {
                     if let Ok(detail) = resp.json::<AnthropicModel>().await {
-                        return ModelInfo {
-                            id: detail.id,
-                            context_window: detail.context_window,
-                            max_output_tokens: detail.max_tokens,
-                            display_name: detail.display_name,
-                            family: detail.family,
-                            multimodal: false,
-                        };
+                        let mut info = ModelInfo::detected(&detail.id);
+                        info.context_window = detail.context_window;
+                        info.max_output_tokens = detail.max_tokens;
+                        info.display_name = detail.display_name;
+                        info.family = detail.family;
+                        return info;
                     }
                 } else {
                     let _ = resp.bytes().await;
                 }
             }
-            ModelInfo {
-                id: model_id.to_string(),
-                context_window: None,
-                max_output_tokens: None,
-                display_name: None,
-                family: None,
-                multimodal: false,
-            }
+            ModelInfo::detected(model_id)
         }
         ProviderKind::GeminiLike => {
             let url = match provider.api_key.as_deref() {
@@ -381,27 +436,18 @@ async fn fetch_model_details(provider: &Provider, model_id: &str) -> ModelInfo {
                             .as_ref()
                             .map(|methods| methods.iter().any(|m| m.contains("image") || m.contains("vision")))
                             .unwrap_or(false);
-                        return ModelInfo {
-                            id: model_id.to_string(),
-                            context_window: detail.input_token_limit,
-                            max_output_tokens: detail.output_token_limit,
-                            display_name: detail.display_name,
-                            family: None,
-                            multimodal,
-                        };
+                        let mut info = ModelInfo::detected(model_id);
+                        info.context_window = detail.input_token_limit;
+                        info.max_output_tokens = detail.output_token_limit;
+                        info.display_name = detail.display_name;
+                        info.multimodal = multimodal;
+                        return info;
                     }
                 } else {
                     let _ = resp.bytes().await;
                 }
             }
-            ModelInfo {
-                id: model_id.to_string(),
-                context_window: None,
-                max_output_tokens: None,
-                display_name: None,
-                family: None,
-                multimodal: false,
-            }
+            ModelInfo::detected(model_id)
         }
     }
 }
@@ -411,10 +457,61 @@ async fn fetch_all_model_details(
     model_ids: &[String],
 ) -> Vec<ModelInfo> {
     let mut details = Vec::with_capacity(model_ids.len());
-    for id in model_ids {
-        details.push(fetch_model_details(provider, id).await);
+    for chunk in model_ids.chunks(DETAIL_CONCURRENCY) {
+        let mut handles = Vec::with_capacity(chunk.len());
+        for id in chunk {
+            let provider = provider.clone();
+            let model_id = id.clone();
+            handles.push(tokio::spawn(async move {
+                fetch_model_details(&provider, &model_id).await
+            }));
+        }
+        for (id, handle) in chunk.iter().zip(handles) {
+            match handle.await {
+                Ok(info) => details.push(info),
+                Err(_) => details.push(ModelInfo::detected(id)),
+            }
+        }
     }
     details
+}
+
+fn merge_models(previous: Vec<ModelInfo>, fetched: Vec<ModelInfo>) -> Vec<ModelInfo> {
+    let mut previous_by_id: HashMap<String, ModelInfo> = previous
+        .into_iter()
+        .map(|model| (model.id.clone(), model))
+        .collect();
+    let mut merged = Vec::with_capacity(fetched.len());
+    for mut model in fetched {
+        if let Some(old) = previous_by_id.remove(&model.id) {
+            if keep_local(&old) {
+                merged.push(old);
+                continue;
+            }
+            model.favorite = old.favorite;
+        }
+        merged.push(model);
+    }
+    for leftover in previous_by_id.into_values() {
+        if keep_local(&leftover) {
+            merged.push(leftover);
+        }
+    }
+    merged
+}
+
+async fn enrich_models(
+    app: &AppHandle,
+    provider: &Provider,
+    model_ids: &[String],
+    previous: Vec<ModelInfo>,
+) -> Vec<ModelInfo> {
+    let catalog = crate::catalog::load(app).await;
+    let mut fetched = fetch_all_model_details(provider, model_ids).await;
+    for model in &mut fetched {
+        catalog.apply(model);
+    }
+    merge_models(previous, fetched)
 }
 
 #[tauri::command]
@@ -438,6 +535,10 @@ pub async fn save_provider(
     let existing_idx = providers.iter().position(|p| p.id == id);
     let now = Utc::now().timestamp();
 
+    let previous_models = existing_idx
+        .and_then(|idx| providers.get(idx).map(|provider| provider.models.clone()))
+        .unwrap_or_default();
+
     let mut stored = Provider {
         id: id.clone(),
         name: input.name.trim().to_string(),
@@ -451,17 +552,17 @@ pub async fn save_provider(
                 Some(trimmed.to_string())
             }
         }),
-        models: Vec::new(),
+        models: previous_models.clone(),
         last_synced_at: None,
     };
 
     match fetch_models(&stored).await {
         Ok(model_ids) => {
-            stored.models = fetch_all_model_details(&stored, &model_ids).await;
+            stored.models = enrich_models(&app, &stored, &model_ids, previous_models).await;
             stored.last_synced_at = Some(now);
         }
         Err(_) => {
-            stored.models = Vec::new();
+            stored.models = previous_models;
             stored.last_synced_at = None;
         }
     }
@@ -499,10 +600,115 @@ pub async fn refresh_provider_models(
         .find(|p| p.id == id)
         .ok_or_else(|| ProviderError::NotFound(id.clone()))?;
 
-    let model_ids = fetch_models(provider).await?;
-    let details = fetch_all_model_details(provider, &model_ids).await;
-    provider.models = details;
+    let snapshot = provider.clone();
+    let previous = snapshot.models.clone();
+    let model_ids = fetch_models(&snapshot).await?;
+    let models = enrich_models(&app, &snapshot, &model_ids, previous).await;
+    provider.models = models;
     provider.last_synced_at = Some(Utc::now().timestamp());
+
+    let updated = provider.clone();
+    save(&path, &providers).await?;
+    Ok(updated)
+}
+
+#[tauri::command]
+pub async fn upsert_provider_model(
+    app: AppHandle,
+    input: UpsertModelInput,
+) -> Result<Provider, ProviderError> {
+    let path = providers_path(&app)?;
+    let mut providers = load(&path).await?;
+    let provider = providers
+        .iter_mut()
+        .find(|p| p.id == input.provider_id)
+        .ok_or_else(|| ProviderError::NotFound(input.provider_id.clone()))?;
+
+    let id = input.id.trim().to_string();
+    if id.is_empty() {
+        return Err(ProviderError::Parse("model id is required".to_string()));
+    }
+
+    let original_id = input
+        .original_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| id.clone());
+
+    if provider
+        .models
+        .iter()
+        .any(|model| model.id == id && model.id != original_id)
+    {
+        return Err(ProviderError::Duplicate(id));
+    }
+
+    let family = input
+        .family
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let display_name = input
+        .display_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let favorite = provider
+        .models
+        .iter()
+        .find(|model| model.id == original_id)
+        .map(|model| model.favorite)
+        .unwrap_or(false);
+
+    let next = ModelInfo {
+        id,
+        context_window: input.context_window.filter(|value| *value > 0),
+        max_output_tokens: input.max_output_tokens.filter(|value| *value > 0),
+        display_name,
+        family,
+        multimodal: input.multimodal,
+        source: ModelSource::Custom,
+        user_edited: true,
+        favorite,
+    };
+
+    if let Some(existing) = provider
+        .models
+        .iter_mut()
+        .find(|model| model.id == original_id)
+    {
+        *existing = next;
+    } else {
+        provider.models.push(next);
+    }
+
+    let updated = provider.clone();
+    save(&path, &providers).await?;
+    Ok(updated)
+}
+
+#[tauri::command]
+pub async fn delete_provider_model(
+    app: AppHandle,
+    id: String,
+    model_id: String,
+) -> Result<Provider, ProviderError> {
+    let path = providers_path(&app)?;
+    let mut providers = load(&path).await?;
+    let provider = providers
+        .iter_mut()
+        .find(|p| p.id == id)
+        .ok_or_else(|| ProviderError::NotFound(id.clone()))?;
+
+    let before = provider.models.len();
+    provider.models.retain(|model| model.id != model_id);
+    if provider.models.len() == before {
+        return Err(ProviderError::NotFound(model_id));
+    }
 
     let updated = provider.clone();
     save(&path, &providers).await?;
@@ -522,12 +728,56 @@ pub async fn refresh_single_model(
         .find(|p| p.id == id)
         .ok_or_else(|| ProviderError::NotFound(id.clone()))?;
 
-    let detail = fetch_model_details(provider, &model_id).await;
+    let favorite = provider
+        .models
+        .iter()
+        .find(|model| model.id == model_id)
+        .map(|model| {
+            if model.user_edited {
+                None
+            } else {
+                Some(model.favorite)
+            }
+        });
+    if matches!(favorite, Some(None)) {
+        return Ok(provider.clone());
+    }
+    let favorite = favorite.flatten().unwrap_or(false);
+
+    let mut detail = fetch_model_details(provider, &model_id).await;
+    crate::catalog::load(&app).await.apply(&mut detail);
+    detail.favorite = favorite;
     if let Some(existing) = provider.models.iter_mut().find(|m| m.id == model_id) {
         *existing = detail;
     } else {
         provider.models.push(detail);
     }
+
+    let updated = provider.clone();
+    save(&path, &providers).await?;
+    Ok(updated)
+}
+
+#[tauri::command]
+pub async fn set_model_favorite(
+    app: AppHandle,
+    id: String,
+    model_id: String,
+    favorite: bool,
+) -> Result<Provider, ProviderError> {
+    let path = providers_path(&app)?;
+    let mut providers = load(&path).await?;
+    let provider = providers
+        .iter_mut()
+        .find(|p| p.id == id)
+        .ok_or_else(|| ProviderError::NotFound(id.clone()))?;
+
+    let model = provider
+        .models
+        .iter_mut()
+        .find(|model| model.id == model_id)
+        .ok_or_else(|| ProviderError::NotFound(model_id))?;
+    model.favorite = favorite;
 
     let updated = provider.clone();
     save(&path, &providers).await?;

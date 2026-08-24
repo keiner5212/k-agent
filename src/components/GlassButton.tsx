@@ -1,6 +1,4 @@
 import { forwardRef, type ButtonHTMLAttributes, type MouseEvent } from "react";
-import { GlassFill } from "@/lib/glass-warp";
-import { GLASS } from "@/lib/glass";
 
 type GlassButtonVariant = "primary" | "ghost" | "danger";
 
@@ -45,10 +43,6 @@ export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
         disabled={disabled}
         onClick={handleClick}
       >
-        <GlassFill
-          displacementScale={GLASS.button.displacementScale}
-          aberrationIntensity={GLASS.button.aberrationIntensity}
-        />
         <span className="btn__label">{children}</span>
       </button>
     );
