@@ -1,0 +1,21 @@
+# Force LF line endings for source files; Windows runners otherwise rewrite to CRLF and break Prettier.
+* text=auto eol=lf
+
+# Binary assets
+*.png binary
+*.ico binary
+*.icns binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.mp4 binary
+*.webm binary
+
+# Generated lockfiles stay canonical
+pnpm-lock.yaml text eol=lf
+Cargo.lock text eol=lf
