@@ -92,6 +92,33 @@ fn window_apply_bounds(window: tauri::WebviewWindow, bounds: WindowBounds) -> Re
     Ok(())
 }
 
+fn parse_resize_edge(edge: &str) -> Result<tauri_runtime::ResizeDirection, String> {
+    match edge {
+        "north" => Ok(tauri_runtime::ResizeDirection::North),
+        "south" => Ok(tauri_runtime::ResizeDirection::South),
+        "east" => Ok(tauri_runtime::ResizeDirection::East),
+        "west" => Ok(tauri_runtime::ResizeDirection::West),
+        "north-east" => Ok(tauri_runtime::ResizeDirection::NorthEast),
+        "north-west" => Ok(tauri_runtime::ResizeDirection::NorthWest),
+        "south-east" => Ok(tauri_runtime::ResizeDirection::SouthEast),
+        "south-west" => Ok(tauri_runtime::ResizeDirection::SouthWest),
+        _ => Err("invalid resize edge".into()),
+    }
+}
+
+#[tauri::command]
+fn window_start_resize(window: tauri::Window, edge: String) -> Result<(), String> {
+    let direction = parse_resize_edge(&edge)?;
+    window
+        .start_resize_dragging(direction)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn window_open_devtools(window: tauri::WebviewWindow) {
+    window.open_devtools();
+}
+
 fn toggle_window_visibility(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         match window.is_visible() {
@@ -176,6 +203,8 @@ pub fn run() {
             window_close,
             window_get_bounds,
             window_apply_bounds,
+            window_start_resize,
+            window_open_devtools,
             list_providers,
             save_provider,
             delete_provider,

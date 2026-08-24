@@ -2,6 +2,9 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
+import { GlassButton } from "@/components/GlassButton";
+import { invoke } from "@tauri-apps/api/core";
+import { isTauri } from "@/lib/platform";
 import { useSettingsStore } from "@/lib/settings";
 import {
   SUPPORTED_LANGUAGES,
@@ -105,6 +108,12 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
         {item.type === "keybinding" ? (
           <KeybindingField action={item.id as KeybindingAction} />
         ) : null}
+
+        {item.type === "action" ? (
+          <GlassButton variant="ghost" onClick={() => runSettingAction(item.id)}>
+            {t("settings.debug.devtools.action")}
+          </GlassButton>
+        ) : null}
       </div>
     </div>
   );
@@ -118,6 +127,17 @@ type ToggleState = {
   animationsEnabled: boolean;
   minimizeToTray: boolean;
   rememberWindowSize: boolean;
+};
+
+const runSettingAction = (id: string): void => {
+  if (id !== "openDevtools") return;
+  if (!isTauri()) {
+    console.warn("window_open_devtools skipped: not running in Tauri");
+    return;
+  }
+  void invoke("window_open_devtools").catch((error: unknown) => {
+    console.warn("window_open_devtools failed", error);
+  });
 };
 
 const selectValue = (id: string, state: LangState & ThemeState & ScaleState): string => {

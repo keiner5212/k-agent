@@ -100,4 +100,18 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
       },
     ],
   },
+  {
+    id: "debug",
+    titleKey: "settings.sections.debug",
+    keywords: ["devtools", "inspector", "debug", "depuracion"],
+    items: [
+      {
+        id: "openDevtools",
+        type: "action",
+        titleKey: "settings.debug.devtools.label",
+        descriptionKey: "settings.debug.devtools.description",
+        keywords: ["devtools", "inspector", "console", "debug"],
+      },
+    ],
+  },
 ];

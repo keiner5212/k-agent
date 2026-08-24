@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { GearButton } from "@/components/GearButton";
 import { WindowControls } from "@/components/WindowControls";
+import { WindowResizeFrame } from "@/components/WindowResizeFrame";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
 import { useGlobalKeybindings } from "@/lib/use-global-keybindings";
 import { useSettingsStore } from "@/lib/settings";
@@ -38,6 +39,7 @@ export const App = (): ReactNode => {
 
   return (
     <div className="app-shell">
+      <WindowResizeFrame />
       <header className="app-titlebar">
         <span className="app-titlebar__brand">{t("app.name")}</span>
         <span className="app-titlebar__drag" aria-hidden="true" />

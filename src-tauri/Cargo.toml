@@ -14,8 +14,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
-tauri = { version = "2.11.5", features = ["tray-icon"] }
+tauri = { version = "2.11.5", features = ["tray-icon", "devtools"] }
 tauri-plugin-store = "2.4.4"
+tauri-runtime = "2.11.3"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde"] }
 glib = "0.18.5"
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls"] }

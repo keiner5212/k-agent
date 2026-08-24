@@ -25,7 +25,8 @@
     "sections": {
       "general": "General",
       "providers": "Proveedores",
-      "keybindings": "Atajos de teclado"
+      "keybindings": "Atajos de teclado",
+      "debug": "Depuracion"
     },
     "language": {
       "description": "Elige el idioma de la interfaz.",
@@ -81,6 +82,13 @@
       "reset": "Restablecer valores",
       "action": "Accion",
       "shortcut": "Atajo"
+    },
+    "debug": {
+      "devtools": {
+        "label": "Herramientas de desarrollo",
+        "description": "Abre el inspector webview de esta ventana.",
+        "action": "Abrir DevTools"
+      }
     }
   },
   "providers": {

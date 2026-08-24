@@ -25,7 +25,8 @@
     "sections": {
       "general": "General",
       "providers": "Providers",
-      "keybindings": "Keybindings"
+      "keybindings": "Keybindings",
+      "debug": "Debug"
     },
     "language": {
       "description": "Choose the interface language.",
@@ -81,6 +82,13 @@
       "reset": "Restore defaults",
       "action": "Action",
       "shortcut": "Shortcut"
+    },
+    "debug": {
+      "devtools": {
+        "label": "Developer tools",
+        "description": "Open the webview inspector for this window.",
+        "action": "Open DevTools"
+      }
     }
   },
   "providers": {

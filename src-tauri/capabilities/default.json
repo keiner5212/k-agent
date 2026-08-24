@@ -18,6 +18,8 @@
     "allow-window-is-maximized",
     "allow-window-close",
     "allow-window-get-bounds",
-    "allow-window-apply-bounds"
+    "allow-window-apply-bounds",
+    "allow-window-start-resize",
+    "allow-window-open-devtools"
   ]
 }

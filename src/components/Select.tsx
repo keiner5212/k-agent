@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { GlassFill } from "@/lib/glass-warp";
+import { GLASS } from "@/lib/glass";
 
 type SelectOption = {
   value: string;
@@ -161,6 +163,10 @@ export const Select = ({
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={onTriggerKey}
       >
+        <GlassFill
+          displacementScale={GLASS.select.displacementScale}
+          aberrationIntensity={GLASS.select.aberrationIntensity}
+        />
         <span className="select__value">{selected?.label ?? placeholder}</span>
         <span className="select__icon">
           <ChevronDown size={14} strokeWidth={1.5} />
@@ -179,6 +185,10 @@ export const Select = ({
                 node?.focus();
               }}
             >
+              <GlassFill
+                displacementScale={GLASS.menu.displacementScale}
+                aberrationIntensity={GLASS.menu.aberrationIntensity}
+              />
               {options.map((option, index) => {
                 const isSelected = option.value === value;
                 return (

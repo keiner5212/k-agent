@@ -14,6 +14,8 @@ permissions = [
   "allow-window-close",
   "allow-window-get-bounds",
   "allow-window-apply-bounds",
+  "allow-window-start-resize",
+  "allow-window-open-devtools",
 ]
 
 [[permission]]
@@ -80,3 +82,13 @@ commands.allow = ["window_get_bounds"]
 identifier = "allow-window-apply-bounds"
 description = "Apply a saved size and maximized state to the main window."
 commands.allow = ["window_apply_bounds"]
+
+[[permission]]
+identifier = "allow-window-start-resize"
+description = "Start edge resize dragging on the main window."
+commands.allow = ["window_start_resize"]
+
+[[permission]]
+identifier = "allow-window-open-devtools"
+description = "Open the webview developer tools."
+commands.allow = ["window_open_devtools"]

@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Keyboard, Plug, Sliders } from "lucide-react";
+import { Bug, Keyboard, Plug, Sliders } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { ProvidersPanel } from "@/features/providers/ProvidersPanel";
@@ -22,6 +22,7 @@ const TABS: readonly TabMeta[] = [
   { id: "general", icon: Sliders, labelKey: "settings.sections.general" },
   { id: "providers", icon: Plug, labelKey: "settings.sections.providers" },
   { id: "keybindings", icon: Keyboard, labelKey: "settings.sections.keybindings" },
+  { id: "debug", icon: Bug, labelKey: "settings.sections.debug" },
 ];
 
 type SettingsDialogProps = {

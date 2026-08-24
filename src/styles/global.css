@@ -6,6 +6,7 @@
 }
 
 .app-titlebar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -52,7 +53,7 @@
 
 .app-titlebar__actions {
   display: inline-flex;
-  align-items: stretch;
+  align-items: center;
   gap: 2px;
   height: 100%;
   -webkit-app-region: no-drag;
@@ -82,8 +83,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  box-sizing: border-box;
+  width: 32px;
+  height: 100%;
   color: var(--text-secondary);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -419,7 +421,14 @@
 .select {
   cursor: pointer;
   position: relative;
+  isolation: isolate;
   padding-right: var(--space-6);
+}
+
+.select__value,
+.select__icon {
+  position: relative;
+  z-index: 1;
 }
 
 .select__value {
@@ -453,6 +462,8 @@
 .select-menu {
   position: fixed;
   z-index: 70;
+  isolation: isolate;
+  overflow: hidden;
   margin: 0;
   padding: var(--space-1);
   list-style: none;
@@ -470,6 +481,7 @@
 
 .select-item {
   position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -620,6 +632,8 @@
 /* ========== Buttons ========== */
 
 .btn {
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -640,99 +654,63 @@
     box-shadow var(--duration-fast) var(--ease-standard);
 }
 
+.btn__label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: inherit;
+}
+
 .btn:active {
   transform: scale(0.97);
 }
 
-.glass-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
+.glass-warp {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
   isolation: isolate;
 }
 
-.glass-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.glass-warp__svg {
+  position: absolute;
+  width: 0;
+  height: 0;
 }
 
-.glass-btn:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-.glass-btn__sizer,
-.glass-btn__label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: 6px 14px;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  white-space: nowrap;
-}
-
-.glass-btn__sizer {
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.glass-btn__fx {
+.glass-warp__frost {
   position: absolute;
   inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  border-radius: 8px;
-  background-color: color-mix(in oklch, var(--surface-elevated) 58%, transparent);
-  border: 1px solid color-mix(in oklch, var(--text-primary) 12%, transparent);
-  -webkit-backdrop-filter: saturate(160%) blur(16px);
-  backdrop-filter: saturate(160%) blur(16px);
+  border-radius: inherit;
+  background-color: color-mix(in oklch, var(--surface-elevated) 28%, transparent);
+  -webkit-backdrop-filter: saturate(190%) blur(18px);
+  backdrop-filter: saturate(190%) blur(18px);
 }
 
-.glass-btn__fill {
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-width: 2.5rem;
-  min-height: 1.75rem;
-}
-
-.glass-btn__label {
+.glass-warp__sheen {
   position: absolute;
   inset: 0;
-  z-index: 1;
-  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(255, 255, 255, 0.06) 36%,
+    transparent 58%
+  );
 }
 
-.glass-btn--primary {
-  color: var(--text-primary);
-}
-
-.glass-btn--primary .glass-btn__fx {
-  background-color: color-mix(in oklch, var(--accent) 30%, transparent);
-  border-color: color-mix(in oklch, var(--accent) 42%, transparent);
-}
-
-.glass-btn--ghost {
-  color: var(--text-secondary);
-}
-
-.glass-btn--danger {
-  color: var(--danger);
-}
-
-.glass-btn--danger .glass-btn__fx {
-  background-color: color-mix(in oklch, var(--danger) 22%, transparent);
-  border-color: color-mix(in oklch, var(--danger) 38%, transparent);
+.glass-warp__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
 .btn:disabled {
@@ -855,6 +833,7 @@
 
 .toggle__track {
   position: relative;
+  isolation: isolate;
   display: block;
   width: 100%;
   height: 100%;
@@ -865,12 +844,14 @@
 
 .toggle__thumb {
   position: absolute;
+  z-index: 1;
   top: 2px;
   left: 2px;
   width: 14px;
   height: 14px;
   background-color: var(--text-primary);
   border-radius: var(--radius-sm);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   transition: transform var(--duration-enter) var(--ease-out);
 }
 
@@ -1399,24 +1380,64 @@
 
 :root[data-translucent="true"] .select,
 :root[data-translucent="true"] .input {
-  background-color: color-mix(in oklch, var(--background) 85%, transparent);
+  background-color: transparent;
 }
 
 :root[data-translucent="true"] .select:hover,
 :root[data-translucent="true"] .input:hover {
-  background-color: color-mix(in oklch, var(--background) 95%, transparent);
+  background-color: transparent;
 }
 
 :root[data-translucent="true"] .select:focus,
 :root[data-translucent="true"] .input:focus {
-  background-color: color-mix(in oklch, var(--background) 100%, transparent);
+  background-color: transparent;
 }
 
 :root[data-translucent="true"] .select-menu {
-  background-color: color-mix(in oklch, var(--surface) 88%, transparent);
+  background-color: transparent;
   border-color: color-mix(in oklch, var(--border-strong) 70%, transparent);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  backdrop-filter: saturate(180%) blur(24px);
+}
+
+:root[data-translucent="true"] .btn--primary {
+  background-color: transparent;
+  color: var(--text-primary);
+  border-color: color-mix(in oklch, var(--accent) 48%, transparent);
+}
+
+:root[data-translucent="true"] .btn--primary .glass-warp__frost {
+  background-color: color-mix(in oklch, var(--accent) 42%, transparent);
+}
+
+:root[data-translucent="true"] .btn--primary:hover:not(:disabled) {
+  background-color: transparent;
+}
+
+:root[data-translucent="true"] .btn--ghost {
+  background-color: transparent;
+}
+
+:root[data-translucent="true"] .btn--ghost:hover {
+  background-color: transparent;
+}
+
+:root[data-translucent="true"] .btn--danger {
+  background-color: transparent;
+}
+
+:root[data-translucent="true"] .btn--danger .glass-warp__frost {
+  background-color: color-mix(in oklch, var(--danger) 32%, transparent);
+}
+
+:root[data-translucent="true"] .toggle__track {
+  background-color: transparent;
+}
+
+:root[data-translucent="true"] .toggle[data-on="true"] .toggle__track {
+  background-color: transparent;
+}
+
+:root[data-translucent="true"] .toggle[data-on="true"] .glass-warp__frost {
+  background-color: color-mix(in oklch, var(--accent) 52%, transparent);
 }
 
 :root[data-translucent="true"] .kbd-table th,
@@ -1426,14 +1447,6 @@
 
 :root[data-translucent="true"] .kbd-row {
   background-color: color-mix(in oklch, var(--background) 70%, transparent);
-}
-
-:root[data-translucent="true"] .btn--ghost {
-  background-color: color-mix(in oklch, var(--surface-elevated) 40%, transparent);
-}
-
-:root[data-translucent="true"] .btn--ghost:hover {
-  background-color: color-mix(in oklch, var(--surface-elevated) 80%, transparent);
 }
 
 :root[data-translucent="true"] .toggle-row:not(.toggle-row--control) {
@@ -1455,6 +1468,85 @@
 
 :root[data-translucent="true"] .kbd-capture {
   background-color: color-mix(in oklch, var(--surface-elevated) 80%, transparent);
+}
+
+/* ========== Window resize ========== */
+
+.window-resize {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.window-resize__edge {
+  position: absolute;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.window-resize__edge--north {
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 6px;
+  cursor: n-resize;
+}
+
+.window-resize__edge--south {
+  bottom: 0;
+  left: 8px;
+  right: 8px;
+  height: 6px;
+  cursor: s-resize;
+}
+
+.window-resize__edge--east {
+  top: 8px;
+  right: 0;
+  bottom: 8px;
+  width: 6px;
+  cursor: e-resize;
+}
+
+.window-resize__edge--west {
+  top: 8px;
+  left: 0;
+  bottom: 8px;
+  width: 6px;
+  cursor: w-resize;
+}
+
+.window-resize__edge--north-east {
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  cursor: ne-resize;
+}
+
+.window-resize__edge--north-west {
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nw-resize;
+}
+
+.window-resize__edge--south-east {
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  cursor: se-resize;
+}
+
+.window-resize__edge--south-west {
+  bottom: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: sw-resize;
 }
 
 /* ========== Animations off ========== */
