@@ -2,6 +2,8 @@ mod catalog;
 mod providers;
 mod secret;
 
+pub const APP_CONFIG_DIR: &str = ".k-agent";
+
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
@@ -225,7 +227,7 @@ pub fn run() {
         ])
         .setup(|app| {
             if let Ok(home) = app.path().home_dir() {
-                if let Err(error) = crate::secret::ensure_master_key(&home.join(".k-agent")) {
+                if let Err(error) = crate::secret::ensure_master_key(&home.join(APP_CONFIG_DIR)) {
                     eprintln!("k-agent master key: {error}");
                 }
             }

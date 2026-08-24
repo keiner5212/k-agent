@@ -9,7 +9,7 @@ import {
   type Provider,
   type ProviderKind,
 } from "@/types/providers";
-import { providerKindLabel, useProvidersStore } from "@/lib/providers";
+import { useProvidersStore } from "@/lib/providers";
 
 type ProviderFormProps = {
   draft?: Provider;
@@ -93,7 +93,7 @@ export const ProviderForm = ({ draft, onCancel, onSaved }: ProviderFormProps): R
           onChange={(next) => handleKindChange(next as ProviderKind)}
           options={PROVIDER_KINDS.map((value) => ({
             value,
-            label: providerKindLabel(value),
+            label: t(`providers.kinds.${value}`),
           }))}
         />
         <span className="field__hint">{t(`providers.form.kindHint.${kind}`)}</span>

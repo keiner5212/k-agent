@@ -103,20 +103,6 @@ const sanitizeSettings = (raw: unknown): Settings => {
   };
 };
 
-type Persistable = Pick<
-  Settings,
-  | "language"
-  | "theme"
-  | "minimizeToTray"
-  | "translucencyEnabled"
-  | "animationsEnabled"
-  | "rememberWindowSize"
-  | "windowBounds"
-  | "textScale"
-  | "maxWorkerCores"
-  | "keybindings"
->;
-
 type SettingsStore = Settings & {
   hydrated: boolean;
   hydrate: () => Promise<void>;
@@ -140,7 +126,7 @@ const getStore = (): LazyStore => {
   return storeHandle;
 };
 
-const persist = async (next: Persistable): Promise<void> => {
+const persist = async (next: Settings): Promise<void> => {
   if (!isTauri()) return;
   try {
     await getStore().set(STORE_KEY, next);
@@ -175,6 +161,13 @@ const systemPrefersReducedMotion = (): boolean => {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 };
 
+const applyChrome = (settings: Settings): void => {
+  applyTheme(settings.theme);
+  applyTranslucency(settings.translucencyEnabled);
+  applyAnimations(settings.animationsEnabled && !systemPrefersReducedMotion());
+  applyTextScale(settings.textScale);
+};
+
 const syncMinimizeToTray = async (enabled: boolean): Promise<void> => {
   if (!isTauri()) return;
   try {
@@ -184,7 +177,7 @@ const syncMinimizeToTray = async (enabled: boolean): Promise<void> => {
   }
 };
 
-const snapshot = (state: SettingsStore): Persistable => ({
+const snapshot = (state: SettingsStore): Settings => ({
   language: state.language,
   theme: state.theme,
   minimizeToTray: state.minimizeToTray,
@@ -203,28 +196,19 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   hydrate: async () => {
     if (!isTauri()) {
-      applyTheme(DEFAULT_SETTINGS.theme);
-      applyTranslucency(DEFAULT_TRANSLUCENCY_ENABLED);
-      applyAnimations(DEFAULT_ANIMATIONS_ENABLED && !systemPrefersReducedMotion());
-      applyTextScale(DEFAULT_TEXT_SCALE);
+      applyChrome(DEFAULT_SETTINGS);
       set({ hydrated: true });
       return;
     }
     try {
       const raw = await getStore().get<Settings>(STORE_KEY);
       const next = sanitizeSettings(raw);
-      applyTheme(next.theme);
-      applyTranslucency(next.translucencyEnabled);
-      applyAnimations(next.animationsEnabled && !systemPrefersReducedMotion());
-      applyTextScale(next.textScale);
+      applyChrome(next);
       void syncMinimizeToTray(next.minimizeToTray);
       set({ ...next, hydrated: true });
     } catch (error) {
       console.warn("settings hydrate failed", error);
-      applyTheme(DEFAULT_SETTINGS.theme);
-      applyTranslucency(DEFAULT_TRANSLUCENCY_ENABLED);
-      applyAnimations(DEFAULT_ANIMATIONS_ENABLED && !systemPrefersReducedMotion());
-      applyTextScale(DEFAULT_TEXT_SCALE);
+      applyChrome(DEFAULT_SETTINGS);
       set({ hydrated: true });
     }
   },
@@ -280,8 +264,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   },
 
   setTextScale: (scale) => {
-    applyTextScale(scale);
-    set({ textScale: scale });
+    const textScale = sanitizeTextScale(scale);
+    applyTextScale(textScale);
+    set({ textScale });
     void persist(snapshot(get()));
   },
 
@@ -302,10 +287,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   },
 
   resetAll: () => {
-    applyTheme(DEFAULT_SETTINGS.theme);
-    applyTranslucency(DEFAULT_TRANSLUCENCY_ENABLED);
-    applyAnimations(DEFAULT_ANIMATIONS_ENABLED && !systemPrefersReducedMotion());
-    applyTextScale(DEFAULT_TEXT_SCALE);
+    applyChrome(DEFAULT_SETTINGS);
     void syncMinimizeToTray(DEFAULT_SETTINGS.minimizeToTray);
     set({ ...DEFAULT_SETTINGS, hydrated: true });
     void persist(DEFAULT_SETTINGS);

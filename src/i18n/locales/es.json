@@ -101,6 +101,11 @@
     }
   },
   "providers": {
+    "kinds": {
+      "openai-like": "Compatible con OpenAI",
+      "anthropic-like": "Compatible con Anthropic",
+      "gemini-like": "Compatible con Gemini"
+    },
     "title": "Proveedores",
     "description": "Endpoints de proveedores de IA. Los modelos detectados toman capacidades de models.dev; puedes editar o anadir modelos y variantes.",
     "add": "Anadir proveedor",

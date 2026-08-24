@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
 use crate::providers::ModelInfo;
+use crate::APP_CONFIG_DIR;
 
-const CONFIG_DIR: &str = ".k-agent";
 const CACHE_FILE: &str = "models-dev-cache.json";
 const MODELS_DEV_URL: &str = "https://models.dev/api.json";
 const CACHE_TTL_SECS: i64 = 86_400;
@@ -134,7 +135,7 @@ impl Catalog {
         }
     }
 
-    fn extend(&mut self, entries: Vec<CatalogEntry>) {
+    fn extend(&mut self, entries: impl IntoIterator<Item = CatalogEntry>) {
         for entry in entries {
             self.insert(entry);
         }
@@ -204,17 +205,20 @@ pub async fn load(app: &AppHandle) -> Catalog {
     if let Ok(entries) = load_remote_or_cache(app).await {
         catalog.extend(entries);
     }
-    catalog.extend(bundled_entries());
+    catalog.extend(bundled_entries().iter().cloned());
     catalog
 }
 
-fn bundled_entries() -> Vec<CatalogEntry> {
-    serde_json::from_str(BUNDLED).unwrap_or_default()
+fn bundled_entries() -> &'static [CatalogEntry] {
+    static ENTRIES: OnceLock<Vec<CatalogEntry>> = OnceLock::new();
+    ENTRIES
+        .get_or_init(|| serde_json::from_str(BUNDLED).unwrap_or_default())
+        .as_slice()
 }
 
 fn cache_path(app: &AppHandle) -> Option<PathBuf> {
     let home = app.path().home_dir().ok()?;
-    Some(home.join(CONFIG_DIR).join(CACHE_FILE))
+    Some(home.join(APP_CONFIG_DIR).join(CACHE_FILE))
 }
 
 async fn load_remote_or_cache(app: &AppHandle) -> Result<Vec<CatalogEntry>, String> {

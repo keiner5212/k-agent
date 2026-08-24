@@ -14,7 +14,15 @@ export type ModelInfo = {
   maxOutputTokens?: number;
   displayName?: string;
   family?: string;
+  knowledge?: string;
+  input?: string[];
+  output?: string[];
+  reasoning?: boolean;
+  toolCall?: boolean;
+  structuredOutput?: boolean;
+  attachment?: boolean;
   multimodal?: boolean;
+  effortLevels?: string[];
   source?: ModelSource;
   userEdited?: boolean;
   favorite?: boolean;

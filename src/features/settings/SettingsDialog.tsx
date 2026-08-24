@@ -18,12 +18,18 @@ type TabMeta = {
   labelKey: string;
 };
 
-const TABS: readonly TabMeta[] = [
-  { id: "general", icon: Sliders, labelKey: "settings.sections.general" },
-  { id: "providers", icon: Plug, labelKey: "settings.sections.providers" },
-  { id: "keybindings", icon: Keyboard, labelKey: "settings.sections.keybindings" },
-  { id: "debug", icon: Bug, labelKey: "settings.sections.debug" },
-];
+const SECTION_ICONS: Record<SettingsSectionDef["id"], typeof Sliders> = {
+  general: Sliders,
+  providers: Plug,
+  keybindings: Keyboard,
+  debug: Bug,
+};
+
+const TABS: readonly TabMeta[] = SETTINGS_REGISTRY.map((section) => ({
+  id: section.id,
+  icon: SECTION_ICONS[section.id],
+  labelKey: section.titleKey,
+}));
 
 type SettingsDialogProps = {
   open: boolean;

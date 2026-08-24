@@ -101,6 +101,11 @@
     }
   },
   "providers": {
+    "kinds": {
+      "openai-like": "OpenAI compatible",
+      "anthropic-like": "Anthropic compatible",
+      "gemini-like": "Gemini compatible"
+    },
     "title": "Providers",
     "description": "AI provider endpoints. Detected models get capability data from models.dev; you can edit or add models and variants.",
     "add": "Add provider",

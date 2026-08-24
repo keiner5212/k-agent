@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Copy, Eye, EyeOff, Loader2, Pencil, Plug, Plus, RefreshCw, Star, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
-import { providerKindLabel, useProvidersStore } from "@/lib/providers";
+import { useProvidersStore } from "@/lib/providers";
 import { formatContextWindow, type ModelDraft, type ModelInfo, type Provider } from "@/types/providers";
 import { ModelForm } from "./ModelForm";
 import { ProviderForm } from "./ProviderForm";
@@ -200,7 +200,7 @@ const ProviderCard = ({
       <div className="provider-card__header">
         <div className="provider-card__title">
           <span className="provider-card__name">{provider.name}</span>
-          <span className="provider-card__badge">{providerKindLabel(provider.kind)}</span>
+          <span className="provider-card__badge">{t(`providers.kinds.${provider.kind}`)}</span>
         </div>
         <div className="provider-card__actions">
           <IconButton

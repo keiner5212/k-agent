@@ -8,7 +8,8 @@ use tauri::{AppHandle, Manager};
 use thiserror::Error;
 use uuid::Uuid;
 
-const CONFIG_DIR: &str = ".k-agent";
+use crate::APP_CONFIG_DIR;
+
 const PROVIDERS_FILE: &str = "providers.json";
 const HTTP_TIMEOUT: Duration = Duration::from_secs(20);
 const DETAIL_CONCURRENCY: usize = 8;
@@ -303,7 +304,7 @@ fn providers_path(app: &AppHandle) -> Result<PathBuf, ProviderError> {
         .path()
         .home_dir()
         .map_err(|e| ProviderError::Path(e.to_string()))?;
-    Ok(home.join(CONFIG_DIR).join(PROVIDERS_FILE))
+    Ok(home.join(APP_CONFIG_DIR).join(PROVIDERS_FILE))
 }
 
 async fn load(path: &Path) -> Result<Vec<Provider>, ProviderError> {

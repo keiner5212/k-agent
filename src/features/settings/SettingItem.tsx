@@ -212,9 +212,9 @@ const onSelectChange = (
 
 const toggleChecked = (id: string, state: ToggleState): boolean => {
   switch (id) {
-    case "translucency":
+    case "translucencyEnabled":
       return !state.translucencyEnabled;
-    case "animations":
+    case "animationsEnabled":
       return !state.animationsEnabled;
     case "minimizeToTray":
       return state.minimizeToTray;
@@ -236,10 +236,10 @@ const onToggleChange = (
   },
 ): void => {
   switch (id) {
-    case "translucency":
+    case "translucencyEnabled":
       setters.setTranslucencyEnabled(!next);
       return;
-    case "animations":
+    case "animationsEnabled":
       setters.setAnimationsEnabled(!next);
       return;
     case "minimizeToTray":

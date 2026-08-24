@@ -42,14 +42,14 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         keywords: ["size", "font", "zoom", "scale", "tamano"],
       },
       {
-        id: "translucency",
+        id: "translucencyEnabled",
         type: "toggle",
         titleKey: "settings.translucency.label",
         descriptionKey: "settings.translucency.description",
         keywords: ["glass", "blur", "transparent", "transparencia", "frosted"],
       },
       {
-        id: "animations",
+        id: "animationsEnabled",
         type: "toggle",
         titleKey: "settings.animations.label",
         descriptionKey: "settings.animations.description",
