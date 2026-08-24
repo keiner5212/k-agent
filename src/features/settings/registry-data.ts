@@ -1,0 +1,124 @@
+import type { SettingsSectionDef } from "./registry";
+
+export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
+  {
+    id: "general",
+    titleKey: "settings.sections.general",
+    items: [
+      {
+        id: "language",
+        type: "select",
+        titleKey: "settings.language.label",
+        descriptionKey: "settings.language.description",
+        options: [
+          { value: "en", labelKey: "settings.language.options.en" },
+          { value: "es", labelKey: "settings.language.options.es" },
+        ],
+        keywords: ["locale", "idioma", "lang"],
+      },
+      {
+        id: "theme",
+        type: "select",
+        titleKey: "settings.theme.label",
+        descriptionKey: "settings.theme.description",
+        options: [
+          { value: "dark", labelKey: "settings.theme.options.dark" },
+          { value: "light", labelKey: "settings.theme.options.light" },
+        ],
+        keywords: ["dark", "light", "color", "color scheme", "tema"],
+      },
+      {
+        id: "textScale",
+        type: "select",
+        titleKey: "settings.textScale.label",
+        descriptionKey: "settings.textScale.description",
+        options: [
+          { value: "0.875", labelKey: "settings.textScale.options.87" },
+          { value: "0.92", labelKey: "settings.textScale.options.92" },
+          { value: "1", labelKey: "settings.textScale.options.100" },
+          { value: "1.125", labelKey: "settings.textScale.options.112" },
+          { value: "1.25", labelKey: "settings.textScale.options.125" },
+        ],
+        keywords: ["size", "font", "zoom", "scale", "tamano"],
+      },
+      {
+        id: "translucencyEnabled",
+        type: "toggle",
+        titleKey: "settings.translucency.label",
+        descriptionKey: "settings.translucency.description",
+        keywords: ["glass", "blur", "transparent", "transparencia", "frosted"],
+      },
+      {
+        id: "animationsEnabled",
+        type: "toggle",
+        titleKey: "settings.animations.label",
+        descriptionKey: "settings.animations.description",
+        keywords: ["motion", "transition", "animaciones"],
+      },
+      {
+        id: "minimizeToTray",
+        type: "toggle",
+        titleKey: "settings.tray.label",
+        descriptionKey: "settings.tray.description",
+        keywords: ["system tray", "minimize", "bandeja", "background"],
+      },
+      {
+        id: "rememberWindowSize",
+        type: "toggle",
+        titleKey: "settings.windowSize.label",
+        descriptionKey: "settings.windowSize.description",
+        keywords: ["resize", "window", "size", "persist", "tamano", "ventana"],
+      },
+      {
+        id: "maxWorkerCores",
+        type: "select",
+        titleKey: "settings.maxWorkerCores.label",
+        descriptionKey: "settings.maxWorkerCores.description",
+        keywords: ["cpu", "cores", "threads", "parallel", "workers", "nucleos"],
+      },
+    ],
+  },
+  {
+    id: "providers",
+    titleKey: "settings.sections.providers",
+    descriptionKey: "providers.description",
+    keywords: ["provider", "api", "openai", "anthropic", "gemini", "model", "endpoint", "proveedor"],
+    items: [],
+  },
+  {
+    id: "keybindings",
+    titleKey: "settings.sections.keybindings",
+    descriptionKey: "settings.keybindings.description",
+    keywords: ["shortcut", "hotkey", "atajo", "keyboard"],
+    items: [
+      {
+        id: "settings.open",
+        type: "keybinding",
+        titleKey: "settings.keybindings.actions.settings.open",
+        descriptionKey: "settings.keybindings.description",
+        keywords: ["shortcut", "hotkey", "atajo"],
+      },
+      {
+        id: "settings.close",
+        type: "keybinding",
+        titleKey: "settings.keybindings.actions.settings.close",
+        descriptionKey: "settings.keybindings.description",
+        keywords: ["shortcut", "hotkey", "atajo"],
+      },
+    ],
+  },
+  {
+    id: "debug",
+    titleKey: "settings.sections.debug",
+    keywords: ["devtools", "inspector", "debug", "depuracion"],
+    items: [
+      {
+        id: "openDevtools",
+        type: "action",
+        titleKey: "settings.debug.devtools.label",
+        descriptionKey: "settings.debug.devtools.description",
+        keywords: ["devtools", "inspector", "console", "debug"],
+      },
+    ],
+  },
+];

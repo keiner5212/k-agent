@@ -1,0 +1,118 @@
+[default]
+description = "Default permissions for provider and window commands."
+permissions = [
+  "allow-list",
+  "allow-save",
+  "allow-delete",
+  "allow-refresh",
+  "allow-refresh-single",
+  "allow-upsert-model",
+  "allow-delete-model",
+  "allow-set-favorite",
+  "allow-set-minimize-to-tray",
+  "allow-get-minimize-to-tray",
+  "allow-window-minimize",
+  "allow-window-toggle-maximize",
+  "allow-window-is-maximized",
+  "allow-window-close",
+  "allow-window-get-bounds",
+  "allow-window-apply-bounds",
+  "allow-window-start-resize",
+  "allow-window-start-drag",
+  "allow-window-open-devtools",
+]
+
+[[permission]]
+identifier = "allow-list"
+description = "List configured providers."
+commands.allow = ["list_providers"]
+
+[[permission]]
+identifier = "allow-save"
+description = "Create or update a provider."
+commands.allow = ["save_provider"]
+
+[[permission]]
+identifier = "allow-delete"
+description = "Delete a provider."
+commands.allow = ["delete_provider"]
+
+[[permission]]
+identifier = "allow-refresh"
+description = "Refresh the model list for a provider."
+commands.allow = ["refresh_provider_models"]
+
+[[permission]]
+identifier = "allow-refresh-single"
+description = "Refresh a single model's details."
+commands.allow = ["refresh_single_model"]
+
+[[permission]]
+identifier = "allow-upsert-model"
+description = "Create or update a stored model and its capabilities."
+commands.allow = ["upsert_provider_model"]
+
+[[permission]]
+identifier = "allow-delete-model"
+description = "Remove a stored model from a provider."
+commands.allow = ["delete_provider_model"]
+
+[[permission]]
+identifier = "allow-set-favorite"
+description = "Mark or unmark a model as a local favorite."
+commands.allow = ["set_model_favorite"]
+
+[[permission]]
+identifier = "allow-set-minimize-to-tray"
+description = "Set whether closing the window should hide it to the system tray."
+commands.allow = ["set_minimize_to_tray"]
+
+[[permission]]
+identifier = "allow-get-minimize-to-tray"
+description = "Query whether minimize-to-tray is enabled."
+commands.allow = ["get_minimize_to_tray"]
+
+[[permission]]
+identifier = "allow-window-minimize"
+description = "Minimize the main window."
+commands.allow = ["window_minimize"]
+
+[[permission]]
+identifier = "allow-window-toggle-maximize"
+description = "Toggle maximize on the main window."
+commands.allow = ["window_toggle_maximize"]
+
+[[permission]]
+identifier = "allow-window-is-maximized"
+description = "Query whether the main window is maximized."
+commands.allow = ["window_is_maximized"]
+
+[[permission]]
+identifier = "allow-window-close"
+description = "Close the main window."
+commands.allow = ["window_close"]
+
+[[permission]]
+identifier = "allow-window-get-bounds"
+description = "Read the main window size and maximized state."
+commands.allow = ["window_get_bounds"]
+
+[[permission]]
+identifier = "allow-window-apply-bounds"
+description = "Apply a saved size and maximized state to the main window."
+commands.allow = ["window_apply_bounds"]
+
+[[permission]]
+identifier = "allow-window-start-resize"
+description = "Start edge resize dragging on the main window."
+commands.allow = ["window_start_resize"]
+
+[[permission]]
+identifier = "allow-window-start-drag"
+description = "Start moving the main window by dragging the titlebar."
+commands.allow = ["window_start_drag"]
+
+[[permission]]
+identifier = "allow-window-open-devtools"
+description = "Open the webview developer tools."
+commands.allow = ["window_open_devtools"]

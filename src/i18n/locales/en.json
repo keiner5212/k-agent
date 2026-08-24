@@ -1,0 +1,176 @@
+{
+  "common": {
+    "on": "On",
+    "off": "Off"
+  },
+  "app": {
+    "name": "k-agent",
+    "shortcut_hint": "Press {{shortcut}} for settings"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "unmaximize": "Restore",
+    "close": "Close"
+  },
+  "empty": {
+    "title": "Nothing here yet",
+    "description": "This is a blank shell. Build your orchestrator on top of it."
+  },
+  "settings": {
+    "title": "Settings",
+    "close": "Close",
+    "searchPlaceholder": "Search settings",
+    "searchEmpty": "No settings match your search.",
+    "sections": {
+      "general": "General",
+      "providers": "Providers",
+      "keybindings": "Keybindings",
+      "debug": "Debug"
+    },
+    "language": {
+      "description": "Choose the interface language.",
+      "label": "Display language",
+      "options": {
+        "en": "English",
+        "es": "Spanish"
+      }
+    },
+    "theme": {
+      "description": "Switch between dark and light surfaces.",
+      "label": "Appearance",
+      "options": {
+        "dark": "Dark",
+        "light": "Light"
+      }
+    },
+    "tray": {
+      "label": "Minimize to system tray",
+      "description": "Closing the window keeps the app running in the system tray instead of quitting."
+    },
+    "windowSize": {
+      "label": "Remember window size",
+      "description": "Restore the last window size and maximized state when the app starts."
+    },
+    "maxWorkerCores": {
+      "label": "Max worker cores",
+      "description": "Upper limit on CPU cores for internal work. Auto uses every available core.",
+      "options": {
+        "auto": "Auto (all cores)"
+      }
+    },
+    "translucency": {
+      "label": "Disable translucency",
+      "description": "Surfaces use a frosted, glass-like blur by default. Turn this on for solid surfaces."
+    },
+    "animations": {
+      "label": "Disable animations",
+      "description": "Turn off all transitions and motion. Also follows your system reduce-motion setting."
+    },
+    "textScale": {
+      "label": "Text size",
+      "description": "Scale all text in the app.",
+      "options": {
+        "87": "87%",
+        "92": "92%",
+        "100": "100%",
+        "112": "112%",
+        "125": "125%"
+      }
+    },
+    "keybindings": {
+      "description": "Click a shortcut and press the new combination. Press Escape to cancel.",
+      "actions": {
+        "settings": {
+          "open": "Open settings",
+          "close": "Close settings"
+        }
+      },
+      "record": "Recording",
+      "unset": "Not bound",
+      "reset": "Restore defaults",
+      "action": "Action",
+      "shortcut": "Shortcut"
+    },
+    "debug": {
+      "devtools": {
+        "label": "Developer tools",
+        "description": "Open the webview inspector for this window.",
+        "action": "Open DevTools"
+      }
+    }
+  },
+  "providers": {
+    "kinds": {
+      "openai-like": "OpenAI compatible",
+      "anthropic-like": "Anthropic compatible",
+      "gemini-like": "Gemini compatible"
+    },
+    "title": "Providers",
+    "description": "AI provider endpoints. Detected models get capability data from models.dev; you can edit or add models and variants.",
+    "add": "Add provider",
+    "close": "Close",
+    "empty": "No providers configured yet.",
+    "loading": "Loading providers",
+    "viewModels": "View models",
+    "noModels": "No models detected yet. Try refreshing.",
+    "modelsCount": "{{count}} model",
+    "modelsCount_plural": "{{count}} models",
+    "actions": {
+      "refresh": "Refresh models",
+      "refreshModel": "Refresh this model",
+      "edit": "Edit",
+      "delete": "Delete",
+      "addModel": "Add model",
+      "addVariant": "Add variant",
+      "favorite": "Add to favorites",
+      "unfavorite": "Remove from favorites"
+    },
+    "model": {
+      "context": "Context",
+      "output": "Output",
+      "multimodal": "Vision",
+      "textOnly": "Text",
+      "custom": "Custom",
+      "edited": "Edited",
+      "favorite": "Favorite"
+    },
+    "modelForm": {
+      "id": "Model id",
+      "displayName": "Display name",
+      "family": "Family / variant group",
+      "familyHint": "Group modes of the same model, e.g. MiniMax-M2.7.",
+      "tokenHint": "Token counts. k and M suffixes work, e.g. 512k or 1M.",
+      "multimodalHint": "Model accepts image or other non-text input.",
+      "saving": "Saving",
+      "errors": {
+        "required": "Model id is required.",
+        "tokens": "Invalid {{field}} value."
+      }
+    },
+    "form": {
+      "name": "Name",
+      "kind": "Type",
+      "baseUrl": "Base URL",
+      "apiKey": "API key (optional)",
+      "apiKeyPlaceholder": "Leave empty if this provider does not need a key",
+      "apiKeyPlaceholderKeep": "Stored encrypted. Leave empty to keep it.",
+      "apiKeyHint": "Encrypted at rest with a local secret created on first launch. Only this app can decrypt it.",
+      "apiKeyRemove": "Remove stored key",
+      "kindHint": {
+        "openai-like": "Calls GET {base}/models. Uses Bearer auth.",
+        "anthropic-like": "Calls GET {base}/v1/models. Uses x-api-key header.",
+        "gemini-like": "Calls GET {base}/v1beta/models. Key is sent as query parameter."
+      },
+      "cancel": "Cancel",
+      "save": "Save",
+      "add": "Detect and add",
+      "detecting": "Detecting models",
+      "detected": "Detected {{count}} model.",
+      "detected_plural": "Detected {{count}} models.",
+      "errors": {
+        "required": "Name and base URL are required."
+      }
+    }
+  }
+}

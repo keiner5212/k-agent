@@ -1,7 +1,0 @@
-packages:
-  - "apps/*"
-  - "packages/*"
-allowBuilds:
-  unrs-resolver: false
-minimumReleaseAgeExclude:
-  - '@types/react-dom@19.2.5'

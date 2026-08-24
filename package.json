@@ -1,22 +1,50 @@
 {
   "name": "k-agent",
-  "version": "0.0.0",
   "private": true,
-  "description": "Desktop AI agent orchestrator. Deno + Hono + WebView + Next.js (static export).",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "AI coding model orchestrator desktop app",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "tauri": "tauri",
+    "dev:tauri": "tauri dev",
+    "build:tauri": "tauri build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-store": "2.4.4",
+    "i18next": "26.4.0",
+    "lucide-react": "1.33.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-i18next": "17.0.12",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@tauri-apps/cli": "2.11.4",
+    "@types/node": "26.2.0",
+    "@types/react": "19.2.4",
+    "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "6.1.0",
+    "eslint": "10.9.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.11.0",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.67.0",
+    "vite": "8.2.2"
+  },
   "engines": {
-    "node": ">=20",
+    "node": ">=20.19",
     "pnpm": ">=9"
   },
-  "packageManager": "pnpm@11.23.0",
-  "scripts": {
-    "dev:web": "pnpm --filter web dev",
-    "dev:desktop": "pnpm --filter desktop dev",
-    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
-    "build:web": "pnpm --filter web build",
-    "build:desktop": "pnpm --filter desktop build",
-    "build": "pnpm -r build",
-    "sync:web": "node scripts/sync-web.mjs",
-    "lint": "pnpm --filter \"./packages/*\" --filter \"./apps/*\" lint",
-    "clean": "pnpm --filter \"./packages/*\" --filter \"./apps/*\" exec rm -rf node_modules .next out dist .deno_build"
-  }
+  "packageManager": "pnpm@11.2.2"
 }
