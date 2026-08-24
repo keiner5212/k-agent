@@ -25,6 +25,7 @@
     "sections": {
       "general": "General",
       "providers": "Proveedores",
+      "skills": "Habilidades",
       "keybindings": "Atajos de teclado",
       "debug": "Depuracion"
     },
@@ -84,6 +85,12 @@
         "settings": {
           "open": "Abrir ajustes",
           "close": "Cerrar ajustes"
+        },
+        "sidebar": {
+          "toggle": "Mostrar u ocultar barra de sesiones"
+        },
+        "chat": {
+          "clear": "Limpiar entrada del chat"
         }
       },
       "record": "Grabando",
@@ -98,6 +105,10 @@
         "description": "Abre el inspector webview de esta ventana.",
         "action": "Abrir DevTools"
       }
+    },
+    "skillsPath": {
+      "label": "Carpeta global de habilidades",
+      "description": "Carpeta escaneada para habilidades globales. Cada subcarpeta con un archivo SKILL.md cuenta como una habilidad. Usa ~ para tu directorio home."
     }
   },
   "providers": {
@@ -129,23 +140,43 @@
     "model": {
       "context": "Contexto",
       "output": "Salida",
-      "multimodal": "Vision",
-      "textOnly": "Texto",
+      "multimodal": "Multimodal",
+      "textOnly": "Solo texto",
       "custom": "Personalizado",
       "edited": "Editado",
-      "favorite": "Favorito"
+      "favorite": "Favorito",
+      "modalities": {
+        "text": "Texto",
+        "image": "Imagen",
+        "audio": "Audio",
+        "video": "Video",
+        "pdf": "PDF"
+      },
+      "input": "Entrada",
+      "outputModalities": "Salida",
+      "capability": {
+        "reasoning": "Razonamiento",
+        "toolCall": "Herramientas",
+        "structuredOutput": "Estructurado",
+        "attachment": "Adjuntos"
+      }
     },
-    "modelForm": {
+"modelForm": {
       "id": "Id del modelo",
       "displayName": "Nombre visible",
       "family": "Familia / grupo de variantes",
-      "familyHint": "Agrupa modos del mismo modelo, por ejemplo MiniMax-M2.7.",
-      "tokenHint": "Tokens. Sufijos k y M validos, por ejemplo 512k o 1M.",
-      "multimodalHint": "El modelo acepta imagen u otra entrada que no sea texto.",
+      "familyHint": "Agrupa modos del mismo modelo, p.ej. MiniMax-M2.7.",
+      "tokenHint": "Cantidades de tokens. Acepta sufijos k y M, p.ej. 512k o 1M.",
+      "multimodalHint": "El modelo acepta imagen u otra entrada no textual.",
+      "effortLevels": {
+        "label": "Niveles de esfuerzo",
+        "placeholder": "bajo, medio, alto",
+        "hint": "Lista separada por comas de modos de esfuerzo admitidos. Vacia si no aplica."
+      },
       "saving": "Guardando",
       "errors": {
         "required": "El id del modelo es obligatorio.",
-        "tokens": "Valor de {{field}} invalido."
+        "tokens": "Valor invalido para {{field}}."
       }
     },
     "form": {
@@ -172,5 +203,104 @@
         "required": "Nombre y URL base son obligatorios."
       }
     }
+  },
+  "skills": {
+    "title": "Habilidades",
+    "description": "Una habilidad es una carpeta que contiene SKILL.md. Las globales viven en la carpeta configurada. Las locales viven en .agents/skills del workspace (tu carpeta home por defecto).",
+    "context": {
+      "global": "Global",
+      "local": "Local"
+    },
+    "empty": "Aun no se detectan habilidades en esta carpeta.",
+    "emptyTab": "Inicia la app con una ruta de workspace para ver habilidades locales.",
+    "count": "{{count}} habilidad",
+    "count_plural": "{{count}} habilidades",
+    "actions": {
+      "refresh": "Actualizar habilidades",
+      "create": "Nueva habilidad",
+      "edit": "Editar habilidad",
+      "delete": "Eliminar habilidad"
+    },
+    "form": {
+      "createTitle": "Nueva habilidad",
+      "editTitle": "Editar habilidad",
+      "name": "Nombre",
+      "namePlaceholder": "mi-habilidad",
+      "nameHint": "Letras minusculas, numeros, guiones y guiones bajos.",
+      "description": "Descripcion",
+      "descriptionPlaceholder": "¿Que hace esta habilidad?",
+      "descriptionHint": "Se guarda en el frontmatter de SKILL.md.",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "saving": "Guardando",
+      "errors": {
+        "nameRequired": "El nombre es obligatorio."
+      }
+    },
+    "editor": {
+      "title": "Editar SKILL.md",
+      "loading": "Cargando habilidad",
+      "cancel": "Cancelar",
+      "revert": "Revertir",
+      "save": "Guardar",
+      "saving": "Guardando",
+      "clean": "Guardado",
+      "dirty": "Cambios sin guardar"
+    },
+    "form": {
+      "createTitle": "Nueva habilidad",
+      "name": "Nombre",
+      "namePlaceholder": "mi-habilidad",
+      "nameHint": "Letras minusculas, numeros, guiones y guiones bajos.",
+      "description": "Descripcion",
+      "descriptionPlaceholder": "¿Que hace esta habilidad?",
+      "descriptionHint": "Se guarda en el frontmatter de SKILL.md.",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "saving": "Guardando",
+      "errors": {
+        "nameRequired": "El nombre es obligatorio."
+      }
+    },
+    "delete": {
+      "title": "Eliminar habilidad",
+      "body": "¿Eliminar \"{{name}}\"? Se borrara la carpeta y todo su contenido.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar",
+      "deleting": "Eliminando"
+    }
+  },
+  "chat": {
+    "modelSelector": {
+      "label": "Modelo",
+      "empty": "Elige un modelo",
+      "noFavorites": "Marca un modelo como favorito en Proveedores para usarlo aqui.",
+      "context": "{{count}} contexto",
+      "context_plural": "{{count}} contexto"
+    },
+    "thread": {
+      "emptyTitle": "Inicia una conversacion",
+      "emptyDescription": "Elige un modelo y escribe un mensaje abajo."
+    },
+    "composer": {
+      "placeholder": "Escribe un mensaje",
+      "send": "Enviar",
+      "disabledHint": "Elige un modelo para enviar."
+    },
+    "effort": {
+      "label": "Esfuerzo"
+    }
+  },
+  "sessions": {
+    "title": "Sesiones",
+    "new": "Nueva sesion",
+    "empty": "Aun no hay sesiones.",
+    "toggle": "Mostrar u ocultar barra de sesiones",
+    "delete": "Eliminar sesion",
+    "active": "Activa"
+  },
+  "workspace": {
+    "label": "Workspace",
+    "unset": "El workspace no esta disponible."
   }
 }

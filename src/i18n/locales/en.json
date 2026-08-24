@@ -25,6 +25,7 @@
     "sections": {
       "general": "General",
       "providers": "Providers",
+      "skills": "Skills",
       "keybindings": "Keybindings",
       "debug": "Debug"
     },
@@ -84,6 +85,12 @@
         "settings": {
           "open": "Open settings",
           "close": "Close settings"
+        },
+        "sidebar": {
+          "toggle": "Toggle sessions sidebar"
+        },
+        "chat": {
+          "clear": "Clear chat input"
         }
       },
       "record": "Recording",
@@ -98,6 +105,10 @@
         "description": "Open the webview inspector for this window.",
         "action": "Open DevTools"
       }
+    },
+    "skillsPath": {
+      "label": "Global skills folder",
+      "description": "Folder scanned for global skills. Each subfolder with a SKILL.md file counts as one skill. Use ~ for your home directory."
     }
   },
   "providers": {
@@ -129,11 +140,26 @@
     "model": {
       "context": "Context",
       "output": "Output",
-      "multimodal": "Vision",
-      "textOnly": "Text",
+      "multimodal": "Multimodal",
+      "textOnly": "Text only",
       "custom": "Custom",
       "edited": "Edited",
-      "favorite": "Favorite"
+      "favorite": "Favorite",
+      "modalities": {
+        "text": "Text",
+        "image": "Image",
+        "audio": "Audio",
+        "video": "Video",
+        "pdf": "PDF"
+      },
+      "input": "Input",
+      "outputModalities": "Output",
+      "capability": {
+        "reasoning": "Reasoning",
+        "toolCall": "Tools",
+        "structuredOutput": "Structured",
+        "attachment": "Attachments"
+      }
     },
     "modelForm": {
       "id": "Model id",
@@ -142,6 +168,11 @@
       "familyHint": "Group modes of the same model, e.g. MiniMax-M2.7.",
       "tokenHint": "Token counts. k and M suffixes work, e.g. 512k or 1M.",
       "multimodalHint": "Model accepts image or other non-text input.",
+      "effortLevels": {
+        "label": "Effort levels",
+        "placeholder": "low, medium, high",
+        "hint": "Comma-separated list of supported reasoning effort modes. Leave empty if not applicable."
+      },
       "saving": "Saving",
       "errors": {
         "required": "Model id is required.",
@@ -172,5 +203,88 @@
         "required": "Name and base URL are required."
       }
     }
+  },
+  "skills": {
+    "title": "Skills",
+    "description": "A skill is a folder that contains SKILL.md. Global skills live in the configured folder. Local skills live in .agents/skills under the workspace (your home folder by default).",
+    "context": {
+      "global": "Global",
+      "local": "Local"
+    },
+    "empty": "No skills detected in this folder yet.",
+    "emptyTab": "Launch the app with a workspace path to see local skills.",
+    "count": "{{count}} skill",
+    "count_plural": "{{count}} skills",
+    "actions": {
+      "refresh": "Refresh skills",
+      "create": "New skill",
+      "edit": "Edit skill",
+      "delete": "Delete skill"
+    },
+    "form": {
+      "createTitle": "New skill",
+      "name": "Name",
+      "namePlaceholder": "my-skill",
+      "nameHint": "Lowercase letters, numbers, dashes, and underscores.",
+      "description": "Description",
+      "descriptionPlaceholder": "What does this skill do?",
+      "descriptionHint": "Stored in SKILL.md frontmatter.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving",
+      "errors": {
+        "nameRequired": "Name is required."
+      }
+    },
+    "editor": {
+      "title": "Edit SKILL.md",
+      "loading": "Loading skill",
+      "cancel": "Cancel",
+      "revert": "Revert",
+      "save": "Save",
+      "saving": "Saving",
+      "clean": "Saved",
+      "dirty": "Unsaved changes"
+    },
+    "delete": {
+      "title": "Delete skill",
+      "body": "Delete \"{{name}}\"? The folder and all its contents will be removed.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting"
+    }
+  },
+  "chat": {
+    "modelSelector": {
+      "label": "Model",
+      "empty": "Pick a model",
+      "noFavorites": "Mark a model as favorite in Providers to use it here.",
+      "context": "{{count}} context",
+      "context_plural": "{{count}} context"
+    },
+    "thread": {
+      "emptyTitle": "Start a conversation",
+      "emptyDescription": "Pick a model and type a message below."
+    },
+    "composer": {
+      "placeholder": "Write a message",
+      "send": "Send",
+      "disabledHint": "Pick a model to send."
+    },
+    "effort": {
+      "label": "Effort"
+    }
+  },
+  "sessions": {
+    "title": "Sessions",
+    "new": "New session",
+    "empty": "No sessions yet.",
+    "toggle": "Toggle sessions sidebar",
+    "delete": "Delete session",
+    "active": "Active"
+  },
+  "workspace": {
+    "label": "Workspace",
+    "unset": "Workspace is unavailable."
   }
 }

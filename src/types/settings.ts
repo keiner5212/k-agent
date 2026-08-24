@@ -24,6 +24,10 @@ export const MAX_WORKER_CORES_AUTO = 0;
 export const DEFAULT_MAX_WORKER_CORES = MAX_WORKER_CORES_AUTO;
 export const MAX_WORKER_CORES_CAP = 256;
 
+export const DEFAULT_GLOBAL_SKILLS_PATH = "~/.k-agent/skills";
+
+export const DEFAULT_SESSION_SIDEBAR_OPEN = true;
+
 export const hardwareThreadCount = (): number => {
   if (typeof navigator === "undefined") return 8;
   const n = navigator.hardwareConcurrency;
@@ -43,13 +47,15 @@ export const DEFAULT_WINDOW_BOUNDS: WindowBounds = {
   maximized: false,
 };
 
-export type KeybindingAction = "settings.open" | "settings.close";
+export type KeybindingAction = "settings.open" | "settings.close" | "sidebar.toggle" | "chat.clear";
 
 export type Keybindings = Record<KeybindingAction, string>;
 
 export const DEFAULT_KEYBINDINGS: Keybindings = {
   "settings.open": "Mod+P",
   "settings.close": "Escape",
+  "sidebar.toggle": "Ctrl+B",
+  "chat.clear": "Alt+C",
 };
 
 export type Settings = {
@@ -63,6 +69,8 @@ export type Settings = {
   textScale: TextScale;
   maxWorkerCores: number;
   keybindings: Keybindings;
+  globalSkillsPath: string;
+  sessionSidebarOpen: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -76,4 +84,6 @@ export const DEFAULT_SETTINGS: Settings = {
   textScale: DEFAULT_TEXT_SCALE,
   maxWorkerCores: DEFAULT_MAX_WORKER_CORES,
   keybindings: DEFAULT_KEYBINDINGS,
+  globalSkillsPath: DEFAULT_GLOBAL_SKILLS_PATH,
+  sessionSidebarOpen: DEFAULT_SESSION_SIDEBAR_OPEN,
 };

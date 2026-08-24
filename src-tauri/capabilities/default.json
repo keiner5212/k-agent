@@ -24,6 +24,15 @@
     "allow-window-apply-bounds",
     "allow-window-start-resize",
     "allow-window-start-drag",
-    "allow-window-open-devtools"
+    "allow-window-open-devtools",
+    "allow-list-skills",
+    "allow-read-skill-meta",
+    "allow-read-skill-file",
+    "allow-create-skill",
+    "allow-update-skill",
+    "allow-update-skill-content",
+    "allow-delete-skill",
+    "allow-get-workspace-path",
+    "allow-get-repo-info"
   ]
 }

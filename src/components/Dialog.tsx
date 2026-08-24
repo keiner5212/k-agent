@@ -1,5 +1,11 @@
 import { X } from "lucide-react";
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "./IconButton";
@@ -7,12 +13,18 @@ import { IconButton } from "./IconButton";
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+type DialogSize = "narrow" | "default" | "wide";
+type DialogPlacement = "fill" | "center";
+
 type DialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   titleKey: string;
   children: ReactNode;
   footer?: ReactNode;
+  size?: DialogSize;
+  placement?: DialogPlacement;
+  surfaceStyle?: CSSProperties;
 };
 
 export const Dialog = ({
@@ -21,6 +33,9 @@ export const Dialog = ({
   titleKey,
   children,
   footer,
+  size = "default",
+  placement = "fill",
+  surfaceStyle,
 }: DialogProps): ReactNode => {
   const { t } = useTranslation();
   const titleId = useId();
@@ -76,7 +91,7 @@ export const Dialog = ({
   return createPortal(
     <div className="dialog-root">
       <div className="dialog-overlay" onClick={() => onOpenChange(false)} />
-      <div className="dialog-surface">
+      <div className="dialog-surface" data-size={size} data-placement={placement} style={surfaceStyle}>
         <div
           ref={panelRef}
           className="dialog-panel"

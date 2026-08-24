@@ -1,9 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Bug, Keyboard, Plug, Sliders } from "lucide-react";
+import { Bug, Keyboard, Plug, Sliders, Sparkles } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { ProvidersPanel } from "@/features/providers/ProvidersPanel";
+import { SkillsPanel } from "@/features/skills/SkillsPanel";
 import { SETTINGS_REGISTRY } from "./registry-data";
 import { SettingItem } from "./SettingItem";
 import { KeybindingField } from "./KeybindingField";
@@ -21,6 +22,7 @@ type TabMeta = {
 const SECTION_ICONS: Record<SettingsSectionDef["id"], typeof Sliders> = {
   general: Sliders,
   providers: Plug,
+  skills: Sparkles,
   keybindings: Keyboard,
   debug: Bug,
 };
@@ -90,6 +92,11 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
       open={open}
       onOpenChange={onOpenChange}
       titleKey="settings.title"
+      size="wide"
+      surfaceStyle={{
+        height: "calc(100vh - var(--titlebar-height) - var(--space-6))",
+        maxHeight: "calc(100vh - var(--titlebar-height) - var(--space-6))",
+      }}
       footer={
         <GlassButton variant="primary" onClick={() => onOpenChange(false)}>
           {t("settings.close")}
@@ -138,6 +145,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
               <div className="settings-empty">{t("settings.searchEmpty")}</div>
             ) : resolvedTab === "providers" ? (
               <ProvidersPanel />
+            ) : resolvedTab === "skills" ? (
+              <SkillsPanel />
             ) : resolvedTab === "keybindings" ? (
               <KeybindingsPanel items={activeSection?.items ?? []} query={trimmed} />
             ) : (
