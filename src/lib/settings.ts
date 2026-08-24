@@ -3,14 +3,17 @@ import { LazyStore } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import {
   DEFAULT_ANIMATIONS_ENABLED,
+  DEFAULT_MAX_WORKER_CORES,
   DEFAULT_SETTINGS,
   DEFAULT_TEXT_SCALE,
   DEFAULT_TRANSLUCENCY_ENABLED,
   DEFAULT_WINDOW_BOUNDS,
+  MAX_WORKER_CORES_AUTO,
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
   SUPPORTED_LANGUAGES,
   TEXT_SCALE_OPTIONS,
+  hardwareThreadCount,
   type AppLanguage,
   type AppTheme,
   type Keybindings,
@@ -70,6 +73,16 @@ const sanitizeKeybindings = (value: unknown): Keybindings => {
   return merged;
 };
 
+const sanitizeMaxWorkerCores = (value: unknown): number => {
+  const max = hardwareThreadCount();
+  if (value === "auto" || value === 0 || value === "0") return MAX_WORKER_CORES_AUTO;
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(n)) return DEFAULT_MAX_WORKER_CORES;
+  const rounded = Math.round(n);
+  if (rounded <= 0) return MAX_WORKER_CORES_AUTO;
+  return Math.min(max, Math.max(1, rounded));
+};
+
 const sanitizeSettings = (raw: unknown): Settings => {
   if (!raw || typeof raw !== "object") return DEFAULT_SETTINGS;
   const obj = raw as Record<string, unknown>;
@@ -85,6 +98,7 @@ const sanitizeSettings = (raw: unknown): Settings => {
     ),
     windowBounds: sanitizeWindowBounds(obj.windowBounds),
     textScale: sanitizeTextScale(obj.textScale),
+    maxWorkerCores: sanitizeMaxWorkerCores(obj.maxWorkerCores),
     keybindings: sanitizeKeybindings(obj.keybindings),
   };
 };
@@ -99,6 +113,7 @@ type Persistable = Pick<
   | "rememberWindowSize"
   | "windowBounds"
   | "textScale"
+  | "maxWorkerCores"
   | "keybindings"
 >;
 
@@ -113,6 +128,7 @@ type SettingsStore = Settings & {
   setRememberWindowSize: (enabled: boolean) => void;
   setWindowBounds: (bounds: WindowBounds) => void;
   setTextScale: (scale: TextScale) => void;
+  setMaxWorkerCores: (cores: number) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
   resetKeybindings: () => void;
   resetAll: () => void;
@@ -177,6 +193,7 @@ const snapshot = (state: SettingsStore): Persistable => ({
   rememberWindowSize: state.rememberWindowSize,
   windowBounds: state.windowBounds,
   textScale: state.textScale,
+  maxWorkerCores: state.maxWorkerCores,
   keybindings: state.keybindings,
 });
 
@@ -265,6 +282,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setTextScale: (scale) => {
     applyTextScale(scale);
     set({ textScale: scale });
+    void persist(snapshot(get()));
+  },
+
+  setMaxWorkerCores: (cores) => {
+    set({ maxWorkerCores: sanitizeMaxWorkerCores(cores) });
     void persist(snapshot(get()));
   },
 

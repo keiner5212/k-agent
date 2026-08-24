@@ -52,6 +52,13 @@
       "label": "Recordar tamano de ventana",
       "description": "Al iniciar, restaura el ultimo tamano y si la ventana estaba maximizada."
     },
+    "maxWorkerCores": {
+      "label": "Nucleos maximos de trabajo",
+      "description": "Limite de nucleos de CPU para trabajo interno. Auto usa todos los nucleos disponibles.",
+      "options": {
+        "auto": "Auto (todos los nucleos)"
+      }
+    },
     "translucency": {
       "label": "Desactivar transparencia",
       "description": "Las superficies usan un desenfoque tipo cristal por defecto. Activa esto para superficies solidas."

@@ -8,6 +8,7 @@ import { isTauri } from "@/lib/platform";
 import { useSettingsStore } from "@/lib/settings";
 import {
   SUPPORTED_LANGUAGES,
+  hardwareThreadCount,
   type AppLanguage,
   type AppTheme,
   type KeybindingAction,
@@ -43,9 +44,11 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const animationsEnabled = useSettingsStore((state) => state.animationsEnabled);
   const minimizeToTray = useSettingsStore((state) => state.minimizeToTray);
   const rememberWindowSize = useSettingsStore((state) => state.rememberWindowSize);
+  const maxWorkerCores = useSettingsStore((state) => state.maxWorkerCores);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const setTextScale = useSettingsStore((state) => state.setTextScale);
+  const setMaxWorkerCores = useSettingsStore((state) => state.setMaxWorkerCores);
   const setTranslucencyEnabled = useSettingsStore((state) => state.setTranslucencyEnabled);
   const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
   const setMinimizeToTray = useSettingsStore((state) => state.setMinimizeToTray);
@@ -68,18 +71,17 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               language,
               theme,
               textScale,
+              maxWorkerCores,
             })}
             onChange={(next) =>
               onSelectChange(item.id, next, {
                 setLanguage,
                 setTheme,
                 setTextScale,
+                setMaxWorkerCores,
               })
             }
-            options={(item.options ?? []).map((option) => ({
-              value: option.value,
-              label: t(option.labelKey),
-            }))}
+            options={selectOptions(item, t)}
           />
         ) : null}
 
@@ -122,6 +124,28 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
 type LangState = { language: AppLanguage };
 type ThemeState = { theme: AppTheme };
 type ScaleState = { textScale: TextScale };
+type CoresState = { maxWorkerCores: number };
+
+const selectOptions = (
+  item: SettingItemDef,
+  t: (key: string) => string,
+): { value: string; label: string }[] => {
+  if (item.id === "maxWorkerCores") {
+    const options = [
+      { value: "0", label: t("settings.maxWorkerCores.options.auto") },
+    ];
+    const max = hardwareThreadCount();
+    for (let n = 1; n <= max; n += 1) {
+      options.push({ value: String(n), label: String(n) });
+    }
+    return options;
+  }
+  return (item.options ?? []).map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+};
+
 type ToggleState = {
   translucencyEnabled: boolean;
   animationsEnabled: boolean;
@@ -140,7 +164,10 @@ const runSettingAction = (id: string): void => {
   });
 };
 
-const selectValue = (id: string, state: LangState & ThemeState & ScaleState): string => {
+const selectValue = (
+  id: string,
+  state: LangState & ThemeState & ScaleState & CoresState,
+): string => {
   switch (id) {
     case "language":
       return state.language;
@@ -148,6 +175,8 @@ const selectValue = (id: string, state: LangState & ThemeState & ScaleState): st
       return state.theme;
     case "textScale":
       return String(state.textScale);
+    case "maxWorkerCores":
+      return String(state.maxWorkerCores);
     default:
       return "";
   }
@@ -160,6 +189,7 @@ const onSelectChange = (
     setLanguage: (l: AppLanguage) => void;
     setTheme: (t: AppTheme) => void;
     setTextScale: (s: TextScale) => void;
+    setMaxWorkerCores: (n: number) => void;
   },
 ): void => {
   switch (id) {
@@ -173,6 +203,9 @@ const onSelectChange = (
       return;
     case "textScale":
       setters.setTextScale(Number(next) as TextScale);
+      return;
+    case "maxWorkerCores":
+      setters.setMaxWorkerCores(Number(next));
       return;
   }
 };

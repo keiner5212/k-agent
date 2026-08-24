@@ -69,6 +69,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         descriptionKey: "settings.windowSize.description",
         keywords: ["resize", "window", "size", "persist", "tamano", "ventana"],
       },
+      {
+        id: "maxWorkerCores",
+        type: "select",
+        titleKey: "settings.maxWorkerCores.label",
+        descriptionKey: "settings.maxWorkerCores.description",
+        keywords: ["cpu", "cores", "threads", "parallel", "workers", "nucleos"],
+      },
     ],
   },
   {

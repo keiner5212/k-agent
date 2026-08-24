@@ -52,6 +52,13 @@
       "label": "Remember window size",
       "description": "Restore the last window size and maximized state when the app starts."
     },
+    "maxWorkerCores": {
+      "label": "Max worker cores",
+      "description": "Upper limit on CPU cores for internal work. Auto uses every available core.",
+      "options": {
+        "auto": "Auto (all cores)"
+      }
+    },
     "translucency": {
       "label": "Disable translucency",
       "description": "Surfaces use a frosted, glass-like blur by default. Turn this on for solid surfaces."

@@ -20,6 +20,17 @@ export const DEFAULT_WINDOW_HEIGHT = 720;
 export const MIN_WINDOW_WIDTH = 720;
 export const MIN_WINDOW_HEIGHT = 480;
 
+export const MAX_WORKER_CORES_AUTO = 0;
+export const DEFAULT_MAX_WORKER_CORES = MAX_WORKER_CORES_AUTO;
+export const MAX_WORKER_CORES_CAP = 256;
+
+export const hardwareThreadCount = (): number => {
+  if (typeof navigator === "undefined") return 8;
+  const n = navigator.hardwareConcurrency;
+  if (typeof n !== "number" || !Number.isFinite(n) || n < 1) return 8;
+  return Math.min(MAX_WORKER_CORES_CAP, Math.floor(n));
+};
+
 export type WindowBounds = {
   width: number;
   height: number;
@@ -50,6 +61,7 @@ export type Settings = {
   rememberWindowSize: boolean;
   windowBounds: WindowBounds;
   textScale: TextScale;
+  maxWorkerCores: number;
   keybindings: Keybindings;
 };
 
@@ -62,5 +74,6 @@ export const DEFAULT_SETTINGS: Settings = {
   rememberWindowSize: DEFAULT_REMEMBER_WINDOW_SIZE,
   windowBounds: DEFAULT_WINDOW_BOUNDS,
   textScale: DEFAULT_TEXT_SCALE,
+  maxWorkerCores: DEFAULT_MAX_WORKER_CORES,
   keybindings: DEFAULT_KEYBINDINGS,
 };
