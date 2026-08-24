@@ -131,9 +131,7 @@ const selectOptions = (
   t: (key: string) => string,
 ): { value: string; label: string }[] => {
   if (item.id === "maxWorkerCores") {
-    const options = [
-      { value: "0", label: t("settings.maxWorkerCores.options.auto") },
-    ];
+    const options = [{ value: "0", label: t("settings.maxWorkerCores.options.auto") }];
     const max = hardwareThreadCount();
     for (let n = 1; n <= max; n += 1) {
       options.push({ value: String(n), label: String(n) });

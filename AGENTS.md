@@ -29,18 +29,18 @@ src-tauri/catalog/  bundled models.json (Rust only; never import in the UI)
 
 ## Reuse these. Do not add parallels.
 
-| Need | Use |
-|---|---|
-| Modal | `Dialog` |
-| Dropdown | `Select` with `{ value, label }` |
-| Boolean | `Toggle` |
-| Button | `GlassButton` / `IconButton` |
-| Desktop check | `isTauri()` from `src/lib/platform.ts` |
-| Settings | `useSettingsStore` + `SETTINGS_REGISTRY` |
-| Providers | `useProvidersStore` |
-| Copy | `t("...")`. No hardcoded UI English. |
+| Need          | Use                                        |
+| ------------- | ------------------------------------------ |
+| Modal         | `Dialog`                                   |
+| Dropdown      | `Select` with `{ value, label }`           |
+| Boolean       | `Toggle`                                   |
+| Button        | `GlassButton` / `IconButton`               |
+| Desktop check | `isTauri()` from `src/lib/platform.ts`     |
+| Settings      | `useSettingsStore` + `SETTINGS_REGISTRY`   |
+| Providers     | `useProvidersStore`                        |
+| Copy          | `t("...")`. No hardcoded UI English.       |
 | Token amounts | `formatContextWindow` / `parseTokenAmount` |
-| Logical CPUs | `hardwareThreadCount()` |
+| Logical CPUs  | `hardwareThreadCount()`                    |
 
 ## Settings
 

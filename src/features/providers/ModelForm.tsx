@@ -3,7 +3,12 @@ import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { Toggle } from "@/components/Toggle";
-import { formatContextWindow, parseTokenAmount, type ModelDraft, type ModelInfo } from "@/types/providers";
+import {
+  formatContextWindow,
+  parseTokenAmount,
+  type ModelDraft,
+  type ModelInfo,
+} from "@/types/providers";
 
 type ModelFormProps = {
   model?: ModelInfo;
