@@ -62,6 +62,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         descriptionKey: "settings.tray.description",
         keywords: ["system tray", "minimize", "bandeja", "background"],
       },
+      {
+        id: "rememberWindowSize",
+        type: "toggle",
+        titleKey: "settings.windowSize.label",
+        descriptionKey: "settings.windowSize.description",
+        keywords: ["resize", "window", "size", "persist", "tamano", "ventana"],
+      },
     ],
   },
   {

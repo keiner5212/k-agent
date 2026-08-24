@@ -5,6 +5,7 @@ import { WindowControls } from "@/components/WindowControls";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
 import { useGlobalKeybindings } from "@/lib/use-global-keybindings";
 import { useSettingsStore } from "@/lib/settings";
+import { useWindowBoundsSync } from "@/lib/window-bounds";
 import type { KeybindingAction } from "@/types/settings";
 import i18n from "@/i18n";
 
@@ -31,6 +32,7 @@ export const App = (): ReactNode => {
   }, []);
 
   useGlobalKeybindings(handleAction);
+  useWindowBoundsSync();
 
   const settingsShortcut = useSettingsStore((state) => state.keybindings["settings.open"]);
 

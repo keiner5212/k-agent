@@ -16,6 +16,8 @@
     "allow-window-minimize",
     "allow-window-toggle-maximize",
     "allow-window-is-maximized",
-    "allow-window-close"
+    "allow-window-close",
+    "allow-window-get-bounds",
+    "allow-window-apply-bounds"
   ]
 }

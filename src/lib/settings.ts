@@ -6,6 +6,9 @@ import {
   DEFAULT_SETTINGS,
   DEFAULT_TEXT_SCALE,
   DEFAULT_TRANSLUCENCY_ENABLED,
+  DEFAULT_WINDOW_BOUNDS,
+  MIN_WINDOW_HEIGHT,
+  MIN_WINDOW_WIDTH,
   SUPPORTED_LANGUAGES,
   TEXT_SCALE_OPTIONS,
   type AppLanguage,
@@ -13,6 +16,7 @@ import {
   type Keybindings,
   type Settings,
   type TextScale,
+  type WindowBounds,
 } from "@/types/settings";
 import { isTauri } from "@/lib/platform";
 
@@ -36,6 +40,24 @@ const sanitizeTextScale = (value: unknown): TextScale => {
   return match ?? DEFAULT_TEXT_SCALE;
 };
 
+const sanitizeWindowBounds = (value: unknown): WindowBounds => {
+  if (!value || typeof value !== "object") return DEFAULT_WINDOW_BOUNDS;
+  const obj = value as Record<string, unknown>;
+  const width =
+    typeof obj.width === "number" && Number.isFinite(obj.width)
+      ? Math.max(MIN_WINDOW_WIDTH, Math.round(obj.width))
+      : DEFAULT_WINDOW_BOUNDS.width;
+  const height =
+    typeof obj.height === "number" && Number.isFinite(obj.height)
+      ? Math.max(MIN_WINDOW_HEIGHT, Math.round(obj.height))
+      : DEFAULT_WINDOW_BOUNDS.height;
+  return {
+    width,
+    height,
+    maximized: typeof obj.maximized === "boolean" ? obj.maximized : false,
+  };
+};
+
 const sanitizeKeybindings = (value: unknown): Keybindings => {
   if (!value || typeof value !== "object") return DEFAULT_SETTINGS.keybindings;
   const merged: Keybindings = { ...DEFAULT_SETTINGS.keybindings };
@@ -57,6 +79,11 @@ const sanitizeSettings = (raw: unknown): Settings => {
     minimizeToTray: sanitizeBoolean(obj.minimizeToTray, DEFAULT_SETTINGS.minimizeToTray),
     translucencyEnabled: sanitizeBoolean(obj.translucencyEnabled, DEFAULT_TRANSLUCENCY_ENABLED),
     animationsEnabled: sanitizeBoolean(obj.animationsEnabled, DEFAULT_ANIMATIONS_ENABLED),
+    rememberWindowSize: sanitizeBoolean(
+      obj.rememberWindowSize,
+      DEFAULT_SETTINGS.rememberWindowSize,
+    ),
+    windowBounds: sanitizeWindowBounds(obj.windowBounds),
     textScale: sanitizeTextScale(obj.textScale),
     keybindings: sanitizeKeybindings(obj.keybindings),
   };
@@ -69,6 +96,8 @@ type Persistable = Pick<
   | "minimizeToTray"
   | "translucencyEnabled"
   | "animationsEnabled"
+  | "rememberWindowSize"
+  | "windowBounds"
   | "textScale"
   | "keybindings"
 >;
@@ -81,6 +110,8 @@ type SettingsStore = Settings & {
   setMinimizeToTray: (enabled: boolean) => void;
   setTranslucencyEnabled: (enabled: boolean) => void;
   setAnimationsEnabled: (enabled: boolean) => void;
+  setRememberWindowSize: (enabled: boolean) => void;
+  setWindowBounds: (bounds: WindowBounds) => void;
   setTextScale: (scale: TextScale) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
   resetKeybindings: () => void;
@@ -143,6 +174,8 @@ const snapshot = (state: SettingsStore): Persistable => ({
   minimizeToTray: state.minimizeToTray,
   translucencyEnabled: state.translucencyEnabled,
   animationsEnabled: state.animationsEnabled,
+  rememberWindowSize: state.rememberWindowSize,
+  windowBounds: state.windowBounds,
   textScale: state.textScale,
   keybindings: state.keybindings,
 });
@@ -205,6 +238,27 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setAnimationsEnabled: (enabled) => {
     applyAnimations(enabled && !systemPrefersReducedMotion());
     set({ animationsEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setRememberWindowSize: (enabled) => {
+    set({ rememberWindowSize: enabled });
+    if (enabled && isTauri()) {
+      void invoke<WindowBounds>("window_get_bounds")
+        .then((next) => {
+          set({ windowBounds: sanitizeWindowBounds(next) });
+          void persist(snapshot(get()));
+        })
+        .catch(() => {
+          void persist(snapshot(get()));
+        });
+      return;
+    }
+    void persist(snapshot(get()));
+  },
+
+  setWindowBounds: (bounds) => {
+    set({ windowBounds: sanitizeWindowBounds(bounds) });
     void persist(snapshot(get()));
   },
 

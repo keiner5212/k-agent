@@ -39,12 +39,14 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const translucencyEnabled = useSettingsStore((state) => state.translucencyEnabled);
   const animationsEnabled = useSettingsStore((state) => state.animationsEnabled);
   const minimizeToTray = useSettingsStore((state) => state.minimizeToTray);
+  const rememberWindowSize = useSettingsStore((state) => state.rememberWindowSize);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const setTextScale = useSettingsStore((state) => state.setTextScale);
   const setTranslucencyEnabled = useSettingsStore((state) => state.setTranslucencyEnabled);
   const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
   const setMinimizeToTray = useSettingsStore((state) => state.setMinimizeToTray);
+  const setRememberWindowSize = useSettingsStore((state) => state.setRememberWindowSize);
 
   const titleText = t(item.titleKey);
   const descriptionText = t(item.descriptionKey);
@@ -85,12 +87,14 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               translucencyEnabled,
               animationsEnabled,
               minimizeToTray,
+              rememberWindowSize,
             })}
             onChange={(next) =>
               onToggleChange(item.id, next, {
                 setTranslucencyEnabled,
                 setAnimationsEnabled,
                 setMinimizeToTray,
+                setRememberWindowSize,
               })
             }
             label={titleText}
@@ -113,6 +117,7 @@ type ToggleState = {
   translucencyEnabled: boolean;
   animationsEnabled: boolean;
   minimizeToTray: boolean;
+  rememberWindowSize: boolean;
 };
 
 const selectValue = (id: string, state: LangState & ThemeState & ScaleState): string => {
@@ -160,6 +165,8 @@ const toggleChecked = (id: string, state: ToggleState): boolean => {
       return !state.animationsEnabled;
     case "minimizeToTray":
       return state.minimizeToTray;
+    case "rememberWindowSize":
+      return state.rememberWindowSize;
     default:
       return false;
   }
@@ -172,6 +179,7 @@ const onToggleChange = (
     setTranslucencyEnabled: (v: boolean) => void;
     setAnimationsEnabled: (v: boolean) => void;
     setMinimizeToTray: (v: boolean) => void;
+    setRememberWindowSize: (v: boolean) => void;
   },
 ): void => {
   switch (id) {
@@ -183,6 +191,9 @@ const onToggleChange = (
       return;
     case "minimizeToTray":
       setters.setMinimizeToTray(next);
+      return;
+    case "rememberWindowSize":
+      setters.setRememberWindowSize(next);
       return;
   }
 };

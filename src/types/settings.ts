@@ -14,6 +14,24 @@ export const TEXT_SCALE_OPTIONS: readonly TextScale[] = [0.875, 0.92, 1, 1.125, 
 
 export const DEFAULT_TEXT_SCALE: TextScale = 1;
 
+export const DEFAULT_REMEMBER_WINDOW_SIZE = true;
+export const DEFAULT_WINDOW_WIDTH = 1100;
+export const DEFAULT_WINDOW_HEIGHT = 720;
+export const MIN_WINDOW_WIDTH = 720;
+export const MIN_WINDOW_HEIGHT = 480;
+
+export type WindowBounds = {
+  width: number;
+  height: number;
+  maximized: boolean;
+};
+
+export const DEFAULT_WINDOW_BOUNDS: WindowBounds = {
+  width: DEFAULT_WINDOW_WIDTH,
+  height: DEFAULT_WINDOW_HEIGHT,
+  maximized: false,
+};
+
 export type KeybindingAction = "settings.open" | "settings.close";
 
 export type Keybindings = Record<KeybindingAction, string>;
@@ -29,6 +47,8 @@ export type Settings = {
   minimizeToTray: boolean;
   translucencyEnabled: boolean;
   animationsEnabled: boolean;
+  rememberWindowSize: boolean;
+  windowBounds: WindowBounds;
   textScale: TextScale;
   keybindings: Keybindings;
 };
@@ -39,6 +59,8 @@ export const DEFAULT_SETTINGS: Settings = {
   minimizeToTray: DEFAULT_MINIMIZE_TO_TRAY,
   translucencyEnabled: DEFAULT_TRANSLUCENCY_ENABLED,
   animationsEnabled: DEFAULT_ANIMATIONS_ENABLED,
+  rememberWindowSize: DEFAULT_REMEMBER_WINDOW_SIZE,
+  windowBounds: DEFAULT_WINDOW_BOUNDS,
   textScale: DEFAULT_TEXT_SCALE,
   keybindings: DEFAULT_KEYBINDINGS,
 };

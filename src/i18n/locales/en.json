@@ -47,6 +47,10 @@
       "label": "Minimize to system tray",
       "description": "Closing the window keeps the app running in the system tray instead of quitting."
     },
+    "windowSize": {
+      "label": "Remember window size",
+      "description": "Restore the last window size and maximized state when the app starts."
+    },
     "translucency": {
       "label": "Disable translucency",
       "description": "Surfaces use a frosted, glass-like blur by default. Turn this on for solid surfaces."

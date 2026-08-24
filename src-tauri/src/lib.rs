@@ -2,10 +2,11 @@ mod providers;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use serde::{Deserialize, Serialize};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WindowEvent,
+    LogicalSize, Manager, Size, WindowEvent,
 };
 
 use providers::{
@@ -47,6 +48,48 @@ fn window_is_maximized(window: tauri::WebviewWindow) -> bool {
 #[tauri::command]
 fn window_close(window: tauri::WebviewWindow) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WindowBounds {
+    width: f64,
+    height: f64,
+    maximized: bool,
+}
+
+const MIN_WINDOW_WIDTH: f64 = 720.0;
+const MIN_WINDOW_HEIGHT: f64 = 480.0;
+
+#[tauri::command]
+fn window_get_bounds(window: tauri::WebviewWindow) -> WindowBounds {
+    let maximized = window.is_maximized().unwrap_or(false);
+    let (width, height) = match (window.inner_size(), window.scale_factor()) {
+        (Ok(size), Ok(scale)) => {
+            let logical = size.to_logical::<f64>(scale);
+            (logical.width, logical.height)
+        }
+        _ => (1100.0, 720.0),
+    };
+    WindowBounds {
+        width,
+        height,
+        maximized,
+    }
+}
+
+#[tauri::command]
+fn window_apply_bounds(window: tauri::WebviewWindow, bounds: WindowBounds) -> Result<(), String> {
+    let width = bounds.width.max(MIN_WINDOW_WIDTH);
+    let height = bounds.height.max(MIN_WINDOW_HEIGHT);
+    let _ = window.unmaximize();
+    window
+        .set_size(Size::Logical(LogicalSize { width, height }))
+        .map_err(|e| e.to_string())?;
+    if bounds.maximized {
+        window.maximize().map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 fn toggle_window_visibility(app: &tauri::AppHandle) {
@@ -131,6 +174,8 @@ pub fn run() {
             window_toggle_maximize,
             window_is_maximized,
             window_close,
+            window_get_bounds,
+            window_apply_bounds,
             list_providers,
             save_provider,
             delete_provider,
@@ -144,10 +189,10 @@ pub fn run() {
                 let _ = window.set_icon(icon.clone());
             }
 
-            let show_item = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
-            let hide_item = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;
+            let toggle_item =
+                MenuItem::with_id(app, "toggle", "Show / Hide", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_item, &hide_item, &quit_item])?;
+            let menu = Menu::with_items(app, &[&toggle_item, &quit_item])?;
 
             let _tray = TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().unwrap().clone())
@@ -155,7 +200,7 @@ pub fn run() {
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show" | "hide" => toggle_window_visibility(app),
+                    "toggle" => toggle_window_visibility(app),
                     "quit" => app.exit(0),
                     _ => {}
                 })

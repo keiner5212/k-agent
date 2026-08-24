@@ -12,6 +12,8 @@ permissions = [
   "allow-window-toggle-maximize",
   "allow-window-is-maximized",
   "allow-window-close",
+  "allow-window-get-bounds",
+  "allow-window-apply-bounds",
 ]
 
 [[permission]]
@@ -68,3 +70,13 @@ commands.allow = ["window_is_maximized"]
 identifier = "allow-window-close"
 description = "Close the main window."
 commands.allow = ["window_close"]
+
+[[permission]]
+identifier = "allow-window-get-bounds"
+description = "Read the main window size and maximized state."
+commands.allow = ["window_get_bounds"]
+
+[[permission]]
+identifier = "allow-window-apply-bounds"
+description = "Apply a saved size and maximized state to the main window."
+commands.allow = ["window_apply_bounds"]

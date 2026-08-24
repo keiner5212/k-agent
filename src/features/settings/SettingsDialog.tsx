@@ -122,6 +122,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
           ) : null}
         </nav>
         <div className="settings-content" role="tabpanel">
+          <div key={resolvedTab} className="settings-pane">
           {visibleTabs.length === 0 ? (
             <div className="settings-empty">{t("settings.searchEmpty")}</div>
           ) : resolvedTab === "providers" ? (
@@ -135,6 +136,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
               ))}
             </div>
           )}
+          </div>
         </div>
       </div>
     </Dialog>

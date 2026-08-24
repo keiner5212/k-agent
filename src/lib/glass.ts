@@ -2,16 +2,19 @@ import type { CSSProperties } from "react";
 
 export const GLASS_LAYER_STYLE: CSSProperties = {
   position: "absolute",
+  inset: 0,
+  width: "100%",
+  height: "100%",
   pointerEvents: "none",
 };
 
 export const GLASS_BUTTON = {
-  displacementScale: 48,
-  blurAmount: 0.08,
-  saturation: 140,
-  aberrationIntensity: 1.2,
+  displacementScale: 20,
+  blurAmount: 0.1,
+  saturation: 120,
+  aberrationIntensity: 0.35,
   cornerRadius: 8,
-  padding: "6px 14px",
+  padding: "0",
 } as const;
 
 export const GLASS_SURFACE = {

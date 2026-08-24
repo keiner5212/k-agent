@@ -47,6 +47,10 @@
       "label": "Minimizar a la bandeja del sistema",
       "description": "Al cerrar la ventana la app sigue ejecutandose en la bandeja del sistema en lugar de salir."
     },
+    "windowSize": {
+      "label": "Recordar tamano de ventana",
+      "description": "Al iniciar, restaura el ultimo tamano y si la ventana estaba maximizada."
+    },
     "translucency": {
       "label": "Desactivar transparencia",
       "description": "Las superficies usan un desenfoque tipo cristal por defecto. Activa esto para superficies solidas."
