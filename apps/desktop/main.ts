@@ -11,10 +11,9 @@ try {
   console.log(`[k-agent] opening desktop window at ${url}`);
   await mod.openWindow({ url, title: "k-agent" });
 } catch (err) {
-  console.warn("[k-agent] desktop window unavailable. Server only.");
-  console.warn("  See apps/desktop/webview.ts for binding setup.");
-  console.warn(`  Error: ${err instanceof Error ? err.message : err}`);
-  console.warn(`  Server still serving at ${url}`);
+  console.error("[k-agent] could not open desktop window.");
+  console.error(err instanceof Error ? err.message : String(err));
+  console.error(`[k-agent] server still serving at ${url}`);
   await new Promise(() => {});
 }
 

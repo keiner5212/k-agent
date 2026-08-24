@@ -35,7 +35,6 @@ html, body {
 
 h1 { margin: 0 0 .25rem; font-size: 1.5rem; font-weight: 600; }
 h2 { margin: 2rem 0 .5rem; font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-
 .subtitle { color: var(--muted); margin: 0; }
 
 button {
@@ -50,14 +49,9 @@ button {
 }
 button + button { margin-left: .5rem; }
 button:hover { filter: brightness(1.1); }
-button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--border); }
-button:disabled { cursor: default; opacity: .7; }
+button:disabled { cursor: default; opacity: .6; }
 
-.lang-switcher {
-  display: flex;
-  gap: .25rem;
-}
-
+.lang-switcher { display: flex; gap: .25rem; }
 .lang-switcher button {
   padding: .25rem .5rem;
   font-size: .75rem;
@@ -66,13 +60,11 @@ button:disabled { cursor: default; opacity: .7; }
   border: 1px solid var(--border);
   font-weight: 500;
 }
-
 .lang-switcher button:hover:not(:disabled) {
   color: var(--fg);
   border-color: var(--accent);
   filter: none;
 }
-
 .lang-switcher button:disabled {
   color: var(--accent);
   border-color: var(--accent);
@@ -88,6 +80,7 @@ pre {
   font-size: .8125rem;
   white-space: pre-wrap;
   word-break: break-word;
+  margin-top: .5rem;
 }
 
 .dot {
@@ -97,7 +90,7 @@ pre {
   border-radius: 50%;
   margin-right: .5rem;
   vertical-align: middle;
+  background: #555;
 }
-.dot.open { background: var(--accent); }
-.dot.closed { background: #555; }
-.dot.connecting { background: #f5c542; }
+.dot[data-state="open"] { background: var(--accent); }
+.dot[data-state="connecting"] { background: #f5c542; }

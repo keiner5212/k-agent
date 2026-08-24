@@ -1,6 +1,3 @@
-// Shared contract between web and desktop runtimes.
-// Keep this file dependency-free so both Deno (npm:) and Next.js can import it.
-
 export interface HealthResponse {
   status: "ok" | "degraded" | "down";
   uptimeSeconds: number;
