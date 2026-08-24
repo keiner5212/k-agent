@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { IconButton } from "@/components/IconButton";
 
 type GearButtonProps = {
   onClick: () => void;
@@ -12,14 +13,8 @@ export const GearButton = ({ onClick, shortcutLabel }: GearButtonProps): ReactNo
   const label = shortcutLabel ?? t("settings.title");
 
   return (
-    <button
-      type="button"
-      className="icon-button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-    >
+    <IconButton onClick={onClick} label={label}>
       <Settings size={16} strokeWidth={1.5} />
-    </button>
+    </IconButton>
   );
 };

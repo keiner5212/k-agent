@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff, Loader2, Pencil, Plug, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { GlassButton } from "@/components/GlassButton";
+import { IconButton } from "@/components/IconButton";
 import { providerKindLabel, useProvidersStore } from "@/lib/providers";
 import { formatContextWindow, type ModelInfo, type Provider } from "@/types/providers";
 import { ProviderForm } from "./ProviderForm";
@@ -79,11 +81,9 @@ const ModelRow = ({
             {hasOutput ? formatContextWindow(model.maxOutputTokens) : "-"}
           </span>
         </span>
-        <button
-          type="button"
-          className="icon-button model-row__refresh"
-          aria-label={t("providers.actions.refreshModel")}
-          title={t("providers.actions.refreshModel")}
+        <IconButton
+          className="model-row__refresh"
+          label={t("providers.actions.refreshModel")}
           onClick={() => void handleRefresh()}
           disabled={busy}
         >
@@ -92,7 +92,7 @@ const ModelRow = ({
           ) : (
             <RefreshCw size={12} strokeWidth={1.5} />
           )}
-        </button>
+        </IconButton>
       </div>
     </li>
   );
@@ -157,11 +157,8 @@ const ProviderCard = ({
           <span className="provider-card__badge">{providerKindLabel(provider.kind)}</span>
         </div>
         <div className="provider-card__actions">
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={t("providers.actions.refresh")}
-            title={t("providers.actions.refresh")}
+          <IconButton
+            label={t("providers.actions.refresh")}
             onClick={() => void handleRefresh()}
             disabled={refreshing || deleting}
           >
@@ -170,22 +167,12 @@ const ProviderCard = ({
             ) : (
               <RefreshCw size={14} strokeWidth={1.5} />
             )}
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={t("providers.actions.edit")}
-            title={t("providers.actions.edit")}
-            onClick={onEdit}
-            disabled={deleting}
-          >
+          </IconButton>
+          <IconButton label={t("providers.actions.edit")} onClick={onEdit} disabled={deleting}>
             <Pencil size={14} strokeWidth={1.5} />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            aria-label={t("providers.actions.delete")}
-            title={t("providers.actions.delete")}
+          </IconButton>
+          <IconButton
+            label={t("providers.actions.delete")}
             onClick={() => void handleDelete()}
             disabled={refreshing || deleting}
           >
@@ -194,7 +181,7 @@ const ProviderCard = ({
             ) : (
               <Trash2 size={14} strokeWidth={1.5} />
             )}
-          </button>
+          </IconButton>
         </div>
       </div>
       <div className="provider-card__url">{provider.baseUrl}</div>
@@ -291,15 +278,10 @@ const ProvidersList = (): ReactNode => {
       ) : null}
 
       <div className="provider-actions">
-        <button
-          type="button"
-          className="btn btn--primary"
-          onClick={() => setAdding(true)}
-          disabled={loading}
-        >
+        <GlassButton variant="primary" onClick={() => setAdding(true)} disabled={loading}>
           <Plus size={14} strokeWidth={1.5} />
           <span>{t("providers.add")}</span>
-        </button>
+        </GlassButton>
       </div>
     </>
   );

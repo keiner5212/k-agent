@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
+import { GlassButton } from "@/components/GlassButton";
 import { Select } from "@/components/Select";
 import {
   DEFAULT_BASE_URLS,
@@ -142,10 +143,10 @@ export const ProviderForm = ({ draft, onCancel, onSaved }: ProviderFormProps): R
       ) : null}
 
       <div className="form-actions">
-        <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={submitting}>
+        <GlassButton variant="ghost" onClick={onCancel} disabled={submitting}>
           {t("providers.form.cancel")}
-        </button>
-        <button type="submit" className="btn btn--primary" disabled={submitting}>
+        </GlassButton>
+        <GlassButton variant="primary" type="submit" disabled={submitting}>
           {submitting ? (
             <>
               <Loader2 size={14} strokeWidth={1.5} className="spin" />
@@ -154,7 +155,7 @@ export const ProviderForm = ({ draft, onCancel, onSaved }: ProviderFormProps): R
           ) : (
             <span>{isEditing ? t("providers.form.save") : t("providers.form.add")}</span>
           )}
-        </button>
+        </GlassButton>
       </div>
     </form>
   );

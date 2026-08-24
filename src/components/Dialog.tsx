@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { GlassSurface } from "./GlassSurface";
+import { IconButton } from "./IconButton";
 
 type DialogProps = {
   open: boolean;
@@ -25,14 +26,18 @@ export const Dialog = ({
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="dialog-overlay" />
-        <DialogPrimitive.Content className="dialog-content-anchor">
-          <GlassSurface className="dialog-content" cornerRadius={2}>
+        <DialogPrimitive.Content
+          className="dialog-anchor"
+          aria-describedby={undefined}
+          onCloseAutoFocus={(event) => event.preventDefault()}
+        >
+          <GlassSurface className="dialog-surface" cornerRadius={4} elasticity={0}>
             <div className="dialog-header">
               <DialogPrimitive.Title className="dialog-title">{t(titleKey)}</DialogPrimitive.Title>
               <DialogPrimitive.Close asChild>
-                <button type="button" className="icon-button" aria-label={t("settings.close")}>
-                  <X size={16} strokeWidth={1.5} />
-                </button>
+                <IconButton label={t("settings.close")}>
+                  <X size={14} strokeWidth={1.5} />
+                </IconButton>
               </DialogPrimitive.Close>
             </div>
             <div className="dialog-body">{children}</div>

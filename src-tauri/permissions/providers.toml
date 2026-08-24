@@ -6,6 +6,8 @@ permissions = [
   "allow-delete",
   "allow-refresh",
   "allow-refresh-single",
+  "allow-set-minimize-to-tray",
+  "allow-get-minimize-to-tray",
   "allow-window-minimize",
   "allow-window-toggle-maximize",
   "allow-window-is-maximized",
@@ -36,6 +38,16 @@ commands.allow = ["refresh_provider_models"]
 identifier = "allow-refresh-single"
 description = "Refresh a single model's details."
 commands.allow = ["refresh_single_model"]
+
+[[permission]]
+identifier = "allow-set-minimize-to-tray"
+description = "Set whether closing the window should hide it to the system tray."
+commands.allow = ["set_minimize_to_tray"]
+
+[[permission]]
+identifier = "allow-get-minimize-to-tray"
+description = "Query whether minimize-to-tray is enabled."
+commands.allow = ["get_minimize_to_tray"]
 
 [[permission]]
 identifier = "allow-window-minimize"

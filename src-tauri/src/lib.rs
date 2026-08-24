@@ -80,8 +80,46 @@ fn silence_libayatana_appindicator_warning() {
 #[cfg(not(target_os = "linux"))]
 fn silence_libayatana_appindicator_warning() {}
 
+#[cfg(target_os = "linux")]
+fn register_linux_identity() {
+    const APP_ID: &str = "dev.kagent.app";
+    const ICON_PNG: &[u8] = include_bytes!("../icons/128x128.png");
+
+    glib::set_prgname(Some(APP_ID));
+    glib::set_application_name("k-agent");
+
+    let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+        return;
+    };
+    let icon_dir = home.join(".local/share/icons/hicolor/128x128/apps");
+    let apps_dir = home.join(".local/share/applications");
+    if std::fs::create_dir_all(&icon_dir).is_err() || std::fs::create_dir_all(&apps_dir).is_err() {
+        return;
+    }
+
+    let icon_path = icon_dir.join(format!("{APP_ID}.png"));
+    if std::fs::write(&icon_path, ICON_PNG).is_err() {
+        return;
+    }
+    let _ = std::fs::copy(&icon_path, icon_dir.join("k-agent.png"));
+
+    let exec = std::env::current_exe()
+        .ok()
+        .map(|path| path.display().to_string())
+        .unwrap_or_else(|| "k-agent".to_string());
+    let desktop = format!(
+        "[Desktop Entry]\nType=Application\nName=k-agent\nComment=AI coding model orchestrator\nExec={exec}\nIcon={APP_ID}\nTerminal=false\nCategories=Development;\nStartupWMClass={APP_ID}\n"
+    );
+    let _ = std::fs::write(apps_dir.join(format!("{APP_ID}.desktop")), &desktop);
+    let _ = std::fs::write(apps_dir.join("k-agent.desktop"), desktop);
+}
+
+#[cfg(not(target_os = "linux"))]
+fn register_linux_identity() {}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    register_linux_identity();
     silence_libayatana_appindicator_warning();
 
     tauri::Builder::default()
@@ -137,7 +175,8 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                if MINIMIZE_TO_TRAY.load(Ordering::Relaxed) {
+                let enabled = MINIMIZE_TO_TRAY.load(Ordering::Relaxed);
+                if enabled {
                     api.prevent_close();
                     let _ = window.hide();
                 }

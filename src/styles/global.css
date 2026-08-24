@@ -52,8 +52,9 @@
 
 .app-titlebar__actions {
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
   gap: 2px;
+  height: 100%;
   -webkit-app-region: no-drag;
 }
 
@@ -162,36 +163,52 @@
   animation: overlay-out var(--duration-fast) var(--ease-standard) forwards;
 }
 
-.dialog-content-anchor {
+.dialog-anchor {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(880px, calc(100vw - var(--space-6)));
-  max-height: 88vh;
-  display: flex;
-  flex-direction: column;
+  inset: 0;
   z-index: 51;
-  animation: dialog-in var(--duration-base) var(--ease-standard);
+  pointer-events: none;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  overflow: visible;
 }
 
-.dialog-content-anchor[data-state="closed"] {
-  animation: dialog-out var(--duration-fast) var(--ease-standard) forwards;
+.dialog-anchor > * {
+  pointer-events: auto;
 }
 
-.dialog-content {
+.dialog-surface {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: 88vh;
+  height: 100%;
   background-color: var(--surface);
   color: var(--text-primary);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   box-shadow:
     var(--shadow-md),
     inset 0 1px 0 color-mix(in oklch, var(--text-primary) 6%, transparent);
   overflow: hidden;
+  animation: dialog-fade-in var(--duration-base) var(--ease-standard);
+}
+
+.glass-surface__inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.dialog-anchor[data-state="closed"] .dialog-surface {
+  animation: dialog-fade-out var(--duration-fast) var(--ease-standard) forwards;
 }
 
 .dialog-header {
@@ -213,6 +230,8 @@
   flex-direction: column;
   gap: 0;
   padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -229,9 +248,11 @@
 .settings-layout {
   display: grid;
   grid-template-columns: 200px 1fr;
+  grid-template-rows: 1fr;
   gap: 0;
+  height: 100%;
   min-height: 440px;
-  max-height: calc(88vh - 90px);
+  overflow: hidden;
 }
 
 .settings-sidebar {
@@ -305,6 +326,7 @@
 .settings-content {
   padding: var(--space-3) var(--space-4);
   overflow-y: auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -597,6 +619,59 @@
   transform: scale(0.97);
 }
 
+.glass-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.glass-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.glass-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.glass-btn__sizer,
+.glass-btn__label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 6px 14px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+.glass-btn__sizer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.glass-btn--primary {
+  color: var(--text-primary);
+}
+
+.glass-btn--ghost {
+  color: var(--text-secondary);
+}
+
+.glass-btn--danger {
+  color: var(--danger);
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -651,6 +726,18 @@
 
 .toggle-row:hover {
   border-color: var(--border-strong);
+}
+
+.toggle-row--control {
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.toggle-row--control:hover {
+  border: none;
 }
 
 .toggle-row__body {
@@ -961,25 +1048,21 @@
   }
 }
 
-@keyframes dialog-in {
+@keyframes dialog-fade-in {
   from {
     opacity: 0;
-    transform: translate(-50%, calc(-50% + 8px)) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
   }
 }
 
-@keyframes dialog-out {
+@keyframes dialog-fade-out {
   from {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
   }
   to {
     opacity: 0;
-    transform: translate(-50%, calc(-50% + 4px)) scale(0.98);
   }
 }
 
@@ -1194,11 +1277,12 @@
   backdrop-filter: blur(8px);
 }
 
-:root[data-translucent="true"] .dialog-content {
-  background-color: color-mix(in oklch, var(--surface) 86%, transparent);
-  border-color: color-mix(in oklch, var(--border-strong) 80%, transparent);
-  -webkit-backdrop-filter: saturate(180%) blur(28px);
-  backdrop-filter: saturate(180%) blur(28px);
+:root[data-translucent="true"] .dialog-surface {
+  background-color: transparent;
+  border-color: color-mix(in oklch, var(--border-strong) 55%, transparent);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 :root[data-translucent="true"] .settings-sidebar {
@@ -1299,7 +1383,7 @@
 
 @supports not (backdrop-filter: blur(1px)) {
   :root[data-translucent="true"] .app-titlebar,
-  :root[data-translucent="true"] .dialog-content,
+  :root[data-translucent="true"] .dialog-surface,
   :root[data-translucent="true"] .dialog-overlay,
   :root[data-translucent="true"] .select-content,
   :root[data-translucent="true"] .app-main__hint {

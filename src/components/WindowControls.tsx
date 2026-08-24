@@ -22,7 +22,6 @@ const useMaximized = (): boolean => {
     };
 
     void query();
-    const id = window.setInterval(() => void query(), 400);
 
     const onResize = (): void => {
       void query();
@@ -31,7 +30,6 @@ const useMaximized = (): boolean => {
 
     return () => {
       active = false;
-      window.clearInterval(id);
       window.removeEventListener("resize", onResize);
     };
   }, []);

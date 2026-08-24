@@ -1,17 +1,9 @@
 import { useEffect } from "react";
 import { matchesChordString } from "./keybindings";
 import { useSettingsStore } from "./settings";
+import type { KeybindingAction } from "@/types/settings";
 
-type KeybindingsHook = {
-  register: (
-    action: keyof ReturnType<typeof useSettingsStore.getState>["keybindings"],
-    handler: () => void,
-  ) => void;
-};
-
-export const useGlobalKeybindings = (
-  onAction: (action: keyof ReturnType<typeof useSettingsStore.getState>["keybindings"]) => void,
-): KeybindingsHook => {
+export const useGlobalKeybindings = (onAction: (action: KeybindingAction) => void): void => {
   const keybindings = useSettingsStore((state) => state.keybindings);
 
   useEffect(() => {
@@ -28,7 +20,7 @@ export const useGlobalKeybindings = (
       for (const [action, chord] of Object.entries(keybindings)) {
         if (matchesChordString(event, chord)) {
           event.preventDefault();
-          onAction(action as keyof typeof keybindings);
+          onAction(action as KeybindingAction);
           return;
         }
       }
@@ -37,11 +29,4 @@ export const useGlobalKeybindings = (
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [keybindings, onAction]);
-
-  return {
-    register: (action, handler) => {
-      if (action === "settings.open") onAction(action);
-      void handler;
-    },
-  };
 };

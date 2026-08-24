@@ -8,6 +8,7 @@ type ToggleProps = {
   label: string;
   description?: string;
   disabled?: boolean;
+  showLabel?: boolean;
 };
 
 export const Toggle = ({
@@ -16,6 +17,7 @@ export const Toggle = ({
   label,
   description,
   disabled,
+  showLabel = true,
 }: ToggleProps): ReactNode => {
   const id = useId();
   const { t } = useTranslation();
@@ -24,8 +26,8 @@ export const Toggle = ({
   };
 
   return (
-    <div className="toggle-row">
-      <label className="toggle-row__body" htmlFor={id}>
+    <div className={showLabel ? "toggle-row" : "toggle-row toggle-row--control"}>
+      <label className={showLabel ? "toggle-row__body" : "visually-hidden"} htmlFor={id}>
         <span className="toggle-row__label">{label}</span>
         {description ? <span className="toggle-row__hint">{description}</span> : null}
       </label>

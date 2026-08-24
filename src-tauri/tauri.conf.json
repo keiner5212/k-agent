@@ -39,6 +39,11 @@
     ],
     "category": "DeveloperTool",
     "shortDescription": "AI coding model orchestrator",
-    "longDescription": "k-agent orchestrates multiple AI coding models from a single desktop interface."
+    "longDescription": "k-agent orchestrates multiple AI coding models from a single desktop interface.",
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/k-agent.desktop"
+      }
+    }
   }
 }

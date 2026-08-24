@@ -2,9 +2,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Keyboard, Plug, Sliders } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
+import { GlassButton } from "@/components/GlassButton";
 import { ProvidersPanel } from "@/features/providers/ProvidersPanel";
-import { useProvidersStore } from "@/lib/providers";
-import { useEffect } from "react";
 import { SETTINGS_REGISTRY } from "./registry-data";
 import { SettingItem } from "./SettingItem";
 import type { SettingsSectionDef } from "./registry";
@@ -23,11 +22,6 @@ const TABS: readonly TabMeta[] = [
   { id: "keybindings", icon: Keyboard, labelKey: "settings.sections.keybindings" },
 ];
 
-const renderPanel = (tab: SettingsTab): ReactNode => {
-  if (tab === "providers") return <ProvidersPanel />;
-  return null;
-};
-
 type SettingsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -37,13 +31,6 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
   const [query, setQuery] = useState("");
-  const loadProviders = useProvidersStore((state) => state.load);
-
-  useEffect(() => {
-    if (open && activeTab === "providers") {
-      void loadProviders();
-    }
-  }, [open, activeTab, loadProviders]);
 
   const sections = useMemo(() => {
     const trimmed = query.trim();
@@ -59,7 +46,7 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
     })).filter((section) => section.items.length > 0 || section.id === "providers");
   }, [query, t]);
 
-  const visibleSectionIds = new Set(sections.map((s) => s.id));
+  const visibleSectionIds = new Set(sections.map((section) => section.id));
 
   return (
     <Dialog
@@ -67,9 +54,9 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
       onOpenChange={onOpenChange}
       titleKey="settings.title"
       footer={
-        <button type="button" className="btn btn--primary" onClick={() => onOpenChange(false)}>
+        <GlassButton variant="primary" onClick={() => onOpenChange(false)}>
           {t("settings.close")}
-        </button>
+        </GlassButton>
       }
     >
       <div className="settings-layout">
@@ -110,17 +97,17 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
         </nav>
         <div className="settings-content" role="tabpanel">
           {activeTab === "providers" ? (
-            renderPanel("providers")
+            <ProvidersPanel />
           ) : (
             <div className="settings-list">
               {sections
-                .filter((s) => s.id === activeTab)
+                .filter((section) => section.id === activeTab)
                 .flatMap((section) =>
                   section.items.map((item) => (
                     <SettingItem key={item.id} item={item} query={query.trim()} />
                   )),
                 )}
-              {sections.find((s) => s.id === activeTab)?.items.length === 0 ? (
+              {sections.find((section) => section.id === activeTab)?.items.length === 0 ? (
                 <div className="settings-empty">{t("settings.searchEmpty")}</div>
               ) : null}
             </div>

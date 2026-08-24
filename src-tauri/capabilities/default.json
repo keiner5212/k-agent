@@ -11,6 +11,8 @@
     "allow-delete",
     "allow-refresh",
     "allow-refresh-single",
+    "allow-set-minimize-to-tray",
+    "allow-get-minimize-to-tray",
     "allow-window-minimize",
     "allow-window-toggle-maximize",
     "allow-window-is-maximized",

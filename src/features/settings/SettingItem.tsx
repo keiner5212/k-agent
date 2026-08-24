@@ -86,6 +86,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
 
         {item.type === "toggle" ? (
           <Toggle
+            showLabel={false}
             checked={toggleChecked(item.id, {
               translucencyEnabled,
               animationsEnabled,
