@@ -1,10 +1,26 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Copy, Eye, EyeOff, Loader2, Pencil, Plug, Plus, RefreshCw, Star, Trash2 } from "lucide-react";
+import {
+  Copy,
+  Eye,
+  EyeOff,
+  Loader2,
+  Pencil,
+  Plug,
+  Plus,
+  RefreshCw,
+  Star,
+  Trash2,
+} from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { useProvidersStore } from "@/lib/providers";
-import { formatContextWindow, type ModelDraft, type ModelInfo, type Provider } from "@/types/providers";
+import {
+  formatContextWindow,
+  type ModelDraft,
+  type ModelInfo,
+  type Provider,
+} from "@/types/providers";
 import { ModelForm } from "./ModelForm";
 import { ProviderForm } from "./ProviderForm";
 
@@ -28,7 +44,9 @@ export const ProvidersPanel = (): ReactNode => {
 };
 
 const sortModels = (models: ModelInfo[]): ModelInfo[] =>
-  [...models].sort((left, right) => Number(Boolean(right.favorite)) - Number(Boolean(left.favorite)));
+  [...models].sort(
+    (left, right) => Number(Boolean(right.favorite)) - Number(Boolean(left.favorite)),
+  );
 
 const ModelRow = ({
   model,

@@ -36,7 +36,11 @@ type SettingsDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-const itemMatches = (item: SettingsSectionDef["items"][number], query: string, t: (key: string) => string): boolean => {
+const itemMatches = (
+  item: SettingsSectionDef["items"][number],
+  query: string,
+  t: (key: string) => string,
+): boolean => {
   const text = [t(item.titleKey), t(item.descriptionKey), ...(item.keywords ?? [])]
     .join(" ")
     .toLowerCase();
@@ -130,19 +134,19 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
         </nav>
         <div className="settings-content" role="tabpanel">
           <div key={resolvedTab} className="settings-pane">
-          {visibleTabs.length === 0 ? (
-            <div className="settings-empty">{t("settings.searchEmpty")}</div>
-          ) : resolvedTab === "providers" ? (
-            <ProvidersPanel />
-          ) : resolvedTab === "keybindings" ? (
-            <KeybindingsPanel items={activeSection?.items ?? []} query={trimmed} />
-          ) : (
-            <div className="settings-list">
-              {(activeSection?.items ?? []).map((item) => (
-                <SettingItem key={item.id} item={item} query={query.trim()} />
-              ))}
-            </div>
-          )}
+            {visibleTabs.length === 0 ? (
+              <div className="settings-empty">{t("settings.searchEmpty")}</div>
+            ) : resolvedTab === "providers" ? (
+              <ProvidersPanel />
+            ) : resolvedTab === "keybindings" ? (
+              <KeybindingsPanel items={activeSection?.items ?? []} query={trimmed} />
+            ) : (
+              <div className="settings-list">
+                {(activeSection?.items ?? []).map((item) => (
+                  <SettingItem key={item.id} item={item} query={query.trim()} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
