@@ -15,7 +15,6 @@ dist-ssr
 src-tauri/target
 src-tauri/Cargo.lock
 src-tauri/gen
-pnpm-lock.yaml
 *.tsbuildinfo
 
 # Created by https://www.toptal.com/developers/gitignore/api/react,rust,rust-analyzer
