@@ -1,0 +1,45 @@
+{
+  "app": {
+    "name": "k-agent",
+    "shortcut_hint": "Pulsa {{shortcut}} para abrir ajustes"
+  },
+  "empty": {
+    "title": "Todavia no hay nada aqui",
+    "description": "Esta es una aplicacion vacia. Construye tu orquestador encima."
+  },
+  "settings": {
+    "title": "Ajustes",
+    "close": "Cerrar",
+    "sections": {
+      "language": "Idioma",
+      "theme": "Tema",
+      "keybindings": "Atajos de teclado"
+    },
+    "language": {
+      "description": "Elige el idioma de la interfaz.",
+      "label": "Idioma de la pantalla",
+      "options": {
+        "en": "Ingles",
+        "es": "Espanol"
+      }
+    },
+    "theme": {
+      "description": "Cambia entre superficies claras y oscuras.",
+      "label": "Apariencia",
+      "options": {
+        "dark": "Oscuro",
+        "light": "Claro"
+      }
+    },
+    "keybindings": {
+      "description": "Haz clic en un atajo y pulsa la nueva combinacion. Pulsa Escape para cancelar.",
+      "actions": {
+        "settings.open": "Abrir ajustes",
+        "settings.close": "Cerrar ajustes"
+      },
+      "record": "Grabando",
+      "unset": "Sin asignar",
+      "reset": "Restablecer valores"
+    }
+  }
+}

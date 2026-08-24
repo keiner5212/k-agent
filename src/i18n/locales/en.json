@@ -1,0 +1,45 @@
+{
+  "app": {
+    "name": "k-agent",
+    "shortcut_hint": "Press {{shortcut}} for settings"
+  },
+  "empty": {
+    "title": "Nothing here yet",
+    "description": "This is a blank shell. Build your orchestrator on top of it."
+  },
+  "settings": {
+    "title": "Settings",
+    "close": "Close",
+    "sections": {
+      "language": "Language",
+      "theme": "Theme",
+      "keybindings": "Keybindings"
+    },
+    "language": {
+      "description": "Choose the interface language.",
+      "label": "Display language",
+      "options": {
+        "en": "English",
+        "es": "Spanish"
+      }
+    },
+    "theme": {
+      "description": "Switch between dark and light surfaces.",
+      "label": "Appearance",
+      "options": {
+        "dark": "Dark",
+        "light": "Light"
+      }
+    },
+    "keybindings": {
+      "description": "Click a shortcut and press the new combination. Press Escape to cancel.",
+      "actions": {
+        "settings.open": "Open settings",
+        "settings.close": "Close settings"
+      },
+      "record": "Recording",
+      "unset": "Not bound",
+      "reset": "Restore defaults"
+    }
+  }
+}
