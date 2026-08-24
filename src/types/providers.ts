@@ -17,6 +17,7 @@ export type ModelInfo = {
   multimodal?: boolean;
   source?: ModelSource;
   userEdited?: boolean;
+  favorite?: boolean;
 };
 
 export type ModelDraft = {
@@ -34,7 +35,7 @@ export type Provider = {
   name: string;
   kind: ProviderKind;
   baseUrl: string;
-  apiKey?: string;
+  hasApiKey?: boolean;
   models: ModelInfo[];
   lastSyncedAt?: number;
 };
@@ -45,6 +46,7 @@ export type ProviderDraft = {
   kind: ProviderKind;
   baseUrl: string;
   apiKey?: string;
+  clearApiKey?: boolean;
 };
 
 export const DEFAULT_BASE_URLS: Record<ProviderKind, string> = {

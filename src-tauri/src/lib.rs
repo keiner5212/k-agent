@@ -1,5 +1,6 @@
 mod catalog;
 mod providers;
+mod secret;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -223,6 +224,12 @@ pub fn run() {
             set_model_favorite,
         ])
         .setup(|app| {
+            if let Ok(home) = app.path().home_dir() {
+                if let Err(error) = crate::secret::ensure_master_key(&home.join(".k-agent")) {
+                    eprintln!("k-agent master key: {error}");
+                }
+            }
+
             if let (Some(window), Some(icon)) =
                 (app.get_webview_window("main"), app.default_window_icon())
             {

@@ -393,6 +393,23 @@
   line-height: var(--leading-normal);
 }
 
+.field__action {
+  display: inline-flex;
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.field__action:hover {
+  text-decoration: underline;
+}
+
 /* ========== Inputs ========== */
 
 .select,
@@ -1273,6 +1290,10 @@
   margin-left: auto;
   width: 20px;
   height: 20px;
+}
+
+.model-row__star--on {
+  color: var(--warning);
 }
 
 /* ========== Translucency (opt-in, in-app surfaces only) ========== */

@@ -44,8 +44,24 @@ pub struct ModelInfo {
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub family: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub knowledge: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub input: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub output: Vec<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub reasoning: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub tool_call: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub structured_output: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub attachment: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub multimodal: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub effort_levels: Vec<String>,
     #[serde(default, skip_serializing_if = "is_detected")]
     pub source: ModelSource,
     #[serde(default, skip_serializing_if = "is_false")]
@@ -62,11 +78,28 @@ impl ModelInfo {
             max_output_tokens: None,
             display_name: None,
             family: None,
+            knowledge: None,
+            input: Vec::new(),
+            output: Vec::new(),
+            reasoning: false,
+            tool_call: false,
+            structured_output: false,
+            attachment: false,
             multimodal: false,
+            effort_levels: Vec::new(),
             source: ModelSource::Detected,
             user_edited: false,
             favorite: false,
         }
+    }
+
+    pub fn sync_multimodal(&mut self) {
+        self.multimodal |= self.input.iter().any(|item| {
+            matches!(
+                item.to_ascii_lowercase().as_str(),
+                "image" | "audio" | "video" | "pdf"
+            )
+        });
     }
 }
 
@@ -110,7 +143,23 @@ pub struct UpsertModelInput {
     pub context_window: Option<u64>,
     pub max_output_tokens: Option<u64>,
     #[serde(default)]
+    pub knowledge: Option<String>,
+    #[serde(default)]
+    pub input: Vec<String>,
+    #[serde(default)]
+    pub output: Vec<String>,
+    #[serde(default)]
+    pub reasoning: bool,
+    #[serde(default)]
+    pub tool_call: bool,
+    #[serde(default)]
+    pub structured_output: bool,
+    #[serde(default)]
+    pub attachment: bool,
+    #[serde(default)]
     pub multimodal: bool,
+    #[serde(default)]
+    pub effort_levels: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,6 +171,8 @@ pub struct Provider {
     pub base_url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub has_api_key: bool,
     #[serde(default, deserialize_with = "deserialize_models")]
     pub models: Vec<ModelInfo>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -138,6 +189,8 @@ pub struct SaveProviderInput {
     pub base_url: String,
     #[serde(default)]
     pub api_key: Option<String>,
+    #[serde(default)]
+    pub clear_api_key: bool,
 }
 
 #[derive(Debug, Error, Serialize)]
@@ -156,6 +209,14 @@ pub enum ProviderError {
     Duplicate(String),
     #[error("api responded with status {status}: {body}")]
     ApiStatus { status: u16, body: String },
+    #[error("{0}")]
+    Crypto(String),
+}
+
+impl From<crate::secret::SecretError> for ProviderError {
+    fn from(error: crate::secret::SecretError) -> Self {
+        Self::Crypto(error.to_string())
+    }
 }
 
 #[derive(Deserialize)]
@@ -264,7 +325,80 @@ async fn save(path: &Path, providers: &[Provider]) -> Result<(), ProviderError> 
         .map_err(|e| ProviderError::Parse(e.to_string()))?;
     tokio::fs::write(path, json)
         .await
-        .map_err(|e| ProviderError::Io(e.to_string()))
+        .map_err(|e| ProviderError::Io(e.to_string()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+    }
+    Ok(())
+}
+
+fn config_dir(app: &AppHandle) -> Result<PathBuf, ProviderError> {
+    providers_path(app)?
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| ProviderError::Path("config directory is unavailable".into()))
+}
+
+fn redact(mut provider: Provider) -> Provider {
+    provider.has_api_key = provider
+        .api_key
+        .as_ref()
+        .is_some_and(|key| !key.trim().is_empty());
+    provider.api_key = None;
+    provider
+}
+
+async fn load_all(app: &AppHandle) -> Result<Vec<Provider>, ProviderError> {
+    let path = providers_path(app)?;
+    let mut providers = load(&path).await?;
+    let dir = config_dir(app)?;
+    let has_sealed = providers
+        .iter()
+        .any(|provider| provider.api_key.as_deref().is_some_and(crate::secret::is_sealed));
+    let cipher = if has_sealed {
+        crate::secret::cipher(&dir)?
+    } else {
+        crate::secret::cipher_allow_recreate(&dir)?
+    };
+    let mut migrated = false;
+    for provider in &mut providers {
+        match crate::secret::open(cipher, provider.api_key.as_deref())? {
+            None => provider.api_key = None,
+            Some(crate::secret::OpenedKey::Plain(plain)) => {
+                provider.api_key = Some(plain);
+                migrated = true;
+            }
+            Some(crate::secret::OpenedKey::Decrypted(plain)) => {
+                provider.api_key = Some(plain);
+            }
+        }
+    }
+    if migrated {
+        save_all(app, &providers).await?;
+    }
+    Ok(providers)
+}
+
+async fn save_all(app: &AppHandle, providers: &[Provider]) -> Result<(), ProviderError> {
+    let path = providers_path(app)?;
+    let dir = config_dir(app)?;
+    let cipher = crate::secret::cipher(&dir)?;
+    let mut stored = providers.to_vec();
+    for provider in &mut stored {
+        provider.has_api_key = false;
+        provider.api_key = match provider
+            .api_key
+            .as_deref()
+            .map(str::trim)
+            .filter(|key| !key.is_empty())
+        {
+            None => None,
+            Some(plain) => Some(crate::secret::seal(cipher, plain)?),
+        };
+    }
+    save(&path, &stored).await
 }
 
 fn http_client() -> Result<reqwest::Client, ProviderError> {
@@ -507,17 +641,40 @@ async fn enrich_models(
     previous: Vec<ModelInfo>,
 ) -> Vec<ModelInfo> {
     let catalog = crate::catalog::load(app).await;
-    let mut fetched = fetch_all_model_details(provider, model_ids).await;
-    for model in &mut fetched {
-        catalog.apply(model);
+    let mut by_id: HashMap<String, ModelInfo> = HashMap::new();
+    let mut missing = Vec::new();
+    for id in model_ids {
+        if catalog.lookup(id).is_some() {
+            let mut model = ModelInfo::detected(id);
+            catalog.apply(&mut model);
+            by_id.insert(id.clone(), model);
+        } else {
+            missing.push(id.clone());
+        }
     }
+    if !missing.is_empty() {
+        for mut model in fetch_all_model_details(provider, &missing).await {
+            catalog.apply(&mut model);
+            by_id.insert(model.id.clone(), model);
+        }
+    }
+    let fetched = model_ids
+        .iter()
+        .filter_map(|id| by_id.remove(id))
+        .collect();
     merge_models(previous, fetched)
 }
 
 #[tauri::command]
 pub async fn list_providers(app: AppHandle) -> Result<Vec<Provider>, ProviderError> {
-    let path = providers_path(&app)?;
-    load(&path).await
+    let mut providers = load_all(&app).await?;
+    let catalog = crate::catalog::load(&app).await;
+    for provider in &mut providers {
+        for model in &mut provider.models {
+            catalog.apply(model);
+        }
+    }
+    Ok(providers.into_iter().map(redact).collect())
 }
 
 #[tauri::command]
@@ -525,8 +682,7 @@ pub async fn save_provider(
     app: AppHandle,
     input: SaveProviderInput,
 ) -> Result<Provider, ProviderError> {
-    let path = providers_path(&app)?;
-    let mut providers = load(&path).await?;
+    let mut providers = load_all(&app).await?;
 
     let id = input
         .id
@@ -538,20 +694,27 @@ pub async fn save_provider(
     let previous_models = existing_idx
         .and_then(|idx| providers.get(idx).map(|provider| provider.models.clone()))
         .unwrap_or_default();
+    let previous_key = existing_idx.and_then(|idx| providers[idx].api_key.clone());
+    let api_key = if input.clear_api_key {
+        None
+    } else if let Some(key) = input
+        .api_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|key| !key.is_empty())
+    {
+        Some(key.to_string())
+    } else {
+        previous_key
+    };
 
     let mut stored = Provider {
         id: id.clone(),
         name: input.name.trim().to_string(),
         kind: input.kind,
         base_url: input.base_url.trim().to_string(),
-        api_key: input.api_key.and_then(|k| {
-            let trimmed = k.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed.to_string())
-            }
-        }),
+        api_key,
+        has_api_key: false,
         models: previous_models.clone(),
         last_synced_at: None,
     };
@@ -572,20 +735,19 @@ pub async fn save_provider(
     } else {
         providers.push(stored.clone());
     }
-    save(&path, &providers).await?;
-    Ok(stored)
+    save_all(&app, &providers).await?;
+    Ok(redact(stored))
 }
 
 #[tauri::command]
 pub async fn delete_provider(app: AppHandle, id: String) -> Result<(), ProviderError> {
-    let path = providers_path(&app)?;
-    let mut providers = load(&path).await?;
+    let mut providers = load_all(&app).await?;
     let before = providers.len();
     providers.retain(|p| p.id != id);
     if providers.len() == before {
         return Err(ProviderError::NotFound(id));
     }
-    save(&path, &providers).await
+    save_all(&app, &providers).await
 }
 
 #[tauri::command]
@@ -593,8 +755,7 @@ pub async fn refresh_provider_models(
     app: AppHandle,
     id: String,
 ) -> Result<Provider, ProviderError> {
-    let path = providers_path(&app)?;
-    let mut providers = load(&path).await?;
+    let mut providers = load_all(&app).await?;
     let provider = providers
         .iter_mut()
         .find(|p| p.id == id)
@@ -608,8 +769,8 @@ pub async fn refresh_provider_models(
     provider.last_synced_at = Some(Utc::now().timestamp());
 
     let updated = provider.clone();
-    save(&path, &providers).await?;
-    Ok(updated)
+    save_all(&app, &providers).await?;
+    Ok(redact(updated))
 }
 
 #[tauri::command]
@@ -617,8 +778,7 @@ pub async fn upsert_provider_model(
     app: AppHandle,
     input: UpsertModelInput,
 ) -> Result<Provider, ProviderError> {
-    let path = providers_path(&app)?;
-    let mut providers = load(&path).await?;
+    let mut providers = load_all(&app).await?;
     let provider = providers
         .iter_mut()
         .find(|p| p.id == input.provider_id)
@@ -664,17 +824,43 @@ pub async fn upsert_provider_model(
         .map(|model| model.favorite)
         .unwrap_or(false);
 
-    let next = ModelInfo {
-        id,
-        context_window: input.context_window.filter(|value| *value > 0),
-        max_output_tokens: input.max_output_tokens.filter(|value| *value > 0),
-        display_name,
-        family,
-        multimodal: input.multimodal,
-        source: ModelSource::Custom,
-        user_edited: true,
-        favorite,
-    };
+    let mut next = provider
+        .models
+        .iter()
+        .find(|model| model.id == original_id)
+        .cloned()
+        .unwrap_or_else(|| ModelInfo::detected(&id));
+    next.id = id;
+    next.context_window = input.context_window.filter(|value| *value > 0);
+    next.max_output_tokens = input.max_output_tokens.filter(|value| *value > 0);
+    next.display_name = display_name;
+    next.family = family;
+    next.multimodal = input.multimodal;
+    next.source = ModelSource::Custom;
+    next.user_edited = true;
+    next.favorite = favorite;
+    if let Some(knowledge) = input
+        .knowledge
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        next.knowledge = Some(knowledge.to_string());
+    }
+    if !input.input.is_empty() {
+        next.input = input.input;
+    }
+    if !input.output.is_empty() {
+        next.output = input.output;
+    }
+    if !input.effort_levels.is_empty() {
+        next.effort_levels = input.effort_levels;
+    }
+    next.reasoning |= input.reasoning;
+    next.tool_call |= input.tool_call;
+    next.structured_output |= input.structured_output;
+    next.attachment |= input.attachment;
+    next.sync_multimodal();
 
     if let Some(existing) = provider
         .models
@@ -687,8 +873,8 @@ pub async fn upsert_provider_model(
     }
 
     let updated = provider.clone();
-    save(&path, &providers).await?;
-    Ok(updated)
+    save_all(&app, &providers).await?;
+    Ok(redact(updated))
 }
 
 #[tauri::command]
@@ -697,8 +883,7 @@ pub async fn delete_provider_model(
     id: String,
     model_id: String,
 ) -> Result<Provider, ProviderError> {
-    let path = providers_path(&app)?;
-    let mut providers = load(&path).await?;
+    let mut providers = load_all(&app).await?;
     let provider = providers
         .iter_mut()
         .find(|p| p.id == id)
@@ -711,8 +896,8 @@ pub async fn delete_provider_model(
     }
 
     let updated = provider.clone();
-    save(&path, &providers).await?;
-    Ok(updated)
+    save_all(&app, &providers).await?;
+    Ok(redact(updated))
 }
 
 #[tauri::command]
@@ -721,8 +906,7 @@ pub async fn refresh_single_model(
     id: String,
     model_id: String,
 ) -> Result<Provider, ProviderError> {
-    let path = providers_path(&app)?;
-    let mut providers = load(&path).await?;
+    let mut providers = load_all(&app).await?;
     let provider = providers
         .iter_mut()
         .find(|p| p.id == id)
@@ -740,7 +924,7 @@ pub async fn refresh_single_model(
             }
         });
     if matches!(favorite, Some(None)) {
-        return Ok(provider.clone());
+        return Ok(redact(provider.clone()));
     }
     let favorite = favorite.flatten().unwrap_or(false);
 
@@ -754,8 +938,8 @@ pub async fn refresh_single_model(
     }
 
     let updated = provider.clone();
-    save(&path, &providers).await?;
-    Ok(updated)
+    save_all(&app, &providers).await?;
+    Ok(redact(updated))
 }
 
 #[tauri::command]
@@ -765,8 +949,7 @@ pub async fn set_model_favorite(
     model_id: String,
     favorite: bool,
 ) -> Result<Provider, ProviderError> {
-    let path = providers_path(&app)?;
-    let mut providers = load(&path).await?;
+    let mut providers = load_all(&app).await?;
     let provider = providers
         .iter_mut()
         .find(|p| p.id == id)
@@ -780,6 +963,6 @@ pub async fn set_model_favorite(
     model.favorite = favorite;
 
     let updated = provider.clone();
-    save(&path, &providers).await?;
-    Ok(updated)
+    save_all(&app, &providers).await?;
+    Ok(redact(updated))
 }

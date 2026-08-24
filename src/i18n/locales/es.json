@@ -110,7 +110,9 @@
       "edit": "Editar",
       "delete": "Eliminar",
       "addModel": "Anadir modelo",
-      "addVariant": "Anadir variante"
+      "addVariant": "Anadir variante",
+      "favorite": "Anadir a favoritos",
+      "unfavorite": "Quitar de favoritos"
     },
     "model": {
       "context": "Contexto",
@@ -118,7 +120,8 @@
       "multimodal": "Vision",
       "textOnly": "Texto",
       "custom": "Personalizado",
-      "edited": "Editado"
+      "edited": "Editado",
+      "favorite": "Favorito"
     },
     "modelForm": {
       "id": "Id del modelo",
@@ -138,8 +141,10 @@
       "kind": "Tipo",
       "baseUrl": "URL base",
       "apiKey": "Clave API (opcional)",
-      "apiKeyPlaceholder": "Deja vacio si el proveedor no requiere autenticacion",
-      "apiKeyHint": "Se guarda en texto plano en tu configuracion local.",
+      "apiKeyPlaceholder": "Deja vacio si el proveedor no requiere clave",
+      "apiKeyPlaceholderKeep": "Guardada cifrada. Deja vacio para conservarla.",
+      "apiKeyHint": "Se cifra en disco con un secreto local creado en el primer arranque. Solo esta app puede descifrarla.",
+      "apiKeyRemove": "Quitar clave guardada",
       "kindHint": {
         "openai-like": "Llama a GET {base}/models. Usa auth Bearer.",
         "anthropic-like": "Llama a GET {base}/v1/models. Usa la cabecera x-api-key.",

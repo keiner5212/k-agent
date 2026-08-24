@@ -16,3 +16,5 @@ src-tauri/Cargo.lock
 src-tauri/gen
 pnpm-lock.yaml
 *.tsbuildinfo
+.tmp
+scripts

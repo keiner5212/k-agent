@@ -110,7 +110,9 @@
       "edit": "Edit",
       "delete": "Delete",
       "addModel": "Add model",
-      "addVariant": "Add variant"
+      "addVariant": "Add variant",
+      "favorite": "Add to favorites",
+      "unfavorite": "Remove from favorites"
     },
     "model": {
       "context": "Context",
@@ -118,7 +120,8 @@
       "multimodal": "Vision",
       "textOnly": "Text",
       "custom": "Custom",
-      "edited": "Edited"
+      "edited": "Edited",
+      "favorite": "Favorite"
     },
     "modelForm": {
       "id": "Model id",
@@ -138,8 +141,10 @@
       "kind": "Type",
       "baseUrl": "Base URL",
       "apiKey": "API key (optional)",
-      "apiKeyPlaceholder": "Leave empty for providers that don't require auth",
-      "apiKeyHint": "Stored in plain text in your local config.",
+      "apiKeyPlaceholder": "Leave empty if this provider does not need a key",
+      "apiKeyPlaceholderKeep": "Stored encrypted. Leave empty to keep it.",
+      "apiKeyHint": "Encrypted at rest with a local secret created on first launch. Only this app can decrypt it.",
+      "apiKeyRemove": "Remove stored key",
       "kindHint": {
         "openai-like": "Calls GET {base}/models. Uses Bearer auth.",
         "anthropic-like": "Calls GET {base}/v1/models. Uses x-api-key header.",

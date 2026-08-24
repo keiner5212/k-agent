@@ -29,6 +29,7 @@ type ProvidersStore = {
   refreshModel: (providerId: string, modelId: string) => Promise<ProviderMutationResult>;
   upsertModel: (providerId: string, draft: ModelDraft) => Promise<ProviderMutationResult>;
   removeModel: (providerId: string, modelId: string) => Promise<ProviderMutationResult>;
+  setFavorite: (providerId: string, modelId: string, favorite: boolean) => Promise<ProviderMutationResult>;
 };
 
 export const useProvidersStore = create<ProvidersStore>((set) => ({
@@ -56,6 +57,7 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
         kind: draft.kind,
         baseUrl: draft.baseUrl,
         apiKey: draft.apiKey ?? null,
+        clearApiKey: Boolean(draft.clearApiKey),
       };
       const provider = await invoke<Provider>("save_provider", { input: payload });
       set((state) => {
@@ -138,6 +140,22 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
       const provider = await invoke<Provider>("delete_provider_model", {
         id: providerId,
         modelId,
+      });
+      set((state) => ({
+        providers: state.providers.map((item) => (item.id === provider.id ? provider : item)),
+      }));
+      return { provider };
+    } catch (error) {
+      return { error: toMessage(error) };
+    }
+  },
+
+  setFavorite: async (providerId, modelId, favorite) => {
+    try {
+      const provider = await invoke<Provider>("set_model_favorite", {
+        id: providerId,
+        modelId,
+        favorite,
       });
       set((state) => ({
         providers: state.providers.map((item) => (item.id === provider.id ? provider : item)),

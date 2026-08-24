@@ -21,13 +21,35 @@ pub struct CatalogEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub family: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub knowledge: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context_window: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub input: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub output: Vec<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub reasoning: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub tool_call: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub structured_output: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub attachment: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
     pub multimodal: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub effort_levels: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 #[derive(Debug, Default)]
@@ -49,9 +71,23 @@ struct ModelsDevModel {
     #[serde(default)]
     name: Option<String>,
     #[serde(default)]
+    family: Option<String>,
+    #[serde(default)]
+    knowledge: Option<String>,
+    #[serde(default)]
     limit: Option<ModelsDevLimit>,
     #[serde(default)]
     modalities: Option<ModelsDevModalities>,
+    #[serde(default)]
+    reasoning: bool,
+    #[serde(default)]
+    tool_call: bool,
+    #[serde(default)]
+    structured_output: bool,
+    #[serde(default)]
+    attachment: bool,
+    #[serde(default)]
+    reasoning_options: Vec<ModelsDevReasoningOption>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,12 +96,24 @@ struct ModelsDevLimit {
     context: Option<u64>,
     #[serde(default)]
     output: Option<u64>,
+    #[serde(default)]
+    input: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
 struct ModelsDevModalities {
     #[serde(default)]
     input: Vec<String>,
+    #[serde(default)]
+    output: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelsDevReasoningOption {
+    #[serde(default, rename = "type")]
+    option_type: Option<String>,
+    #[serde(default)]
+    values: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -97,7 +145,7 @@ impl Catalog {
         if let Some(entry) = self.by_id.get(&normalized) {
             return Some(entry);
         }
-        for suffix in ["-highspeed", "-highspeed"] {
+        for suffix in ["-highspeed"] {
             if let Some(base) = normalized.strip_suffix(suffix) {
                 if let Some(entry) = self.by_id.get(base) {
                     return Some(entry);
@@ -115,6 +163,7 @@ impl Catalog {
             if model.family.is_none() {
                 model.family = Some(id_family(&model.id));
             }
+            model.sync_multimodal();
             return;
         };
         if model.context_window.is_none() {
@@ -127,11 +176,26 @@ impl Catalog {
             model.display_name = entry.display_name.clone();
         }
         if model.family.is_none() {
-            model.family = Some(id_family(&model.id));
+            model.family = entry.family.clone().or_else(|| Some(id_family(&model.id)));
         }
-        if !model.multimodal {
-            model.multimodal = entry.multimodal;
+        if model.knowledge.is_none() {
+            model.knowledge = entry.knowledge.clone();
         }
+        if model.input.is_empty() {
+            model.input = entry.input.clone();
+        }
+        if model.output.is_empty() {
+            model.output = entry.output.clone();
+        }
+        if model.effort_levels.is_empty() {
+            model.effort_levels = entry.effort_levels.clone();
+        }
+        model.reasoning |= entry.reasoning;
+        model.tool_call |= entry.tool_call;
+        model.structured_output |= entry.structured_output;
+        model.attachment |= entry.attachment;
+        model.multimodal |= entry.multimodal;
+        model.sync_multimodal();
     }
 }
 
@@ -178,9 +242,7 @@ async fn load_remote_or_cache(app: &AppHandle) -> Result<Vec<CatalogEntry>, Stri
             }
             Ok(entries)
         }
-        Err(error) => cached
-            .map(|cache| cache.entries)
-            .ok_or(error),
+        Err(error) => cached.map(|cache| cache.entries).ok_or(error),
     }
 }
 
@@ -207,30 +269,122 @@ async fn fetch_models_dev() -> Result<Vec<CatalogEntry>, String> {
     }
     let providers: HashMap<String, ModelsDevProvider> =
         resp.json().await.map_err(|e| e.to_string())?;
-    let mut entries = Vec::new();
+    let mut by_id: HashMap<String, CatalogEntry> = HashMap::new();
     for provider in providers.into_values() {
         for (key, model) in provider.models {
-            let id = model.id.unwrap_or(key);
-            let multimodal = model
-                .modalities
-                .as_ref()
-                .map(|mods| {
-                    mods.input.iter().any(|item| {
-                        matches!(item.as_str(), "image" | "audio" | "video" | "pdf")
-                    })
+            let entry = catalog_from_models_dev(key, model);
+            let key = normalize_id(&entry.id);
+            by_id
+                .entry(key)
+                .and_modify(|current| {
+                    if richer_than(current, &entry) {
+                        *current = entry.clone();
+                    }
                 })
-                .unwrap_or(false);
-            entries.push(CatalogEntry {
-                id,
-                display_name: model.name,
-                context_window: model.limit.as_ref().and_then(|limit| limit.context),
-                max_output_tokens: model.limit.as_ref().and_then(|limit| limit.output),
-                multimodal,
-                aliases: Vec::new(),
-            });
+                .or_insert(entry);
         }
     }
-    Ok(entries)
+    Ok(by_id.into_values().collect())
+}
+
+fn catalog_from_models_dev(key: String, model: ModelsDevModel) -> CatalogEntry {
+    let input = unique_nonempty(model.modalities.as_ref().map(|m| m.input.clone()).unwrap_or_default());
+    let output = unique_nonempty(model.modalities.as_ref().map(|m| m.output.clone()).unwrap_or_default());
+    let mut effort_levels = effort_from_options(&model.reasoning_options);
+    if model.reasoning && effort_levels.is_empty() {
+        effort_levels = vec!["low".into(), "medium".into(), "high".into()];
+    }
+    CatalogEntry {
+        id: model.id.unwrap_or(key),
+        display_name: model.name,
+        family: empty_to_none(model.family),
+        knowledge: empty_to_none(model.knowledge),
+        context_window: model
+            .limit
+            .as_ref()
+            .and_then(|limit| limit.context.or(limit.input)),
+        max_output_tokens: model.limit.as_ref().and_then(|limit| limit.output),
+        multimodal: is_media_input(&input),
+        reasoning: model.reasoning,
+        tool_call: model.tool_call,
+        structured_output: model.structured_output,
+        attachment: model.attachment,
+        effort_levels,
+        input,
+        output,
+        aliases: Vec::new(),
+    }
+}
+
+fn effort_from_options(options: &[ModelsDevReasoningOption]) -> Vec<String> {
+    let mut levels = Vec::new();
+    for option in options {
+        let values = unique_nonempty(
+            option
+                .values
+                .iter()
+                .filter_map(|value| value.as_str().map(str::trim).filter(|item| !item.is_empty()))
+                .map(str::to_string),
+        );
+        if !values.is_empty() {
+            levels.extend(values);
+        } else if option.option_type.as_deref() == Some("toggle") {
+            levels.extend(["off".into(), "on".into()]);
+        }
+    }
+    unique_nonempty(levels)
+}
+
+fn unique_nonempty(values: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut seen = HashMap::new();
+    let mut out = Vec::new();
+    for value in values {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let key = trimmed.to_ascii_lowercase();
+        if seen.contains_key(&key) {
+            continue;
+        }
+        seen.insert(key, ());
+        out.push(trimmed.to_string());
+    }
+    out
+}
+
+fn richer_than(current: &CatalogEntry, candidate: &CatalogEntry) -> bool {
+    score(candidate) > score(current)
+}
+
+fn score(entry: &CatalogEntry) -> (usize, usize, u8, u8, u8) {
+    (
+        entry.effort_levels.len(),
+        entry.input.len(),
+        u8::from(entry.context_window.is_some()),
+        u8::from(entry.reasoning),
+        u8::from(entry.tool_call),
+    )
+}
+
+fn is_media_input(input: &[String]) -> bool {
+    input.iter().any(|item| {
+        matches!(
+            item.to_ascii_lowercase().as_str(),
+            "image" | "audio" | "video" | "pdf"
+        )
+    })
+}
+
+fn empty_to_none(value: Option<String>) -> Option<String> {
+    value.and_then(|item| {
+        let trimmed = item.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
 }
 
 fn normalize_id(id: &str) -> String {
@@ -239,10 +393,8 @@ fn normalize_id(id: &str) -> String {
 
 fn id_family(id: &str) -> String {
     let lower = id.to_ascii_lowercase();
-    for suffix in ["-highspeed", "-highspeed"] {
-        if lower.ends_with(suffix) {
-            return id[..id.len() - suffix.len()].to_string();
-        }
+    if let Some(stripped) = lower.strip_suffix("-highspeed") {
+        return id[..stripped.len()].to_string();
     }
     id.to_string()
 }

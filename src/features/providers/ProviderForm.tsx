@@ -6,13 +6,13 @@ import { Select } from "@/components/Select";
 import {
   DEFAULT_BASE_URLS,
   PROVIDER_KINDS,
-  type ProviderDraft,
+  type Provider,
   type ProviderKind,
 } from "@/types/providers";
 import { providerKindLabel, useProvidersStore } from "@/lib/providers";
 
 type ProviderFormProps = {
-  draft?: ProviderDraft;
+  draft?: Provider;
   onCancel: () => void;
   onSaved: () => void;
 };
@@ -23,7 +23,8 @@ export const ProviderForm = ({ draft, onCancel, onSaved }: ProviderFormProps): R
   const [name, setName] = useState(draft?.name ?? "");
   const [kind, setKind] = useState<ProviderKind>(draft?.kind ?? "openai-like");
   const [baseUrl, setBaseUrl] = useState(draft?.baseUrl ?? DEFAULT_BASE_URLS["openai-like"]);
-  const [apiKey, setApiKey] = useState(draft?.apiKey ?? "");
+  const [apiKey, setApiKey] = useState("");
+  const [clearApiKey, setClearApiKey] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detectedCount, setDetectedCount] = useState<number | null>(null);
@@ -52,6 +53,7 @@ export const ProviderForm = ({ draft, onCancel, onSaved }: ProviderFormProps): R
       kind,
       baseUrl: baseUrl.trim(),
       apiKey: apiKey.trim() || undefined,
+      clearApiKey,
     });
     setSubmitting(false);
     if (result.error) {
@@ -122,12 +124,31 @@ export const ProviderForm = ({ draft, onCancel, onSaved }: ProviderFormProps): R
           className="input"
           type="password"
           value={apiKey}
-          onChange={(event) => setApiKey(event.target.value)}
+          onChange={(event) => {
+            setApiKey(event.target.value);
+            if (event.target.value.trim()) setClearApiKey(false);
+          }}
           autoComplete="off"
           spellCheck={false}
-          placeholder={t("providers.form.apiKeyPlaceholder")}
+          placeholder={
+            isEditing && draft?.hasApiKey && !clearApiKey
+              ? t("providers.form.apiKeyPlaceholderKeep")
+              : t("providers.form.apiKeyPlaceholder")
+          }
         />
         <span className="field__hint">{t("providers.form.apiKeyHint")}</span>
+        {isEditing && draft?.hasApiKey && !clearApiKey ? (
+          <button
+            type="button"
+            className="field__action"
+            onClick={() => {
+              setClearApiKey(true);
+              setApiKey("");
+            }}
+          >
+            {t("providers.form.apiKeyRemove")}
+          </button>
+        ) : null}
       </div>
 
       {error ? (

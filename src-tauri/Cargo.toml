@@ -25,6 +25,12 @@ serde_json = "1.0.151"
 thiserror = "2.0.20"
 tokio = { version = "1.53.1", features = ["fs", "sync", "macros", "rt-multi-thread"] }
 uuid = { version = "1.25.0", features = ["v4", "serde"] }
+aes-gcm = "0.10.3"
+base64 = "0.22.1"
+getrandom = "0.2.15"
+hkdf = "0.12.4"
+sha2 = "0.10.9"
+zeroize = "1.8.1"
 
 # Disable deprecated libayatana-appindicator (transitively pulled by tray-icon via libappindicator).
 # libayatana-appindicator-glib is the GLib-based replacement and is what's actually needed.

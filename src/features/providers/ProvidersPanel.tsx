@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Copy, Eye, EyeOff, Loader2, Pencil, Plug, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Copy, Eye, EyeOff, Loader2, Pencil, Plug, Plus, RefreshCw, Star, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { providerKindLabel, useProvidersStore } from "@/lib/providers";
@@ -27,16 +27,21 @@ export const ProvidersPanel = (): ReactNode => {
   );
 };
 
+const sortModels = (models: ModelInfo[]): ModelInfo[] =>
+  [...models].sort((left, right) => Number(Boolean(right.favorite)) - Number(Boolean(left.favorite)));
+
 const ModelRow = ({
   model,
   onRefresh,
   onEdit,
   onAddVariant,
+  onToggleFavorite,
 }: {
   model: ModelInfo;
   onRefresh: () => Promise<void>;
   onEdit: () => void;
   onAddVariant: () => void;
+  onToggleFavorite: () => Promise<void>;
 }): ReactNode => {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
@@ -79,6 +84,9 @@ const ModelRow = ({
         {model.userEdited && model.source !== "custom" ? (
           <span className="model-row__chip">{t("providers.model.edited")}</span>
         ) : null}
+        {model.favorite ? (
+          <span className="model-row__chip">{t("providers.model.favorite")}</span>
+        ) : null}
       </div>
       {display !== model.id ? <div className="model-row__name">{display}</div> : null}
       <div className="model-row__meta">
@@ -92,6 +100,20 @@ const ModelRow = ({
             {hasOutput ? formatContextWindow(model.maxOutputTokens) : "-"}
           </span>
         </span>
+        <IconButton
+          className="model-row__refresh"
+          label={
+            model.favorite ? t("providers.actions.unfavorite") : t("providers.actions.favorite")
+          }
+          onClick={() => void onToggleFavorite()}
+        >
+          <Star
+            size={12}
+            strokeWidth={1.5}
+            fill={model.favorite ? "currentColor" : "none"}
+            className={model.favorite ? "model-row__star model-row__star--on" : "model-row__star"}
+          />
+        </IconButton>
         <IconButton
           className="model-row__refresh"
           label={t("providers.actions.refreshModel")}
@@ -133,6 +155,7 @@ const ProviderCard = ({
   const { t } = useTranslation();
   const upsertModel = useProvidersStore((state) => state.upsertModel);
   const removeModel = useProvidersStore((state) => state.removeModel);
+  const setFavorite = useProvidersStore((state) => state.setFavorite);
   const [refreshing, setRefreshing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editor, setEditor] = useState<{
@@ -246,7 +269,7 @@ const ProviderCard = ({
           </div>
           {provider.models.length > 0 ? (
             <ul className="model-list">
-              {provider.models.map((model) => (
+              {sortModels(provider.models).map((model) => (
                 <ModelRow
                   key={model.id}
                   model={model}
@@ -259,6 +282,9 @@ const ProviderCard = ({
                       familyPreset: model.family ?? model.id,
                     })
                   }
+                  onToggleFavorite={async () => {
+                    await setFavorite(provider.id, model.id, !model.favorite);
+                  }}
                 />
               ))}
             </ul>
