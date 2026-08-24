@@ -74,7 +74,9 @@
       },
       "record": "Grabando",
       "unset": "Sin asignar",
-      "reset": "Restablecer valores"
+      "reset": "Restablecer valores",
+      "action": "Accion",
+      "shortcut": "Atajo"
     }
   },
   "providers": {

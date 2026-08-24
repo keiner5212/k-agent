@@ -1,17 +1,13 @@
 import { Check, ChevronDown } from "lucide-react";
 import {
-  Root,
-  Trigger,
-  Value,
-  Icon,
-  Portal,
-  Content,
-  Viewport,
-  Item,
-  ItemIndicator,
-  ItemText,
-} from "@radix-ui/react-select";
-import type { ReactNode } from "react";
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 
 type SelectOption = {
   value: string;
@@ -28,6 +24,12 @@ type SelectProps = {
   disabled?: boolean;
 };
 
+type MenuPos = {
+  top: number;
+  left: number;
+  width: number;
+};
+
 export const Select = ({
   value,
   onChange,
@@ -37,32 +39,171 @@ export const Select = ({
   id,
   disabled,
 }: SelectProps): ReactNode => {
+  const listId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<MenuPos | null>(null);
+  const [activeIndex, setActiveIndex] = useState(() =>
+    Math.max(
+      0,
+      options.findIndex((option) => option.value === value),
+    ),
+  );
+
   const selected = options.find((option) => option.value === value);
 
+  const close = (): void => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const openMenu = (): void => {
+    if (disabled) return;
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setMenuPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    setActiveIndex(
+      Math.max(
+        0,
+        options.findIndex((option) => option.value === value),
+      ),
+    );
+    setOpen(true);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointer = (event: MouseEvent): void => {
+      const target = event.target as Node | null;
+      if (rootRef.current?.contains(target) || document.getElementById(listId)?.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    };
+
+    const onReposition = (): void => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setMenuPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+    };
+
+    const onKey = (event: globalThis.KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+
+    window.addEventListener("mousedown", onPointer);
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("resize", onReposition);
+    window.addEventListener("scroll", onReposition, true);
+    return () => {
+      window.removeEventListener("mousedown", onPointer);
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("resize", onReposition);
+      window.removeEventListener("scroll", onReposition, true);
+    };
+  }, [open, listId]);
+
+  const choose = (next: string): void => {
+    onChange(next);
+    close();
+  };
+
+  const onTriggerKey = (event: ReactKeyboardEvent<HTMLButtonElement>): void => {
+    if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openMenu();
+    }
+  };
+
+  const onListKey = (event: ReactKeyboardEvent<HTMLUListElement>): void => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((index) => Math.min(options.length - 1, index + 1));
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((index) => Math.max(0, index - 1));
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const option = options[activeIndex];
+      if (option) choose(option.value);
+    }
+  };
+
   return (
-    <Root value={value} onValueChange={onChange} disabled={disabled}>
-      <Trigger id={id} aria-label={ariaLabel} className="select">
-        <Value placeholder={placeholder}>
-          <span className="select__value">{selected?.label ?? placeholder}</span>
-        </Value>
-        <Icon className="select__icon">
+    <div ref={rootRef} className="select-root">
+      <button
+        ref={triggerRef}
+        id={id}
+        type="button"
+        className="select"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listId}
+        disabled={disabled}
+        data-open={open}
+        onClick={() => (open ? close() : openMenu())}
+        onKeyDown={onTriggerKey}
+      >
+        <span className="select__value">{selected?.label ?? placeholder}</span>
+        <span className="select__icon">
           <ChevronDown size={14} strokeWidth={1.5} />
-        </Icon>
-      </Trigger>
-      <Portal>
-        <Content className="select-content" position="popper" sideOffset={6}>
-          <Viewport className="select-viewport">
-            {options.map((option) => (
-              <Item key={option.value} value={option.value} className="select-item">
-                <ItemIndicator className="select-item__indicator">
-                  <Check size={12} strokeWidth={2} />
-                </ItemIndicator>
-                <ItemText>{option.label}</ItemText>
-              </Item>
-            ))}
-          </Viewport>
-        </Content>
-      </Portal>
-    </Root>
+        </span>
+      </button>
+      {open && menuPos && typeof document !== "undefined"
+        ? createPortal(
+            <ul
+              id={listId}
+              className="select-menu"
+              role="listbox"
+              tabIndex={-1}
+              style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
+              onKeyDown={onListKey}
+              ref={(node) => {
+                node?.focus();
+              }}
+            >
+              {options.map((option, index) => {
+                const isSelected = option.value === value;
+                return (
+                  <li
+                    key={option.value}
+                    role="option"
+                    aria-selected={isSelected}
+                    className="select-item"
+                    data-active={index === activeIndex}
+                    data-selected={isSelected}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => choose(option.value)}
+                  >
+                    <span className="select-item__indicator">
+                      {isSelected ? <Check size={12} strokeWidth={2} /> : null}
+                    </span>
+                    {option.label}
+                  </li>
+                );
+              })}
+            </ul>,
+            document.body,
+          )
+        : null}
+    </div>
   );
 };

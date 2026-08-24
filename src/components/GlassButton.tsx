@@ -87,20 +87,22 @@ export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
         <span className="glass-btn__sizer" aria-hidden="true">
           {children}
         </span>
-        <LiquidGlass
-          displacementScale={GLASS_BUTTON.displacementScale}
-          blurAmount={GLASS_BUTTON.blurAmount}
-          saturation={GLASS_BUTTON.saturation}
-          aberrationIntensity={GLASS_BUTTON.aberrationIntensity}
-          elasticity={disabled ? 0 : 0.22}
-          cornerRadius={GLASS_BUTTON.cornerRadius}
-          padding={GLASS_BUTTON.padding}
-          overLight={theme === "light"}
-          mouseContainer={hostRef}
-          style={GLASS_LAYER_STYLE}
-        >
-          <span className="glass-btn__label">{children}</span>
-        </LiquidGlass>
+        <span className="glass-btn__fx" aria-hidden="true">
+          <LiquidGlass
+            displacementScale={GLASS_BUTTON.displacementScale}
+            blurAmount={GLASS_BUTTON.blurAmount}
+            saturation={GLASS_BUTTON.saturation}
+            aberrationIntensity={GLASS_BUTTON.aberrationIntensity}
+            elasticity={disabled ? 0 : 0.22}
+            cornerRadius={GLASS_BUTTON.cornerRadius}
+            padding={GLASS_BUTTON.padding}
+            overLight={theme === "light"}
+            mouseContainer={hostRef}
+            style={GLASS_LAYER_STYLE}
+          >
+            <span className="glass-btn__label">{children}</span>
+          </LiquidGlass>
+        </span>
       </button>
     );
   },

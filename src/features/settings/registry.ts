@@ -18,5 +18,6 @@ export type SettingsSectionDef = {
   id: "general" | "providers" | "keybindings";
   titleKey: string;
   descriptionKey?: string;
+  keywords?: string[];
   items: SettingItem[];
 };

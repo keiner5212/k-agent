@@ -68,12 +68,14 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
     id: "providers",
     titleKey: "settings.sections.providers",
     descriptionKey: "providers.description",
+    keywords: ["provider", "api", "openai", "anthropic", "gemini", "model", "endpoint", "proveedor"],
     items: [],
   },
   {
     id: "keybindings",
     titleKey: "settings.sections.keybindings",
     descriptionKey: "settings.keybindings.description",
+    keywords: ["shortcut", "hotkey", "atajo", "keyboard"],
     items: [
       {
         id: "settings.open",

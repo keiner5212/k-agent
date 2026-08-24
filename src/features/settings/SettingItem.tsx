@@ -18,9 +18,6 @@ type SettingItemProps = {
   query: string;
 };
 
-const matches = (text: string, query: string): boolean =>
-  query.length === 0 || text.toLowerCase().includes(query.toLowerCase());
-
 const highlight = (text: string, query: string): ReactNode => {
   if (query.length === 0) return text;
   const idx = text.toLowerCase().indexOf(query.toLowerCase());
@@ -51,9 +48,6 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
 
   const titleText = t(item.titleKey);
   const descriptionText = t(item.descriptionKey);
-
-  const searchText = [titleText, descriptionText, ...(item.keywords ?? [])].join(" ");
-  if (!matches(searchText, query)) return null;
 
   return (
     <div className="setting-card">
