@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { Select } from "@/components/Select";
+import { Toggle } from "@/components/Toggle";
 import { SUPPORTED_LANGUAGES, type AppLanguage, type AppTheme } from "@/types/settings";
 import { useSettingsStore } from "@/lib/settings";
-import { Toggle } from "@/components/Toggle";
 
 const themeOptions: readonly AppTheme[] = ["dark", "light"];
 
@@ -12,10 +13,12 @@ export const GeneralSection = (): ReactNode => {
   const theme = useSettingsStore((state) => state.theme);
   const minimizeToTray = useSettingsStore((state) => state.minimizeToTray);
   const translucencyEnabled = useSettingsStore((state) => state.translucencyEnabled);
+  const animationsEnabled = useSettingsStore((state) => state.animationsEnabled);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const setMinimizeToTray = useSettingsStore((state) => state.setMinimizeToTray);
   const setTranslucencyEnabled = useSettingsStore((state) => state.setTranslucencyEnabled);
+  const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
 
   return (
     <section className="section">
@@ -27,18 +30,15 @@ export const GeneralSection = (): ReactNode => {
         <label className="field__label" htmlFor="language-select">
           {t("settings.language.label")}
         </label>
-        <select
+        <Select
           id="language-select"
-          className="select"
           value={language}
-          onChange={(event) => setLanguage(event.target.value as AppLanguage)}
-        >
-          {SUPPORTED_LANGUAGES.map((code) => (
-            <option key={code} value={code}>
-              {t(`settings.language.options.${code}`)}
-            </option>
-          ))}
-        </select>
+          onChange={(next) => setLanguage(next as AppLanguage)}
+          options={SUPPORTED_LANGUAGES.map((code) => ({
+            value: code,
+            label: t(`settings.language.options.${code}`),
+          }))}
+        />
         <span className="field__hint">{t("settings.language.description")}</span>
       </div>
 
@@ -46,18 +46,15 @@ export const GeneralSection = (): ReactNode => {
         <label className="field__label" htmlFor="theme-select">
           {t("settings.theme.label")}
         </label>
-        <select
+        <Select
           id="theme-select"
-          className="select"
           value={theme}
-          onChange={(event) => setTheme(event.target.value as AppTheme)}
-        >
-          {themeOptions.map((value) => (
-            <option key={value} value={value}>
-              {t(`settings.theme.options.${value}`)}
-            </option>
-          ))}
-        </select>
+          onChange={(next) => setTheme(next as AppTheme)}
+          options={themeOptions.map((value) => ({
+            value,
+            label: t(`settings.theme.options.${value}`),
+          }))}
+        />
         <span className="field__hint">{t("settings.theme.description")}</span>
       </div>
 
@@ -73,6 +70,13 @@ export const GeneralSection = (): ReactNode => {
         onChange={(next) => setTranslucencyEnabled(!next)}
         label={t("settings.translucency.label")}
         description={t("settings.translucency.description")}
+      />
+
+      <Toggle
+        checked={!animationsEnabled}
+        onChange={(next) => setAnimationsEnabled(!next)}
+        label={t("settings.animations.label")}
+        description={t("settings.animations.description")}
       />
     </section>
   );

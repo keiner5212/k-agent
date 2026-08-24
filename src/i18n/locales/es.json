@@ -42,6 +42,10 @@
       "label": "Desactivar transparencia",
       "description": "Las superficies usan un desenfoque tipo cristal por defecto. Activa esto para superficies solidas."
     },
+    "animations": {
+      "label": "Desactivar animaciones",
+      "description": "Apaga todas las transiciones y movimientos. Tambien respeta el ajuste reducir movimiento del sistema."
+    },
     "keybindings": {
       "description": "Haz clic en un atajo y pulsa la nueva combinacion. Pulsa Escape para cancelar.",
       "actions": {
@@ -51,6 +55,44 @@
       "record": "Grabando",
       "unset": "Sin asignar",
       "reset": "Restablecer valores"
+    }
+  },
+  "providers": {
+    "title": "Proveedores",
+    "add": "Anadir proveedor",
+    "close": "Cerrar",
+    "empty": "Aun no hay proveedores configurados.",
+    "loading": "Cargando proveedores",
+    "viewModels": "Ver modelos",
+    "noModels": "No se han detectado modelos. Prueba a refrescar.",
+    "modelsCount": "{{count}} modelo",
+    "modelsCount_plural": "{{count}} modelos",
+    "actions": {
+      "refresh": "Refrescar modelos",
+      "edit": "Editar",
+      "delete": "Eliminar"
+    },
+    "form": {
+      "name": "Nombre",
+      "kind": "Tipo",
+      "baseUrl": "URL base",
+      "apiKey": "Clave API (opcional)",
+      "apiKeyPlaceholder": "Deja vacio si el proveedor no requiere autenticacion",
+      "apiKeyHint": "Se guarda en texto plano en tu configuracion local.",
+      "kindHint": {
+        "openai-like": "Llama a GET {base}/models. Usa auth Bearer.",
+        "anthropic-like": "Llama a GET {base}/v1/models. Usa la cabecera x-api-key.",
+        "gemini-like": "Llama a GET {base}/v1beta/models. La clave viaja como parametro de consulta."
+      },
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "add": "Detectar y anadir",
+      "detecting": "Detectando modelos",
+      "detected": "Se detectaron {{count}} modelos.",
+      "detected_plural": "Se detecto {{count}} modelo.",
+      "errors": {
+        "required": "Nombre y URL base son obligatorios."
+      }
     }
   }
 }

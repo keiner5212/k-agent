@@ -42,6 +42,10 @@
       "label": "Disable translucency",
       "description": "Surfaces use a frosted, glass-like blur by default. Turn this on for solid surfaces."
     },
+    "animations": {
+      "label": "Disable animations",
+      "description": "Turn off all transitions and motion. Also follows your system reduce-motion setting."
+    },
     "keybindings": {
       "description": "Click a shortcut and press the new combination. Press Escape to cancel.",
       "actions": {
@@ -51,6 +55,44 @@
       "record": "Recording",
       "unset": "Not bound",
       "reset": "Restore defaults"
+    }
+  },
+  "providers": {
+    "title": "Providers",
+    "add": "Add provider",
+    "close": "Close",
+    "empty": "No providers configured yet.",
+    "loading": "Loading providers",
+    "viewModels": "View models",
+    "noModels": "No models detected yet. Try refreshing.",
+    "modelsCount": "{{count}} model",
+    "modelsCount_plural": "{{count}} models",
+    "actions": {
+      "refresh": "Refresh models",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "form": {
+      "name": "Name",
+      "kind": "Type",
+      "baseUrl": "Base URL",
+      "apiKey": "API key (optional)",
+      "apiKeyPlaceholder": "Leave empty for providers that don't require auth",
+      "apiKeyHint": "Stored in plain text in your local config.",
+      "kindHint": {
+        "openai-like": "Calls GET {base}/models. Uses Bearer auth.",
+        "anthropic-like": "Calls GET {base}/v1/models. Uses x-api-key header.",
+        "gemini-like": "Calls GET {base}/v1beta/models. Key is sent as query parameter."
+      },
+      "cancel": "Cancel",
+      "save": "Save",
+      "add": "Detect and add",
+      "detecting": "Detecting models",
+      "detected": "Detected {{count}} model.",
+      "detected_plural": "Detected {{count}} models.",
+      "errors": {
+        "required": "Name and base URL are required."
+      }
     }
   }
 }

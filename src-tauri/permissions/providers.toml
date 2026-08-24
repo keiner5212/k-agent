@@ -1,0 +1,23 @@
+[default]
+description = "Default permissions for provider commands."
+permissions = ["allow-list", "allow-save", "allow-delete", "allow-refresh"]
+
+[[permission]]
+identifier = "allow-list"
+description = "List configured providers."
+commands.allow = ["list_providers"]
+
+[[permission]]
+identifier = "allow-save"
+description = "Create or update a provider."
+commands.allow = ["save_provider"]
+
+[[permission]]
+identifier = "allow-delete"
+description = "Delete a provider."
+commands.allow = ["delete_provider"]
+
+[[permission]]
+identifier = "allow-refresh"
+description = "Refresh the model list for a provider."
+commands.allow = ["refresh_provider_models"]

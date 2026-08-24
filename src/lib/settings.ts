@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { LazyStore } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  DEFAULT_ANIMATIONS_ENABLED,
   DEFAULT_SETTINGS,
   DEFAULT_TRANSLUCENCY_ENABLED,
   SUPPORTED_LANGUAGES,
@@ -46,13 +47,19 @@ const sanitizeSettings = (raw: unknown): Settings => {
     theme: sanitizeTheme(obj.theme),
     minimizeToTray: sanitizeBoolean(obj.minimizeToTray, DEFAULT_SETTINGS.minimizeToTray),
     translucencyEnabled: sanitizeBoolean(obj.translucencyEnabled, DEFAULT_TRANSLUCENCY_ENABLED),
+    animationsEnabled: sanitizeBoolean(obj.animationsEnabled, DEFAULT_ANIMATIONS_ENABLED),
     keybindings: sanitizeKeybindings(obj.keybindings),
   };
 };
 
 type Persistable = Pick<
   Settings,
-  "language" | "theme" | "minimizeToTray" | "translucencyEnabled" | "keybindings"
+  | "language"
+  | "theme"
+  | "minimizeToTray"
+  | "translucencyEnabled"
+  | "animationsEnabled"
+  | "keybindings"
 >;
 
 type SettingsStore = Settings & {
@@ -62,6 +69,7 @@ type SettingsStore = Settings & {
   setTheme: (theme: AppTheme) => void;
   setMinimizeToTray: (enabled: boolean) => void;
   setTranslucencyEnabled: (enabled: boolean) => void;
+  setAnimationsEnabled: (enabled: boolean) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
   resetKeybindings: () => void;
   resetAll: () => void;
@@ -93,6 +101,16 @@ const applyTranslucency = (enabled: boolean): void => {
   document.documentElement.dataset.translucent = enabled ? "true" : "false";
 };
 
+const applyAnimations = (enabled: boolean): void => {
+  if (typeof document === "undefined") return;
+  document.documentElement.dataset.animations = enabled ? "enabled" : "disabled";
+};
+
+const systemPrefersReducedMotion = (): boolean => {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+};
+
 const syncMinimizeToTray = async (enabled: boolean): Promise<void> => {
   if (!isTauri()) return;
   try {
@@ -107,6 +125,7 @@ const snapshot = (state: SettingsStore): Persistable => ({
   theme: state.theme,
   minimizeToTray: state.minimizeToTray,
   translucencyEnabled: state.translucencyEnabled,
+  animationsEnabled: state.animationsEnabled,
   keybindings: state.keybindings,
 });
 
@@ -118,6 +137,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     if (!isTauri()) {
       applyTheme(DEFAULT_SETTINGS.theme);
       applyTranslucency(DEFAULT_TRANSLUCENCY_ENABLED);
+      applyAnimations(DEFAULT_ANIMATIONS_ENABLED && !systemPrefersReducedMotion());
       set({ hydrated: true });
       return;
     }
@@ -126,12 +146,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       const next = sanitizeSettings(raw);
       applyTheme(next.theme);
       applyTranslucency(next.translucencyEnabled);
+      applyAnimations(next.animationsEnabled && !systemPrefersReducedMotion());
       void syncMinimizeToTray(next.minimizeToTray);
       set({ ...next, hydrated: true });
     } catch (error) {
       console.warn("settings hydrate failed", error);
       applyTheme(DEFAULT_SETTINGS.theme);
       applyTranslucency(DEFAULT_TRANSLUCENCY_ENABLED);
+      applyAnimations(DEFAULT_ANIMATIONS_ENABLED && !systemPrefersReducedMotion());
       set({ hydrated: true });
     }
   },
@@ -159,6 +181,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     void persist(snapshot(get()));
   },
 
+  setAnimationsEnabled: (enabled) => {
+    applyAnimations(enabled && !systemPrefersReducedMotion());
+    set({ animationsEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
   setKeybinding: (action, chord) => {
     const keybindings = { ...get().keybindings, [action]: chord };
     set({ keybindings });
@@ -173,6 +201,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   resetAll: () => {
     applyTheme(DEFAULT_SETTINGS.theme);
     applyTranslucency(DEFAULT_TRANSLUCENCY_ENABLED);
+    applyAnimations(DEFAULT_ANIMATIONS_ENABLED && !systemPrefersReducedMotion());
     void syncMinimizeToTray(DEFAULT_SETTINGS.minimizeToTray);
     set({ ...DEFAULT_SETTINGS, hydrated: true });
     void persist(DEFAULT_SETTINGS);

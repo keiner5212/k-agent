@@ -3,5 +3,12 @@
   "identifier": "default",
   "description": "Default capability for k-agent main window",
   "windows": ["main"],
-  "permissions": ["core:default", "store:default"]
+  "permissions": [
+    "core:default",
+    "store:default",
+    "allow-list",
+    "allow-save",
+    "allow-delete",
+    "allow-refresh"
+  ]
 }

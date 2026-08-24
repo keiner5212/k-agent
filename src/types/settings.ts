@@ -6,6 +6,7 @@ export const DEFAULT_LANGUAGE: AppLanguage = "en";
 export const DEFAULT_THEME: AppTheme = "dark";
 export const DEFAULT_MINIMIZE_TO_TRAY = false;
 export const DEFAULT_TRANSLUCENCY_ENABLED = true;
+export const DEFAULT_ANIMATIONS_ENABLED = true;
 
 export type KeybindingAction = "settings.open" | "settings.close";
 
@@ -21,6 +22,7 @@ export type Settings = {
   theme: AppTheme;
   minimizeToTray: boolean;
   translucencyEnabled: boolean;
+  animationsEnabled: boolean;
   keybindings: Keybindings;
 };
 
@@ -29,5 +31,6 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME,
   minimizeToTray: DEFAULT_MINIMIZE_TO_TRAY,
   translucencyEnabled: DEFAULT_TRANSLUCENCY_ENABLED,
+  animationsEnabled: DEFAULT_ANIMATIONS_ENABLED,
   keybindings: DEFAULT_KEYBINDINGS,
 };

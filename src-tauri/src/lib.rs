@@ -1,9 +1,15 @@
+mod providers;
+
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager, WindowEvent,
+};
+
+use providers::{
+    delete_provider, list_providers, refresh_provider_models, save_provider,
 };
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
@@ -39,7 +45,11 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             set_minimize_to_tray,
-            get_minimize_to_tray
+            get_minimize_to_tray,
+            list_providers,
+            save_provider,
+            delete_provider,
+            refresh_provider_models,
         ])
         .setup(|app| {
             let show_item = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
