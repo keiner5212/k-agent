@@ -6,8 +6,9 @@
     "lint": "deno lint"
   },
   "imports": {
-    "hono": "jsr:@hono/hono@^4.6.0",
-    "hono/deno": "jsr:@hono/hono@^4.6.0/deno",
+    "hono": "jsr:@hono/hono@^4.13.3",
+    "hono/deno": "jsr:@hono/hono@^4.13.3/deno",
+    "webview": "npm:webview@^1.1.0",
     "@k-agent/shared": "../../packages/shared/src/index.ts"
   },
   "compilerOptions": {

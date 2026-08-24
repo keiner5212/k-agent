@@ -12,7 +12,7 @@
   "scripts": {
     "lint": "tsc --noEmit"
   },
-  "devDependencies": {
-    "typescript": "^5.5.4"
+  "dependencies": {
+    "typescript": "^6.0.3"
   }
 }

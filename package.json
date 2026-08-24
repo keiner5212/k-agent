@@ -7,7 +7,7 @@
     "node": ">=20",
     "pnpm": ">=9"
   },
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@11.23.0",
   "scripts": {
     "dev:web": "pnpm --filter web dev",
     "dev:desktop": "pnpm --filter desktop dev",
@@ -16,7 +16,7 @@
     "build:desktop": "pnpm --filter desktop build",
     "build": "pnpm -r build",
     "sync:web": "node scripts/sync-web.mjs",
-    "lint": "pnpm -r lint",
-    "clean": "pnpm -r exec rm -rf node_modules .next out dist .deno_build"
+    "lint": "pnpm --filter \"./packages/*\" --filter \"./apps/*\" lint",
+    "clean": "pnpm --filter \"./packages/*\" --filter \"./apps/*\" exec rm -rf node_modules .next out dist .deno_build"
   }
 }

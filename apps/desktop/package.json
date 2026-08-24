@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@k-agent/shared": "workspace:*",
-    "web": "workspace:*"
+    "web": "workspace:*",
+    "webview": "^1.1.0"
   }
 }
