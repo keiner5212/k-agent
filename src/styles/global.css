@@ -1253,7 +1253,6 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background-color: var(--surface-elevated);
-  max-height: 480px;
   min-height: 0;
   overflow: hidden;
   transition: border-color var(--duration-fast) var(--ease-standard);
@@ -1462,6 +1461,8 @@
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+  height: 100%;
+  padding: var(--space-3);
 }
 
 .skill-editor__path {
@@ -1471,6 +1472,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 
 .skill-editor__loading {
@@ -1479,6 +1481,8 @@
   gap: var(--space-2);
   font-size: var(--text-sm);
   color: var(--text-muted);
+  flex: 1;
+  justify-content: center;
 }
 
 .skill-editor__meta {
@@ -1487,6 +1491,7 @@
   justify-content: flex-end;
   font-size: var(--text-xs);
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .skill-editor__dirty[data-dirty="true"] {
@@ -1494,6 +1499,19 @@
   font-weight: var(--weight-medium);
 }
 
+.skill-editor .line-editor {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+.delete-skill {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+}
 .delete-skill__body {
   margin: 0 0 var(--space-3);
   font-size: var(--text-sm);

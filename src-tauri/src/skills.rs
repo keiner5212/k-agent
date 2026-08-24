@@ -30,17 +30,10 @@ pub struct SkillContext {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkillMeta {
-    pub id: String,
-    pub path: String,
-    pub name: String,
-    pub description: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SkillFile {
-    pub path: String,
-    pub content: String,
+    id: String,
+    path: String,
+    name: String,
+    description: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -396,7 +389,7 @@ pub async fn read_skill_meta(input: SkillPathInput) -> Result<SkillMeta, SkillEr
 }
 
 #[tauri::command]
-pub async fn read_skill_file(input: SkillPathOnlyInput) -> Result<SkillFile, SkillError> {
+pub async fn read_skill_file(input: SkillPathOnlyInput) -> Result<String, SkillError> {
     let skill_path = PathBuf::from(&input.path);
     if !skill_path.is_dir() {
         return Err(SkillError::NotFound(input.path));
@@ -406,11 +399,7 @@ pub async fn read_skill_file(input: SkillPathOnlyInput) -> Result<SkillFile, Ski
     } else {
         skill_path.join("skill.md")
     };
-    let content = fs::read_to_string(&skill_md).map_err(|error| SkillError::Io(error.to_string()))?;
-    Ok(SkillFile {
-        path: input.path,
-        content,
-    })
+    fs::read_to_string(&skill_md).map_err(|error| SkillError::Io(error.to_string()))
 }
 
 #[tauri::command]

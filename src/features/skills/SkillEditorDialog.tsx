@@ -23,7 +23,16 @@ export const SkillEditorDialog = ({
   onSave,
 }: SkillEditorDialogProps): ReactNode => {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} titleKey="skills.editor.title">
+    <Dialog
+  open={open}
+  onOpenChange={onOpenChange}
+  titleKey="skills.editor.title"
+  size="wide"
+  surfaceStyle={{
+    height: "calc(100vh - var(--titlebar-height) - var(--space-6))",
+    maxHeight: "calc(100vh - var(--titlebar-height) - var(--space-6))",
+  }}
+>
       {open && skillPath ? (
         <SkillEditorBody
           key={skillPath}

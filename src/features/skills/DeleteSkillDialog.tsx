@@ -34,7 +34,8 @@ export const DeleteSkillDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} titleKey="skills.delete.title">
+    <Dialog open={open} onOpenChange={onOpenChange} titleKey="skills.delete.title" placement="center"
+    size="narrow" >
       <div className="delete-skill">
         <p className="delete-skill__body">
           {t("skills.delete.body", { name: skillName })}

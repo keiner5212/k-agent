@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@/lib/platform";
-import type { SkillContext, SkillFile, SkillMeta } from "@/types/skills";
+import type { SkillContext, SkillMeta } from "@/types/skills";
 
 const DESKTOP_REQUIRED = "Desktop shell required";
 
@@ -26,7 +26,7 @@ type SkillsStore = {
   ) => Promise<{ error?: string; meta?: SkillMeta }>;
   readFile: (
     path: string,
-  ) => Promise<{ error?: string; file?: SkillFile }>;
+  ) => Promise<{ error?: string; content?: string }>;
   create: (
     rootPath: string,
     name: string,
@@ -91,10 +91,10 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
   readFile: async (path) => {
     if (!isTauri()) return { error: DESKTOP_REQUIRED };
     try {
-      const file = await invoke<SkillFile>("read_skill_file", {
+      const content = await invoke<string>("read_skill_file", {
         input: { path },
       });
-      return { file };
+      return { content };
     } catch (error) {
       return { error: toMessage(error) };
     }
