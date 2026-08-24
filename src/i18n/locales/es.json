@@ -21,6 +21,7 @@
     "title": "Ajustes",
     "close": "Cerrar",
     "searchPlaceholder": "Buscar ajustes",
+    "searchEmpty": "Ningun ajuste coincide con la busqueda.",
     "sections": {
       "general": "General",
       "providers": "Proveedores",
@@ -56,7 +57,14 @@
     },
     "textScale": {
       "label": "Tamano del texto",
-      "description": "Escala todo el texto de la aplicacion."
+      "description": "Escala todo el texto de la aplicacion.",
+      "options": {
+        "87": "87%",
+        "92": "92%",
+        "100": "100%",
+        "112": "112%",
+        "125": "125%"
+      }
     },
     "keybindings": {
       "description": "Haz clic en un atajo y pulsa la nueva combinacion. Pulsa Escape para cancelar.",
@@ -71,6 +79,7 @@
   },
   "providers": {
     "title": "Proveedores",
+    "description": "Endpoints de proveedores de IA. Los modelos y sus parametros se detectan al guardar.",
     "add": "Anadir proveedor",
     "close": "Cerrar",
     "empty": "Aun no hay proveedores configurados.",
@@ -81,8 +90,15 @@
     "modelsCount_plural": "{{count}} modelos",
     "actions": {
       "refresh": "Refrescar modelos",
+      "refreshModel": "Refrescar este modelo",
       "edit": "Editar",
       "delete": "Eliminar"
+    },
+    "model": {
+      "context": "Contexto",
+      "output": "Salida",
+      "multimodal": "Vision",
+      "textOnly": "Texto"
     },
     "form": {
       "name": "Nombre",

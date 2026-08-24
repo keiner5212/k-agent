@@ -62,6 +62,9 @@
   --text-scale: 1;
   --size-base: 16px;
 
+  /* rem is relative to root font-size. Set it here so all rem-based sizes scale. */
+  font-size: calc(var(--size-base) * var(--text-scale));
+
   color-scheme: dark;
 }
 

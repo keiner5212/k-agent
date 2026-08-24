@@ -26,6 +26,7 @@ type ProvidersStore = {
   save: (draft: ProviderDraft) => Promise<ProviderMutationResult>;
   remove: (id: string) => Promise<{ error?: string }>;
   refresh: (id: string) => Promise<ProviderMutationResult>;
+  refreshModel: (providerId: string, modelId: string) => Promise<ProviderMutationResult>;
 };
 
 export const useProvidersStore = create<ProvidersStore>((set) => ({
@@ -85,6 +86,21 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
       const provider = await invoke<Provider>("refresh_provider_models", { id });
       set((state) => ({
         providers: state.providers.map((p) => (p.id === id ? provider : p)),
+      }));
+      return { provider };
+    } catch (error) {
+      return { error: toMessage(error) };
+    }
+  },
+
+  refreshModel: async (providerId, modelId) => {
+    try {
+      const provider = await invoke<Provider>("refresh_single_model", {
+        id: providerId,
+        modelId,
+      });
+      set((state) => ({
+        providers: state.providers.map((p) => (p.id === providerId ? provider : p)),
       }));
       return { provider };
     } catch (error) {

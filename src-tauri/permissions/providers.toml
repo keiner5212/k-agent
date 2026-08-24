@@ -5,6 +5,7 @@ permissions = [
   "allow-save",
   "allow-delete",
   "allow-refresh",
+  "allow-refresh-single",
   "allow-window-minimize",
   "allow-window-toggle-maximize",
   "allow-window-is-maximized",
@@ -30,6 +31,11 @@ commands.allow = ["delete_provider"]
 identifier = "allow-refresh"
 description = "Refresh the model list for a provider."
 commands.allow = ["refresh_provider_models"]
+
+[[permission]]
+identifier = "allow-refresh-single"
+description = "Refresh a single model's details."
+commands.allow = ["refresh_single_model"]
 
 [[permission]]
 identifier = "allow-window-minimize"

@@ -21,6 +21,7 @@
     "title": "Settings",
     "close": "Close",
     "searchPlaceholder": "Search settings",
+    "searchEmpty": "No settings match your search.",
     "sections": {
       "general": "General",
       "providers": "Providers",
@@ -56,7 +57,14 @@
     },
     "textScale": {
       "label": "Text size",
-      "description": "Scale all text in the app."
+      "description": "Scale all text in the app.",
+      "options": {
+        "87": "87%",
+        "92": "92%",
+        "100": "100%",
+        "112": "112%",
+        "125": "125%"
+      }
     },
     "keybindings": {
       "description": "Click a shortcut and press the new combination. Press Escape to cancel.",
@@ -71,7 +79,7 @@
   },
   "providers": {
     "title": "Providers",
-    "description": "AI provider endpoints. Models are auto-detected on save.",
+    "description": "AI provider endpoints. Models and their parameters are auto-detected on save.",
     "add": "Add provider",
     "close": "Close",
     "empty": "No providers configured yet.",
@@ -82,8 +90,15 @@
     "modelsCount_plural": "{{count}} models",
     "actions": {
       "refresh": "Refresh models",
+      "refreshModel": "Refresh this model",
       "edit": "Edit",
       "delete": "Delete"
+    },
+    "model": {
+      "context": "Context",
+      "output": "Output",
+      "multimodal": "Vision",
+      "textOnly": "Text"
     },
     "form": {
       "name": "Name",

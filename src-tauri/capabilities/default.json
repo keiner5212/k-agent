@@ -9,6 +9,11 @@
     "allow-list",
     "allow-save",
     "allow-delete",
-    "allow-refresh"
+    "allow-refresh",
+    "allow-refresh-single",
+    "allow-window-minimize",
+    "allow-window-toggle-maximize",
+    "allow-window-is-maximized",
+    "allow-window-close"
   ]
 }

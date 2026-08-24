@@ -9,7 +9,7 @@ use tauri::{
 };
 
 use providers::{
-    delete_provider, list_providers, refresh_provider_models, save_provider,
+    delete_provider, list_providers, refresh_provider_models, refresh_single_model, save_provider,
 };
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
@@ -25,12 +25,12 @@ fn get_minimize_to_tray() -> bool {
 }
 
 #[tauri::command]
-fn window_minimize(window: tauri::Window) -> Result<(), String> {
+fn window_minimize(window: tauri::WebviewWindow) -> Result<(), String> {
     window.minimize().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
+fn window_toggle_maximize(window: tauri::WebviewWindow) -> Result<(), String> {
     let maximized = window.is_maximized().unwrap_or(false);
     if maximized {
         window.unmaximize().map_err(|e| e.to_string())
@@ -40,12 +40,12 @@ fn window_toggle_maximize(window: tauri::Window) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn window_is_maximized(window: tauri::Window) -> bool {
+fn window_is_maximized(window: tauri::WebviewWindow) -> bool {
     window.is_maximized().unwrap_or(false)
 }
 
 #[tauri::command]
-fn window_close(window: tauri::Window) -> Result<(), String> {
+fn window_close(window: tauri::WebviewWindow) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
 }
 
@@ -64,8 +64,26 @@ fn toggle_window_visibility(app: &tauri::AppHandle) {
     }
 }
 
+#[cfg(target_os = "linux")]
+fn silence_libayatana_appindicator_warning() {
+    use glib::{log_set_handler, LogLevels};
+
+    log_set_handler(
+        Some("libayatana-appindicator"),
+        LogLevels::all(),
+        false,
+        false,
+        |_domain, _level, _message| {},
+    );
+}
+
+#[cfg(not(target_os = "linux"))]
+fn silence_libayatana_appindicator_warning() {}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    silence_libayatana_appindicator_warning();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
@@ -79,8 +97,15 @@ pub fn run() {
             save_provider,
             delete_provider,
             refresh_provider_models,
+            refresh_single_model,
         ])
         .setup(|app| {
+            if let (Some(window), Some(icon)) =
+                (app.get_webview_window("main"), app.default_window_icon())
+            {
+                let _ = window.set_icon(icon.clone());
+            }
+
             let show_item = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
             let hide_item = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;

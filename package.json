@@ -23,6 +23,7 @@
     "@tauri-apps/api": "2.11.1",
     "@tauri-apps/plugin-store": "2.4.4",
     "i18next": "26.4.0",
+    "liquid-glass-react": "1.1.1",
     "lucide-react": "1.33.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
