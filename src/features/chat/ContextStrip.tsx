@@ -47,7 +47,6 @@ export const ContextStrip = (): ReactNode => {
           onClick={handlePickWorkspace}
         >
           <Folder size={12} strokeWidth={1.5} />
-          <span className="context-strip__chip-label">{t("workspace.label")}</span>
           <span className="context-strip__chip-value">
             {workspacePath ? shortPath(workspacePath) : t("workspace.unset")}
           </span>

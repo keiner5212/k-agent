@@ -280,7 +280,6 @@
     "active": "Active"
   },
   "workspace": {
-    "label": "Workspace",
     "unset": "Workspace is unavailable.",
     "pickFolder": "Pick workspace folder",
     "change": "Click to change workspace"
