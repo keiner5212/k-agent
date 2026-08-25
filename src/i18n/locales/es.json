@@ -420,9 +420,19 @@
       "local": "Workspace"
     },
     "default": {
-      "description": "Los agentes integrados vienen con la app. Activalos o desactivalos en ajustes de Chat.",
-      "viewTitle": "Personalidad del agente integrado",
+      "viewTitle": "Ver personalidad",
       "close": "Cerrar"
+    },
+    "builtin": {
+      "hint": "Los agentes integrados vienen con la app. Activalos o desactivalos en ajustes de Chat.",
+      "build": {
+        "description": "Implementa cambios en el codigo.",
+        "personality": "Implementas los cambios solicitados en el codigo.\n\n- Prefiere diffs pequenos y correctos.\n- Reutiliza patrones existentes del repo.\n- Ejecuta checks cuando sea util.\n- Pregunta solo si estas bloqueado o los requisitos no son claros."
+      },
+      "plan": {
+        "description": "Explora y planifica sin hacer cambios.",
+        "personality": "Exploras el codigo y propones planes sin hacer cambios.\n\n- Lee y busca codigo para armar contexto.\n- Compara opciones con trade-offs claros.\n- Describe pasos concretos que otros puedan implementar.\n- No edites archivos ni ejecutes comandos de shell."
+      }
     },
     "empty": "Aún no hay agentes en esta carpeta.",
     "emptyTab": "Inicia la app con una ruta de workspace para ver agentes locales.",
@@ -445,6 +455,7 @@
     "form": {
       "createTitle": "Nuevo agente",
       "editTitle": "Editar agente",
+      "viewTitle": "Ver agente",
       "name": "Nombre",
       "namePlaceholder": "mi-agente",
       "nameHint": "Letras minúsculas, números, guiones y guiones bajos.",
@@ -549,18 +560,6 @@
       "cancel": "Cancelar",
       "confirm": "Eliminar",
       "deleting": "Eliminando"
-    }
-  },
-  "builtinAgents": {
-    "build": {
-      "name": "Build",
-      "description": "Implementa cambios en el codigo.",
-      "personality": "Eres el agente Build. Implementa los cambios solicitados directamente en el codigo. Prefiere diffs pequenos y correctos. Ejecuta comprobaciones cuando ayuden. Pregunta solo cuando estes bloqueado."
-    },
-    "plan": {
-      "name": "Plan",
-      "description": "Explora y planifica sin hacer cambios.",
-      "personality": "Eres el agente Plan. Explora el codigo, compara opciones y propone un plan claro. No edites archivos ni ejecutes comandos de shell."
     }
   },
   "chat": {

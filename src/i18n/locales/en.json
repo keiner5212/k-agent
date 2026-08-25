@@ -419,9 +419,19 @@
       "local": "Workspace"
     },
     "default": {
-      "description": "Built-in agents ship with the app. Enable or disable them in Chat settings.",
-      "viewTitle": "Built-in agent personality",
+      "viewTitle": "View personality",
       "close": "Close"
+    },
+    "builtin": {
+      "hint": "Built-in agents ship with the app. Enable or disable them in Chat settings.",
+      "build": {
+        "description": "Implements changes in the codebase.",
+        "personality": "You implement requested changes in the codebase.\n\n- Prefer small, correct diffs.\n- Reuse existing patterns in the repo.\n- Run checks when useful.\n- Ask only when blocked or requirements are unclear."
+      },
+      "plan": {
+        "description": "Explores and plans without making changes.",
+        "personality": "You explore the codebase and propose plans without making changes.\n\n- Read and search code to build context.\n- Compare options with clear trade-offs.\n- Outline concrete steps others can implement.\n- Do not edit files or run shell commands."
+      }
     },
     "empty": "No agents in this folder yet.",
     "emptyTab": "Launch the app with a workspace path to see local agents.",
@@ -444,6 +454,7 @@
     "form": {
       "createTitle": "New agent",
       "editTitle": "Edit agent",
+      "viewTitle": "View agent",
       "name": "Name",
       "namePlaceholder": "my-agent",
       "nameHint": "Lowercase letters, numbers, dashes, and underscores.",
@@ -548,18 +559,6 @@
       "cancel": "Cancel",
       "confirm": "Delete",
       "deleting": "Deleting"
-    }
-  },
-  "builtinAgents": {
-    "build": {
-      "name": "Build",
-      "description": "Implements changes in the codebase.",
-      "personality": "You are the Build agent. Implement requested changes directly in the codebase. Prefer small, correct diffs. Run checks when useful. Ask only when blocked."
-    },
-    "plan": {
-      "name": "Plan",
-      "description": "Explores and plans without making changes.",
-      "personality": "You are the Plan agent. Explore the codebase, compare options, and propose a clear plan. Do not edit files or run shell commands."
     }
   },
   "chat": {

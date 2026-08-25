@@ -20,6 +20,7 @@ type AgentFormDialogProps = {
   kind: AgentContextKind;
   availableSkills: AgentSkillRef[];
   initial?: AgentMeta | null;
+  readOnly?: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (input: AgentWriteInput) => Promise<string | undefined>;
 };
@@ -30,6 +31,7 @@ export const AgentFormDialog = ({
   kind,
   availableSkills,
   initial,
+  readOnly = false,
   onOpenChange,
   onSubmit,
 }: AgentFormDialogProps): ReactNode => {
@@ -41,6 +43,7 @@ export const AgentFormDialog = ({
       kind={kind}
       availableSkills={availableSkills}
       initial={initial}
+      readOnly={readOnly}
       onOpenChange={onOpenChange}
       onSubmit={onSubmit}
     />
@@ -52,6 +55,7 @@ type AgentFormBodyProps = {
   kind: AgentContextKind;
   availableSkills: AgentSkillRef[];
   initial?: AgentMeta | null;
+  readOnly?: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (input: AgentWriteInput) => Promise<string | undefined>;
 };
@@ -61,6 +65,7 @@ const AgentFormBody = ({
   kind,
   availableSkills,
   initial,
+  readOnly = false,
   onOpenChange,
   onSubmit,
 }: AgentFormBodyProps): ReactNode => {
@@ -131,38 +136,51 @@ const AgentFormBody = ({
     await persist();
   };
 
+  const titleKey =
+    readOnly && mode === "edit"
+      ? "agents.form.viewTitle"
+      : mode === "create"
+        ? "agents.form.createTitle"
+        : "agents.form.editTitle";
+
   return (
     <Dialog
       open
       onOpenChange={onOpenChange}
-      titleKey={mode === "create" ? "agents.form.createTitle" : "agents.form.editTitle"}
+      titleKey={titleKey}
       size="default"
       placement="center"
       footer={
-        <>
-          <GlassButton
-            variant="secondary"
-            onClick={() => onOpenChange(false)}
-            disabled={submitting}
-          >
-            {t("agents.form.cancel")}
+        readOnly ? (
+          <GlassButton variant="secondary" onClick={() => onOpenChange(false)}>
+            {t("agents.default.close")}
           </GlassButton>
-          <GlassButton
-            variant="primary"
-            type="submit"
-            form="agent-form"
-            disabled={submitting || !name.trim()}
-          >
-            {submitting ? (
-              <>
-                <Loader2 size={14} strokeWidth={1.5} className="spin" />
-                <span>{t("agents.form.saving")}</span>
-              </>
-            ) : (
-              <span>{t("agents.form.save")}</span>
-            )}
-          </GlassButton>
-        </>
+        ) : (
+          <>
+            <GlassButton
+              variant="secondary"
+              onClick={() => onOpenChange(false)}
+              disabled={submitting}
+            >
+              {t("agents.form.cancel")}
+            </GlassButton>
+            <GlassButton
+              variant="primary"
+              type="submit"
+              form="agent-form"
+              disabled={submitting || !name.trim()}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 size={14} strokeWidth={1.5} className="spin" />
+                  <span>{t("agents.form.saving")}</span>
+                </>
+              ) : (
+                <span>{t("agents.form.save")}</span>
+              )}
+            </GlassButton>
+          </>
+        )
       }
     >
       <form
@@ -185,6 +203,8 @@ const AgentFormBody = ({
             pattern="[a-z0-9][a-z0-9_\-]*"
             title={t("agents.form.nameHint")}
             required
+            readOnly={readOnly}
+            disabled={readOnly}
           />
           <span className="field__hint">{t("agents.form.nameHint")}</span>
         </div>
@@ -200,6 +220,8 @@ const AgentFormBody = ({
             placeholder={t("agents.form.descriptionPlaceholder")}
             rows={3}
             autoComplete="off"
+            readOnly={readOnly}
+            disabled={readOnly}
           />
           <span className="field__hint">{t("agents.form.descriptionHint")}</span>
         </div>
@@ -211,9 +233,11 @@ const AgentFormBody = ({
             </span>
           </legend>
           <span className="field__hint">
-            {kind === "global"
-              ? t("agents.form.skillsHintGlobal")
-              : t("agents.form.skillsHintLocal")}
+            {kind === "builtin"
+              ? t("agents.builtin.hint")
+              : kind === "global"
+                ? t("agents.form.skillsHintGlobal")
+                : t("agents.form.skillsHintLocal")}
           </span>
           {availableSkills.length === 0 ? (
             <p className="agent-form__empty">{t("agents.form.skillsEmpty")}</p>
@@ -229,7 +253,7 @@ const AgentFormBody = ({
                       <input
                         type="checkbox"
                         checked={checked}
-                        disabled={disabled}
+                        disabled={readOnly || disabled}
                         onChange={(event) => toggleSkill(skill, event.target.checked)}
                       />
                       <span className="agent-pick__id">{skill.id}</span>
@@ -256,6 +280,7 @@ const AgentFormBody = ({
                 onChange={(next) => toggleTool(tool, next)}
                 label={t(`agents.tools.${tool}.label`)}
                 description={t(`agents.tools.${tool}.description`)}
+                disabled={readOnly}
               />
             ))}
           </div>

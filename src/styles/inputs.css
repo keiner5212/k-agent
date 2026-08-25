@@ -142,7 +142,7 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  padding: var(--space-2) var(--space-6) var(--space-2) var(--space-6);
+  padding: var(--space-2) var(--space-3);
   font-size: var(--text-sm);
   color: var(--text-primary);
   border-radius: var(--radius-sm);
@@ -168,10 +168,7 @@
 }
 
 .select-item__indicator {
-  position: absolute;
-  left: var(--space-2);
-  top: 50%;
-  transform: translateY(-50%);
+  flex: 0 0 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

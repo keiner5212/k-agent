@@ -4,7 +4,7 @@ import { Folder, FileText, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react"
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { highlightMatch } from "@/lib/highlight";
-import { listAllBuiltinAgents } from "@/lib/builtin-agents";
+import { builtinAgentContext } from "@/lib/builtin-agents";
 import { useAgentsStore } from "@/lib/agents";
 import { useSkillsStore } from "@/lib/skills";
 import { formatContextWindow } from "@/types/providers";
@@ -43,6 +43,7 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
   const [editTarget, setEditTarget] = useState<AgentMeta | null>(null);
   const [personalityTarget, setPersonalityTarget] = useState<AgentMeta | null>(null);
   const [defaultViewTarget, setDefaultViewTarget] = useState<AgentMeta | null>(null);
+  const [defaultEditTarget, setDefaultEditTarget] = useState<AgentMeta | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string } | null>(null);
 
   useEffect(() => {
@@ -53,7 +54,8 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
   const global = contexts.find((context) => context.kind === "global");
   const local = contexts.find((context) => context.kind === "local");
   const showLocal = Boolean(workspacePath) && Boolean(local);
-  const builtinAgents = listAllBuiltinAgents(t);
+  const builtinContext = builtinAgentContext(t);
+  const builtinAgents = builtinContext.agents;
   const active = tab === "local" && showLocal ? local : tab === "global" ? global : undefined;
   const formKind: AgentContextKind = tab === "local" && showLocal ? "local" : "global";
   const tabs: Array<{ id: Tab; count: number; available: boolean }> = [
@@ -121,7 +123,13 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
 
       <div id="agents-panel-tab-panel" role="tabpanel" className="skills-panel__panel" key={tab}>
         {tab === "default" ? (
-          <DefaultAgentsView agents={builtinAgents} onViewPersonality={setDefaultViewTarget} />
+          <AgentContextView
+            context={builtinContext}
+            readOnly
+            hint={t("agents.builtin.hint")}
+            onEdit={setDefaultEditTarget}
+            onEditPersonality={setDefaultViewTarget}
+          />
         ) : active ? (
           <AgentContextView
             context={active}
@@ -198,6 +206,19 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
         }}
       />
 
+      <AgentFormDialog
+        open={defaultEditTarget !== null}
+        mode="edit"
+        kind="builtin"
+        availableSkills={[]}
+        initial={defaultEditTarget}
+        readOnly
+        onOpenChange={(open) => {
+          if (!open) setDefaultEditTarget(null);
+        }}
+        onSubmit={() => Promise.resolve(undefined)}
+      />
+
       <DeleteAgentDialog
         open={deleteTarget !== null}
         agentName={deleteTarget?.id ?? ""}
@@ -216,64 +237,20 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
   );
 };
 
-type DefaultAgentsViewProps = {
-  agents: AgentMeta[];
-  onViewPersonality: (agent: AgentMeta) => void;
-};
-
-const DefaultAgentsView = ({ agents, onViewPersonality }: DefaultAgentsViewProps): ReactNode => {
-  const { t } = useTranslation();
-  return (
-    <article className="skill-context">
-      <p className="skill-context__hint">{t("agents.default.description")}</p>
-      <div className="skill-table-wrap">
-        <table className="skill-table">
-          <thead>
-            <tr>
-              <th>{t("agents.table.name")}</th>
-              <th>{t("agents.table.description")}</th>
-              <th>
-                <span className="visually-hidden">{t("agents.table.actions")}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {agents.map((agent) => (
-              <tr key={agent.id}>
-                <td className="skill-table__name">{agent.name}</td>
-                <td
-                  className="skill-table__desc"
-                  data-empty={agent.description.trim() ? undefined : "true"}
-                >
-                  {agent.description.trim() ? agent.description : t("agents.table.noDescription")}
-                </td>
-                <td className="skill-table__actions">
-                  <IconButton
-                    label={t("agents.actions.viewPersonality")}
-                    onClick={() => onViewPersonality(agent)}
-                  >
-                    <FileText size={12} strokeWidth={1.5} />
-                  </IconButton>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </article>
-  );
-};
-
 type AgentContextViewProps = {
   context: AgentContextType;
-  onCreate: () => void;
-  onEdit: (agent: AgentMeta) => void;
-  onEditPersonality: (agent: AgentMeta) => void;
-  onDelete: (agent: AgentMeta) => void;
+  readOnly?: boolean;
+  hint?: string;
+  onCreate?: () => void;
+  onEdit?: (agent: AgentMeta) => void;
+  onEditPersonality?: (agent: AgentMeta) => void;
+  onDelete?: (agent: AgentMeta) => void;
 };
 
 const AgentContextView = ({
   context,
+  readOnly = false,
+  hint,
   onCreate,
   onEdit,
   onEditPersonality,
@@ -287,16 +264,19 @@ const AgentContextView = ({
         <span className="skill-context__path" title={context.path}>
           {context.path}
         </span>
-        <GlassButton
-          variant="primary"
-          className="skill-context__new"
-          onClick={onCreate}
-          aria-label={t("agents.actions.create")}
-        >
-          <Plus strokeWidth={1.5} />
-          {t("agents.actions.create")}
-        </GlassButton>
+        {!readOnly && onCreate ? (
+          <GlassButton
+            variant="primary"
+            className="skill-context__new"
+            onClick={onCreate}
+            aria-label={t("agents.actions.create")}
+          >
+            <Plus strokeWidth={1.5} />
+            {t("agents.actions.create")}
+          </GlassButton>
+        ) : null}
       </div>
+      {hint ? <p className="skill-context__hint">{hint}</p> : null}
       {context.agents.length === 0 ? (
         <p className="skill-context__empty">{t("agents.empty")}</p>
       ) : (
@@ -328,18 +308,34 @@ const AgentContextView = ({
                     })}
                   </td>
                   <td className="skill-table__actions">
-                    <IconButton
-                      label={t("agents.actions.editPersonality")}
-                      onClick={() => onEditPersonality(agent)}
-                    >
-                      <FileText size={12} strokeWidth={1.5} />
-                    </IconButton>
-                    <IconButton label={t("agents.actions.edit")} onClick={() => onEdit(agent)}>
-                      <Pencil size={12} strokeWidth={1.5} />
-                    </IconButton>
-                    <IconButton label={t("agents.actions.delete")} onClick={() => onDelete(agent)}>
-                      <Trash2 size={12} strokeWidth={1.5} />
-                    </IconButton>
+                    {onEditPersonality ? (
+                      <IconButton
+                        label={
+                          readOnly
+                            ? t("agents.actions.viewPersonality")
+                            : t("agents.actions.editPersonality")
+                        }
+                        onClick={() => onEditPersonality(agent)}
+                      >
+                        <FileText size={12} strokeWidth={1.5} />
+                      </IconButton>
+                    ) : null}
+                    {onEdit ? (
+                      <IconButton
+                        label={readOnly ? t("agents.form.viewTitle") : t("agents.actions.edit")}
+                        onClick={() => onEdit(agent)}
+                      >
+                        <Pencil size={12} strokeWidth={1.5} />
+                      </IconButton>
+                    ) : null}
+                    {!readOnly && onDelete ? (
+                      <IconButton
+                        label={t("agents.actions.delete")}
+                        onClick={() => onDelete(agent)}
+                      >
+                        <Trash2 size={12} strokeWidth={1.5} />
+                      </IconButton>
+                    ) : null}
                   </td>
                 </tr>
               ))}
