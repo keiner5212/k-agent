@@ -1,0 +1,228 @@
+/* ========== Translucency (opt-in, in-app surfaces only) ========== */
+
+:root[data-translucent="true"] .app-shell {
+  background-image:
+    radial-gradient(
+      ellipse at 12% -10%,
+      color-mix(in oklch, var(--accent) 14%, transparent) 0%,
+      transparent 52%
+    ),
+    radial-gradient(
+      ellipse at 88% 110%,
+      color-mix(in oklch, var(--accent) 8%, transparent) 0%,
+      transparent 48%
+    );
+  background-attachment: fixed;
+}
+
+:root[data-translucent="true"] .dialog-surface {
+  background-color: var(--frost-dialog-fill);
+  border-color: var(--frost-border);
+  box-shadow: var(--shadow-md), var(--frost-highlight);
+  -webkit-backdrop-filter: saturate(var(--frost-saturate)) blur(var(--frost-dialog-blur));
+  backdrop-filter: saturate(var(--frost-saturate)) blur(var(--frost-dialog-blur));
+}
+
+:root[data-translucent="true"] .select-menu {
+  background-color: var(--frost-fill);
+  border-color: var(--frost-border);
+  box-shadow: var(--shadow-md), var(--frost-highlight);
+  -webkit-backdrop-filter: var(--frost-filter-strong);
+  backdrop-filter: var(--frost-filter-strong);
+}
+
+:root[data-translucent="true"] .app-main__hint {
+  background-color: var(--frost-fill);
+  border-color: var(--frost-border);
+  box-shadow: var(--frost-highlight);
+  -webkit-backdrop-filter: var(--frost-filter);
+  backdrop-filter: var(--frost-filter);
+}
+
+:root[data-translucent="true"] .dialog-overlay {
+  background-color: color-mix(in oklch, var(--background) 28%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+:root[data-translucent="true"] .select,
+:root[data-translucent="true"] .input,
+:root[data-translucent="true"] .btn--ghost {
+  background-color: color-mix(in oklch, var(--surface-elevated) 55%, transparent);
+}
+
+:root[data-translucent="true"] .select:hover,
+:root[data-translucent="true"] .input:hover,
+:root[data-translucent="true"] .btn--ghost:hover:not(:disabled) {
+  background-color: color-mix(in oklch, var(--surface-elevated) 70%, transparent);
+}
+
+:root[data-translucent="true"] .select:focus,
+:root[data-translucent="true"] .select[data-open="true"],
+:root[data-translucent="true"] .input:focus {
+  background-color: color-mix(in oklch, var(--surface-elevated) 78%, transparent);
+}
+
+:root[data-translucent="true"] .btn--primary {
+  background-color: var(--frost-fill-accent);
+  color: var(--accent-fg);
+  border-color: color-mix(in oklch, var(--accent) 50%, transparent);
+}
+
+:root[data-translucent="true"] .btn--primary:hover:not(:disabled) {
+  background-color: color-mix(in oklch, var(--accent) 72%, transparent);
+}
+
+:root[data-translucent="true"] .btn--danger {
+  background-color: var(--frost-fill-danger);
+}
+
+:root[data-translucent="true"] .toggle__track {
+  background-color: color-mix(in oklch, var(--border-strong) 70%, transparent);
+}
+
+:root[data-translucent="true"] .toggle[data-on="true"] .toggle__track {
+  background-color: var(--frost-fill-accent);
+}
+
+:root[data-translucent="true"] .settings-sidebar,
+:root[data-translucent="true"] .toggle-row:not(.toggle-row--control),
+:root[data-translucent="true"] .provider-card,
+:root[data-translucent="true"] .kbd-row,
+:root[data-translucent="true"] .kbd-capture {
+  background-color: var(--frost-fill-muted);
+}
+
+:root[data-translucent="true"] .toggle-row--control {
+  background: transparent;
+}
+
+:root[data-translucent="true"] .icon-button:hover,
+:root[data-translucent="true"] .window-controls__btn:hover {
+  background-color: color-mix(in oklch, var(--surface-elevated) 55%, transparent);
+}
+
+:root[data-translucent="true"] .window-controls__btn--close:hover {
+  color: var(--accent-fg);
+  background-color: var(--danger);
+}
+
+:root[data-translucent="true"] .kbd-table th,
+:root[data-translucent="true"] .kbd-table td {
+  border-color: color-mix(in oklch, var(--border) 70%, transparent);
+}
+
+:root[data-translucent="true"] .provider-card__badge,
+:root[data-translucent="true"] .provider-card__model-list li {
+  background-color: color-mix(in oklch, var(--background) 45%, transparent);
+}
+
+/* ========== Window resize ========== */
+
+.window-resize {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+.window-resize__edge {
+  position: absolute;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.window-resize__edge--north {
+  top: 0;
+  left: 8px;
+  right: 8px;
+  height: 6px;
+  cursor: n-resize;
+}
+
+.window-resize__edge--south {
+  bottom: 0;
+  left: 8px;
+  right: 8px;
+  height: 6px;
+  cursor: s-resize;
+}
+
+.window-resize__edge--east {
+  top: 8px;
+  right: 0;
+  bottom: 8px;
+  width: 6px;
+  cursor: e-resize;
+}
+
+.window-resize__edge--west {
+  top: 8px;
+  left: 0;
+  bottom: 8px;
+  width: 6px;
+  cursor: w-resize;
+}
+
+.window-resize__edge--north-east {
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  cursor: ne-resize;
+}
+
+.window-resize__edge--north-west {
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nw-resize;
+}
+
+.window-resize__edge--south-east {
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  cursor: se-resize;
+}
+
+.window-resize__edge--south-west {
+  bottom: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  cursor: sw-resize;
+}
+
+/* ========== Animations off ========== */
+
+:root[data-animations="disabled"] *,
+:root[data-animations="disabled"] *::before,
+:root[data-animations="disabled"] *::after {
+  animation-duration: 0ms !important;
+  animation-delay: 0ms !important;
+  transition-duration: 0ms !important;
+  transition-delay: 0ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  :root[data-translucent="true"] .dialog-surface,
+  :root[data-translucent="true"] .dialog-overlay,
+  :root[data-translucent="true"] .select-menu,
+  :root[data-translucent="true"] .app-main__hint {
+    background-color: var(--surface);
+  }
+}

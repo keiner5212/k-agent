@@ -1,0 +1,112 @@
+/* ========== Dialog ========== */
+
+.dialog-root {
+  position: fixed;
+  top: var(--titlebar-height);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+}
+
+.dialog-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  animation: overlay-in var(--duration-enter) var(--ease-out);
+}
+
+.dialog-surface {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  margin: auto;
+  width: min(1040px, calc(100vw - var(--space-6)));
+  height: min(92vh, calc(100vh - var(--titlebar-height) - var(--space-6)));
+  min-height: 0;
+  background-color: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow:
+    var(--shadow-md),
+    inset 0 1px 0 color-mix(in oklch, var(--text-primary) 6%, transparent);
+  overflow: hidden;
+  animation: dialog-in var(--duration-enter) var(--ease-out);
+}
+
+.dialog-surface[data-size="narrow"] {
+  width: min(520px, calc(100vw - var(--space-6)));
+}
+
+.dialog-surface[data-size="wide"] {
+  width: min(1144px, calc(100vw - var(--space-6)));
+}
+
+.dialog-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.dialog-title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.01em;
+}
+
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+}
+
+/* ========== Dialog placement: center ========== */
+
+.dialog-surface[data-placement="center"] {
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  height: auto;
+  max-height: calc(100vh - var(--titlebar-height) - var(--space-6));
+  animation: dialog-in-center var(--duration-enter) var(--ease-out);
+}
+
+@keyframes dialog-in-center {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px)) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
