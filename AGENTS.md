@@ -39,6 +39,7 @@ src-tauri/catalog/  bundled models.json (Rust only; never import in the UI)
 | Desktop check | `isTauri()` from `src/lib/platform.ts`     |
 | Settings      | `useSettingsStore` + `SETTINGS_REGISTRY`   |
 | Providers     | `useProvidersStore`                        |
+| MCP servers   | `useMcpServersStore`                       |
 | Copy          | `t("...")`. No hardcoded UI English.       |
 | Token amounts | `formatContextWindow` / `parseTokenAmount` |
 | Logical CPUs  | `hardwareThreadCount()`                    |
@@ -84,10 +85,12 @@ App data dir:
 - `settings.json` (plugin-store; keys `settings`, `selectedModel`, `modelEffort:*`)
 - `master.key` (mode 0600) via `secret.rs`
 - `provider-keys.json` (`enc:v1:` blobs keyed by provider id, mode 0600)
+- `mcp-secrets.json` (`enc:v1:` blobs keyed by MCP server id, mode 0600)
 
 `~/.k-agent/`:
 
 - `providers.json` (no API keys)
+- `mcp-servers.json` (no env vars or headers)
 - `models-dev-cache.json` (24h TTL)
 - `skills/` global skills. Created on first global skill create.
 - `agents/` session agents (OpenCode-style personas: `{name}/persona.md`). Not AGENTS.md. Created on first global agent create.

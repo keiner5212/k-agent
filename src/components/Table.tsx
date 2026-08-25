@@ -37,7 +37,7 @@ export const Table = <TRow,>({
   scrollable,
   layout = "auto",
   stickyHeader = false,
-  cellAlign = "top",
+  cellAlign = "middle",
 }: TableProps<TRow>): ReactNode => {
   const table = (
     <table
@@ -45,7 +45,7 @@ export const Table = <TRow,>({
         "data-table",
         layout === "fixed" && "data-table--fixed",
         stickyHeader && "data-table--sticky",
-        cellAlign === "middle" && "data-table--middle",
+        cellAlign === "top" && "data-table--top",
         className,
       )}
     >

@@ -275,3 +275,54 @@
   flex-direction: column;
   gap: var(--space-4);
 }
+
+.mcp-tools-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mcp-tools-dialog__server {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.mcp-tools-dialog__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: min(60vh, 28rem);
+  overflow: auto;
+}
+
+.mcp-tools-dialog__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.mcp-tools-dialog__item:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.mcp-tools-dialog__name {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.mcp-tools-dialog__desc {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}

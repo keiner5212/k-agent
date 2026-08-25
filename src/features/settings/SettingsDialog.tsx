@@ -8,6 +8,7 @@ import {
   Keyboard,
   MessageSquare,
   Plug,
+  Radio,
   ScrollText,
   Sliders,
   Sparkles,
@@ -21,6 +22,7 @@ import { SkillsPanel } from "@/features/skills/SkillsPanel";
 import { AgentsPanel } from "@/features/agents/AgentsPanel";
 import { AgentsMdPanel } from "@/features/agents-md/AgentsMdPanel";
 import { LspsPanel } from "@/features/lsps/LspsPanel";
+import { McpServersPanel } from "@/features/mcp-servers/McpServersPanel";
 import { SETTINGS_REGISTRY } from "./registry-data";
 import { SettingItem } from "./SettingItem";
 import { KeybindingField } from "./KeybindingField";
@@ -40,6 +42,7 @@ const SECTION_ICONS: Record<SettingsSectionDef["id"], typeof Sliders> = {
   chat: MessageSquare,
   modelChoices: Brain,
   lsps: Code2,
+  mcpServers: Radio,
   providers: Plug,
   skills: Sparkles,
   agents: Bot,
@@ -111,7 +114,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
     resolvedTab === "skills" ||
     resolvedTab === "agents" ||
     resolvedTab === "agentsMd" ||
-    resolvedTab === "lsps";
+    resolvedTab === "lsps" ||
+    resolvedTab === "mcpServers";
 
   return (
     <Dialog
@@ -182,6 +186,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
               <AgentsMdPanel query={query.trim()} />
             ) : resolvedTab === "lsps" ? (
               <LspsPanel items={activeSection?.items ?? []} query={query.trim()} />
+            ) : resolvedTab === "mcpServers" ? (
+              <McpServersPanel query={query.trim()} />
             ) : resolvedTab === "keybindings" ? (
               <KeybindingsPanel items={activeSection?.items ?? []} query={trimmed} />
             ) : (

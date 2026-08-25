@@ -315,6 +315,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
     items: [],
   },
   {
+    id: "mcpServers",
+    titleKey: "settings.sections.mcpServers",
+    descriptionKey: "mcpServers.description",
+    keywords: ["mcp", "model context protocol", "tools", "server", "stdio", "sse"],
+    items: [],
+  },
+  {
     id: "skills",
     titleKey: "settings.sections.skills",
     descriptionKey: "skills.description",

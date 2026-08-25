@@ -34,6 +34,7 @@
       "modelChoices": "Model choices",
       "lsps": "LSPs",
       "providers": "Providers",
+      "mcpServers": "MCP servers",
       "skills": "Skills",
       "agents": "Agents",
       "agentsMd": "AGENTS.md",
@@ -325,7 +326,6 @@
       "baseUrl": "Base URL",
       "apiKey": "API key (optional)",
       "apiKeyPlaceholder": "Leave empty if this provider does not need a key",
-      "apiKeyPlaceholderKeep": "Stored encrypted. Leave empty to keep it.",
       "apiKeyHint": "Encrypted at rest with a local secret created on first launch. Only this app can decrypt it.",
       "apiKeyRemove": "Remove stored key",
       "kindHint": {
@@ -346,6 +346,78 @@
     "delete": {
       "title": "Delete provider",
       "body": "Delete \"{{name}}\" and all of its models? This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting"
+    }
+  },
+  "mcpServers": {
+    "title": "MCP servers",
+    "description": "Configure Model Context Protocol servers. Env vars and headers are stored encrypted on disk.",
+    "empty": "No MCP servers configured yet.",
+    "transports": {
+      "stdio": "Stdio",
+      "sse": "SSE",
+      "http": "HTTP"
+    },
+    "table": {
+      "name": "Name",
+      "transport": "Transport",
+      "target": "Target",
+      "tools": "Tools",
+      "enabled": "Enabled",
+      "actions": "Actions"
+    },
+    "tools": {
+      "none": "No tools"
+    },
+    "toolsDialog": {
+      "title": "MCP tools",
+      "server": "Server: {{name}}",
+      "noDescription": "No description.",
+      "close": "Close",
+      "open": "View tool details for {{name}}"
+    },
+    "actions": {
+      "add": "Add server",
+      "edit": "Edit",
+      "delete": "Delete",
+      "refresh": "Refresh list",
+      "refreshTools": "Refresh tools"
+    },
+    "form": {
+      "createTitle": "New MCP server",
+      "editTitle": "Edit MCP server",
+      "name": "Name",
+      "enabled": "Enabled",
+      "transport": "Transport",
+      "command": "Command",
+      "args": "Arguments",
+      "argsHint": "One argument per line or comma-separated.",
+      "cwd": "Working directory (optional)",
+      "url": "URL",
+      "env": "Environment variables",
+      "envPlaceholder": "KEY=value",
+      "envHint": "One variable per line as KEY=value. Stored encrypted.",
+      "headers": "HTTP headers",
+      "headersPlaceholder": "Authorization=Bearer token",
+      "headersHint": "One header per line as KEY=value. Stored encrypted.",
+      "secretsRemove": "Remove stored secrets",
+      "cancel": "Cancel",
+      "save": "Save",
+      "add": "Add",
+      "saving": "Saving",
+      "probing": "Probing tools",
+      "toolsProbeFailed": "Saved, but tool probe failed: {{error}}",
+      "errors": {
+        "nameRequired": "Name is required.",
+        "commandRequired": "Command is required for stdio transport.",
+        "urlRequired": "URL is required for remote transport."
+      }
+    },
+    "delete": {
+      "title": "Delete MCP server",
+      "body": "Delete \"{{name}}\"? This cannot be undone.",
       "cancel": "Cancel",
       "confirm": "Delete",
       "deleting": "Deleting"

@@ -52,6 +52,11 @@
     "allow-install-language-server",
     "allow-uninstall-language-server",
     "allow-resolve-language-server",
-    "allow-lsp-request"
+    "allow-lsp-request",
+    "allow-list-mcp-servers",
+    "allow-save-mcp-server",
+    "allow-delete-mcp-server",
+    "allow-refresh-mcp-server-tools",
+    "allow-set-mcp-server-enabled"
   ]
 }

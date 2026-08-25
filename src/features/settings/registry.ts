@@ -21,6 +21,7 @@ export type SettingsSectionDef = {
     | "chat"
     | "modelChoices"
     | "lsps"
+    | "mcpServers"
     | "providers"
     | "skills"
     | "agents"

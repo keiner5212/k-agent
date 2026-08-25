@@ -34,6 +34,7 @@
       "modelChoices": "Modelos",
       "lsps": "LSPs",
       "providers": "Proveedores",
+      "mcpServers": "Servidores MCP",
       "skills": "Habilidades",
       "agents": "Agentes",
       "agentsMd": "AGENTS.md",
@@ -325,7 +326,6 @@
       "baseUrl": "URL base",
       "apiKey": "Clave API (opcional)",
       "apiKeyPlaceholder": "Deja vacío si el proveedor no requiere clave",
-      "apiKeyPlaceholderKeep": "Guardada cifrada. Deja vacío para conservarla.",
       "apiKeyHint": "Se cifra en disco con un secreto local creado en el primer arranque. Solo esta app puede descifrarla.",
       "apiKeyRemove": "Quitar clave guardada",
       "kindHint": {
@@ -346,6 +346,78 @@
     "delete": {
       "title": "Eliminar proveedor",
       "body": "Eliminar \"{{name}}\" y todos sus modelos? Esto no se puede deshacer.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar",
+      "deleting": "Eliminando"
+    }
+  },
+  "mcpServers": {
+    "title": "Servidores MCP",
+    "description": "Configura servidores Model Context Protocol. Variables de entorno y cabeceras se guardan cifradas en disco.",
+    "empty": "Aun no hay servidores MCP configurados.",
+    "transports": {
+      "stdio": "Stdio",
+      "sse": "SSE",
+      "http": "HTTP"
+    },
+    "table": {
+      "name": "Nombre",
+      "transport": "Transporte",
+      "target": "Destino",
+      "tools": "Herramientas",
+      "enabled": "Activo",
+      "actions": "Acciones"
+    },
+    "tools": {
+      "none": "Sin herramientas"
+    },
+    "toolsDialog": {
+      "title": "Herramientas MCP",
+      "server": "Servidor: {{name}}",
+      "noDescription": "Sin descripcion.",
+      "close": "Cerrar",
+      "open": "Ver detalles de herramientas de {{name}}"
+    },
+    "actions": {
+      "add": "Agregar servidor",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "refresh": "Actualizar lista",
+      "refreshTools": "Actualizar herramientas"
+    },
+    "form": {
+      "createTitle": "Nuevo servidor MCP",
+      "editTitle": "Editar servidor MCP",
+      "name": "Nombre",
+      "enabled": "Activo",
+      "transport": "Transporte",
+      "command": "Comando",
+      "args": "Argumentos",
+      "argsHint": "Un argumento por linea o separados por coma.",
+      "cwd": "Directorio de trabajo (opcional)",
+      "url": "URL",
+      "env": "Variables de entorno",
+      "envPlaceholder": "CLAVE=valor",
+      "envHint": "Una variable por linea como CLAVE=valor. Se guarda cifrada.",
+      "headers": "Cabeceras HTTP",
+      "headersPlaceholder": "Authorization=Bearer token",
+      "headersHint": "Una cabecera por linea como CLAVE=valor. Se guarda cifrada.",
+      "secretsRemove": "Eliminar secretos guardados",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "add": "Agregar",
+      "saving": "Guardando",
+      "probing": "Detectando herramientas",
+      "toolsProbeFailed": "Guardado, pero fallo la deteccion: {{error}}",
+      "errors": {
+        "nameRequired": "El nombre es obligatorio.",
+        "commandRequired": "El comando es obligatorio para transporte stdio.",
+        "urlRequired": "La URL es obligatoria para transporte remoto."
+      }
+    },
+    "delete": {
+      "title": "Eliminar servidor MCP",
+      "body": "Eliminar \"{{name}}\"? Esto no se puede deshacer.",
       "cancel": "Cancelar",
       "confirm": "Eliminar",
       "deleting": "Eliminando"

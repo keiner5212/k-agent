@@ -3,6 +3,8 @@ mod agents_md;
 mod catalog;
 mod lsp;
 mod lsp_client;
+mod mcp_client;
+mod mcp_servers;
 mod pathutil;
 mod providers;
 mod repo;
@@ -461,6 +463,11 @@ pub fn run() {
             list_providers,
             save_provider,
             delete_provider,
+            mcp_servers::list_mcp_servers,
+            mcp_servers::save_mcp_server,
+            mcp_servers::delete_mcp_server,
+            mcp_servers::refresh_mcp_server_tools,
+            mcp_servers::set_mcp_server_enabled,
             refresh_provider_models,
             refresh_single_model,
             upsert_provider_model,

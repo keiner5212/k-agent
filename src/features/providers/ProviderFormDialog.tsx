@@ -5,6 +5,7 @@ import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { Select } from "@/components/Select";
 import { useProvidersStore } from "@/lib/providers";
+import { clearStoredSecretMask, isStoredSecretMask, storedSecretDisplay } from "@/lib/secret-field";
 import {
   DEFAULT_BASE_URLS,
   PROVIDER_KINDS,
@@ -48,7 +49,7 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
   const [name, setName] = useState(draft?.name ?? "");
   const [kind, setKind] = useState<ProviderKind>(draft?.kind ?? "openai-like");
   const [baseUrl, setBaseUrl] = useState(draft?.baseUrl ?? DEFAULT_BASE_URLS["openai-like"]);
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState(storedSecretDisplay(draft?.hasApiKey));
   const [clearApiKey, setClearApiKey] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +78,10 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
       name: name.trim(),
       kind,
       baseUrl: baseUrl.trim(),
-      apiKey: apiKey.trim() || undefined,
+      apiKey:
+        isStoredSecretMask(apiKey) || (apiKey.trim() === "" && draft?.hasApiKey && !clearApiKey)
+          ? undefined
+          : apiKey.trim() || undefined,
       clearApiKey,
     });
     setSubmitting(false);
@@ -187,17 +191,14 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
             className="input"
             type="password"
             value={apiKey}
+            onFocus={() => clearStoredSecretMask(apiKey, () => setApiKey(""))}
             onChange={(event) => {
               setApiKey(event.target.value);
               if (event.target.value.trim()) setClearApiKey(false);
             }}
             autoComplete="off"
             spellCheck={false}
-            placeholder={
-              isEditing && draft?.hasApiKey && !clearApiKey
-                ? t("providers.form.apiKeyPlaceholderKeep")
-                : t("providers.form.apiKeyPlaceholder")
-            }
+            placeholder={t("providers.form.apiKeyPlaceholder")}
           />
           <span className="field__hint">{t("providers.form.apiKeyHint")}</span>
           {isEditing && draft?.hasApiKey && !clearApiKey ? (

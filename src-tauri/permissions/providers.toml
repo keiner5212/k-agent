@@ -46,6 +46,9 @@ permissions = [
   "allow-uninstall-language-server",
   "allow-resolve-language-server",
   "allow-lsp-request",
+  "allow-list-mcp-servers",
+  "allow-save-mcp-server",
+  "allow-delete-mcp-server",
 ]
 
 [[permission]]
@@ -272,3 +275,28 @@ commands.allow = ["resolve_language_server"]
 identifier = "allow-lsp-request"
 description = "Send a JSON-RPC request to the language server for a file."
 commands.allow = ["lsp_request"]
+
+[[permission]]
+identifier = "allow-list-mcp-servers"
+description = "List configured MCP servers."
+commands.allow = ["list_mcp_servers"]
+
+[[permission]]
+identifier = "allow-save-mcp-server"
+description = "Create or update an MCP server."
+commands.allow = ["save_mcp_server"]
+
+[[permission]]
+identifier = "allow-delete-mcp-server"
+description = "Delete an MCP server."
+commands.allow = ["delete_mcp_server"]
+
+[[permission]]
+identifier = "allow-refresh-mcp-server-tools"
+description = "Refresh MCP server tool list."
+commands.allow = ["refresh_mcp_server_tools"]
+
+[[permission]]
+identifier = "allow-set-mcp-server-enabled"
+description = "Enable or disable an MCP server."
+commands.allow = ["set_mcp_server_enabled"]
