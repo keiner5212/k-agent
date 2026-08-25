@@ -582,6 +582,191 @@
           "windows-x64": "win32-x64.zip"
         }
       }
+    },
+    {
+      "id": "clangd",
+      "name": "clangd",
+      "languageIds": ["c", "cpp"],
+      "extensions": [".c", ".h", ".cpp", ".cc", ".cxx", ".hpp", ".hh", ".hxx", ".cu", ".ino"],
+      "filenames": [],
+      "rootMarkers": ["compile_commands.json", "CMakeLists.txt", ".clangd", ".git"],
+      "command": "clangd",
+      "args": [],
+      "requires": ["curl", "unzip"],
+      "install": {
+        "method": "github",
+        "repo": "clangd/clangd",
+        "archive": "zip",
+        "binPath": "clangd",
+        "assetContains": {
+          "linux-x64": "clangd-linux-",
+          "darwin-x64": "clangd-mac-",
+          "darwin-arm64": "clangd-mac-",
+          "windows-x64": "clangd-windows-"
+        }
+      }
+    },
+    {
+      "id": "zls",
+      "name": "ZLS",
+      "languageIds": ["zig"],
+      "extensions": [".zig"],
+      "filenames": [],
+      "rootMarkers": ["build.zig", "build.zig.zon", ".git"],
+      "command": "zls",
+      "args": [],
+      "requires": ["curl", "tar"],
+      "install": {
+        "method": "github",
+        "repo": "zigtools/zls",
+        "archive": "tar.xz",
+        "assetContains": {
+          "linux-x64": "zls-x86_64-linux.tar.xz",
+          "linux-arm64": "zls-aarch64-linux.tar.xz",
+          "darwin-x64": "zls-x86_64-macos.tar.xz",
+          "darwin-arm64": "zls-aarch64-macos.tar.xz",
+          "windows-x64": "zls-x86_64-windows.zip"
+        }
+      }
+    },
+    {
+      "id": "clojure-lsp",
+      "name": "clojure-lsp",
+      "languageIds": ["clojure", "clojurescript", "edn"],
+      "extensions": [".clj", ".cljs", ".cljc", ".edn"],
+      "filenames": [],
+      "rootMarkers": ["deps.edn", "project.clj", ".git"],
+      "command": "clojure-lsp",
+      "args": [],
+      "requires": ["curl", "unzip"],
+      "install": {
+        "method": "github",
+        "repo": "clojure-lsp/clojure-lsp",
+        "archive": "zip",
+        "assetContains": {
+          "linux-x64": "clojure-lsp-native-linux-amd64",
+          "linux-arm64": "clojure-lsp-native-linux-aarch64",
+          "darwin-x64": "clojure-lsp-native-macos-amd64",
+          "darwin-arm64": "clojure-lsp-native-macos-aarch64",
+          "windows-x64": "clojure-lsp-native-windows-amd64"
+        }
+      }
+    },
+    {
+      "id": "lemminx",
+      "name": "LemMinX",
+      "languageIds": ["xml"],
+      "extensions": [".xml", ".xsd", ".dtd", ".svg"],
+      "filenames": [],
+      "rootMarkers": ["pom.xml", "package.json", ".git"],
+      "command": "lemminx",
+      "args": [],
+      "requires": ["curl", "unzip"],
+      "install": {
+        "method": "github",
+        "repo": "redhat-developer/vscode-xml",
+        "archive": "zip",
+        "assetContains": {
+          "linux-x64": "lemminx-linux-x86_64",
+          "linux-arm64": "lemminx-linux-aarch_64",
+          "darwin-x64": "lemminx-osx-x86_64",
+          "darwin-arm64": "lemminx-osx-aarch_64",
+          "windows-x64": "lemminx-win32"
+        }
+      }
+    },
+    {
+      "id": "kotlin-language-server",
+      "name": "Kotlin Language Server",
+      "languageIds": ["kotlin"],
+      "extensions": [".kt", ".kts"],
+      "filenames": [],
+      "rootMarkers": ["build.gradle", "build.gradle.kts", "settings.gradle", "pom.xml"],
+      "command": "kotlin-language-server",
+      "args": [],
+      "requires": ["curl", "unzip", "java"],
+      "install": {
+        "method": "github",
+        "repo": "fwcd/kotlin-language-server",
+        "archive": "zip",
+        "binPath": "server/bin/kotlin-language-server",
+        "assetContains": {
+          "linux-x64": "server.zip",
+          "linux-arm64": "server.zip",
+          "darwin-x64": "server.zip",
+          "darwin-arm64": "server.zip",
+          "windows-x64": "server.zip"
+        }
+      }
+    },
+    {
+      "id": "jdtls",
+      "name": "Eclipse JDT Language Server",
+      "languageIds": ["java"],
+      "extensions": [".java"],
+      "filenames": [],
+      "rootMarkers": ["pom.xml", "build.gradle", "settings.gradle", ".classpath", ".git"],
+      "command": "jdtls",
+      "args": [],
+      "requires": ["curl", "tar", "java", "python3"],
+      "install": {
+        "method": "http",
+        "archive": "tar.gz",
+        "binPath": "bin/jdtls",
+        "urls": {
+          "linux-x64": "https://download.eclipse.org/jdtls/snapshots/jdt-language-server-latest.tar.gz",
+          "linux-arm64": "https://download.eclipse.org/jdtls/snapshots/jdt-language-server-latest.tar.gz",
+          "darwin-x64": "https://download.eclipse.org/jdtls/snapshots/jdt-language-server-latest.tar.gz",
+          "darwin-arm64": "https://download.eclipse.org/jdtls/snapshots/jdt-language-server-latest.tar.gz",
+          "windows-x64": "https://download.eclipse.org/jdtls/snapshots/jdt-language-server-latest.tar.gz"
+        }
+      }
+    },
+    {
+      "id": "omnisharp",
+      "name": "OmniSharp",
+      "languageIds": ["csharp"],
+      "extensions": [".cs"],
+      "filenames": [],
+      "rootMarkers": [".csproj", ".sln", "global.json", ".git"],
+      "command": "OmniSharp",
+      "args": ["-lsp"],
+      "requires": ["curl", "tar", "unzip", "dotnet"],
+      "install": {
+        "method": "github",
+        "repo": "OmniSharp/omnisharp-roslyn",
+        "archive": "tar.gz",
+        "binPath": "OmniSharp",
+        "assetContains": {
+          "linux-x64": "omnisharp-linux-x64-net6.0.tar.gz",
+          "linux-arm64": "omnisharp-linux-arm64-net6.0.tar.gz",
+          "darwin-x64": "omnisharp-osx-x64-net6.0.tar.gz",
+          "darwin-arm64": "omnisharp-osx-arm64-net6.0.tar.gz",
+          "windows-x64": "omnisharp-win-x64-net6.0.zip"
+        }
+      }
+    },
+    {
+      "id": "terraform-ls",
+      "name": "Terraform Language Server",
+      "languageIds": ["terraform", "hcl"],
+      "extensions": [".tf", ".tfvars"],
+      "filenames": [],
+      "rootMarkers": [".terraform", "terraform.tfstate", ".git"],
+      "command": "terraform-ls",
+      "args": ["serve"],
+      "requires": ["curl", "unzip"],
+      "install": {
+        "method": "http",
+        "archive": "zip",
+        "urls": {
+          "linux-x64": "https://releases.hashicorp.com/terraform-ls/0.38.0/terraform-ls_0.38.0_linux_amd64.zip",
+          "linux-arm64": "https://releases.hashicorp.com/terraform-ls/0.38.0/terraform-ls_0.38.0_linux_arm64.zip",
+          "darwin-x64": "https://releases.hashicorp.com/terraform-ls/0.38.0/terraform-ls_0.38.0_darwin_amd64.zip",
+          "darwin-arm64": "https://releases.hashicorp.com/terraform-ls/0.38.0/terraform-ls_0.38.0_darwin_arm64.zip",
+          "windows-x64": "https://releases.hashicorp.com/terraform-ls/0.38.0/terraform-ls_0.38.0_windows_amd64.zip"
+        }
+      }
     }
   ]
 }

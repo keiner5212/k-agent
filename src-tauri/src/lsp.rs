@@ -3,9 +3,11 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::Duration;
 
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use thiserror::Error;
+use tokio::io::AsyncWriteExt;
 
 const BUNDLED: &str = include_str!("../catalog/language-servers.json");
 const INSTALL_ROOT: &str = "lang_servers";
@@ -45,6 +47,7 @@ pub enum InstallMethod {
     Go,
     Pip,
     Github,
+    Http,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -65,6 +68,8 @@ pub struct LanguageServerInstall {
     pub archive: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bin_path: Option<String>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub urls: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -99,6 +104,32 @@ pub struct LanguageServerRow {
     pub missing_requires: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LspInstallProgress {
+    id: String,
+    phase: String,
+    percent: Option<u8>,
+    detail: Option<String>,
+}
+
+fn emit_install_progress(
+    app: &AppHandle,
+    id: &str,
+    phase: &str,
+    percent: Option<u8>,
+    detail: Option<&str>,
+) {
+    let _ = app.emit(
+        "lsp-install-progress",
+        LspInstallProgress {
+            id: id.to_string(),
+            phase: phase.to_string(),
+            percent,
+            detail: detail.map(str::to_string),
+        },
+    );
+}
 #[derive(Debug, Deserialize)]
 struct CatalogFile {
     servers: Vec<LanguageServerSpec>,
@@ -223,6 +254,7 @@ fn managed_command_path(dir: &Path, spec: &LanguageServerSpec) -> Option<PathBuf
             executable_in_dir(&dir.join("venv").join("Scripts"), &spec.command)
         }
         InstallMethod::Github => github_command_path(dir, spec),
+        InstallMethod::Http => github_command_path(dir, spec),
     }
 }
 
@@ -234,7 +266,8 @@ fn github_command_path(dir: &Path, spec: &LanguageServerSpec) -> Option<PathBuf>
         }
     }
     executable_in_dir(dir, &spec.command)
-        .or_else(|| find_named_file(dir, &spec.command).filter(|path| is_runnable(&path)))
+        .or_else(|| find_named_file(dir, &spec.command).filter(|path| is_runnable(path)))
+        .or_else(|| find_prefixed_executable(dir, &spec.id))
 }
 
 fn resolve_command(dir: &Path, spec: &LanguageServerSpec) -> Option<PathBuf> {
@@ -324,6 +357,14 @@ pub(crate) fn language_id_for(path: &Path, spec: &LanguageServerSpec) -> String 
         "jsonc" => "jsonc",
         "htm" => "html",
         "scss" | "less" => "css",
+        "h" | "hh" => "c",
+        "hpp" | "hxx" | "cxx" | "cc" => "cpp",
+        "kt" | "kts" => "kotlin",
+        "cs" => "csharp",
+        "tf" | "tfvars" => "terraform",
+        "clj" | "cljs" | "cljc" => "clojure",
+        "edn" => "clojure",
+        "zig" => "zig",
         other => other,
     };
     if spec.language_ids.iter().any(|id| id == mapped) {
@@ -415,6 +456,7 @@ pub async fn install_language_server(
     id: String,
 ) -> Result<LanguageServerRow, LspError> {
     let spec = spec_by_id(&id)?;
+    emit_install_progress(&app, &id, "preparing", None, None);
     let missing = missing_requires(spec);
     if !missing.is_empty() {
         return Err(LspError::MissingRequire(missing.join(", ")));
@@ -424,12 +466,37 @@ pub async fn install_language_server(
         .await
         .map_err(|error| LspError::Io(error.to_string()))?;
     match spec.install.method {
-        InstallMethod::Npm => install_npm(&dir, spec).await?,
-        InstallMethod::Go => install_go(&dir, spec).await?,
-        InstallMethod::Pip => install_pip(&dir, spec).await?,
-        InstallMethod::Github => install_github(&dir, spec).await?,
+        InstallMethod::Npm => {
+            emit_install_progress(&app, &id, "installing", None, Some("npm"));
+            install_npm(&dir, spec).await?;
+        }
+        InstallMethod::Go => {
+            emit_install_progress(&app, &id, "installing", None, Some("go"));
+            install_go(&dir, spec).await?;
+        }
+        InstallMethod::Pip => {
+            emit_install_progress(&app, &id, "installing", None, Some("pip"));
+            install_pip(&dir, spec).await?;
+        }
+        InstallMethod::Github => install_github(&app, &id, &dir, spec).await?,
+        InstallMethod::Http => install_http(&app, &id, &dir, spec).await?,
     }
+    emit_install_progress(&app, &id, "finishing", Some(100), None);
     row_for(&app, spec)
+}
+
+pub(crate) async fn uninstall_managed(
+    app: &AppHandle,
+    id: &str,
+) -> Result<LanguageServerRow, LspError> {
+    let spec = spec_by_id(id)?;
+    let dir = install_dir(app, spec)?;
+    if dir.exists() {
+        tokio::fs::remove_dir_all(&dir)
+            .await
+            .map_err(|error| LspError::Io(error.to_string()))?;
+    }
+    row_for(app, spec)
 }
 
 async fn install_npm(dir: &Path, spec: &LanguageServerSpec) -> Result<(), LspError> {
@@ -506,7 +573,78 @@ async fn install_pip(dir: &Path, spec: &LanguageServerSpec) -> Result<(), LspErr
     run_cmd(&pip, &args, None, PIP_INSTALL_TIMEOUT).await
 }
 
-async fn install_github(dir: &Path, spec: &LanguageServerSpec) -> Result<(), LspError> {
+async fn download_file(
+    app: &AppHandle,
+    id: &str,
+    client: &reqwest::Client,
+    url: &str,
+    dest: &Path,
+) -> Result<(), LspError> {
+    emit_install_progress(app, id, "downloading", Some(0), None);
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|error| LspError::Message(error.to_string()))?
+        .error_for_status()
+        .map_err(|error| LspError::Message(error.to_string()))?;
+    let total = response.content_length();
+    let mut stream = response.bytes_stream();
+    let mut file = tokio::fs::File::create(dest)
+        .await
+        .map_err(|error| LspError::Io(error.to_string()))?;
+    let mut downloaded = 0u64;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|error| LspError::Message(error.to_string()))?;
+        downloaded += chunk.len() as u64;
+        file.write_all(&chunk)
+            .await
+            .map_err(|error| LspError::Io(error.to_string()))?;
+        if let Some(total) = total {
+            if total > 0 {
+                let percent = ((downloaded * 100) / total).min(100) as u8;
+                emit_install_progress(app, id, "downloading", Some(percent), None);
+            }
+        }
+    }
+    file.flush()
+        .await
+        .map_err(|error| LspError::Io(error.to_string()))?;
+    Ok(())
+}
+
+async fn install_http(
+    app: &AppHandle,
+    id: &str,
+    dir: &Path,
+    spec: &LanguageServerSpec,
+) -> Result<(), LspError> {
+    let url = spec.install.urls.get(&platform_key()).ok_or_else(|| {
+        LspError::Message(format!("{} has no url for {}", spec.id, platform_key()))
+    })?;
+    let client = reqwest::Client::builder()
+        .timeout(GITHUB_TIMEOUT)
+        .user_agent(concat!("k-agent/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|error| LspError::Message(error.to_string()))?;
+    let filename = url
+        .rsplit('/')
+        .next()
+        .filter(|name| !name.is_empty())
+        .unwrap_or("download");
+    let download_path = dir.join(filename);
+    download_file(app, id, &client, url, &download_path).await?;
+    emit_install_progress(app, id, "extracting", None, None);
+    extract_asset(dir, &download_path, filename, spec).await?;
+    Ok(())
+}
+
+async fn install_github(
+    app: &AppHandle,
+    id: &str,
+    dir: &Path,
+    spec: &LanguageServerSpec,
+) -> Result<(), LspError> {
     let repo = spec
         .install
         .repo
@@ -541,20 +679,16 @@ async fn install_github(dir: &Path, spec: &LanguageServerSpec) -> Result<(), Lsp
         .iter()
         .find(|item| item.name.contains(needle))
         .ok_or_else(|| LspError::Message(format!("no github asset matching {needle}")))?;
-    let bytes = client
-        .get(&asset.browser_download_url)
-        .send()
-        .await
-        .map_err(|error| LspError::Message(error.to_string()))?
-        .error_for_status()
-        .map_err(|error| LspError::Message(error.to_string()))?
-        .bytes()
-        .await
-        .map_err(|error| LspError::Message(error.to_string()))?;
+    download_file(
+        app,
+        id,
+        &client,
+        &asset.browser_download_url,
+        &dir.join(&asset.name),
+    )
+    .await?;
     let download_path = dir.join(&asset.name);
-    tokio::fs::write(&download_path, &bytes)
-        .await
-        .map_err(|error| LspError::Io(error.to_string()))?;
+    emit_install_progress(app, id, "extracting", None, None);
     extract_asset(dir, &download_path, &asset.name, spec).await?;
     Ok(())
 }
@@ -625,12 +759,32 @@ async fn extract_asset(
             let bin_rel = spec.install.bin_path.as_deref().unwrap_or(&spec.command);
             ensure_github_bin(dir, bin_rel, &dest)?;
         }
+        "tar.xz" => {
+            let tar = find_in_path("tar").ok_or_else(|| LspError::MissingRequire("tar".into()))?;
+            run_cmd(
+                &tar,
+                &[
+                    "-xJf".to_string(),
+                    download.to_string_lossy().into_owned(),
+                    "-C".to_string(),
+                    dir.to_string_lossy().into_owned(),
+                ],
+                None,
+                GITHUB_TIMEOUT,
+            )
+            .await?;
+            let bin_rel = spec.install.bin_path.as_deref().unwrap_or(&spec.command);
+            ensure_github_bin(dir, bin_rel, &dest)?;
+        }
         other => return Err(LspError::Message(format!("unsupported archive: {other}"))),
     }
     Ok(())
 }
 
 fn archive_kind(asset_name: &str, fallback: Option<&str>) -> &'static str {
+    if asset_name.ends_with(".tar.xz") {
+        return "tar.xz";
+    }
     if asset_name.ends_with(".tar.gz") || asset_name.ends_with(".tgz") {
         return "tar.gz";
     }
@@ -644,6 +798,7 @@ fn archive_kind(asset_name: &str, fallback: Option<&str>) -> &'static str {
         Some("gz") => "gz",
         Some("zip") => "zip",
         Some("tar.gz") => "tar.gz",
+        Some("tar.xz") => "tar.xz",
         _ => "none",
     }
 }
@@ -678,6 +833,26 @@ fn find_named_file(root: &Path, name: &str) -> Option<PathBuf> {
                 stack.push(path);
             } else if path.file_name().and_then(|item| item.to_str()) == Some(name) {
                 return Some(path);
+            }
+        }
+    }
+    None
+}
+
+fn find_prefixed_executable(root: &Path, prefix: &str) -> Option<PathBuf> {
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if let Some(name) = path.file_name().and_then(|item| item.to_str()) {
+                if name.starts_with(prefix) && is_runnable(&path) {
+                    return Some(path);
+                }
             }
         }
     }

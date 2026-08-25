@@ -1,6 +1,6 @@
-export type InstallMethod = "npm" | "go" | "pip" | "github";
+export type InstallMethod = "npm" | "go" | "pip" | "github" | "http";
 
-export type InstallArchive = "none" | "gz" | "zip" | "tar.gz";
+export type InstallArchive = "none" | "gz" | "zip" | "tar.gz" | "tar.xz";
 
 export type LanguageServerInstall = {
   method: InstallMethod;
@@ -11,6 +11,7 @@ export type LanguageServerInstall = {
   assetContains?: Record<string, string>;
   archive?: InstallArchive;
   binPath?: string;
+  urls?: Record<string, string>;
 };
 
 export type LanguageServerSpec = {
@@ -33,6 +34,13 @@ export type LanguageServerRow = LanguageServerSpec & {
   installed: boolean;
   commandPath: string | null;
   missingRequires: string[];
+};
+
+export type LspInstallProgress = {
+  id: string;
+  phase: string;
+  percent?: number;
+  detail?: string;
 };
 
 export type ResolvedLanguageServer = LanguageServerRow & {

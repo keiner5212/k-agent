@@ -41,6 +41,7 @@ permissions = [
   "allow-get-repo-info",
   "allow-list-language-servers",
   "allow-install-language-server",
+  "allow-uninstall-language-server",
   "allow-resolve-language-server",
   "allow-lsp-request",
 ]
@@ -244,6 +245,11 @@ commands.allow = ["list_language_servers"]
 identifier = "allow-install-language-server"
 description = "Install a bundled language server into the app config dir."
 commands.allow = ["install_language_server"]
+
+[[permission]]
+identifier = "allow-uninstall-language-server"
+description = "Remove a managed language server from the app config dir."
+commands.allow = ["uninstall_language_server"]
 
 [[permission]]
 identifier = "allow-resolve-language-server"

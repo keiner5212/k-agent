@@ -48,6 +48,7 @@
     "allow-get-repo-info",
     "allow-list-language-servers",
     "allow-install-language-server",
+    "allow-uninstall-language-server",
     "allow-resolve-language-server",
     "allow-lsp-request"
   ]

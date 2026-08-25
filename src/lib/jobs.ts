@@ -124,6 +124,9 @@ export const runListLanguageServersJob = (): Promise<LanguageServerRow[]> =>
 export const runInstallLanguageServerJob = (id: string): Promise<LanguageServerRow> =>
   runJob("installLanguageServer", { id });
 
+export const runUninstallLanguageServerJob = (id: string): Promise<LanguageServerRow> =>
+  runJob("uninstallLanguageServer", { id });
+
 export const runResolveLanguageServerJob = (path: string): Promise<ResolvedLanguageServer | null> =>
   runJob("resolveLanguageServer", { path });
 

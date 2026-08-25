@@ -7,6 +7,7 @@ export type JobName =
   | "estimateTokens"
   | "listLanguageServers"
   | "installLanguageServer"
+  | "uninstallLanguageServer"
   | "resolveLanguageServer"
   | "lspRequest";
 
@@ -98,6 +99,13 @@ export const handleJob = async (name: JobName, payload: unknown, host: Host): Pr
           ? String((payload as InstallLanguageServerPayload).id)
           : "";
       return host.invoke("install_language_server", { id });
+    }
+    case "uninstallLanguageServer": {
+      const id =
+        payload && typeof payload === "object" && "id" in payload
+          ? String((payload as InstallLanguageServerPayload).id)
+          : "";
+      return host.invoke("uninstall_language_server", { id });
     }
     case "resolveLanguageServer": {
       const path =

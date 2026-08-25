@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { listen } from "@tauri-apps/api/event";
 import { RefreshCw } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { highlightMatch } from "@/lib/highlight";
 import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "@/lib/platform";
-import { runInstallLanguageServerJob, runListLanguageServersJob } from "@/lib/jobs";
-import type { LanguageServerRow } from "@/types/language-servers";
+import {
+  runInstallLanguageServerJob,
+  runListLanguageServersJob,
+  runUninstallLanguageServerJob,
+} from "@/lib/jobs";
+import type { LanguageServerRow, LspInstallProgress } from "@/types/language-servers";
 import type { SettingItem as SettingItemDef } from "@/features/settings/registry";
 import { SettingItem } from "@/features/settings/SettingItem";
 
@@ -35,7 +40,8 @@ export const LspsPanel = ({ items, query }: LspsPanelProps): ReactNode => {
   const [rows, setRows] = useState<LanguageServerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>();
-  const [installingId, setInstallingId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [installProgress, setInstallProgress] = useState<LspInstallProgress | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
 
   const load = useCallback(async (): Promise<void> => {
@@ -63,6 +69,16 @@ export const LspsPanel = ({ items, query }: LspsPanelProps): ReactNode => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!isTauri()) return;
+    const unlisten = listen<LspInstallProgress>("lsp-install-progress", (event) => {
+      setInstallProgress(event.payload);
+    });
+    return () => {
+      void unlisten.then((stop) => stop());
+    };
+  }, []);
+
   const visible = useMemo(() => rows.filter((row) => rowMatches(row, query)), [rows, query]);
 
   useEffect(() => {
@@ -82,7 +98,8 @@ export const LspsPanel = ({ items, query }: LspsPanelProps): ReactNode => {
   }, [loading, visible.length]);
 
   const install = async (id: string): Promise<void> => {
-    setInstallingId(id);
+    setBusyId(id);
+    setInstallProgress(null);
     setRowError((current) => {
       const next = { ...current };
       delete next[id];
@@ -95,7 +112,28 @@ export const LspsPanel = ({ items, query }: LspsPanelProps): ReactNode => {
     } catch (caught: unknown) {
       setRowError((current) => ({ ...current, [id]: ipcErrorMessage(caught) }));
     } finally {
-      setInstallingId(null);
+      setBusyId(null);
+      setInstallProgress(null);
+    }
+  };
+
+  const uninstall = async (id: string): Promise<void> => {
+    setBusyId(id);
+    setInstallProgress(null);
+    setRowError((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    try {
+      const updated = await runUninstallLanguageServerJob(id);
+      const refreshed = await runListLanguageServersJob();
+      setRows(refreshed.length > 0 ? refreshed : [updated]);
+    } catch (caught: unknown) {
+      setRowError((current) => ({ ...current, [id]: ipcErrorMessage(caught) }));
+    } finally {
+      setBusyId(null);
+      setInstallProgress(null);
     }
   };
 
@@ -114,7 +152,7 @@ export const LspsPanel = ({ items, query }: LspsPanelProps): ReactNode => {
           className="lsps-panel__refresh"
           label={t("lsps.actions.refresh")}
           onClick={() => void load()}
-          disabled={loading || installingId !== null}
+          disabled={loading || busyId !== null}
         >
           <RefreshCw size={14} strokeWidth={1.5} className={loading ? "spin" : undefined} />
         </IconButton>
@@ -143,8 +181,10 @@ export const LspsPanel = ({ items, query }: LspsPanelProps): ReactNode => {
                 const args = row.args ?? [];
                 const missing = row.missingRequires ?? [];
                 const needsTools = missing.length > 0;
-                const busy = installingId === row.id;
-                const canInstall = !row.installed && !needsTools && installingId === null;
+                const busy = busyId === row.id;
+                const progress = busy && installProgress?.id === row.id ? installProgress : null;
+                const canInstall = !row.installed && !needsTools && busyId === null;
+                const canUninstall = row.installed && busyId === null;
                 const statusKey = row.installed
                   ? "installed"
                   : needsTools
@@ -163,15 +203,44 @@ export const LspsPanel = ({ items, query }: LspsPanelProps): ReactNode => {
                     <td className="lsp-table__langs">{(row.languageIds ?? []).join(", ")}</td>
                     <td className="lsp-table__requires">{(row.requires ?? []).join(", ")}</td>
                     <td className="lsp-table__status" data-state={statusState}>
-                      {statusKey === "missingRequires"
-                        ? t("lsps.status.missingRequires", { tools: missing.join(", ") })
-                        : t(`lsps.status.${statusKey}`)}
+                      {progress ? (
+                        <div className="lsp-table__progress">
+                          <span className="lsp-table__progress-label">
+                            {progress.phase === "installing"
+                              ? t("lsps.progress.installing", {
+                                  tool: progress.detail ?? t("lsps.actions.installing"),
+                                })
+                              : t(`lsps.progress.${progress.phase}`)}
+                            {progress.percent != null ? ` ${progress.percent}%` : ""}
+                          </span>
+                          {progress.percent != null ? (
+                            <div className="lsp-table__progress-track" aria-hidden="true">
+                              <div
+                                className="lsp-table__progress-bar"
+                                style={{ width: `${progress.percent}%` }}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : statusKey === "missingRequires" ? (
+                        t("lsps.status.missingRequires", { tools: missing.join(", ") })
+                      ) : (
+                        t(`lsps.status.${statusKey}`)
+                      )}
                       {rowError[row.id] ? (
                         <span className="lsp-table__error">{rowError[row.id]}</span>
                       ) : null}
                     </td>
                     <td className="lsp-table__actions">
-                      {row.installed ? null : (
+                      {row.installed ? (
+                        <GlassButton
+                          variant="ghost"
+                          disabled={!canUninstall || busy}
+                          onClick={() => void uninstall(row.id)}
+                        >
+                          {busy ? t("lsps.actions.uninstalling") : t("lsps.actions.uninstall")}
+                        </GlassButton>
+                      ) : (
                         <GlassButton
                           variant="ghost"
                           disabled={!canInstall || busy}

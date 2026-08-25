@@ -225,7 +225,16 @@
     "actions": {
       "install": "Instalar",
       "installing": "Instalando",
+      "uninstall": "Desinstalar",
+      "uninstalling": "Eliminando",
       "refresh": "Actualizar estado"
+    },
+    "progress": {
+      "preparing": "Preparando",
+      "downloading": "Descargando",
+      "extracting": "Extrayendo",
+      "installing": "Instalando ({{tool}})",
+      "finishing": "Finalizando"
     }
   },
   "providers": {

@@ -124,6 +124,32 @@
   color: var(--danger);
 }
 
+.lsp-table__progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.lsp-table__progress-label {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.lsp-table__progress-track {
+  height: 4px;
+  border-radius: var(--radius-sm);
+  background-color: var(--border);
+  overflow: hidden;
+}
+
+.lsp-table__progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--accent);
+  transition: width var(--duration-fast) var(--ease-out);
+}
+
 .lsp-table__actions {
   width: 14%;
   text-align: right;

@@ -472,6 +472,7 @@ pub fn run() {
             agents_md::delete_agents_md,
             lsp::list_language_servers,
             lsp::install_language_server,
+            lsp_client::uninstall_language_server,
             lsp::resolve_language_server,
             lsp_client::lsp_request,
         ])

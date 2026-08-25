@@ -37,6 +37,12 @@ impl LspHub {
             sessions: Mutex::new(HashMap::new()),
         }
     }
+
+    pub async fn drop_sessions_for_spec(&self, spec_id: &str) {
+        let prefix = format!("{spec_id}\0");
+        let mut sessions = self.sessions.lock().await;
+        sessions.retain(|key, _| !key.starts_with(&prefix));
+    }
 }
 
 fn lsp_enabled(app: &AppHandle) -> bool {
@@ -361,4 +367,14 @@ pub async fn lsp_request(
         params = inject_uri(params, &uri);
     }
     request(&session, &method, params).await
+}
+
+#[tauri::command]
+pub async fn uninstall_language_server(
+    app: AppHandle,
+    hub: tauri::State<'_, LspHub>,
+    id: String,
+) -> Result<crate::lsp::LanguageServerRow, LspError> {
+    hub.drop_sessions_for_spec(&id).await;
+    crate::lsp::uninstall_managed(&app, &id).await
 }
