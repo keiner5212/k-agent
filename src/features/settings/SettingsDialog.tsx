@@ -19,6 +19,7 @@ import { ProvidersPanel } from "@/features/providers/ProvidersPanel";
 import { SkillsPanel } from "@/features/skills/SkillsPanel";
 import { AgentsPanel } from "@/features/agents/AgentsPanel";
 import { AgentsMdPanel } from "@/features/agents-md/AgentsMdPanel";
+import { LspsPanel } from "@/features/lsps/LspsPanel";
 import { SETTINGS_REGISTRY } from "./registry-data";
 import { SettingItem } from "./SettingItem";
 import { KeybindingField } from "./KeybindingField";
@@ -170,6 +171,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
               <AgentsPanel query={query.trim()} />
             ) : resolvedTab === "agentsMd" ? (
               <AgentsMdPanel query={query.trim()} />
+            ) : resolvedTab === "lsps" ? (
+              <LspsPanel items={activeSection?.items ?? []} query={query.trim()} />
             ) : resolvedTab === "keybindings" ? (
               <KeybindingsPanel items={activeSection?.items ?? []} query={trimmed} />
             ) : (

@@ -10,6 +10,7 @@ import "./styles/inputs.css";
 import "./styles/controls.css";
 import "./styles/providers.css";
 import "./styles/skills.css";
+import "./styles/lsps.css";
 import "./styles/agents.css";
 import "./styles/theme.css";
 import "./styles/chat.css";

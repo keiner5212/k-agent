@@ -39,6 +39,10 @@ permissions = [
   "allow-get-workspace-path",
   "allow-set-workspace-path",
   "allow-get-repo-info",
+  "allow-list-language-servers",
+  "allow-install-language-server",
+  "allow-resolve-language-server",
+  "allow-lsp-request",
 ]
 
 [[permission]]
@@ -230,3 +234,23 @@ commands.allow = ["set_workspace_path"]
 identifier = "allow-get-repo-info"
 description = "Read git metadata for the current workspace."
 commands.allow = ["get_repo_info"]
+
+[[permission]]
+identifier = "allow-list-language-servers"
+description = "List bundled language servers and their install status."
+commands.allow = ["list_language_servers"]
+
+[[permission]]
+identifier = "allow-install-language-server"
+description = "Install a bundled language server into the app config dir."
+commands.allow = ["install_language_server"]
+
+[[permission]]
+identifier = "allow-resolve-language-server"
+description = "Resolve which installed language server handles a file."
+commands.allow = ["resolve_language_server"]
+
+[[permission]]
+identifier = "allow-lsp-request"
+description = "Send a JSON-RPC request to the language server for a file."
+commands.allow = ["lsp_request"]

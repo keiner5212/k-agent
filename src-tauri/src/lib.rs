@@ -1,11 +1,13 @@
 mod agents;
 mod agents_md;
 mod catalog;
+mod lsp;
+mod lsp_client;
+mod pathutil;
 mod providers;
 mod repo;
 mod secret;
 mod skills;
-mod pathutil;
 
 pub const APP_CONFIG_DIR: &str = ".k-agent";
 pub const WORKSPACE_AGENTS_DIR: &str = ".agents";
@@ -35,6 +37,7 @@ use providers::{
 };
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
+static WINDOW_BOUNDS_RESTORED: AtomicBool = AtomicBool::new(false);
 
 const EASTER_EGG_PNG: &[u8] = include_bytes!("../../src/assets/easter-egg.png");
 const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
@@ -96,6 +99,83 @@ struct WindowBounds {
 const MIN_WINDOW_WIDTH: f64 = 720.0;
 const MIN_WINDOW_HEIGHT: f64 = 480.0;
 
+fn apply_bounds_to_window(
+    window: &tauri::WebviewWindow,
+    bounds: WindowBounds,
+) -> Result<(), String> {
+    let width = bounds.width.max(MIN_WINDOW_WIDTH);
+    let height = bounds.height.max(MIN_WINDOW_HEIGHT);
+    let _ = window.unmaximize();
+    window
+        .set_size(Size::Logical(LogicalSize { width, height }))
+        .map_err(|e| e.to_string())?;
+    if bounds.maximized {
+        window.maximize().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+pub(crate) fn load_ui_settings(app: &tauri::AppHandle) -> Option<serde_json::Value> {
+    let dir = app.path().app_data_dir().ok()?;
+    let raw = std::fs::read_to_string(dir.join("settings.json")).ok()?;
+    let parsed: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    let settings = parsed.get("settings")?;
+    if let Some(text) = settings.as_str() {
+        return serde_json::from_str(text).ok();
+    }
+    Some(settings.clone())
+}
+
+fn apply_saved_window_bounds(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
+    let Some(settings) = load_ui_settings(app) else {
+        return;
+    };
+    let remember = settings
+        .get("rememberWindowSize")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(true);
+    if !remember {
+        return;
+    }
+    let Some(bounds) = settings.get("windowBounds") else {
+        return;
+    };
+    let width = bounds
+        .get("width")
+        .and_then(|value| value.as_f64())
+        .unwrap_or(1100.0);
+    let height = bounds
+        .get("height")
+        .and_then(|value| value.as_f64())
+        .unwrap_or(720.0);
+    let maximized = bounds
+        .get("maximized")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    let _ = apply_bounds_to_window(
+        window,
+        WindowBounds {
+            width,
+            height,
+            maximized,
+        },
+    );
+}
+
+fn restore_mapped_window_bounds(window: &tauri::Window) {
+    if window.label() != "main" {
+        return;
+    }
+    if WINDOW_BOUNDS_RESTORED.swap(true, Ordering::Relaxed) {
+        return;
+    }
+    let Some(webview) = window.app_handle().get_webview_window("main") else {
+        WINDOW_BOUNDS_RESTORED.store(false, Ordering::Relaxed);
+        return;
+    };
+    apply_saved_window_bounds(window.app_handle(), &webview);
+}
+
 #[tauri::command]
 fn window_get_bounds(window: tauri::WebviewWindow) -> WindowBounds {
     let maximized = window.is_maximized().unwrap_or(false);
@@ -115,16 +195,7 @@ fn window_get_bounds(window: tauri::WebviewWindow) -> WindowBounds {
 
 #[tauri::command]
 fn window_apply_bounds(window: tauri::WebviewWindow, bounds: WindowBounds) -> Result<(), String> {
-    let width = bounds.width.max(MIN_WINDOW_WIDTH);
-    let height = bounds.height.max(MIN_WINDOW_HEIGHT);
-    let _ = window.unmaximize();
-    window
-        .set_size(Size::Logical(LogicalSize { width, height }))
-        .map_err(|e| e.to_string())?;
-    if bounds.maximized {
-        window.maximize().map_err(|e| e.to_string())?;
-    }
-    Ok(())
+    apply_bounds_to_window(&window, bounds)
 }
 
 fn parse_resize_edge(edge: &str) -> Result<tauri_runtime::ResizeDirection, String> {
@@ -182,9 +253,13 @@ fn collect_system_font_families() -> Vec<String> {
 
 #[tauri::command]
 async fn list_system_fonts() -> Result<Vec<String>, String> {
-    tokio::task::spawn_blocking(|| SYSTEM_FONTS.get_or_init(collect_system_font_families).clone())
-        .await
-        .map_err(|error| error.to_string())
+    tokio::task::spawn_blocking(|| {
+        SYSTEM_FONTS
+            .get_or_init(collect_system_font_families)
+            .clone()
+    })
+    .await
+    .map_err(|error| error.to_string())
 }
 
 fn toggle_window_visibility(app: &tauri::AppHandle) {
@@ -277,7 +352,8 @@ fn set_workspace_path(state: State<'_, LocalWorkspace>, path: String) -> Result<
     if !absolute.exists() {
         std::fs::create_dir_all(&absolute).map_err(|error| error.to_string())?;
     }
-    let canonical = crate::pathutil::canonicalize_path(&absolute).map_err(|error| error.to_string())?;
+    let canonical =
+        crate::pathutil::canonicalize_path(&absolute).map_err(|error| error.to_string())?;
     let mut guard = state.path.lock().map_err(|error| error.to_string())?;
     *guard = Some(canonical);
     Ok(())
@@ -300,7 +376,9 @@ fn expand_user_path(input: &str) -> Option<PathBuf> {
 
 fn resolve_existing_path(input: &str) -> Option<PathBuf> {
     let expanded = expand_user_path(input)?;
-    crate::pathutil::canonicalize_path(&expanded).ok().or(Some(expanded))
+    crate::pathutil::canonicalize_path(&expanded)
+        .ok()
+        .or(Some(expanded))
 }
 
 fn parse_workspace_arg() -> Option<PathBuf> {
@@ -317,7 +395,9 @@ fn parse_workspace_arg() -> Option<PathBuf> {
             return resolve_existing_path(value);
         }
         if arg == "--workspace" || arg == "-w" {
-            return args.get(index + 1).and_then(|value| resolve_existing_path(value));
+            return args
+                .get(index + 1)
+                .and_then(|value| resolve_existing_path(value));
         }
         if !arg.starts_with('-') {
             return resolve_existing_path(arg);
@@ -345,9 +425,12 @@ pub fn run() {
         .manage(LocalWorkspace {
             path: Mutex::new(parse_workspace_arg().or_else(|| {
                 let home = default_workspace();
-                crate::pathutil::canonicalize_path(&home).ok().or(Some(home))
+                crate::pathutil::canonicalize_path(&home)
+                    .ok()
+                    .or(Some(home))
             })),
         })
+        .manage(lsp_client::LspHub::new())
         .invoke_handler(tauri::generate_handler![
             set_minimize_to_tray,
             get_minimize_to_tray,
@@ -387,6 +470,10 @@ pub fn run() {
             agents_md::list_agents_md,
             agents_md::write_agents_md,
             agents_md::delete_agents_md,
+            lsp::list_language_servers,
+            lsp::install_language_server,
+            lsp::resolve_language_server,
+            lsp_client::lsp_request,
         ])
         .setup(|app| {
             if let Ok(home) = app.path().home_dir() {
@@ -400,14 +487,22 @@ pub fn run() {
                 }
             }
 
-            if let (Some(window), Some(icon)) =
-                (app.get_webview_window("main"), app.default_window_icon())
-            {
-                let _ = window.set_icon(icon.clone());
+            if let Some(window) = app.get_webview_window("main") {
+                apply_saved_window_bounds(app.handle(), &window);
+                if let Some(icon) = app.default_window_icon() {
+                    let _ = window.set_icon(icon.clone());
+                }
+            }
+            if let Some(settings) = load_ui_settings(app.handle()) {
+                if let Some(enabled) = settings
+                    .get("minimizeToTray")
+                    .and_then(|value| value.as_bool())
+                {
+                    MINIMIZE_TO_TRAY.store(enabled, Ordering::Relaxed);
+                }
             }
 
-            let toggle_item =
-                MenuItem::with_id(app, "toggle", "Show / Hide", true, None::<&str>)?;
+            let toggle_item = MenuItem::with_id(app, "toggle", "Show / Hide", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&toggle_item, &quit_item])?;
 
@@ -435,14 +530,16 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
+        .on_window_event(|window, event| match event {
+            WindowEvent::Resized(_) => restore_mapped_window_bounds(window),
+            WindowEvent::CloseRequested { api, .. } => {
                 let enabled = MINIMIZE_TO_TRAY.load(Ordering::Relaxed);
                 if enabled {
                     api.prevent_close();
                     let _ = window.hide();
                 }
             }
+            _ => {}
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

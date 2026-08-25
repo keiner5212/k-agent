@@ -206,6 +206,28 @@
       "description": "Lets the orchestrator use LSP for navigation, rename, and diagnostics on your code in chat."
     }
   },
+  "lsps": {
+    "title": "Language servers",
+    "description": "Lightweight language servers used by the generic LSP router. Status is detected when you open this page. Install needs the listed tools first.",
+    "empty": "No language servers match.",
+    "table": {
+      "server": "Server",
+      "languages": "Languages",
+      "requires": "Needs",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "installed": "Installed",
+      "notInstalled": "Not installed",
+      "missingRequires": "Install {{tools}} first"
+    },
+    "actions": {
+      "install": "Install",
+      "installing": "Installing",
+      "refresh": "Refresh status"
+    }
+  },
   "providers": {
     "kinds": {
       "openai-like": "OpenAI compatible",

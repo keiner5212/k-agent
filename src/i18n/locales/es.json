@@ -206,6 +206,28 @@
       "description": "Permite al orchestrator usar LSP para navegar, renombrar y diagnosticar tu codigo en el chat."
     }
   },
+  "lsps": {
+    "title": "Servidores de lenguaje",
+    "description": "Servidores de lenguaje livianos para el LSP generico. El estado se detecta al abrir esta pagina. La instalacion pide las herramientas listadas primero.",
+    "empty": "Ningun servidor de lenguaje coincide.",
+    "table": {
+      "server": "Servidor",
+      "languages": "Lenguajes",
+      "requires": "Requiere",
+      "status": "Estado",
+      "actions": "Acciones"
+    },
+    "status": {
+      "installed": "Instalado",
+      "notInstalled": "No instalado",
+      "missingRequires": "Instala {{tools}} primero"
+    },
+    "actions": {
+      "install": "Instalar",
+      "installing": "Instalando",
+      "refresh": "Actualizar estado"
+    }
+  },
   "providers": {
     "kinds": {
       "openai-like": "Compatible con OpenAI",

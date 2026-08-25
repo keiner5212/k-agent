@@ -292,8 +292,20 @@ async fn fetch_models_dev() -> Result<Vec<CatalogEntry>, String> {
 }
 
 fn catalog_from_models_dev(key: String, model: ModelsDevModel) -> CatalogEntry {
-    let input = unique_nonempty(model.modalities.as_ref().map(|m| m.input.clone()).unwrap_or_default());
-    let output = unique_nonempty(model.modalities.as_ref().map(|m| m.output.clone()).unwrap_or_default());
+    let input = unique_nonempty(
+        model
+            .modalities
+            .as_ref()
+            .map(|m| m.input.clone())
+            .unwrap_or_default(),
+    );
+    let output = unique_nonempty(
+        model
+            .modalities
+            .as_ref()
+            .map(|m| m.output.clone())
+            .unwrap_or_default(),
+    );
     let mut effort_levels = effort_from_options(&model.reasoning_options);
     if model.reasoning && effort_levels.is_empty() {
         effort_levels = vec!["low".into(), "medium".into(), "high".into()];
@@ -327,7 +339,12 @@ fn effort_from_options(options: &[ModelsDevReasoningOption]) -> Vec<String> {
             option
                 .values
                 .iter()
-                .filter_map(|value| value.as_str().map(str::trim).filter(|item| !item.is_empty()))
+                .filter_map(|value| {
+                    value
+                        .as_str()
+                        .map(str::trim)
+                        .filter(|item| !item.is_empty())
+                })
                 .map(str::to_string),
         );
         if !values.is_empty() {

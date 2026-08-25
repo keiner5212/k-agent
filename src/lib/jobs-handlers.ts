@@ -1,6 +1,14 @@
 /** Add a JobName + handleJob case for new heavy work. Do not run it on the UI thread. */
 export type JobName =
-  "listSkills" | "listAgents" | "listAgentsMd" | "listSystemFonts" | "estimateTokens";
+  | "listSkills"
+  | "listAgents"
+  | "listAgentsMd"
+  | "listSystemFonts"
+  | "estimateTokens"
+  | "listLanguageServers"
+  | "installLanguageServer"
+  | "resolveLanguageServer"
+  | "lspRequest";
 
 export type ListBundle<T> = {
   contexts: T[];
@@ -9,6 +17,20 @@ export type ListBundle<T> = {
 
 export type EstimateTokensPayload = {
   text: string;
+};
+
+export type InstallLanguageServerPayload = {
+  id: string;
+};
+
+export type ResolveLanguageServerPayload = {
+  path: string;
+};
+
+export type LspRequestPayload = {
+  path: string;
+  method: string;
+  params?: unknown;
 };
 
 export type Host = {
@@ -66,6 +88,34 @@ export const handleJob = async (name: JobName, payload: unknown, host: Host): Pr
           ? String((payload as EstimateTokensPayload).text)
           : "";
       return estimateTokensFromText(text);
+    }
+    case "listLanguageServers": {
+      return host.invoke("list_language_servers");
+    }
+    case "installLanguageServer": {
+      const id =
+        payload && typeof payload === "object" && "id" in payload
+          ? String((payload as InstallLanguageServerPayload).id)
+          : "";
+      return host.invoke("install_language_server", { id });
+    }
+    case "resolveLanguageServer": {
+      const path =
+        payload && typeof payload === "object" && "path" in payload
+          ? String((payload as ResolveLanguageServerPayload).path)
+          : "";
+      return host.invoke("resolve_language_server", { path });
+    }
+    case "lspRequest": {
+      const body =
+        payload && typeof payload === "object"
+          ? (payload as LspRequestPayload)
+          : { path: "", method: "" };
+      return host.invoke("lsp_request", {
+        path: String(body.path ?? ""),
+        method: String(body.method ?? ""),
+        params: body.params ?? null,
+      });
     }
     default: {
       const exhaustive: never = name;

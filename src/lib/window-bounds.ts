@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@/lib/platform";
 import { useSettingsStore } from "@/lib/settings";
@@ -6,37 +6,33 @@ import type { WindowBounds } from "@/types/settings";
 
 const SAVE_DELAY_MS = 250;
 
+const sizeClose = (a: WindowBounds, b: WindowBounds): boolean =>
+  Math.abs(a.width - b.width) < 2 && Math.abs(a.height - b.height) < 2;
+
+const applySavedBounds = async (): Promise<void> => {
+  const { windowBounds } = useSettingsStore.getState();
+  await invoke("window_apply_bounds", { bounds: windowBounds });
+  if (windowBounds.maximized) return;
+  const now = await invoke<WindowBounds>("window_get_bounds");
+  if (!now.maximized && !sizeClose(now, windowBounds)) {
+    await invoke("window_apply_bounds", { bounds: windowBounds });
+  }
+};
+
 export const useWindowBoundsSync = (): void => {
   const hydrated = useSettingsStore((state) => state.hydrated);
   const remember = useSettingsStore((state) => state.rememberWindowSize);
   const setWindowBounds = useSettingsStore((state) => state.setWindowBounds);
-  const applyingRef = useRef(false);
-
-  useEffect(() => {
-    if (!hydrated || !isTauri()) return;
-    const { rememberWindowSize, windowBounds } = useSettingsStore.getState();
-    if (!rememberWindowSize) return;
-
-    applyingRef.current = true;
-    void invoke("window_apply_bounds", { bounds: windowBounds })
-      .catch((error: unknown) => {
-        console.warn("window_apply_bounds failed", error);
-      })
-      .finally(() => {
-        window.setTimeout(() => {
-          applyingRef.current = false;
-        }, 80);
-      });
-  }, [hydrated]);
 
   useEffect(() => {
     if (!hydrated || !isTauri() || !remember) return;
 
-    let timer = 0;
     let active = true;
+    let timer = 0;
+    let applying = true;
 
     const save = (): void => {
-      if (applyingRef.current) return;
+      if (applying) return;
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
         void invoke<WindowBounds>("window_get_bounds")
@@ -49,9 +45,18 @@ export const useWindowBoundsSync = (): void => {
       }, SAVE_DELAY_MS);
     };
 
+    void applySavedBounds()
+      .catch((error: unknown) => {
+        console.warn("window_apply_bounds failed", error);
+      })
+      .finally(() => {
+        applying = false;
+      });
+
     window.addEventListener("resize", save);
     return () => {
       active = false;
+      applying = true;
       window.clearTimeout(timer);
       window.removeEventListener("resize", save);
     };

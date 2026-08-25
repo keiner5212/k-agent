@@ -102,7 +102,8 @@ fn file_from_disk(kind: AgentsMdKind, path: PathBuf) -> Result<AgentsMdFile, Age
             estimated_tokens: 0,
         });
     }
-    let content = fs::read_to_string(&path).map_err(|error| AgentsMdError::Io(error.to_string()))?;
+    let content =
+        fs::read_to_string(&path).map_err(|error| AgentsMdError::Io(error.to_string()))?;
     let estimated_tokens = estimate_tokens(&content);
     Ok(AgentsMdFile {
         kind,
@@ -128,10 +129,7 @@ fn write_agents_md_sync(
     file_from_disk(input.kind, path)
 }
 
-fn delete_agents_md_sync(
-    app: &AppHandle,
-    kind: AgentsMdKind,
-) -> Result<(), AgentsMdError> {
+fn delete_agents_md_sync(app: &AppHandle, kind: AgentsMdKind) -> Result<(), AgentsMdError> {
     let dir = resolve_dir(app, kind)?;
     let path = locate_agents_md(&dir);
     if !path.is_file() {
@@ -168,7 +166,10 @@ pub async fn write_agents_md(
 }
 
 #[tauri::command]
-pub async fn delete_agents_md(app: AppHandle, input: AgentsMdKindInput) -> Result<(), AgentsMdError> {
+pub async fn delete_agents_md(
+    app: AppHandle,
+    input: AgentsMdKindInput,
+) -> Result<(), AgentsMdError> {
     tokio::task::spawn_blocking(move || delete_agents_md_sync(&app, input.kind))
         .await
         .map_err(|error| AgentsMdError::Io(error.to_string()))?

@@ -3,6 +3,7 @@ import { handleJob, type Host, type JobName, type ListBundle } from "./jobs-hand
 import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "./platform";
 import type { AgentContext } from "@/types/agents";
 import type { AgentsMdFile } from "@/types/agents-md";
+import type { LanguageServerRow, ResolvedLanguageServer } from "@/types/language-servers";
 import type { SkillContext } from "@/types/skills";
 
 type JobResultMessage = {
@@ -116,3 +117,18 @@ export const runListSystemFontsJob = (): Promise<string[]> => runJob("listSystem
 
 export const runEstimateTokensJob = (text: string): Promise<number> =>
   runJob("estimateTokens", { text });
+
+export const runListLanguageServersJob = (): Promise<LanguageServerRow[]> =>
+  runJob("listLanguageServers");
+
+export const runInstallLanguageServerJob = (id: string): Promise<LanguageServerRow> =>
+  runJob("installLanguageServer", { id });
+
+export const runResolveLanguageServerJob = (path: string): Promise<ResolvedLanguageServer | null> =>
+  runJob("resolveLanguageServer", { path });
+
+export const runLspRequestJob = (
+  path: string,
+  method: string,
+  params?: unknown,
+): Promise<unknown> => runJob("lspRequest", { path, method, params });

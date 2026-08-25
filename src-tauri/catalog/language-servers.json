@@ -1,0 +1,587 @@
+{
+  "version": 1,
+  "servers": [
+    {
+      "id": "typescript",
+      "name": "TypeScript Language Server",
+      "languageIds": ["typescript", "javascript", "typescriptreact", "javascriptreact"],
+      "extensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts"],
+      "filenames": [],
+      "rootMarkers": ["tsconfig.json", "jsconfig.json", "package.json"],
+      "command": "typescript-language-server",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["typescript-language-server", "typescript"]
+      }
+    },
+    {
+      "id": "html",
+      "name": "HTML Language Server",
+      "languageIds": ["html"],
+      "extensions": [".html", ".htm", ".xhtml"],
+      "filenames": [],
+      "rootMarkers": ["package.json"],
+      "command": "vscode-html-language-server",
+      "args": ["--stdio"],
+      "initializationOptions": { "provideFormatter": true },
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "dir": "vscode-langservers-extracted",
+        "packages": ["vscode-langservers-extracted"]
+      }
+    },
+    {
+      "id": "css",
+      "name": "CSS Language Server",
+      "languageIds": ["css", "scss", "less"],
+      "extensions": [".css", ".scss", ".less"],
+      "filenames": [],
+      "rootMarkers": ["package.json"],
+      "command": "vscode-css-language-server",
+      "args": ["--stdio"],
+      "initializationOptions": { "provideFormatter": true },
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "dir": "vscode-langservers-extracted",
+        "packages": ["vscode-langservers-extracted"]
+      }
+    },
+    {
+      "id": "json",
+      "name": "JSON Language Server",
+      "languageIds": ["json", "jsonc"],
+      "extensions": [".json", ".jsonc"],
+      "filenames": [],
+      "rootMarkers": ["package.json"],
+      "command": "vscode-json-language-server",
+      "args": ["--stdio"],
+      "initializationOptions": { "provideFormatter": true },
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "dir": "vscode-langservers-extracted",
+        "packages": ["vscode-langservers-extracted"]
+      }
+    },
+    {
+      "id": "eslint",
+      "name": "ESLint Language Server",
+      "languageIds": ["javascript", "javascriptreact", "typescript", "typescriptreact", "vue"],
+      "extensions": [".js", ".jsx", ".ts", ".tsx", ".vue"],
+      "filenames": [],
+      "rootMarkers": [".eslintrc.json", ".eslintrc.js", "eslint.config.js", "package.json"],
+      "command": "vscode-eslint-language-server",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "dir": "vscode-langservers-extracted",
+        "packages": ["vscode-langservers-extracted"]
+      }
+    },
+    {
+      "id": "yaml",
+      "name": "YAML Language Server",
+      "languageIds": ["yaml"],
+      "extensions": [".yaml", ".yml"],
+      "filenames": [],
+      "rootMarkers": [".yamllint", "package.json"],
+      "command": "yaml-language-server",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["yaml-language-server"]
+      }
+    },
+    {
+      "id": "bash",
+      "name": "Bash Language Server",
+      "languageIds": ["shellscript"],
+      "extensions": [".sh", ".bash"],
+      "filenames": [".bashrc", ".bash_profile", ".profile"],
+      "rootMarkers": [".git"],
+      "command": "bash-language-server",
+      "args": ["start"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["bash-language-server"]
+      }
+    },
+    {
+      "id": "dockerfile",
+      "name": "Dockerfile Language Server",
+      "languageIds": ["dockerfile"],
+      "extensions": [],
+      "filenames": ["Dockerfile", "Dockerfile.*"],
+      "rootMarkers": ["Dockerfile", ".git"],
+      "command": "docker-langserver",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["dockerfile-language-server-nodejs"]
+      }
+    },
+    {
+      "id": "dockercompose",
+      "name": "Docker Compose Language Server",
+      "languageIds": ["dockercompose"],
+      "extensions": [],
+      "filenames": ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"],
+      "rootMarkers": ["docker-compose.yml", "compose.yml", ".git"],
+      "command": "docker-compose-langserver",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["@microsoft/compose-language-service"]
+      }
+    },
+    {
+      "id": "pyright",
+      "name": "Pyright",
+      "languageIds": ["python"],
+      "extensions": [".py", ".pyi"],
+      "filenames": [],
+      "rootMarkers": ["pyrightconfig.json", "pyproject.toml", "setup.py", "requirements.txt"],
+      "command": "pyright-langserver",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["pyright"]
+      }
+    },
+    {
+      "id": "svelte",
+      "name": "Svelte Language Server",
+      "languageIds": ["svelte"],
+      "extensions": [".svelte"],
+      "filenames": [],
+      "rootMarkers": ["svelte.config.js", "svelte.config.ts", "package.json"],
+      "command": "svelteserver",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["svelte-language-server", "typescript"]
+      }
+    },
+    {
+      "id": "vue",
+      "name": "Vue Language Server",
+      "languageIds": ["vue"],
+      "extensions": [".vue"],
+      "filenames": [],
+      "rootMarkers": ["vue.config.js", "nuxt.config.ts", "package.json"],
+      "command": "vue-language-server",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["@vue/language-server", "typescript"]
+      }
+    },
+    {
+      "id": "tailwindcss",
+      "name": "Tailwind CSS Language Server",
+      "languageIds": [
+        "html",
+        "css",
+        "javascript",
+        "javascriptreact",
+        "typescript",
+        "typescriptreact",
+        "vue",
+        "svelte"
+      ],
+      "extensions": [".html", ".css", ".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte"],
+      "filenames": [],
+      "rootMarkers": ["tailwind.config.js", "tailwind.config.ts", "package.json"],
+      "command": "tailwindcss-language-server",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["@tailwindcss/language-server"]
+      }
+    },
+    {
+      "id": "graphql",
+      "name": "GraphQL Language Server",
+      "languageIds": ["graphql"],
+      "extensions": [".graphql", ".gql"],
+      "filenames": [],
+      "rootMarkers": [".graphqlrc", ".graphqlrc.yml", "package.json"],
+      "command": "graphql-lsp",
+      "args": ["server", "--method", "stream"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["graphql-language-service-cli", "graphql"]
+      }
+    },
+    {
+      "id": "php",
+      "name": "Intelephense",
+      "languageIds": ["php"],
+      "extensions": [".php"],
+      "filenames": [],
+      "rootMarkers": ["composer.json", ".git"],
+      "command": "intelephense",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["intelephense"]
+      }
+    },
+    {
+      "id": "prisma",
+      "name": "Prisma Language Server",
+      "languageIds": ["prisma"],
+      "extensions": [".prisma"],
+      "filenames": [],
+      "rootMarkers": ["schema.prisma", "package.json"],
+      "command": "prisma-language-server",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["@prisma/language-server"]
+      }
+    },
+    {
+      "id": "astro",
+      "name": "Astro Language Server",
+      "languageIds": ["astro"],
+      "extensions": [".astro"],
+      "filenames": [],
+      "rootMarkers": ["astro.config.mjs", "astro.config.ts", "package.json"],
+      "command": "astro-ls",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["@astrojs/language-server", "typescript"]
+      }
+    },
+    {
+      "id": "emmet",
+      "name": "Emmet Language Server",
+      "languageIds": ["html", "css", "scss", "javascriptreact", "typescriptreact"],
+      "extensions": [".html", ".css", ".scss", ".jsx", ".tsx"],
+      "filenames": [],
+      "rootMarkers": ["package.json"],
+      "command": "emmet-ls",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["emmet-ls"]
+      }
+    },
+    {
+      "id": "biome",
+      "name": "Biome",
+      "languageIds": [
+        "javascript",
+        "javascriptreact",
+        "typescript",
+        "typescriptreact",
+        "json",
+        "jsonc"
+      ],
+      "extensions": [".js", ".jsx", ".ts", ".tsx", ".json", ".jsonc"],
+      "filenames": [],
+      "rootMarkers": ["biome.json", "biome.jsonc", "package.json"],
+      "command": "biome",
+      "args": ["lsp-proxy"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["@biomejs/biome"]
+      }
+    },
+    {
+      "id": "viml",
+      "name": "Vim Script Language Server",
+      "languageIds": ["vim"],
+      "extensions": [".vim"],
+      "filenames": [".vimrc", "init.vim"],
+      "rootMarkers": [".git"],
+      "command": "vim-language-server",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["vim-language-server"]
+      }
+    },
+    {
+      "id": "ansible",
+      "name": "Ansible Language Server",
+      "languageIds": ["ansible"],
+      "extensions": [],
+      "filenames": ["playbook.yml", "site.yml"],
+      "rootMarkers": ["ansible.cfg", ".ansible-lint"],
+      "command": "ansible-language-server",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["@ansible/ansible-language-server"]
+      }
+    },
+    {
+      "id": "awk",
+      "name": "AWK Language Server",
+      "languageIds": ["awk"],
+      "extensions": [".awk"],
+      "filenames": [],
+      "rootMarkers": [".git"],
+      "command": "awk-language-server",
+      "args": [],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["awk-language-server"]
+      }
+    },
+    {
+      "id": "mdx",
+      "name": "MDX Language Server",
+      "languageIds": ["mdx"],
+      "extensions": [".mdx"],
+      "filenames": [],
+      "rootMarkers": ["package.json"],
+      "command": "mdx-language-server",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["@mdx-js/language-server"]
+      }
+    },
+    {
+      "id": "perl",
+      "name": "Perl Navigator",
+      "languageIds": ["perl"],
+      "extensions": [".pl", ".pm", ".t"],
+      "filenames": [],
+      "rootMarkers": [".git"],
+      "command": "perlnavigator",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["perlnavigator-server"]
+      }
+    },
+    {
+      "id": "solidity",
+      "name": "Solidity Language Server",
+      "languageIds": ["solidity"],
+      "extensions": [".sol"],
+      "filenames": [],
+      "rootMarkers": ["foundry.toml", "hardhat.config.js", "package.json"],
+      "command": "nomicfoundation-solidity-language-server",
+      "args": ["--stdio"],
+      "requires": ["npm"],
+      "install": {
+        "method": "npm",
+        "packages": ["@nomicfoundation/solidity-language-server"]
+      }
+    },
+    {
+      "id": "gopls",
+      "name": "gopls",
+      "languageIds": ["go"],
+      "extensions": [".go"],
+      "filenames": ["go.mod"],
+      "rootMarkers": ["go.work", "go.mod"],
+      "command": "gopls",
+      "args": [],
+      "requires": ["go"],
+      "install": {
+        "method": "go",
+        "module": "golang.org/x/tools/gopls@latest"
+      }
+    },
+    {
+      "id": "sqls",
+      "name": "sqls",
+      "languageIds": ["sql"],
+      "extensions": [".sql"],
+      "filenames": [],
+      "rootMarkers": [".git"],
+      "command": "sqls",
+      "args": [],
+      "requires": ["go"],
+      "install": {
+        "method": "go",
+        "module": "github.com/sqls-server/sqls@latest"
+      }
+    },
+    {
+      "id": "ruff",
+      "name": "Ruff",
+      "languageIds": ["python"],
+      "extensions": [".py", ".pyi"],
+      "filenames": [],
+      "rootMarkers": ["ruff.toml", "pyproject.toml"],
+      "command": "ruff",
+      "args": ["server"],
+      "requires": ["python3"],
+      "install": {
+        "method": "pip",
+        "packages": ["ruff"]
+      }
+    },
+    {
+      "id": "nginx",
+      "name": "Nginx Language Server",
+      "languageIds": ["nginx"],
+      "extensions": [".nginx", ".conf"],
+      "filenames": ["nginx.conf"],
+      "rootMarkers": ["nginx.conf"],
+      "command": "nginx-language-server",
+      "args": [],
+      "requires": ["python3"],
+      "install": {
+        "method": "pip",
+        "packages": ["nginx-language-server"]
+      }
+    },
+    {
+      "id": "fortran",
+      "name": "fortls",
+      "languageIds": ["fortran"],
+      "extensions": [".f90", ".f95", ".f03", ".f08", ".f", ".for"],
+      "filenames": [],
+      "rootMarkers": [".fortls", ".git"],
+      "command": "fortls",
+      "args": [],
+      "requires": ["python3"],
+      "install": {
+        "method": "pip",
+        "packages": ["fortls"]
+      }
+    },
+    {
+      "id": "autotools",
+      "name": "Autotools Language Server",
+      "languageIds": ["automake", "autoconf", "makefile"],
+      "extensions": [".am", ".ac"],
+      "filenames": ["Makefile", "Makefile.am", "configure.ac"],
+      "rootMarkers": ["configure.ac", "Makefile.am"],
+      "command": "autotools-language-server",
+      "args": [],
+      "requires": ["python3"],
+      "install": {
+        "method": "pip",
+        "packages": ["autotools-language-server"]
+      }
+    },
+    {
+      "id": "rust-analyzer",
+      "name": "rust-analyzer",
+      "languageIds": ["rust"],
+      "extensions": [".rs"],
+      "filenames": [],
+      "rootMarkers": ["Cargo.toml"],
+      "command": "rust-analyzer",
+      "args": [],
+      "requires": ["curl", "gzip"],
+      "install": {
+        "method": "github",
+        "repo": "rust-lang/rust-analyzer",
+        "archive": "gz",
+        "assetContains": {
+          "linux-x64": "rust-analyzer-x86_64-unknown-linux-gnu.gz",
+          "linux-arm64": "rust-analyzer-aarch64-unknown-linux-gnu.gz",
+          "darwin-x64": "rust-analyzer-x86_64-apple-darwin.gz",
+          "darwin-arm64": "rust-analyzer-aarch64-apple-darwin.gz",
+          "windows-x64": "rust-analyzer-x86_64-pc-windows-msvc.zip"
+        }
+      }
+    },
+    {
+      "id": "marksman",
+      "name": "Marksman",
+      "languageIds": ["markdown"],
+      "extensions": [".md", ".markdown"],
+      "filenames": [],
+      "rootMarkers": [".marksman.toml", ".git"],
+      "command": "marksman",
+      "args": ["server"],
+      "requires": ["curl"],
+      "install": {
+        "method": "github",
+        "repo": "artempyanykh/marksman",
+        "archive": "none",
+        "assetContains": {
+          "linux-x64": "marksman-linux-x64",
+          "linux-arm64": "marksman-linux-arm64",
+          "darwin-x64": "marksman-macos",
+          "darwin-arm64": "marksman-macos",
+          "windows-x64": "marksman.exe"
+        }
+      }
+    },
+    {
+      "id": "texlab",
+      "name": "TexLab",
+      "languageIds": ["tex", "latex"],
+      "extensions": [".tex", ".sty", ".cls", ".bib"],
+      "filenames": [],
+      "rootMarkers": [".latexmkrc", ".git"],
+      "command": "texlab",
+      "args": [],
+      "requires": ["curl", "tar"],
+      "install": {
+        "method": "github",
+        "repo": "latex-lsp/texlab",
+        "archive": "tar.gz",
+        "binPath": "texlab",
+        "assetContains": {
+          "linux-x64": "texlab-x86_64-linux.tar.gz",
+          "linux-arm64": "texlab-aarch64-linux.tar.gz",
+          "darwin-x64": "texlab-x86_64-macos.tar.gz",
+          "darwin-arm64": "texlab-aarch64-macos.tar.gz",
+          "windows-x64": "texlab-x86_64-windows.zip"
+        }
+      }
+    },
+    {
+      "id": "lua-ls",
+      "name": "Lua Language Server",
+      "languageIds": ["lua"],
+      "extensions": [".lua"],
+      "filenames": [],
+      "rootMarkers": [".luarc.json", ".stylua.toml"],
+      "command": "lua-language-server",
+      "args": [],
+      "requires": ["curl", "tar"],
+      "install": {
+        "method": "github",
+        "repo": "LuaLS/lua-language-server",
+        "archive": "tar.gz",
+        "binPath": "bin/lua-language-server",
+        "assetContains": {
+          "linux-x64": "linux-x64.tar.gz",
+          "linux-arm64": "linux-arm64.tar.gz",
+          "darwin-x64": "darwin-x64.tar.gz",
+          "darwin-arm64": "darwin-arm64.tar.gz",
+          "windows-x64": "win32-x64.zip"
+        }
+      }
+    }
+  ]
+}
