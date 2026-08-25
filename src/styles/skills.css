@@ -388,8 +388,10 @@
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
   color: var(--text-primary);
-  white-space: pre;
-  overflow: auto;
+  white-space: pre-wrap;
+  overflow-x: hidden;
+  overflow-y: auto;
+  word-break: break-word;
 }
 
 .line-editor__textarea:focus {

@@ -1,8 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Brain,
   Bug,
   Bot,
+  Code2,
   Keyboard,
   MessageSquare,
   Plug,
@@ -34,6 +36,8 @@ type TabMeta = {
 const SECTION_ICONS: Record<SettingsSectionDef["id"], typeof Sliders> = {
   general: Sliders,
   chat: MessageSquare,
+  modelChoices: Brain,
+  lsps: Code2,
   providers: Plug,
   skills: Sparkles,
   agents: Bot,

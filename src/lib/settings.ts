@@ -7,13 +7,18 @@ import {
   DEFAULT_ANIMATIONS_ENABLED,
   DEFAULT_FONT_FAMILY,
   DEFAULT_FORCE_RESPONSE_LANGUAGE,
+  DEFAULT_LSP_ENABLED,
   DEFAULT_MAX_WORKER_CORES,
+  DEFAULT_NOTIFICATIONS_ENABLED,
   DEFAULT_REMINDER_INTERVAL,
   DEFAULT_RESPONSE_LANGUAGE,
   DEFAULT_SETTINGS,
+  DEFAULT_TASK_COMPLETE_SOUND_ENABLED,
   DEFAULT_TEXT_SCALE,
+  DEFAULT_TITLE_USE_FIRST_MESSAGE,
   DEFAULT_TRANSLUCENCY_ENABLED,
   DEFAULT_WINDOW_BOUNDS,
+  DEFAULT_WORKSPACE_MEMORY_ENABLED,
   FONT_FAMILY_OPTIONS,
   MAX_REMINDER_INTERVAL,
   MAX_WORKER_CORES_AUTO,
@@ -31,6 +36,7 @@ import {
   type TextScale,
   type WindowBounds,
 } from "@/types/settings";
+import type { SelectedModel } from "@/types/chat";
 import { isTauri } from "@/lib/platform";
 
 const STORE_FILE = "settings.json";
@@ -131,6 +137,30 @@ const sanitizeCommandList = (value: unknown): string[] => {
   return out;
 };
 
+const sanitizeModelChoice = (value: unknown): SelectedModel | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    if (
+      typeof obj.providerId === "string" &&
+      obj.providerId.length > 0 &&
+      typeof obj.modelId === "string" &&
+      obj.modelId.length > 0
+    ) {
+      return { providerId: obj.providerId, modelId: obj.modelId };
+    }
+    return null;
+  }
+  if (typeof value === "string" && value.length > 0) {
+    const idx = value.indexOf("::");
+    if (idx <= 0 || idx >= value.length - 2) return null;
+    const providerId = value.slice(0, idx);
+    const modelId = value.slice(idx + 2);
+    return { providerId, modelId };
+  }
+  return null;
+};
+
 const sanitizeSettings = (raw: unknown): Settings => {
   if (!raw || typeof raw !== "object") return DEFAULT_SETTINGS;
   const obj = raw as Record<string, unknown>;
@@ -156,6 +186,22 @@ const sanitizeSettings = (raw: unknown): Settings => {
     responseLanguage: sanitizeLanguage(obj.responseLanguage ?? DEFAULT_RESPONSE_LANGUAGE),
     blockedCommands: sanitizeCommandList(obj.blockedCommands),
     allowedCommands: sanitizeCommandList(obj.allowedCommands),
+    notificationsEnabled: sanitizeBoolean(obj.notificationsEnabled, DEFAULT_NOTIFICATIONS_ENABLED),
+    taskCompleteSoundEnabled: sanitizeBoolean(
+      obj.taskCompleteSoundEnabled,
+      DEFAULT_TASK_COMPLETE_SOUND_ENABLED,
+    ),
+    workspaceMemoryEnabled: sanitizeBoolean(
+      obj.workspaceMemoryEnabled,
+      DEFAULT_WORKSPACE_MEMORY_ENABLED,
+    ),
+    titleGenerationModel: sanitizeModelChoice(obj.titleGenerationModel),
+    titleUseFirstMessage: sanitizeBoolean(
+      obj.titleUseFirstMessage,
+      DEFAULT_TITLE_USE_FIRST_MESSAGE,
+    ),
+    appGenerationModel: sanitizeModelChoice(obj.appGenerationModel),
+    lspEnabled: sanitizeBoolean(obj.lspEnabled, DEFAULT_LSP_ENABLED),
     keybindings: sanitizeKeybindings(obj.keybindings),
     sessionSidebarOpen: sanitizeBoolean(
       obj.sessionSidebarOpen,
@@ -182,6 +228,13 @@ type SettingsStore = Settings & {
   setResponseLanguage: (language: AppLanguage) => void;
   setBlockedCommands: (commands: string[]) => void;
   setAllowedCommands: (commands: string[]) => void;
+  setNotificationsEnabled: (enabled: boolean) => void;
+  setTaskCompleteSoundEnabled: (enabled: boolean) => void;
+  setWorkspaceMemoryEnabled: (enabled: boolean) => void;
+  setTitleGenerationModel: (model: SelectedModel | null) => void;
+  setTitleUseFirstMessage: (enabled: boolean) => void;
+  setAppGenerationModel: (model: SelectedModel | null) => void;
+  setLspEnabled: (enabled: boolean) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
   setSessionSidebarOpen: (open: boolean) => void;
   resetKeybindings: () => void;
@@ -277,6 +330,13 @@ const snapshot = (state: SettingsStore): Settings => ({
   responseLanguage: state.responseLanguage,
   blockedCommands: state.blockedCommands,
   allowedCommands: state.allowedCommands,
+  notificationsEnabled: state.notificationsEnabled,
+  taskCompleteSoundEnabled: state.taskCompleteSoundEnabled,
+  workspaceMemoryEnabled: state.workspaceMemoryEnabled,
+  titleGenerationModel: state.titleGenerationModel,
+  titleUseFirstMessage: state.titleUseFirstMessage,
+  appGenerationModel: state.appGenerationModel,
+  lspEnabled: state.lspEnabled,
   keybindings: state.keybindings,
   sessionSidebarOpen: state.sessionSidebarOpen,
 });
@@ -395,6 +455,41 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setAllowedCommands: (commands) => {
     set({ allowedCommands: sanitizeCommandList(commands) });
+    void persist(snapshot(get()));
+  },
+
+  setNotificationsEnabled: (enabled) => {
+    set({ notificationsEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setTaskCompleteSoundEnabled: (enabled) => {
+    set({ taskCompleteSoundEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setWorkspaceMemoryEnabled: (enabled) => {
+    set({ workspaceMemoryEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setTitleGenerationModel: (model) => {
+    set({ titleGenerationModel: sanitizeModelChoice(model) });
+    void persist(snapshot(get()));
+  },
+
+  setTitleUseFirstMessage: (enabled) => {
+    set({ titleUseFirstMessage: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setAppGenerationModel: (model) => {
+    set({ appGenerationModel: sanitizeModelChoice(model) });
+    void persist(snapshot(get()));
+  },
+
+  setLspEnabled: (enabled) => {
+    set({ lspEnabled: enabled });
     void persist(snapshot(get()));
   },
 

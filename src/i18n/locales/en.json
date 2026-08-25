@@ -31,6 +31,8 @@
     "sections": {
       "general": "General",
       "chat": "Chat",
+      "modelChoices": "Model choices",
+      "lsps": "LSPs",
       "providers": "Providers",
       "skills": "Skills",
       "agents": "Agents",
@@ -101,6 +103,18 @@
       "empty": "No allowed commands yet.",
       "remove": "Remove command"
     },
+    "notificationsEnabled": {
+      "label": "Show desktop notifications",
+      "description": "Show OS notifications for chat events when the window is not focused."
+    },
+    "taskCompleteSoundEnabled": {
+      "label": "Play sound when responses finish",
+      "description": "Play a short sound after a model response finishes streaming."
+    },
+    "workspaceMemoryEnabled": {
+      "label": "Save notes to workspace memory",
+      "description": "Persist useful annotations from chat into files inside the current workspace."
+    },
     "translucency": {
       "label": "Disable translucency",
       "description": "Surfaces use a frosted, glass-like blur by default. Turn this on for solid surfaces."
@@ -165,6 +179,31 @@
         "description": "Open the webview inspector for this window.",
         "action": "Open DevTools"
       }
+    },
+    "modelChoices": {
+      "description": "Choose which model handles title and in-app generation."
+    },
+    "titleGenerationModel": {
+      "label": "Session title model",
+      "description": "Model used to generate session titles from conversation content.",
+      "options": {
+        "useChatModel": "Use chat model"
+      }
+    },
+    "titleUseFirstMessage": {
+      "label": "Use first message as title",
+      "description": "Use the first message as the title instead of generating one."
+    },
+    "appGenerationModel": {
+      "label": "App generation model",
+      "description": "Model used to generate in-app content like new skills and agents.",
+      "options": {
+        "useChatModel": "Use chat model"
+      }
+    },
+    "lspEnabled": {
+      "label": "Use language servers",
+      "description": "Lets the orchestrator use LSP for navigation, rename, and diagnostics on your code in chat."
     }
   },
   "providers": {

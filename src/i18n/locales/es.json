@@ -31,6 +31,8 @@
     "sections": {
       "general": "General",
       "chat": "Chat",
+      "modelChoices": "Modelos",
+      "lsps": "LSPs",
       "providers": "Proveedores",
       "skills": "Habilidades",
       "agents": "Agentes",
@@ -101,6 +103,18 @@
       "empty": "Aun no hay comandos permitidos.",
       "remove": "Quitar comando"
     },
+    "notificationsEnabled": {
+      "label": "Mostrar notificaciones de escritorio",
+      "description": "Muestra notificaciones del sistema para eventos del chat cuando la ventana no esta enfocada."
+    },
+    "taskCompleteSoundEnabled": {
+      "label": "Reproducir sonido al finalizar respuestas",
+      "description": "Reproduce un sonido breve al terminar de transmitirse una respuesta del modelo."
+    },
+    "workspaceMemoryEnabled": {
+      "label": "Guardar notas en la memoria del espacio de trabajo",
+      "description": "Guarda anotaciones utiles del chat en archivos dentro del espacio de trabajo actual."
+    },
     "translucency": {
       "label": "Desactivar transparencia",
       "description": "Las superficies usan un desenfoque tipo cristal por defecto. Activa esto para superficies sólidas."
@@ -165,6 +179,31 @@
         "description": "Abre el inspector webview de esta ventana.",
         "action": "Abrir DevTools"
       }
+    },
+    "modelChoices": {
+      "description": "Elige el modelo para generar titulos y contenido en la app."
+    },
+    "titleGenerationModel": {
+      "label": "Modelo para titulos",
+      "description": "Modelo que genera los titulos de sesion desde la conversacion.",
+      "options": {
+        "useChatModel": "Usar modelo del chat"
+      }
+    },
+    "titleUseFirstMessage": {
+      "label": "Usar primer mensaje como titulo",
+      "description": "Usa el primer mensaje como titulo en vez de generarlo."
+    },
+    "appGenerationModel": {
+      "label": "Modelo de generacion en la app",
+      "description": "Modelo que genera contenido dentro de la app, como skills y agentes.",
+      "options": {
+        "useChatModel": "Usar modelo del chat"
+      }
+    },
+    "lspEnabled": {
+      "label": "Usar servidores de lenguaje",
+      "description": "Permite al orchestrator usar LSP para navegar, renombrar y diagnosticar tu codigo en el chat."
     }
   },
   "providers": {

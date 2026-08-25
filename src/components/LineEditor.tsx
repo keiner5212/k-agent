@@ -71,7 +71,7 @@ export const LineEditor = ({
         autoCorrect="off"
         autoCapitalize="off"
         readOnly={readOnly}
-        wrap="off"
+        wrap="soft"
       />
     </div>
   );

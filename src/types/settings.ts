@@ -1,3 +1,5 @@
+import type { SelectedModel } from "./chat";
+
 export type AppLanguage = "en" | "es";
 export type AppTheme = "dark" | "light";
 
@@ -46,6 +48,16 @@ export const COMMAND_LIST_MAX_LENGTH = 200;
 
 export const DEFAULT_BLOCKED_COMMANDS: string[] = [];
 export const DEFAULT_ALLOWED_COMMANDS: string[] = [];
+
+export const DEFAULT_NOTIFICATIONS_ENABLED = true;
+export const DEFAULT_TASK_COMPLETE_SOUND_ENABLED = false;
+export const DEFAULT_WORKSPACE_MEMORY_ENABLED = false;
+
+export const DEFAULT_TITLE_GENERATION_MODEL: SelectedModel | null = null;
+export const DEFAULT_TITLE_USE_FIRST_MESSAGE = false;
+export const DEFAULT_APP_GENERATION_MODEL: SelectedModel | null = null;
+
+export const DEFAULT_LSP_ENABLED = false;
 
 export const DEFAULT_SESSION_SIDEBAR_OPEN = true;
 
@@ -97,6 +109,13 @@ export type Settings = {
   responseLanguage: AppLanguage;
   blockedCommands: string[];
   allowedCommands: string[];
+  notificationsEnabled: boolean;
+  taskCompleteSoundEnabled: boolean;
+  workspaceMemoryEnabled: boolean;
+  titleGenerationModel: SelectedModel | null;
+  titleUseFirstMessage: boolean;
+  appGenerationModel: SelectedModel | null;
+  lspEnabled: boolean;
   keybindings: Keybindings;
   sessionSidebarOpen: boolean;
 };
@@ -117,6 +136,13 @@ export const DEFAULT_SETTINGS: Settings = {
   responseLanguage: DEFAULT_RESPONSE_LANGUAGE,
   blockedCommands: DEFAULT_BLOCKED_COMMANDS,
   allowedCommands: DEFAULT_ALLOWED_COMMANDS,
+  notificationsEnabled: DEFAULT_NOTIFICATIONS_ENABLED,
+  taskCompleteSoundEnabled: DEFAULT_TASK_COMPLETE_SOUND_ENABLED,
+  workspaceMemoryEnabled: DEFAULT_WORKSPACE_MEMORY_ENABLED,
+  titleGenerationModel: DEFAULT_TITLE_GENERATION_MODEL,
+  titleUseFirstMessage: DEFAULT_TITLE_USE_FIRST_MESSAGE,
+  appGenerationModel: DEFAULT_APP_GENERATION_MODEL,
+  lspEnabled: DEFAULT_LSP_ENABLED,
   keybindings: DEFAULT_KEYBINDINGS,
   sessionSidebarOpen: DEFAULT_SESSION_SIDEBAR_OPEN,
 };

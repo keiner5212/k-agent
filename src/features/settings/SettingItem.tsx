@@ -7,6 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@/lib/platform";
 import { highlightMatch } from "@/lib/highlight";
 import { useSettingsStore } from "@/lib/settings";
+import { useProvidersStore } from "@/lib/providers";
 import { listSystemFonts } from "@/lib/system-fonts";
 import {
   FONT_FAMILY_OPTIONS,
@@ -19,6 +20,8 @@ import {
   type KeybindingAction,
   type TextScale,
 } from "@/types/settings";
+import type { SelectedModel } from "@/types/chat";
+import type { Provider } from "@/types/providers";
 import type { SettingItem as SettingItemDef } from "./registry";
 import { KeybindingField } from "./KeybindingField";
 import { ListEditor } from "./ListEditor";
@@ -44,6 +47,13 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const responseLanguage = useSettingsStore((state) => state.responseLanguage);
   const blockedCommands = useSettingsStore((state) => state.blockedCommands);
   const allowedCommands = useSettingsStore((state) => state.allowedCommands);
+  const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
+  const taskCompleteSoundEnabled = useSettingsStore((state) => state.taskCompleteSoundEnabled);
+  const workspaceMemoryEnabled = useSettingsStore((state) => state.workspaceMemoryEnabled);
+  const titleGenerationModel = useSettingsStore((state) => state.titleGenerationModel);
+  const titleUseFirstMessage = useSettingsStore((state) => state.titleUseFirstMessage);
+  const appGenerationModel = useSettingsStore((state) => state.appGenerationModel);
+  const lspEnabled = useSettingsStore((state) => state.lspEnabled);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const setTextScale = useSettingsStore((state) => state.setTextScale);
@@ -54,6 +64,18 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setResponseLanguage = useSettingsStore((state) => state.setResponseLanguage);
   const setBlockedCommands = useSettingsStore((state) => state.setBlockedCommands);
   const setAllowedCommands = useSettingsStore((state) => state.setAllowedCommands);
+  const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
+  const setTaskCompleteSoundEnabled = useSettingsStore(
+    (state) => state.setTaskCompleteSoundEnabled,
+  );
+  const setWorkspaceMemoryEnabled = useSettingsStore((state) => state.setWorkspaceMemoryEnabled);
+  const setTitleGenerationModel = useSettingsStore((state) => state.setTitleGenerationModel);
+  const setTitleUseFirstMessage = useSettingsStore((state) => state.setTitleUseFirstMessage);
+  const setAppGenerationModel = useSettingsStore((state) => state.setAppGenerationModel);
+  const setLspEnabled = useSettingsStore((state) => state.setLspEnabled);
+  const providers = useProvidersStore((state) => state.providers);
+  const providersLoading = useProvidersStore((state) => state.loading);
+  const loadProviders = useProvidersStore((state) => state.load);
   const setTranslucencyEnabled = useSettingsStore((state) => state.setTranslucencyEnabled);
   const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
   const setMinimizeToTray = useSettingsStore((state) => state.setMinimizeToTray);
@@ -70,6 +92,13 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
       cancelled = true;
     };
   }, [item.id]);
+
+  useEffect(() => {
+    if (item.type !== "modelChoice") return;
+    if (providers.length === 0 && !providersLoading) {
+      void loadProviders();
+    }
+  }, [item.type, providers.length, providersLoading, loadProviders]);
 
   const titleText = t(item.titleKey);
   const descriptionText = t(item.descriptionKey);
@@ -108,6 +137,20 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
           />
         ) : null}
 
+        {item.type === "modelChoice" ? (
+          <Select
+            id={`setting-${item.id}`}
+            value={modelChoiceValue(item.id, { titleGenerationModel, appGenerationModel })}
+            onChange={(next) =>
+              onModelChoiceChange(item.id, next, {
+                setTitleGenerationModel,
+                setAppGenerationModel,
+              })
+            }
+            options={modelChoiceOptions(item, t, providers)}
+          />
+        ) : null}
+
         {item.type === "toggle" ? (
           <Toggle
             showLabel={false}
@@ -117,6 +160,11 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               minimizeToTray,
               rememberWindowSize,
               forceResponseLanguage,
+              notificationsEnabled,
+              taskCompleteSoundEnabled,
+              workspaceMemoryEnabled,
+              titleUseFirstMessage,
+              lspEnabled,
             })}
             onChange={(next) =>
               onToggleChange(item.id, next, {
@@ -125,6 +173,11 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setMinimizeToTray,
                 setRememberWindowSize,
                 setForceResponseLanguage,
+                setNotificationsEnabled,
+                setTaskCompleteSoundEnabled,
+                setWorkspaceMemoryEnabled,
+                setTitleUseFirstMessage,
+                setLspEnabled,
               })
             }
             label={titleText}
@@ -228,6 +281,11 @@ type ToggleState = {
   minimizeToTray: boolean;
   rememberWindowSize: boolean;
   forceResponseLanguage: boolean;
+  notificationsEnabled: boolean;
+  taskCompleteSoundEnabled: boolean;
+  workspaceMemoryEnabled: boolean;
+  titleUseFirstMessage: boolean;
+  lspEnabled: boolean;
 };
 
 const runSettingAction = (id: string): void => {
@@ -325,6 +383,16 @@ const toggleChecked = (id: string, state: ToggleState): boolean => {
       return state.rememberWindowSize;
     case "forceResponseLanguage":
       return state.forceResponseLanguage;
+    case "notificationsEnabled":
+      return state.notificationsEnabled;
+    case "taskCompleteSoundEnabled":
+      return state.taskCompleteSoundEnabled;
+    case "workspaceMemoryEnabled":
+      return state.workspaceMemoryEnabled;
+    case "titleUseFirstMessage":
+      return state.titleUseFirstMessage;
+    case "lspEnabled":
+      return state.lspEnabled;
     default:
       return false;
   }
@@ -339,6 +407,11 @@ const onToggleChange = (
     setMinimizeToTray: (v: boolean) => void;
     setRememberWindowSize: (v: boolean) => void;
     setForceResponseLanguage: (v: boolean) => void;
+    setNotificationsEnabled: (v: boolean) => void;
+    setTaskCompleteSoundEnabled: (v: boolean) => void;
+    setWorkspaceMemoryEnabled: (v: boolean) => void;
+    setTitleUseFirstMessage: (v: boolean) => void;
+    setLspEnabled: (v: boolean) => void;
   },
 ): void => {
   switch (id) {
@@ -356,6 +429,21 @@ const onToggleChange = (
       return;
     case "forceResponseLanguage":
       setters.setForceResponseLanguage(next);
+      return;
+    case "notificationsEnabled":
+      setters.setNotificationsEnabled(next);
+      return;
+    case "taskCompleteSoundEnabled":
+      setters.setTaskCompleteSoundEnabled(next);
+      return;
+    case "workspaceMemoryEnabled":
+      setters.setWorkspaceMemoryEnabled(next);
+      return;
+    case "titleUseFirstMessage":
+      setters.setTitleUseFirstMessage(next);
+      return;
+    case "lspEnabled":
+      setters.setLspEnabled(next);
       return;
   }
 };
@@ -389,3 +477,72 @@ const onListChange = (
 };
 
 const listKeys = (id: string): string => `settings.${id}`;
+
+type ModelChoiceState = {
+  titleGenerationModel: SelectedModel | null;
+  appGenerationModel: SelectedModel | null;
+};
+
+const encodeModel = (model: SelectedModel | null): string => {
+  if (!model) return "";
+  return `${model.providerId}::${model.modelId}`;
+};
+
+const decodeModel = (value: string): SelectedModel | null => {
+  if (value.length === 0) return null;
+  const idx = value.indexOf("::");
+  if (idx <= 0 || idx >= value.length - 2) return null;
+  const providerId = value.slice(0, idx);
+  const modelId = value.slice(idx + 2);
+  if (providerId.length === 0 || modelId.length === 0) return null;
+  return { providerId, modelId };
+};
+
+const modelChoiceValue = (id: string, state: ModelChoiceState): string => {
+  switch (id) {
+    case "titleGenerationModel":
+      return encodeModel(state.titleGenerationModel);
+    case "appGenerationModel":
+      return encodeModel(state.appGenerationModel);
+    default:
+      return "";
+  }
+};
+
+const onModelChoiceChange = (
+  id: string,
+  next: string,
+  setters: {
+    setTitleGenerationModel: (m: SelectedModel | null) => void;
+    setAppGenerationModel: (m: SelectedModel | null) => void;
+  },
+): void => {
+  const model = decodeModel(next);
+  switch (id) {
+    case "titleGenerationModel":
+      setters.setTitleGenerationModel(model);
+      return;
+    case "appGenerationModel":
+      setters.setAppGenerationModel(model);
+      return;
+  }
+};
+
+const modelChoiceOptions = (
+  item: SettingItemDef,
+  t: (key: string) => string,
+  providers: Provider[],
+): { value: string; label: ReactNode }[] => {
+  const options: { value: string; label: ReactNode }[] = [
+    { value: "", label: t(`${listKeys(item.id)}.options.useChatModel`) },
+  ];
+  for (const provider of providers) {
+    for (const model of provider.models) {
+      options.push({
+        value: encodeModel({ providerId: provider.id, modelId: model.id }),
+        label: `${provider.name} / ${model.displayName ?? model.id}`,
+      });
+    }
+  }
+  return options;
+};

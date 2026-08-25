@@ -1,4 +1,5 @@
-export type SettingItemType = "select" | "toggle" | "keybinding" | "action" | "list";
+export type SettingItemType =
+  "select" | "toggle" | "keybinding" | "action" | "list" | "modelChoice";
 
 export type SettingOption = {
   value: string;
@@ -15,7 +16,17 @@ export type SettingItem = {
 };
 
 export type SettingsSectionDef = {
-  id: "general" | "chat" | "providers" | "skills" | "agents" | "agentsMd" | "keybindings" | "debug";
+  id:
+    | "general"
+    | "chat"
+    | "modelChoices"
+    | "lsps"
+    | "providers"
+    | "skills"
+    | "agents"
+    | "agentsMd"
+    | "keybindings"
+    | "debug";
   titleKey: string;
   descriptionKey?: string;
   keywords?: string[];
