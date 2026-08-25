@@ -1,3 +1,5 @@
+mod agents;
+mod agents_md;
 mod catalog;
 mod providers;
 mod repo;
@@ -5,9 +7,11 @@ mod secret;
 mod skills;
 
 pub const APP_CONFIG_DIR: &str = ".k-agent";
+pub const WORKSPACE_AGENTS_DIR: &str = ".agents";
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 use tauri::{
@@ -23,9 +27,18 @@ use providers::{
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
 
+const EASTER_EGG_PNG: &[u8] = include_bytes!("../../src/assets/easter-egg.png");
+const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
+
+fn require_easter_egg() {
+    if EASTER_EGG_PNG.len() < PNG_MAGIC.len() || !EASTER_EGG_PNG.starts_with(PNG_MAGIC) {
+        panic!("easter-egg.png missing");
+    }
+}
+
 #[derive(Default)]
 struct LocalWorkspace {
-    path: Option<PathBuf>,
+    path: Mutex<Option<PathBuf>>,
 }
 
 #[tauri::command]
@@ -137,6 +150,34 @@ fn window_open_devtools(window: tauri::WebviewWindow) {
     window.open_devtools();
 }
 
+static SYSTEM_FONTS: OnceLock<Vec<String>> = OnceLock::new();
+
+fn collect_system_font_families() -> Vec<String> {
+    let mut db = fontdb::Database::new();
+    db.load_system_fonts();
+    let mut names: Vec<String> = db
+        .faces()
+        .filter_map(|face| {
+            let (name, _) = face.families.first()?;
+            let trimmed = name.trim();
+            if trimmed.is_empty() || trimmed.starts_with('.') {
+                return None;
+            }
+            Some(trimmed.to_string())
+        })
+        .collect();
+    names.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    names.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+    names
+}
+
+#[tauri::command]
+async fn list_system_fonts() -> Result<Vec<String>, String> {
+    tokio::task::spawn_blocking(|| SYSTEM_FONTS.get_or_init(collect_system_font_families).clone())
+        .await
+        .map_err(|error| error.to_string())
+}
+
 fn toggle_window_visibility(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         match window.is_visible() {
@@ -207,7 +248,30 @@ fn register_linux_identity() {}
 
 #[tauri::command]
 fn get_workspace_path(state: State<'_, LocalWorkspace>) -> Option<String> {
-    state.path.as_ref().map(|path| path.display().to_string())
+    state
+        .path
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().map(|path| path.display().to_string()))
+}
+
+#[tauri::command]
+fn set_workspace_path(state: State<'_, LocalWorkspace>, path: String) -> Result<(), String> {
+    let expanded = expand_user_path(&path).ok_or_else(|| format!("invalid path: {path}"))?;
+    let absolute = if expanded.is_absolute() {
+        expanded
+    } else {
+        std::env::current_dir()
+            .map_err(|error| error.to_string())?
+            .join(expanded)
+    };
+    if !absolute.exists() {
+        std::fs::create_dir_all(&absolute).map_err(|error| error.to_string())?;
+    }
+    let canonical = std::fs::canonicalize(&absolute).map_err(|error| error.to_string())?;
+    let mut guard = state.path.lock().map_err(|error| error.to_string())?;
+    *guard = Some(canonical);
+    Ok(())
 }
 
 fn expand_user_path(input: &str) -> Option<PathBuf> {
@@ -246,6 +310,9 @@ fn parse_workspace_arg() -> Option<PathBuf> {
         if arg == "--workspace" || arg == "-w" {
             return args.get(index + 1).and_then(|value| resolve_existing_path(value));
         }
+        if !arg.starts_with('-') {
+            return resolve_existing_path(arg);
+        }
         index += 1;
     }
     None
@@ -259,16 +326,18 @@ fn default_workspace() -> PathBuf {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    require_easter_egg();
     register_linux_identity();
     silence_libayatana_appindicator_warning();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(LocalWorkspace {
-            path: parse_workspace_arg().or_else(|| {
+            path: Mutex::new(parse_workspace_arg().or_else(|| {
                 let home = default_workspace();
                 std::fs::canonicalize(&home).ok().or(Some(home))
-            }),
+            })),
         })
         .invoke_handler(tauri::generate_handler![
             set_minimize_to_tray,
@@ -282,7 +351,9 @@ pub fn run() {
             window_start_resize,
             window_start_drag,
             window_open_devtools,
+            list_system_fonts,
             get_workspace_path,
+            set_workspace_path,
             repo::get_repo_info,
             list_providers,
             save_provider,
@@ -299,10 +370,23 @@ pub fn run() {
             skills::update_skill,
             skills::update_skill_content,
             skills::delete_skill,
+            agents::list_agents,
+            agents::read_agent_meta,
+            agents::create_agent,
+            agents::update_agent,
+            agents::delete_agent,
+            agents_md::list_agents_md,
+            agents_md::write_agents_md,
+            agents_md::delete_agents_md,
         ])
         .setup(|app| {
             if let Ok(home) = app.path().home_dir() {
-                if let Err(error) = crate::secret::ensure_master_key(&home.join(APP_CONFIG_DIR)) {
+                let config_dir = home.join(APP_CONFIG_DIR);
+                let _ = std::fs::create_dir_all(&config_dir);
+            }
+            if let Ok(secrets_dir) = app.path().app_data_dir() {
+                let _ = std::fs::create_dir_all(&secrets_dir);
+                if let Err(error) = crate::secret::ensure_master_key(&secrets_dir) {
                     eprintln!("k-agent master key: {error}");
                 }
             }

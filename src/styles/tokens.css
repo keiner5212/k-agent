@@ -29,6 +29,8 @@
   --text-lg: 1.125rem;
   --text-xl: 1.25rem;
 
+  --control-height: 1.75rem;
+
   --leading-tight: 1.25;
   --leading-normal: 1.5;
   --leading-relaxed: 1.625;
@@ -115,4 +117,24 @@
   --frost-dialog-fill: color-mix(in oklch, var(--surface) 50%, transparent);
 
   color-scheme: light;
+}
+
+:root[data-font="humanist"] {
+  --font-sans: "Segoe UI", Candara, "DejaVu Sans", Ubuntu, Cantarell, "Noto Sans", sans-serif;
+}
+
+:root[data-font="geometric"] {
+  --font-sans: "Avenir Next", Avenir, "Century Gothic", "Trebuchet MS", "Nimbus Sans", sans-serif;
+}
+
+:root[data-font="serif"] {
+  --font-sans:
+    "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Liberation Serif",
+    serif;
+}
+
+:root[data-font="mono"] {
+  --font-sans:
+    ui-monospace, SFMono-Regular, "SF Mono", "Cascadia Code", "DejaVu Sans Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
 }

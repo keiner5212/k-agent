@@ -51,20 +51,12 @@ impl Drop for MasterKey {
     }
 }
 
-pub fn is_sealed(value: &str) -> bool {
-    value.starts_with(SEAL_PREFIX)
-}
-
 pub fn ensure_master_key(config_dir: &Path) -> Result<(), SecretError> {
-    load_or_create_master(config_dir, false).map(|_| ())
+    load_or_create_master(config_dir).map(|_| ())
 }
 
 pub fn cipher(config_dir: &Path) -> Result<&'static Aes256Gcm, SecretError> {
-    init_cipher(config_dir, false)
-}
-
-pub fn cipher_allow_recreate(config_dir: &Path) -> Result<&'static Aes256Gcm, SecretError> {
-    init_cipher(config_dir, true)
+    init_cipher(config_dir)
 }
 
 pub fn seal(cipher: &Aes256Gcm, plaintext: &str) -> Result<String, SecretError> {
@@ -84,26 +76,21 @@ pub fn seal(cipher: &Aes256Gcm, plaintext: &str) -> Result<String, SecretError> 
     Ok(format!("{SEAL_PREFIX}{}", BASE64.encode(packed)))
 }
 
-pub fn open(cipher: &Aes256Gcm, stored: Option<&str>) -> Result<Option<OpenedKey>, SecretError> {
+pub fn open(cipher: &Aes256Gcm, stored: Option<&str>) -> Result<Option<String>, SecretError> {
     let Some(value) = stored.map(str::trim).filter(|item| !item.is_empty()) else {
         return Ok(None);
     };
-    if let Some(payload) = value.strip_prefix(SEAL_PREFIX) {
-        return Ok(Some(OpenedKey::Decrypted(unseal(cipher, payload)?)));
-    }
-    Ok(Some(OpenedKey::Plain(value.to_string())))
+    let payload = value
+        .strip_prefix(SEAL_PREFIX)
+        .ok_or(SecretError::Decrypt)?;
+    Ok(Some(unseal(cipher, payload)?))
 }
 
-pub enum OpenedKey {
-    Plain(String),
-    Decrypted(String),
-}
-
-fn init_cipher(config_dir: &Path, allow_recreate: bool) -> Result<&'static Aes256Gcm, SecretError> {
+fn init_cipher(config_dir: &Path) -> Result<&'static Aes256Gcm, SecretError> {
     if let Some(existing) = CIPHER.get() {
         return Ok(existing);
     }
-    let master = load_or_create_master(config_dir, allow_recreate)?;
+    let master = load_or_create_master(config_dir)?;
     let mut derived = derive_aes_key(&master.0);
     let built = Aes256Gcm::new_from_slice(&derived).map_err(|_| SecretError::Invalid)?;
     derived.zeroize();
@@ -111,7 +98,7 @@ fn init_cipher(config_dir: &Path, allow_recreate: bool) -> Result<&'static Aes25
     CIPHER.get().ok_or(SecretError::Invalid)
 }
 
-fn load_or_create_master(config_dir: &Path, allow_recreate: bool) -> Result<MasterKey, SecretError> {
+fn load_or_create_master(config_dir: &Path) -> Result<MasterKey, SecretError> {
     if config_dir.as_os_str().is_empty() {
         return Err(SecretError::NoConfigDir);
     }
@@ -120,10 +107,6 @@ fn load_or_create_master(config_dir: &Path, allow_recreate: bool) -> Result<Mast
     match read_master(&path) {
         Ok(key) => Ok(key),
         Err(SecretError::Missing) => write_master(&path),
-        Err(SecretError::Invalid) if allow_recreate => {
-            let _ = fs::remove_file(&path);
-            write_master(&path)
-        }
         Err(error) => Err(error),
     }
 }

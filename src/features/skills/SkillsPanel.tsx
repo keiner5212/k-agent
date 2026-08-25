@@ -1,19 +1,25 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Folder, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
-import { useSettingsStore } from "@/lib/settings";
+import { highlightMatch } from "@/lib/highlight";
 import { useSkillsStore } from "@/lib/skills";
-import type { SkillContext as SkillContextType } from "@/types/skills";
+import { useAgentsStore } from "@/lib/agents";
+import { formatContextWindow } from "@/types/providers";
+import type { SkillContext as SkillContextType, SkillInfo } from "@/types/skills";
 import { CreateSkillDialog } from "./CreateSkillDialog";
 import { DeleteSkillDialog } from "./DeleteSkillDialog";
 import { SkillEditorDialog } from "./SkillEditorDialog";
 
 type Tab = "global" | "local";
 
-export const SkillsPanel = (): ReactNode => {
+type SkillsPanelProps = {
+  query: string;
+};
+
+export const SkillsPanel = ({ query }: SkillsPanelProps): ReactNode => {
   const { t } = useTranslation();
-  const globalSkillsPath = useSettingsStore((state) => state.globalSkillsPath);
   const contexts = useSkillsStore((state) => state.contexts);
   const workspacePath = useSkillsStore((state) => state.workspacePath);
   const loading = useSkillsStore((state) => state.loading);
@@ -30,8 +36,8 @@ export const SkillsPanel = (): ReactNode => {
   const [createName, setCreateName] = useState<string | null>(null);
 
   useEffect(() => {
-    void load(globalSkillsPath);
-  }, [globalSkillsPath, load]);
+    void load();
+  }, [load]);
 
   const global = contexts.find((context) => context.kind === "global");
   const local = contexts.find((context) => context.kind === "local");
@@ -43,14 +49,14 @@ export const SkillsPanel = (): ReactNode => {
   ];
 
   const handleRefresh = (): void => {
-    void refresh(globalSkillsPath);
+    void refresh();
   };
 
   return (
     <section className="skills-panel">
       <header className="skills-panel__head">
-        <h2 className="section__heading">{t("skills.title")}</h2>
-        <p className="section__description">{t("skills.description")}</p>
+        <h2 className="section__heading">{highlightMatch(t("skills.title"), query)}</h2>
+        <p className="section__description">{highlightMatch(t("skills.description"), query)}</p>
         <IconButton
           className="skills-panel__refresh"
           label={t("skills.actions.refresh")}
@@ -65,8 +71,7 @@ export const SkillsPanel = (): ReactNode => {
 
       <div className="skills-panel__tabs" role="tablist">
         {tabs.map((entry) => {
-          const labelKey =
-            entry.id === "global" ? "skills.context.global" : "skills.context.local";
+          const labelKey = entry.id === "global" ? "skills.context.global" : "skills.context.local";
           const isActive = entry.id === tab;
           return (
             <button
@@ -87,12 +92,7 @@ export const SkillsPanel = (): ReactNode => {
         })}
       </div>
 
-      <div
-        id="skills-panel-tab-panel"
-        role="tabpanel"
-        className="skills-panel__panel"
-        key={tab}
-      >
+      <div id="skills-panel-tab-panel" role="tabpanel" className="skills-panel__panel" key={tab}>
         {active ? (
           <SkillContextView
             context={active}
@@ -114,7 +114,7 @@ export const SkillsPanel = (): ReactNode => {
           if (!createName) return "no root";
           const result = await createSkill(createName, name, description);
           if (result.error) return result.error;
-          await refresh(globalSkillsPath);
+          await refresh();
           return undefined;
         }}
       />
@@ -129,7 +129,7 @@ export const SkillsPanel = (): ReactNode => {
           if (!editorPath) return "no skill";
           const result = await updateContent(editorPath, content);
           if (result.error) return result.error;
-          await refresh(globalSkillsPath);
+          await refresh();
           return undefined;
         }}
       />
@@ -144,7 +144,8 @@ export const SkillsPanel = (): ReactNode => {
           if (!deleteTarget || !active) return "missing target";
           const result = await deleteSkill(active.path, deleteTarget.id);
           if (result.error) return result.error;
-          await refresh(globalSkillsPath);
+          await refresh();
+          await useAgentsStore.getState().refresh();
           return undefined;
         }}
       />
@@ -155,8 +156,8 @@ export const SkillsPanel = (): ReactNode => {
 type SkillContextViewProps = {
   context: SkillContextType;
   onCreate: () => void;
-  onEdit: (skill: { id: string; path: string }) => void;
-  onDelete: (skill: { id: string; path: string }) => void;
+  onEdit: (skill: SkillInfo) => void;
+  onDelete: (skill: SkillInfo) => void;
 };
 
 const SkillContextView = ({
@@ -173,42 +174,60 @@ const SkillContextView = ({
         <span className="skill-context__path" title={context.path}>
           {context.path}
         </span>
-        <button
-          type="button"
+        <GlassButton
+          variant="ghost"
           className="skill-context__new"
           onClick={onCreate}
           aria-label={t("skills.actions.create")}
         >
-          <Plus size={12} strokeWidth={1.5} />
-          <span>{t("skills.actions.create")}</span>
-        </button>
+          <Plus strokeWidth={1.5} />
+          {t("skills.actions.create")}
+        </GlassButton>
       </div>
       {context.skills.length === 0 ? (
         <p className="skill-context__empty">{t("skills.empty")}</p>
       ) : (
-        <ul className="skill-list">
-          {context.skills.map((skill) => (
-            <li key={skill.id} className="skill-row" title={skill.path}>
-              <span className="skill-row__id">{skill.id}</span>
-              <span className="skill-row__actions">
-                <IconButton
-                  label={t("skills.actions.edit")}
-                  onClick={() => onEdit(skill)}
-                >
-                  <Pencil size={12} strokeWidth={1.5} />
-                </IconButton>
-                <IconButton
-                  label={t("skills.actions.delete")}
-                  onClick={() => onDelete(skill)}
-                >
-                  <Trash2 size={12} strokeWidth={1.5} />
-                </IconButton>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="skill-table-wrap">
+          <table className="skill-table">
+            <thead>
+              <tr>
+                <th>{t("skills.table.name")}</th>
+                <th>{t("skills.table.description")}</th>
+                <th>{t("skills.table.tokens")}</th>
+                <th>
+                  <span className="visually-hidden">{t("skills.table.actions")}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {context.skills.map((skill) => (
+                <tr key={skill.id} title={skill.path}>
+                  <td className="skill-table__name">{skill.name}</td>
+                  <td
+                    className="skill-table__desc"
+                    data-empty={skill.description.trim() ? undefined : "true"}
+                  >
+                    {skill.description.trim() ? skill.description : t("skills.table.noDescription")}
+                  </td>
+                  <td className="skill-table__tokens">
+                    {t("skills.table.tokenValue", {
+                      value: formatContextWindow(skill.estimatedTokens),
+                    })}
+                  </td>
+                  <td className="skill-table__actions">
+                    <IconButton label={t("skills.actions.edit")} onClick={() => onEdit(skill)}>
+                      <Pencil size={12} strokeWidth={1.5} />
+                    </IconButton>
+                    <IconButton label={t("skills.actions.delete")} onClick={() => onDelete(skill)}>
+                      <Trash2 size={12} strokeWidth={1.5} />
+                    </IconButton>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </article>
   );
 };
-

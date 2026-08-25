@@ -41,10 +41,11 @@ src-tauri/catalog/  bundled models.json (Rust only; never import in the UI)
 | Copy          | `t("...")`. No hardcoded UI English.       |
 | Token amounts | `formatContextWindow` / `parseTokenAmount` |
 | Logical CPUs  | `hardwareThreadCount()`                    |
+| Heavy jobs    | `runJob` in `src/lib/jobs.ts`              |
 
 ## Settings
 
-Persist only in `src/lib/settings.ts` (plugin-store file `settings.json`, key `settings`). Sanitize on hydrate. Persist the full `Settings` object.
+Persist only in `src/lib/settings.ts` (plugin-store file `settings.json` in the app data dir, key `settings`). Sanitize on hydrate. Persist the full `Settings` object.
 
 Add a setting in this order:
 
@@ -69,17 +70,31 @@ Window min size is 720x480 in `src/types/settings.ts` and `src-tauri/src/lib.rs`
 
 - Commands return `Result`. Frontend mutations return `{ provider?, error? }` via `runMutation`. Show `error` on the form. Do not warn-and-rethrow.
 - `load` without Tauri: empty list. Mutations without Tauri: `{ error: "Desktop shell required" }`.
-- Never send API key plaintext back over IPC. Disk uses `enc:v1:` blobs. UI only sees `hasApiKey`. Empty edit keeps the key; explicit clear removes it.
+- Never send API key plaintext back over IPC. Disk uses `enc:v1:` blobs in the app data dir. UI only sees `hasApiKey`. Empty edit keeps the key; explicit clear removes it.
 - `ModelInfo` in `src/types/providers.ts` matches the Rust IPC shape, including optional capability fields. The model form does not edit those fields; upsert omits empty vectors so Rust keeps catalog values.
 - Provider kind labels: `t("providers.kinds." + kind)`.
 
 ## Rust disk layout
 
-All app files live under `~/.k-agent/` (`APP_CONFIG_DIR` in `lib.rs`). Reuse that const.
+Secrets and UI settings live in the Tauri app data dir (`app.path().app_data_dir()`). Model and context files live under `~/.k-agent/` (`APP_CONFIG_DIR`). Workspace files live under `{workspace}/.agents/` (`WORKSPACE_AGENTS_DIR`).
 
+App data dir:
+
+- `settings.json` (plugin-store; keys `settings`, `selectedModel`, `modelEffort:*`)
 - `master.key` (mode 0600) via `secret.rs`
-- `providers.json`
+- `provider-keys.json` (`enc:v1:` blobs keyed by provider id, mode 0600)
+
+`~/.k-agent/`:
+
+- `providers.json` (no API keys)
 - `models-dev-cache.json` (24h TTL)
+- `skills/` global skills. Created on first global skill create.
+- `agents/` session agents (OpenCode-style personas: `{name}/persona.md`). Not AGENTS.md. Created on first global agent create.
+- `AGENTS.md` optional global instruction file. List never creates it. Create/edit/delete from Settings.
+
+Workspace `{workspace}/.agents/skills/`: local skills. Created on first local skill create.
+Workspace `{workspace}/.agents/agents/`: local session agents (`persona.md`). Created on first local agent create. Do not scan `.k-agent` inside a workspace.
+Workspace `{workspace}/AGENTS.md`: optional workspace instruction file (fallback `agents.md`). List never creates it. Create/edit/delete from Settings. Session agents are not stored as AGENTS.md.
 
 Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then bundled overlay. User-edited / custom models are not overwritten.
 
@@ -103,6 +118,21 @@ Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then b
 - Do not re-parse the bundled catalog on every command.
 - No new global caches, clients, or wrappers. Search first.
 - Zustand: select fields, do not subscribe to the whole store in hot views.
+- Heavy disk/CPU work (skills, agents, fonts, token estimates, future jobs): `runJob` in `src/lib/jobs.ts`. Add a `JobName` and a `handleJob` case. Tauri IPC stays on the UI thread; the worker asks for it with `kind: "invoke"`.
+
+## Checks
+
+Run before commit. CI runs the same three. All must exit zero.
+
+```
+pnpm typecheck
+pnpm lint
+pnpm format:check
+```
+
+Order: typecheck, then lint, then format. Fix in that order; lint errors after a type fix are usually follow-ons.
+
+`pnpm format` (prettier --write) is the only acceptable way to resolve format failures. Do not hand-edit whitespace to satisfy prettier.
 
 ## Do not
 
@@ -111,3 +141,4 @@ Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then b
 - Add a second Dialog/Select/Toggle/store/platform helper.
 - Comment what the code already says. Comment only a non-obvious why.
 - Expand scope past the asked change.
+- Ship code with `pnpm format:check`, `pnpm lint`, or `pnpm typecheck` failing.

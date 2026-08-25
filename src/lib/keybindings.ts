@@ -108,3 +108,25 @@ export const matchesChordString = (event: KeyboardEvent, raw: string): boolean =
   if (!actual) return false;
   return chordEquals(actual, expected);
 };
+
+export const formatChordLabel = (raw: string): string =>
+  raw
+    .split("+")
+    .map((token) => {
+      const lower = token.trim().toLowerCase();
+      if (
+        lower === "mod" ||
+        lower === "meta" ||
+        lower === "cmd" ||
+        lower === "command" ||
+        lower === "super" ||
+        lower === "control"
+      ) {
+        return "Ctrl";
+      }
+      return token.trim();
+    })
+    .filter(Boolean)
+    .join("+");
+
+export const EDITOR_SAVE_EVENT = "k-agent:editor-save";

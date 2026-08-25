@@ -1,16 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Loader2,
-  Pencil,
-  Plug,
-  Plus,
-  RefreshCw,
-  Star,
-  Trash2,
-} from "lucide-react";
+import { Loader2, Pencil, Plug, Plus, RefreshCw, Star, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
+import { highlightMatch } from "@/lib/highlight";
 import { useProvidersStore } from "@/lib/providers";
 import {
   formatContextWindow,
@@ -21,7 +14,11 @@ import {
 import { ModelForm } from "./ModelForm";
 import { ProviderForm } from "./ProviderForm";
 
-export const ProvidersPanel = (): ReactNode => {
+type ProvidersPanelProps = {
+  query: string;
+};
+
+export const ProvidersPanel = ({ query }: ProvidersPanelProps): ReactNode => {
   const { t } = useTranslation();
   const load = useProvidersStore((state) => state.load);
 
@@ -32,8 +29,8 @@ export const ProvidersPanel = (): ReactNode => {
   return (
     <section className="section">
       <header>
-        <h2 className="section__heading">{t("providers.title")}</h2>
-        <p className="section__description">{t("providers.description")}</p>
+        <h2 className="section__heading">{highlightMatch(t("providers.title"), query)}</h2>
+        <p className="section__description">{highlightMatch(t("providers.description"), query)}</p>
       </header>
       <ProvidersList />
     </section>
@@ -110,18 +107,12 @@ const ModelRow = ({
           </span>
         ))}
         {model.reasoning ? (
-          <span
-            className="model-row__chip"
-            title={t("providers.model.capability.reasoning")}
-          >
+          <span className="model-row__chip" title={t("providers.model.capability.reasoning")}>
             {t("providers.model.capability.reasoning")}
           </span>
         ) : null}
         {model.toolCall ? (
-          <span
-            className="model-row__chip"
-            title={t("providers.model.capability.toolCall")}
-          >
+          <span className="model-row__chip" title={t("providers.model.capability.toolCall")}>
             {t("providers.model.capability.toolCall")}
           </span>
         ) : null}
@@ -134,10 +125,7 @@ const ModelRow = ({
           </span>
         ) : null}
         {model.attachment ? (
-          <span
-            className="model-row__chip"
-            title={t("providers.model.capability.attachment")}
-          >
+          <span className="model-row__chip" title={t("providers.model.capability.attachment")}>
             {t("providers.model.capability.attachment")}
           </span>
         ) : null}
@@ -311,8 +299,8 @@ const ProviderCard = ({
         <summary>{t("providers.viewModels")}</summary>
         <div className="model-list-actions">
           <GlassButton variant="ghost" onClick={() => setEditor({})}>
-            <Plus size={14} strokeWidth={1.5} />
-            <span>{t("providers.actions.addModel")}</span>
+            <Plus strokeWidth={1.5} />
+            {t("providers.actions.addModel")}
           </GlassButton>
         </div>
         {provider.models.length > 0 ? (
@@ -400,8 +388,8 @@ const ProvidersList = (): ReactNode => {
 
       <div className="provider-actions">
         <GlassButton variant="primary" onClick={() => setAdding(true)} disabled={loading}>
-          <Plus size={14} strokeWidth={1.5} />
-          <span>{t("providers.add")}</span>
+          <Plus strokeWidth={1.5} />
+          {t("providers.add")}
         </GlassButton>
       </div>
     </>

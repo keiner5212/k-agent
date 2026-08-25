@@ -1,10 +1,11 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { LineEditor } from "@/components/LineEditor";
+import { EDITOR_SAVE_EVENT } from "@/lib/keybindings";
 
 type SkillEditorDialogProps = {
   open: boolean;
@@ -14,7 +15,11 @@ type SkillEditorDialogProps = {
 };
 
 const errorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : typeof error === "string" ? error : "Failed to read skill";
+  error instanceof Error
+    ? error.message
+    : typeof error === "string"
+      ? error
+      : "Failed to read skill";
 
 export const SkillEditorDialog = ({
   open,
@@ -24,15 +29,15 @@ export const SkillEditorDialog = ({
 }: SkillEditorDialogProps): ReactNode => {
   return (
     <Dialog
-  open={open}
-  onOpenChange={onOpenChange}
-  titleKey="skills.editor.title"
-  size="wide"
-  surfaceStyle={{
-    height: "calc(100vh - var(--titlebar-height) - var(--space-6))",
-    maxHeight: "calc(100vh - var(--titlebar-height) - var(--space-6))",
-  }}
->
+      open={open}
+      onOpenChange={onOpenChange}
+      titleKey="skills.editor.title"
+      size="wide"
+      surfaceStyle={{
+        height: "calc(100vh - var(--titlebar-height) - var(--space-6))",
+        maxHeight: "calc(100vh - var(--titlebar-height) - var(--space-6))",
+      }}
+    >
       {open && skillPath ? (
         <SkillEditorBody
           key={skillPath}
@@ -51,11 +56,7 @@ type SkillEditorBodyProps = {
   onSave: (content: string) => Promise<string | undefined>;
 };
 
-const SkillEditorBody = ({
-  skillPath,
-  onCancel,
-  onSave,
-}: SkillEditorBodyProps): ReactNode => {
+const SkillEditorBody = ({ skillPath, onCancel, onSave }: SkillEditorBodyProps): ReactNode => {
   const { t } = useTranslation();
   const [content, setContent] = useState("");
   const [original, setOriginal] = useState("");
@@ -83,7 +84,8 @@ const SkillEditorBody = ({
     };
   }, [skillPath]);
 
-  const handleSave = async (): Promise<void> => {
+  const handleSave = useCallback(async (): Promise<void> => {
+    if (submitting || loading || content === original) return;
     setSubmitting(true);
     setError(null);
     const saveError = await onSave(content);
@@ -93,14 +95,21 @@ const SkillEditorBody = ({
       return;
     }
     setOriginal(content);
-    onCancel();
-  };
+  }, [submitting, loading, content, original, onSave]);
 
   const handleRevert = (): void => {
     setContent(original);
   };
 
   const dirty = content !== original;
+
+  useEffect(() => {
+    const onSave = (): void => {
+      void handleSave();
+    };
+    window.addEventListener(EDITOR_SAVE_EVENT, onSave);
+    return () => window.removeEventListener(EDITOR_SAVE_EVENT, onSave);
+  }, [handleSave]);
 
   return (
     <div className="skill-editor">
@@ -126,9 +135,6 @@ const SkillEditorBody = ({
         </span>
       </div>
       <div className="form-actions">
-        <GlassButton variant="ghost" onClick={onCancel} disabled={submitting}>
-          {t("skills.editor.cancel")}
-        </GlassButton>
         <GlassButton
           variant="ghost"
           onClick={handleRevert}
@@ -137,7 +143,7 @@ const SkillEditorBody = ({
           {t("skills.editor.revert")}
         </GlassButton>
         <GlassButton
-          variant="primary"
+          variant="ghost"
           onClick={() => void handleSave()}
           disabled={submitting || loading || !dirty}
         >
@@ -149,6 +155,9 @@ const SkillEditorBody = ({
           ) : (
             <span>{t("skills.editor.save")}</span>
           )}
+        </GlassButton>
+        <GlassButton variant="primary" onClick={onCancel} disabled={submitting}>
+          {t("skills.editor.done")}
         </GlassButton>
       </div>
     </div>

@@ -3,18 +3,20 @@ import { LazyStore } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import {
   DEFAULT_ANIMATIONS_ENABLED,
-  DEFAULT_GLOBAL_SKILLS_PATH,
+  DEFAULT_FONT_FAMILY,
   DEFAULT_MAX_WORKER_CORES,
   DEFAULT_SETTINGS,
   DEFAULT_TEXT_SCALE,
   DEFAULT_TRANSLUCENCY_ENABLED,
   DEFAULT_WINDOW_BOUNDS,
+  FONT_FAMILY_OPTIONS,
   MAX_WORKER_CORES_AUTO,
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
   SUPPORTED_LANGUAGES,
   TEXT_SCALE_OPTIONS,
   hardwareThreadCount,
+  type AppFontFamily,
   type AppLanguage,
   type AppTheme,
   type Keybindings,
@@ -42,6 +44,17 @@ const sanitizeTextScale = (value: unknown): TextScale => {
   if (typeof value !== "number") return DEFAULT_TEXT_SCALE;
   const match = TEXT_SCALE_OPTIONS.find((option) => Math.abs(option - value) < 0.001);
   return match ?? DEFAULT_TEXT_SCALE;
+};
+
+const FONT_FAMILY_MAX = 80;
+const UNSAFE_FONT = /[;{}<>'"\\\n\r]/;
+
+const sanitizeFontFamily = (value: unknown): AppFontFamily => {
+  if (typeof value !== "string") return DEFAULT_FONT_FAMILY;
+  const name = value.trim();
+  if (name.length === 0 || name.length > FONT_FAMILY_MAX) return DEFAULT_FONT_FAMILY;
+  if (UNSAFE_FONT.test(name)) return DEFAULT_FONT_FAMILY;
+  return name;
 };
 
 const sanitizeWindowBounds = (value: unknown): WindowBounds => {
@@ -84,14 +97,6 @@ const sanitizeMaxWorkerCores = (value: unknown): number => {
   return Math.min(max, Math.max(1, rounded));
 };
 
-const sanitizePath = (value: unknown): string => {
-  if (typeof value !== "string") return DEFAULT_GLOBAL_SKILLS_PATH;
-  const trimmed = value.trim();
-  if (trimmed.length === 0) return DEFAULT_GLOBAL_SKILLS_PATH;
-  if (trimmed === "~/.k-agent" || trimmed === "~/.k-agent/") return DEFAULT_GLOBAL_SKILLS_PATH;
-  return trimmed;
-};
-
 const sanitizeSettings = (raw: unknown): Settings => {
   if (!raw || typeof raw !== "object") return DEFAULT_SETTINGS;
   const obj = raw as Record<string, unknown>;
@@ -107,10 +112,13 @@ const sanitizeSettings = (raw: unknown): Settings => {
     ),
     windowBounds: sanitizeWindowBounds(obj.windowBounds),
     textScale: sanitizeTextScale(obj.textScale),
+    fontFamily: sanitizeFontFamily(obj.fontFamily),
     maxWorkerCores: sanitizeMaxWorkerCores(obj.maxWorkerCores),
     keybindings: sanitizeKeybindings(obj.keybindings),
-    globalSkillsPath: sanitizePath(obj.globalSkillsPath),
-    sessionSidebarOpen: sanitizeBoolean(obj.sessionSidebarOpen, DEFAULT_SETTINGS.sessionSidebarOpen),
+    sessionSidebarOpen: sanitizeBoolean(
+      obj.sessionSidebarOpen,
+      DEFAULT_SETTINGS.sessionSidebarOpen,
+    ),
   };
 };
 
@@ -125,9 +133,9 @@ type SettingsStore = Settings & {
   setRememberWindowSize: (enabled: boolean) => void;
   setWindowBounds: (bounds: WindowBounds) => void;
   setTextScale: (scale: TextScale) => void;
+  setFontFamily: (family: AppFontFamily) => void;
   setMaxWorkerCores: (cores: number) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
-  setGlobalSkillsPath: (path: string) => void;
   setSessionSidebarOpen: (open: boolean) => void;
   resetKeybindings: () => void;
   resetAll: () => void;
@@ -169,6 +177,21 @@ const applyTextScale = (scale: TextScale): void => {
   document.documentElement.style.setProperty("--text-scale", String(scale));
 };
 
+const SYSTEM_SANS_STACK =
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
+const applyFontFamily = (family: AppFontFamily): void => {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  if ((FONT_FAMILY_OPTIONS as readonly string[]).includes(family)) {
+    root.dataset.font = family;
+    root.style.removeProperty("--font-sans");
+    return;
+  }
+  root.dataset.font = "custom";
+  root.style.setProperty("--font-sans", `"${family}", ${SYSTEM_SANS_STACK}`);
+};
+
 const systemPrefersReducedMotion = (): boolean => {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -179,6 +202,7 @@ const applyChrome = (settings: Settings): void => {
   applyTranslucency(settings.translucencyEnabled);
   applyAnimations(settings.animationsEnabled && !systemPrefersReducedMotion());
   applyTextScale(settings.textScale);
+  applyFontFamily(settings.fontFamily);
 };
 
 const syncMinimizeToTray = async (enabled: boolean): Promise<void> => {
@@ -199,9 +223,9 @@ const snapshot = (state: SettingsStore): Settings => ({
   rememberWindowSize: state.rememberWindowSize,
   windowBounds: state.windowBounds,
   textScale: state.textScale,
+  fontFamily: state.fontFamily,
   maxWorkerCores: state.maxWorkerCores,
   keybindings: state.keybindings,
-  globalSkillsPath: state.globalSkillsPath,
   sessionSidebarOpen: state.sessionSidebarOpen,
 });
 
@@ -285,6 +309,13 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     void persist(snapshot(get()));
   },
 
+  setFontFamily: (family) => {
+    const fontFamily = sanitizeFontFamily(family);
+    applyFontFamily(fontFamily);
+    set({ fontFamily });
+    void persist(snapshot(get()));
+  },
+
   setMaxWorkerCores: (cores) => {
     set({ maxWorkerCores: sanitizeMaxWorkerCores(cores) });
     void persist(snapshot(get()));
@@ -293,11 +324,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setKeybinding: (action, chord) => {
     const keybindings = { ...get().keybindings, [action]: chord };
     set({ keybindings });
-    void persist(snapshot(get()));
-  },
-
-  setGlobalSkillsPath: (path) => {
-    set({ globalSkillsPath: sanitizePath(path) });
     void persist(snapshot(get()));
   },
 

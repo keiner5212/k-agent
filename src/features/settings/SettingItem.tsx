@@ -1,14 +1,18 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import { GlassButton } from "@/components/GlassButton";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@/lib/platform";
+import { highlightMatch } from "@/lib/highlight";
 import { useSettingsStore } from "@/lib/settings";
+import { listSystemFonts } from "@/lib/system-fonts";
 import {
+  FONT_FAMILY_OPTIONS,
   SUPPORTED_LANGUAGES,
   hardwareThreadCount,
+  type AppFontFamily,
   type AppLanguage,
   type AppTheme,
   type KeybindingAction,
@@ -22,39 +26,38 @@ type SettingItemProps = {
   query: string;
 };
 
-const highlight = (text: string, query: string): ReactNode => {
-  if (query.length === 0) return text;
-  const idx = text.toLowerCase().indexOf(query.toLowerCase());
-  if (idx === -1) return text;
-  return (
-    <>
-      {text.slice(0, idx)}
-      <mark className="search-mark">{text.slice(idx, idx + query.length)}</mark>
-      {text.slice(idx + query.length)}
-    </>
-  );
-};
-
 export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const { t } = useTranslation();
   const language = useSettingsStore((state) => state.language);
   const theme = useSettingsStore((state) => state.theme);
   const textScale = useSettingsStore((state) => state.textScale);
+  const fontFamily = useSettingsStore((state) => state.fontFamily);
   const translucencyEnabled = useSettingsStore((state) => state.translucencyEnabled);
   const animationsEnabled = useSettingsStore((state) => state.animationsEnabled);
   const minimizeToTray = useSettingsStore((state) => state.minimizeToTray);
   const rememberWindowSize = useSettingsStore((state) => state.rememberWindowSize);
   const maxWorkerCores = useSettingsStore((state) => state.maxWorkerCores);
-  const globalSkillsPath = useSettingsStore((state) => state.globalSkillsPath);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const setTextScale = useSettingsStore((state) => state.setTextScale);
+  const setFontFamily = useSettingsStore((state) => state.setFontFamily);
   const setMaxWorkerCores = useSettingsStore((state) => state.setMaxWorkerCores);
   const setTranslucencyEnabled = useSettingsStore((state) => state.setTranslucencyEnabled);
   const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
   const setMinimizeToTray = useSettingsStore((state) => state.setMinimizeToTray);
   const setRememberWindowSize = useSettingsStore((state) => state.setRememberWindowSize);
-  const setGlobalSkillsPath = useSettingsStore((state) => state.setGlobalSkillsPath);
+  const [systemFonts, setSystemFonts] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (item.id !== "fontFamily") return;
+    let cancelled = false;
+    void listSystemFonts().then((names) => {
+      if (!cancelled) setSystemFonts(names);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.id]);
 
   const titleText = t(item.titleKey);
   const descriptionText = t(item.descriptionKey);
@@ -62,9 +65,9 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   return (
     <div className="setting-card">
       <div className="setting-card__head">
-        <span className="setting-card__title">{highlight(titleText, query)}</span>
+        <span className="setting-card__title">{highlightMatch(titleText, query)}</span>
       </div>
-      <p className="setting-card__description">{highlight(descriptionText, query)}</p>
+      <p className="setting-card__description">{highlightMatch(descriptionText, query)}</p>
       <div className="setting-card__control">
         {item.type === "select" ? (
           <Select
@@ -73,6 +76,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               language,
               theme,
               textScale,
+              fontFamily,
               maxWorkerCores,
             })}
             onChange={(next) =>
@@ -80,10 +84,11 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setLanguage,
                 setTheme,
                 setTextScale,
+                setFontFamily,
                 setMaxWorkerCores,
               })
             }
-            options={selectOptions(item, t)}
+            options={selectOptions(item, t, { systemFonts, fontFamily })}
           />
         ) : null}
 
@@ -118,21 +123,6 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
             {t("settings.debug.devtools.action")}
           </GlassButton>
         ) : null}
-
-        {item.type === "path" ? (
-          <input
-            id={`setting-${item.id}`}
-            type="text"
-            className="input"
-            value={pathValue(item.id, { globalSkillsPath })}
-            onChange={(event) =>
-              onPathChange(item.id, event.target.value, { setGlobalSkillsPath })
-            }
-            spellCheck={false}
-            autoCorrect="off"
-            autoCapitalize="off"
-          />
-        ) : null}
       </div>
     </div>
   );
@@ -141,12 +131,14 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
 type LangState = { language: AppLanguage };
 type ThemeState = { theme: AppTheme };
 type ScaleState = { textScale: TextScale };
+type FontState = { fontFamily: AppFontFamily };
 type CoresState = { maxWorkerCores: number };
 
 const selectOptions = (
   item: SettingItemDef,
   t: (key: string) => string,
-): { value: string; label: string }[] => {
+  extras: { systemFonts: string[]; fontFamily: string },
+): { value: string; label: ReactNode }[] => {
   if (item.id === "maxWorkerCores") {
     const options = [{ value: "0", label: t("settings.maxWorkerCores.options.auto") }];
     const max = hardwareThreadCount();
@@ -155,10 +147,39 @@ const selectOptions = (
     }
     return options;
   }
+  if (item.id === "fontFamily") {
+    return fontFamilyOptions(t, extras.systemFonts, extras.fontFamily);
+  }
   return (item.options ?? []).map((option) => ({
     value: option.value,
     label: t(option.labelKey),
   }));
+};
+
+const fontFamilyOptions = (
+  t: (key: string) => string,
+  systemFonts: string[],
+  current: string,
+): { value: string; label: ReactNode }[] => {
+  const presetValues = new Set<string>(FONT_FAMILY_OPTIONS);
+  const options: { value: string; label: ReactNode }[] = FONT_FAMILY_OPTIONS.map((value) => ({
+    value,
+    label: t(`settings.fontFamily.options.${value}`),
+  }));
+  for (const name of systemFonts) {
+    if (presetValues.has(name)) continue;
+    options.push({
+      value: name,
+      label: <span style={{ fontFamily: `"${name}", sans-serif` }}>{name}</span>,
+    });
+  }
+  if (current.length > 0 && !options.some((option) => option.value === current)) {
+    options.push({
+      value: current,
+      label: <span style={{ fontFamily: `"${current}", sans-serif` }}>{current}</span>,
+    });
+  }
+  return options;
 };
 
 type ToggleState = {
@@ -181,7 +202,7 @@ const runSettingAction = (id: string): void => {
 
 const selectValue = (
   id: string,
-  state: LangState & ThemeState & ScaleState & CoresState,
+  state: LangState & ThemeState & ScaleState & FontState & CoresState,
 ): string => {
   switch (id) {
     case "language":
@@ -190,6 +211,8 @@ const selectValue = (
       return state.theme;
     case "textScale":
       return String(state.textScale);
+    case "fontFamily":
+      return state.fontFamily;
     case "maxWorkerCores":
       return String(state.maxWorkerCores);
     default:
@@ -204,6 +227,7 @@ const onSelectChange = (
     setLanguage: (l: AppLanguage) => void;
     setTheme: (t: AppTheme) => void;
     setTextScale: (s: TextScale) => void;
+    setFontFamily: (f: AppFontFamily) => void;
     setMaxWorkerCores: (n: number) => void;
   },
 ): void => {
@@ -218,6 +242,9 @@ const onSelectChange = (
       return;
     case "textScale":
       setters.setTextScale(Number(next) as TextScale);
+      return;
+    case "fontFamily":
+      setters.setFontFamily(next);
       return;
     case "maxWorkerCores":
       setters.setMaxWorkerCores(Number(next));
@@ -237,29 +264,6 @@ const toggleChecked = (id: string, state: ToggleState): boolean => {
       return state.rememberWindowSize;
     default:
       return false;
-  }
-};
-
-type PathState = { globalSkillsPath: string };
-
-const pathValue = (id: string, state: PathState): string => {
-  switch (id) {
-    case "globalSkillsPath":
-      return state.globalSkillsPath;
-    default:
-      return "";
-  }
-};
-
-const onPathChange = (
-  id: string,
-  next: string,
-  setters: { setGlobalSkillsPath: (path: string) => void },
-): void => {
-  switch (id) {
-    case "globalSkillsPath":
-      setters.setGlobalSkillsPath(next);
-      return;
   }
 };
 

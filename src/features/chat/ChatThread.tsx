@@ -9,9 +9,7 @@ export const ChatThread = (): ReactNode => {
       <div className="chat-thread__empty">
         <Sparkles size={20} strokeWidth={1.5} />
         <h2 className="chat-thread__empty-title">{t("chat.thread.emptyTitle")}</h2>
-        <p className="chat-thread__empty-description">
-          {t("chat.thread.emptyDescription")}
-        </p>
+        <p className="chat-thread__empty-description">{t("chat.thread.emptyDescription")}</p>
       </div>
     </section>
   );

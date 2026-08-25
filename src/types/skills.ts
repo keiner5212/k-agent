@@ -3,6 +3,9 @@ export type SkillContextKind = "global" | "local";
 export type SkillInfo = {
   id: string;
   path: string;
+  name: string;
+  description: string;
+  estimatedTokens: number;
 };
 
 export type SkillContext = {

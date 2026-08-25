@@ -17,6 +17,12 @@
     "title": "Nothing here yet",
     "description": "This is a blank shell. Build your orchestrator on top of it."
   },
+  "about": {
+    "title": "About",
+    "version": "Version {{version}}",
+    "creators": "Creators",
+    "close": "Close"
+  },
   "settings": {
     "title": "Settings",
     "close": "Close",
@@ -26,6 +32,8 @@
       "general": "General",
       "providers": "Providers",
       "skills": "Skills",
+      "agents": "Agents",
+      "agentsMd": "AGENTS.md",
       "keybindings": "Keybindings",
       "debug": "Debug"
     },
@@ -68,15 +76,31 @@
       "label": "Disable animations",
       "description": "Turn off all transitions and motion. Also follows your system reduce-motion setting."
     },
+    "fontFamily": {
+      "label": "Font",
+      "description": "Choose the interface typeface from fonts installed on this system. Code blocks stay monospace.",
+      "options": {
+        "system": "System",
+        "humanist": "Humanist",
+        "geometric": "Geometric",
+        "serif": "Serif",
+        "mono": "Monospace"
+      }
+    },
     "textScale": {
       "label": "Text size",
       "description": "Scale all text in the app.",
       "options": {
+        "50": "50%",
+        "60": "60%",
+        "70": "70%",
+        "80": "80%",
         "87": "87%",
         "92": "92%",
         "100": "100%",
         "112": "112%",
-        "125": "125%"
+        "125": "125%",
+        "140": "140%"
       }
     },
     "keybindings": {
@@ -91,6 +115,9 @@
         },
         "chat": {
           "clear": "Clear chat input"
+        },
+        "editor": {
+          "save": "Save editor"
         }
       },
       "record": "Recording",
@@ -105,10 +132,6 @@
         "description": "Open the webview inspector for this window.",
         "action": "Open DevTools"
       }
-    },
-    "skillsPath": {
-      "label": "Global skills folder",
-      "description": "Folder scanned for global skills. Each subfolder with a SKILL.md file counts as one skill. Use ~ for your home directory."
     }
   },
   "providers": {
@@ -206,15 +229,23 @@
   },
   "skills": {
     "title": "Skills",
-    "description": "A skill is a folder that contains SKILL.md. Global skills live in the configured folder. Local skills live in .agents/skills under the workspace (your home folder by default).",
+    "description": "A skill is a folder that contains SKILL.md. Global skills live in ~/.k-agent/skills. Local skills live in .agents/skills under the workspace.",
     "context": {
       "global": "Global",
-      "local": "Local"
+      "local": "Workspace"
     },
     "empty": "No skills detected in this folder yet.",
     "emptyTab": "Launch the app with a workspace path to see local skills.",
     "count": "{{count}} skill",
     "count_plural": "{{count}} skills",
+    "table": {
+      "name": "Name",
+      "description": "Description",
+      "tokens": "Tokens",
+      "actions": "Actions",
+      "noDescription": "-",
+      "tokenValue": "~{{value}}"
+    },
     "actions": {
       "refresh": "Refresh skills",
       "create": "New skill",
@@ -243,12 +274,146 @@
       "revert": "Revert",
       "save": "Save",
       "saving": "Saving",
+      "done": "Done",
       "clean": "Saved",
       "dirty": "Unsaved changes"
     },
     "delete": {
       "title": "Delete skill",
       "body": "Delete \"{{name}}\"? The folder and all its contents will be removed.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting"
+    }
+  },
+  "agents": {
+    "title": "Agents",
+    "description": "A session agent is a personality for the chat: prompt, skills, and tools. Global agents live in ~/.k-agent/agents. Local agents live in .agents/agents under the workspace.",
+    "context": {
+      "global": "Global",
+      "local": "Workspace"
+    },
+    "empty": "No agents in this folder yet.",
+    "emptyTab": "Launch the app with a workspace path to see local agents.",
+    "table": {
+      "name": "Name",
+      "description": "Description",
+      "tokens": "Tokens",
+      "actions": "Actions",
+      "noDescription": "-",
+      "tokenValue": "~{{value}}"
+    },
+    "actions": {
+      "refresh": "Refresh agents",
+      "create": "New agent",
+      "edit": "Edit agent",
+      "editPersonality": "Edit personality",
+      "delete": "Delete agent"
+    },
+    "form": {
+      "createTitle": "New agent",
+      "editTitle": "Edit agent",
+      "name": "Name",
+      "namePlaceholder": "my-agent",
+      "nameHint": "Lowercase letters, numbers, dashes, and underscores.",
+      "description": "Description",
+      "descriptionPlaceholder": "Shown in the agent selector.",
+      "descriptionHint": "UI only. Not sent to the model.",
+      "personality": "Personality",
+      "personalityHint": "Session prompt sent to the model. Stored in persona.md. Max {{max}} lines.",
+      "personalityCount": "{{count}} / {{max}}",
+      "skills": "Skills",
+      "skillsCount": "{{count}} / {{max}}",
+      "skillsHintGlobal": "Global agents can only load global skills. Up to 10.",
+      "skillsHintLocal": "Workspace agents can load global and workspace skills. Up to 10.",
+      "skillsEmpty": "No skills available for this location.",
+      "tools": "Tools",
+      "toolsHint": "Example tool permissions. Real tools come later.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving",
+      "errors": {
+        "nameRequired": "Name is required."
+      }
+    },
+    "editor": {
+      "title": "Edit personality",
+      "revert": "Revert",
+      "save": "Save",
+      "saving": "Saving",
+      "done": "Done",
+      "clean": "Saved",
+      "dirty": "Unsaved changes"
+    },
+    "tools": {
+      "read_file": {
+        "label": "Read files",
+        "description": "Read file contents from the workspace."
+      },
+      "write_file": {
+        "label": "Write files",
+        "description": "Create new files."
+      },
+      "edit_file": {
+        "label": "Edit files",
+        "description": "Patch existing files."
+      },
+      "delete_file": {
+        "label": "Delete files",
+        "description": "Remove files from the workspace."
+      },
+      "run_command": {
+        "label": "Run commands",
+        "description": "Execute shell commands."
+      },
+      "search_code": {
+        "label": "Search code",
+        "description": "Search the workspace by text or pattern."
+      },
+      "web_fetch": {
+        "label": "Fetch URLs",
+        "description": "Download content from the network."
+      }
+    },
+    "delete": {
+      "title": "Delete agent",
+      "body": "Delete \"{{name}}\"? The folder and all its contents will be removed.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting"
+    }
+  },
+  "agentsMd": {
+    "title": "AGENTS.md",
+    "description": "Instruction files for the coding agent. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md at the workspace root.",
+    "context": {
+      "global": "Global",
+      "local": "Workspace"
+    },
+    "empty": "No AGENTS.md at this path.",
+    "emptyTab": "Launch the app with a workspace path to see the workspace AGENTS.md.",
+    "detected": "Detected",
+    "missing": "Not detected",
+    "tokens": "~{{value}}",
+    "actions": {
+      "refresh": "Refresh AGENTS.md",
+      "create": "New AGENTS.md",
+      "edit": "Edit AGENTS.md",
+      "delete": "Delete AGENTS.md"
+    },
+    "editor": {
+      "createTitle": "New AGENTS.md",
+      "editTitle": "Edit AGENTS.md",
+      "revert": "Revert",
+      "save": "Save",
+      "saving": "Saving",
+      "done": "Done",
+      "clean": "Saved",
+      "dirty": "Unsaved changes"
+    },
+    "delete": {
+      "title": "Delete AGENTS.md",
+      "body": "Delete \"{{path}}\"? This cannot be undone.",
       "cancel": "Cancel",
       "confirm": "Delete",
       "deleting": "Deleting"
@@ -269,10 +434,41 @@
     "composer": {
       "placeholder": "Write a message",
       "send": "Send",
+      "attach": "Attach",
       "disabledHint": "Pick a model to send."
     },
     "effort": {
       "label": "Effort"
+    },
+    "agent": {
+      "label": "Agent",
+      "empty": "No agents"
+    },
+    "usage": {
+      "label": "Context {{percent}}%, cost {{cost}}",
+      "percent": "{{percent}}%",
+      "contextLabel": "Context",
+      "costLabel": "Cost",
+      "title": "Context Usage",
+      "percentFull": "{{percent}}% Full",
+      "tokens": "~{{used}} / {{window}} Tokens",
+      "categories": {
+        "systemPrompt": "System prompt",
+        "toolDefinitions": "Tool definitions",
+        "rules": "Rules",
+        "skills": "Skills",
+        "mcpTools": "MCP & dynamic tools",
+        "subagentDefinitions": "Subagent definitions",
+        "conversation": "Conversation"
+      }
+    },
+    "changes": {
+      "label": "Working tree changes",
+      "title": "Changed files",
+      "files_one": "file",
+      "files_other": "files",
+      "lines_one": "line",
+      "lines_other": "lines"
     }
   },
   "sessions": {
@@ -284,7 +480,8 @@
     "active": "Active"
   },
   "workspace": {
-    "label": "Workspace",
-    "unset": "Workspace is unavailable."
+    "unset": "Workspace is unavailable.",
+    "pickFolder": "Pick workspace folder",
+    "change": "Click to change workspace"
   }
 }

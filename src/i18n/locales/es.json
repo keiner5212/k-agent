@@ -17,6 +17,12 @@
     "title": "Todavia no hay nada aqui",
     "description": "Esta es una aplicacion vacia. Construye tu orquestador encima."
   },
+  "about": {
+    "title": "Acerca de",
+    "version": "Version {{version}}",
+    "creators": "Creadores",
+    "close": "Cerrar"
+  },
   "settings": {
     "title": "Ajustes",
     "close": "Cerrar",
@@ -26,6 +32,8 @@
       "general": "General",
       "providers": "Proveedores",
       "skills": "Habilidades",
+      "agents": "Agentes",
+      "agentsMd": "AGENTS.md",
       "keybindings": "Atajos de teclado",
       "debug": "Depuracion"
     },
@@ -68,15 +76,31 @@
       "label": "Desactivar animaciones",
       "description": "Apaga todas las transiciones y movimientos. Tambien respeta el ajuste reducir movimiento del sistema."
     },
+    "fontFamily": {
+      "label": "Fuente",
+      "description": "Elige la tipografia de la interfaz entre las fuentes instaladas en este sistema. Los bloques de codigo siguen en monoespaciada.",
+      "options": {
+        "system": "Sistema",
+        "humanist": "Humanista",
+        "geometric": "Geometrica",
+        "serif": "Serif",
+        "mono": "Monoespaciada"
+      }
+    },
     "textScale": {
       "label": "Tamano del texto",
       "description": "Escala todo el texto de la aplicacion.",
       "options": {
+        "50": "50%",
+        "60": "60%",
+        "70": "70%",
+        "80": "80%",
         "87": "87%",
         "92": "92%",
         "100": "100%",
         "112": "112%",
-        "125": "125%"
+        "125": "125%",
+        "140": "140%"
       }
     },
     "keybindings": {
@@ -91,6 +115,9 @@
         },
         "chat": {
           "clear": "Limpiar entrada del chat"
+        },
+        "editor": {
+          "save": "Guardar editor"
         }
       },
       "record": "Grabando",
@@ -105,10 +132,6 @@
         "description": "Abre el inspector webview de esta ventana.",
         "action": "Abrir DevTools"
       }
-    },
-    "skillsPath": {
-      "label": "Carpeta global de habilidades",
-      "description": "Carpeta escaneada para habilidades globales. Cada subcarpeta con un archivo SKILL.md cuenta como una habilidad. Usa ~ para tu directorio home."
     }
   },
   "providers": {
@@ -161,7 +184,7 @@
         "attachment": "Adjuntos"
       }
     },
-"modelForm": {
+    "modelForm": {
       "id": "Id del modelo",
       "displayName": "Nombre visible",
       "family": "Familia / grupo de variantes",
@@ -206,15 +229,23 @@
   },
   "skills": {
     "title": "Habilidades",
-    "description": "Una habilidad es una carpeta que contiene SKILL.md. Las globales viven en la carpeta configurada. Las locales viven en .agents/skills del workspace (tu carpeta home por defecto).",
+    "description": "Una habilidad es una carpeta que contiene SKILL.md. Las globales viven en ~/.k-agent/skills. Las locales viven en .agents/skills del workspace.",
     "context": {
       "global": "Global",
-      "local": "Local"
+      "local": "Workspace"
     },
     "empty": "Aun no se detectan habilidades en esta carpeta.",
     "emptyTab": "Inicia la app con una ruta de workspace para ver habilidades locales.",
     "count": "{{count}} habilidad",
     "count_plural": "{{count}} habilidades",
+    "table": {
+      "name": "Nombre",
+      "description": "Descripcion",
+      "tokens": "Tokens",
+      "actions": "Acciones",
+      "noDescription": "-",
+      "tokenValue": "~{{value}}"
+    },
     "actions": {
       "refresh": "Actualizar habilidades",
       "create": "Nueva habilidad",
@@ -244,17 +275,61 @@
       "revert": "Revertir",
       "save": "Guardar",
       "saving": "Guardando",
+      "done": "Listo",
       "clean": "Guardado",
       "dirty": "Cambios sin guardar"
     },
-    "form": {
-      "createTitle": "Nueva habilidad",
+    "delete": {
+      "title": "Eliminar habilidad",
+      "body": "¿Eliminar \"{{name}}\"? Se borrara la carpeta y todo su contenido.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar",
+      "deleting": "Eliminando"
+    }
+  },
+  "agents": {
+    "title": "Agentes",
+    "description": "Un agente de sesion es una personalidad para el chat: prompt, habilidades y herramientas. Los globales viven en ~/.k-agent/agents. Los locales viven en .agents/agents del workspace.",
+    "context": {
+      "global": "Global",
+      "local": "Workspace"
+    },
+    "empty": "Aun no hay agentes en esta carpeta.",
+    "emptyTab": "Inicia la app con una ruta de workspace para ver agentes locales.",
+    "table": {
       "name": "Nombre",
-      "namePlaceholder": "mi-habilidad",
+      "description": "Descripcion",
+      "tokens": "Tokens",
+      "actions": "Acciones",
+      "noDescription": "-",
+      "tokenValue": "~{{value}}"
+    },
+    "actions": {
+      "refresh": "Actualizar agentes",
+      "create": "Nuevo agente",
+      "edit": "Editar agente",
+      "editPersonality": "Editar personalidad",
+      "delete": "Eliminar agente"
+    },
+    "form": {
+      "createTitle": "Nuevo agente",
+      "editTitle": "Editar agente",
+      "name": "Nombre",
+      "namePlaceholder": "mi-agente",
       "nameHint": "Letras minusculas, numeros, guiones y guiones bajos.",
       "description": "Descripcion",
-      "descriptionPlaceholder": "¿Que hace esta habilidad?",
-      "descriptionHint": "Se guarda en el frontmatter de SKILL.md.",
+      "descriptionPlaceholder": "Se muestra en el selector de agentes.",
+      "descriptionHint": "Solo para la UI. No se envia al modelo.",
+      "personality": "Personalidad",
+      "personalityHint": "Prompt de sesion que se envia al modelo. Se guarda en persona.md. Maximo {{max}} lineas.",
+      "personalityCount": "{{count}} / {{max}}",
+      "skills": "Habilidades",
+      "skillsCount": "{{count}} / {{max}}",
+      "skillsHintGlobal": "Un agente global solo puede cargar habilidades globales. Maximo 10.",
+      "skillsHintLocal": "Un agente de workspace puede cargar habilidades globales y locales. Maximo 10.",
+      "skillsEmpty": "No hay habilidades disponibles para esta ubicacion.",
+      "tools": "Herramientas",
+      "toolsHint": "Permisos de ejemplo. Las herramientas reales vendran despues.",
       "cancel": "Cancelar",
       "save": "Guardar",
       "saving": "Guardando",
@@ -262,9 +337,84 @@
         "nameRequired": "El nombre es obligatorio."
       }
     },
+    "editor": {
+      "title": "Editar personalidad",
+      "revert": "Revertir",
+      "save": "Guardar",
+      "saving": "Guardando",
+      "done": "Listo",
+      "clean": "Guardado",
+      "dirty": "Cambios sin guardar"
+    },
+    "tools": {
+      "read_file": {
+        "label": "Leer archivos",
+        "description": "Leer contenido de archivos del workspace."
+      },
+      "write_file": {
+        "label": "Crear archivos",
+        "description": "Crear archivos nuevos."
+      },
+      "edit_file": {
+        "label": "Editar archivos",
+        "description": "Modificar archivos existentes."
+      },
+      "delete_file": {
+        "label": "Eliminar archivos",
+        "description": "Borrar archivos del workspace."
+      },
+      "run_command": {
+        "label": "Ejecutar comandos",
+        "description": "Correr comandos de shell."
+      },
+      "search_code": {
+        "label": "Buscar codigo",
+        "description": "Buscar texto o patrones en el workspace."
+      },
+      "web_fetch": {
+        "label": "Pedir URLs",
+        "description": "Descargar contenido de la red."
+      }
+    },
     "delete": {
-      "title": "Eliminar habilidad",
-      "body": "¿Eliminar \"{{name}}\"? Se borrara la carpeta y todo su contenido.",
+      "title": "Eliminar agente",
+      "body": "Eliminar \"{{name}}\"? Se borrara la carpeta y todo su contenido.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar",
+      "deleting": "Eliminando"
+    }
+  },
+  "agentsMd": {
+    "title": "AGENTS.md",
+    "description": "Archivos de instrucciones del agente de codigo. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md en la raiz del workspace.",
+    "context": {
+      "global": "Global",
+      "local": "Workspace"
+    },
+    "empty": "No hay AGENTS.md en esta ruta.",
+    "emptyTab": "Inicia la app con una ruta de workspace para ver el AGENTS.md del workspace.",
+    "detected": "Detectado",
+    "missing": "No detectado",
+    "tokens": "~{{value}}",
+    "actions": {
+      "refresh": "Actualizar AGENTS.md",
+      "create": "Nuevo AGENTS.md",
+      "edit": "Editar AGENTS.md",
+      "delete": "Eliminar AGENTS.md"
+    },
+    "editor": {
+      "createTitle": "Nuevo AGENTS.md",
+      "editTitle": "Editar AGENTS.md",
+      "revert": "Revertir",
+      "save": "Guardar",
+      "saving": "Guardando",
+      "done": "Listo",
+      "clean": "Guardado",
+      "dirty": "Cambios sin guardar"
+    },
+    "delete": {
+      "title": "Eliminar AGENTS.md",
+      "body": "Eliminar \"{{path}}\"? Esto no se puede deshacer.",
       "cancel": "Cancelar",
       "confirm": "Eliminar",
       "deleting": "Eliminando"
@@ -285,10 +435,41 @@
     "composer": {
       "placeholder": "Escribe un mensaje",
       "send": "Enviar",
+      "attach": "Adjuntar",
       "disabledHint": "Elige un modelo para enviar."
     },
     "effort": {
       "label": "Esfuerzo"
+    },
+    "agent": {
+      "label": "Agente",
+      "empty": "Sin agentes"
+    },
+    "usage": {
+      "label": "Contexto {{percent}}%, costo {{cost}}",
+      "percent": "{{percent}}%",
+      "contextLabel": "Contexto",
+      "costLabel": "Costo",
+      "title": "Uso de contexto",
+      "percentFull": "{{percent}}% lleno",
+      "tokens": "~{{used}} / {{window}} tokens",
+      "categories": {
+        "systemPrompt": "Prompt de sistema",
+        "toolDefinitions": "Definiciones de herramientas",
+        "rules": "Reglas",
+        "skills": "Skills",
+        "mcpTools": "MCP y herramientas dinamicas",
+        "subagentDefinitions": "Definiciones de subagentes",
+        "conversation": "Conversacion"
+      }
+    },
+    "changes": {
+      "label": "Cambios en el arbol de trabajo",
+      "title": "Archivos modificados",
+      "files_one": "archivo",
+      "files_other": "archivos",
+      "lines_one": "linea",
+      "lines_other": "lineas"
     }
   },
   "sessions": {
@@ -300,7 +481,8 @@
     "active": "Activa"
   },
   "workspace": {
-    "label": "Workspace",
-    "unset": "El workspace no esta disponible."
+    "unset": "El workspace no esta disponible.",
+    "pickFolder": "Elige la carpeta de workspace",
+    "change": "Click para cambiar de workspace"
   }
 }

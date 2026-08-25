@@ -11,6 +11,7 @@ use uuid::Uuid;
 use crate::APP_CONFIG_DIR;
 
 const PROVIDERS_FILE: &str = "providers.json";
+const PROVIDER_KEYS_FILE: &str = "provider-keys.json";
 const HTTP_TIMEOUT: Duration = Duration::from_secs(20);
 const DETAIL_CONCURRENCY: usize = 8;
 
@@ -170,7 +171,7 @@ pub struct Provider {
     pub name: String,
     pub kind: ProviderKind,
     pub base_url: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing, skip_deserializing)]
     pub api_key: Option<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub has_api_key: bool,
@@ -327,6 +328,29 @@ async fn save(path: &Path, providers: &[Provider]) -> Result<(), ProviderError> 
     tokio::fs::write(path, json)
         .await
         .map_err(|e| ProviderError::Io(e.to_string()))?;
+    Ok(())
+}
+
+async fn load_keys(path: &Path) -> Result<HashMap<String, String>, ProviderError> {
+    match tokio::fs::read_to_string(path).await {
+        Ok(data) if data.trim().is_empty() => Ok(HashMap::new()),
+        Ok(data) => serde_json::from_str(&data).map_err(|e| ProviderError::Parse(e.to_string())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(HashMap::new()),
+        Err(e) => Err(ProviderError::Io(e.to_string())),
+    }
+}
+
+async fn save_keys(path: &Path, keys: &HashMap<String, String>) -> Result<(), ProviderError> {
+    if let Some(parent) = path.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(|e| ProviderError::Io(e.to_string()))?;
+    }
+    let json =
+        serde_json::to_string_pretty(keys).map_err(|e| ProviderError::Parse(e.to_string()))?;
+    tokio::fs::write(path, json)
+        .await
+        .map_err(|e| ProviderError::Io(e.to_string()))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -335,11 +359,14 @@ async fn save(path: &Path, providers: &[Provider]) -> Result<(), ProviderError> 
     Ok(())
 }
 
-fn config_dir(app: &AppHandle) -> Result<PathBuf, ProviderError> {
-    providers_path(app)?
-        .parent()
-        .map(Path::to_path_buf)
-        .ok_or_else(|| ProviderError::Path("config directory is unavailable".into()))
+fn secrets_dir(app: &AppHandle) -> Result<PathBuf, ProviderError> {
+    app.path()
+        .app_data_dir()
+        .map_err(|e| ProviderError::Path(e.to_string()))
+}
+
+fn keys_path(app: &AppHandle) -> Result<PathBuf, ProviderError> {
+    Ok(secrets_dir(app)?.join(PROVIDER_KEYS_FILE))
 }
 
 fn redact(mut provider: Provider) -> Provider {
@@ -354,42 +381,25 @@ fn redact(mut provider: Provider) -> Provider {
 async fn load_all(app: &AppHandle) -> Result<Vec<Provider>, ProviderError> {
     let path = providers_path(app)?;
     let mut providers = load(&path).await?;
-    let dir = config_dir(app)?;
-    let has_sealed = providers
-        .iter()
-        .any(|provider| provider.api_key.as_deref().is_some_and(crate::secret::is_sealed));
-    let cipher = if has_sealed {
-        crate::secret::cipher(&dir)?
-    } else {
-        crate::secret::cipher_allow_recreate(&dir)?
-    };
-    let mut migrated = false;
+    let dir = secrets_dir(app)?;
+    let key_blobs = load_keys(&keys_path(app)?).await?;
+    let cipher = crate::secret::cipher(&dir)?;
     for provider in &mut providers {
-        match crate::secret::open(cipher, provider.api_key.as_deref())? {
-            None => provider.api_key = None,
-            Some(crate::secret::OpenedKey::Plain(plain)) => {
-                provider.api_key = Some(plain);
-                migrated = true;
-            }
-            Some(crate::secret::OpenedKey::Decrypted(plain)) => {
-                provider.api_key = Some(plain);
-            }
-        }
-    }
-    if migrated {
-        save_all(app, &providers).await?;
+        provider.api_key =
+            crate::secret::open(cipher, key_blobs.get(&provider.id).map(String::as_str))?;
     }
     Ok(providers)
 }
 
 async fn save_all(app: &AppHandle, providers: &[Provider]) -> Result<(), ProviderError> {
     let path = providers_path(app)?;
-    let dir = config_dir(app)?;
+    let dir = secrets_dir(app)?;
     let cipher = crate::secret::cipher(&dir)?;
     let mut stored = providers.to_vec();
+    let mut keys = HashMap::new();
     for provider in &mut stored {
         provider.has_api_key = false;
-        provider.api_key = match provider
+        let sealed = match provider
             .api_key
             .as_deref()
             .map(str::trim)
@@ -398,7 +408,12 @@ async fn save_all(app: &AppHandle, providers: &[Provider]) -> Result<(), Provide
             None => None,
             Some(plain) => Some(crate::secret::seal(cipher, plain)?),
         };
+        if let Some(blob) = sealed {
+            keys.insert(provider.id.clone(), blob);
+        }
+        provider.api_key = None;
     }
+    save_keys(&keys_path(app)?, &keys).await?;
     save(&path, &stored).await
 }
 

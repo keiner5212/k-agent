@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "store:default",
+    "dialog:default",
+    "dialog:allow-open",
     "allow-list",
     "allow-save",
     "allow-delete",
@@ -25,6 +27,7 @@
     "allow-window-start-resize",
     "allow-window-start-drag",
     "allow-window-open-devtools",
+    "allow-list-system-fonts",
     "allow-list-skills",
     "allow-read-skill-meta",
     "allow-read-skill-file",
@@ -32,7 +35,16 @@
     "allow-update-skill",
     "allow-update-skill-content",
     "allow-delete-skill",
+    "allow-list-agents",
+    "allow-list-agents-md",
+    "allow-write-agents-md",
+    "allow-delete-agents-md",
+    "allow-read-agent-meta",
+    "allow-create-agent",
+    "allow-update-agent",
+    "allow-delete-agent",
     "allow-get-workspace-path",
+    "allow-set-workspace-path",
     "allow-get-repo-info"
   ]
 }
