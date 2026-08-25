@@ -212,7 +212,7 @@ fn silence_libayatana_appindicator_warning() {}
 #[cfg(target_os = "linux")]
 fn register_linux_identity() {
     const APP_ID: &str = "dev.kagent.app";
-    const ICON_PNG: &[u8] = include_bytes!("../icons/128x128.png");
+    const ICON_SVG: &[u8] = include_bytes!("../icons/512x512_icon_inkscape.svg");
 
     glib::set_prgname(Some(APP_ID));
     glib::set_application_name("k-agent");
@@ -220,17 +220,17 @@ fn register_linux_identity() {
     let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
         return;
     };
-    let icon_dir = home.join(".local/share/icons/hicolor/128x128/apps");
+    let icon_dir = home.join(".local/share/icons/hicolor/scalable/apps");
     let apps_dir = home.join(".local/share/applications");
     if std::fs::create_dir_all(&icon_dir).is_err() || std::fs::create_dir_all(&apps_dir).is_err() {
         return;
     }
 
-    let icon_path = icon_dir.join(format!("{APP_ID}.png"));
-    if std::fs::write(&icon_path, ICON_PNG).is_err() {
+    let icon_path = icon_dir.join(format!("{APP_ID}.svg"));
+    if std::fs::write(&icon_path, ICON_SVG).is_err() {
         return;
     }
-    let _ = std::fs::copy(&icon_path, icon_dir.join("k-agent.png"));
+    let _ = std::fs::copy(&icon_path, icon_dir.join("k-agent.svg"));
 
     let exec = std::env::current_exe()
         .ok()
