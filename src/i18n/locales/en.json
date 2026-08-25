@@ -115,6 +115,14 @@
       "label": "Save notes to workspace memory",
       "description": "Persist useful annotations from chat into files inside the current workspace."
     },
+    "buildAgentEnabled": {
+      "label": "Build agent",
+      "description": "Show the built-in Build agent in chat. It can edit files and run commands."
+    },
+    "planAgentEnabled": {
+      "label": "Plan agent",
+      "description": "Show the built-in Plan agent in chat. It explores and plans without making changes."
+    },
     "translucency": {
       "label": "Disable translucency",
       "description": "Surfaces use a frosted, glass-like blur by default. Turn this on for solid surfaces."
@@ -155,7 +163,7 @@
       "actions": {
         "settings": {
           "open": "Open settings",
-          "close": "Close settings"
+          "close": "Close topmost modal"
         },
         "sidebar": {
           "toggle": "Toggle sessions sidebar"
@@ -164,7 +172,9 @@
           "clear": "Clear chat input"
         },
         "editor": {
-          "save": "Save editor"
+          "save": "Save editor",
+          "undo": "Undo in editor",
+          "redo": "Redo in editor"
         }
       },
       "record": "Recording",
@@ -288,6 +298,8 @@
       }
     },
     "modelForm": {
+      "createTitle": "New model",
+      "editTitle": "Edit model",
       "id": "Model id",
       "displayName": "Display name",
       "family": "Family / variant group",
@@ -306,6 +318,8 @@
       }
     },
     "form": {
+      "createTitle": "New provider",
+      "editTitle": "Edit provider",
       "name": "Name",
       "kind": "Type",
       "baseUrl": "Base URL",
@@ -328,6 +342,13 @@
       "errors": {
         "required": "Name and base URL are required."
       }
+    },
+    "delete": {
+      "title": "Delete provider",
+      "body": "Delete \"{{name}}\" and all of its models? This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting"
     }
   },
   "skills": {
@@ -393,8 +414,14 @@
     "title": "Agents",
     "description": "A session agent is a personality for the chat: prompt, skills, and tools. Global agents live in ~/.k-agent/agents. Local agents live in .agents/agents under the workspace.",
     "context": {
+      "default": "Built-in",
       "global": "Global",
       "local": "Workspace"
+    },
+    "default": {
+      "description": "Built-in agents ship with the app. Enable or disable them in Chat settings.",
+      "viewTitle": "Built-in agent personality",
+      "close": "Close"
     },
     "empty": "No agents in this folder yet.",
     "emptyTab": "Launch the app with a workspace path to see local agents.",
@@ -411,6 +438,7 @@
       "create": "New agent",
       "edit": "Edit agent",
       "editPersonality": "Edit personality",
+      "viewPersonality": "View personality",
       "delete": "Delete agent"
     },
     "form": {
@@ -520,6 +548,18 @@
       "cancel": "Cancel",
       "confirm": "Delete",
       "deleting": "Deleting"
+    }
+  },
+  "builtinAgents": {
+    "build": {
+      "name": "Build",
+      "description": "Implements changes in the codebase.",
+      "personality": "You are the Build agent. Implement requested changes directly in the codebase. Prefer small, correct diffs. Run checks when useful. Ask only when blocked."
+    },
+    "plan": {
+      "name": "Plan",
+      "description": "Explores and plans without making changes.",
+      "personality": "You are the Plan agent. Explore the codebase, compare options, and propose a clear plan. Do not edit files or run shell commands."
     }
   },
   "chat": {

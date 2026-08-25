@@ -234,7 +234,7 @@ export const LspsPanel = ({ items, query }: LspsPanelProps): ReactNode => {
                     <td className="lsp-table__actions">
                       {row.installed ? (
                         <GlassButton
-                          variant="ghost"
+                          variant="danger"
                           disabled={!canUninstall || busy}
                           onClick={() => void uninstall(row.id)}
                         >
@@ -242,7 +242,7 @@ export const LspsPanel = ({ items, query }: LspsPanelProps): ReactNode => {
                         </GlassButton>
                       ) : (
                         <GlassButton
-                          variant="ghost"
+                          variant="primary"
                           disabled={!canInstall || busy}
                           title={
                             needsTools

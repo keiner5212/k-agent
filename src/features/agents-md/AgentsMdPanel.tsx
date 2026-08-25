@@ -164,7 +164,7 @@ const AgentsMdFileView = ({
           </>
         ) : (
           <GlassButton
-            variant="ghost"
+            variant="primary"
             className="skill-context__new"
             onClick={onCreate}
             aria-label={t("agentsMd.actions.create")}

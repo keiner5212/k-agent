@@ -209,7 +209,8 @@ button.change-bar__stat:focus-visible {
 }
 
 .sessions-sidebar__new {
-  width: 100%;
+  width: calc(100% - var(--space-4));
+  margin: 0 var(--space-2);
   justify-content: flex-start;
   flex-shrink: 0;
 }
@@ -865,7 +866,6 @@ button.change-bar__stat:focus-visible {
 :root[data-translucent="true"] .context-strip__chip,
 :root[data-translucent="true"] .change-bar__stat,
 :root[data-translucent="true"] .context-usage,
-:root[data-translucent="true"] .sessions-sidebar__new,
 :root[data-translucent="true"] .model-selector__popover {
   background-color: var(--frost-fill-muted);
 }

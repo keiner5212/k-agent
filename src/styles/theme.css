@@ -47,13 +47,15 @@
 
 :root[data-translucent="true"] .select,
 :root[data-translucent="true"] .input,
-:root[data-translucent="true"] .btn--ghost {
+:root[data-translucent="true"] .btn--ghost,
+:root[data-translucent="true"] .btn--secondary {
   background-color: color-mix(in oklch, var(--surface-elevated) 55%, transparent);
 }
 
 :root[data-translucent="true"] .select:hover,
 :root[data-translucent="true"] .input:hover,
-:root[data-translucent="true"] .btn--ghost:hover:not(:disabled) {
+:root[data-translucent="true"] .btn--ghost:hover:not(:disabled),
+:root[data-translucent="true"] .btn--secondary:hover:not(:disabled) {
   background-color: color-mix(in oklch, var(--surface-elevated) 70%, transparent);
 }
 
@@ -73,8 +75,24 @@
   background-color: color-mix(in oklch, var(--accent) 72%, transparent);
 }
 
+:root[data-translucent="true"] .btn--secondary {
+  color: var(--text-primary);
+  background-color: var(--frost-fill-muted);
+  border-color: var(--frost-border);
+}
+
+:root[data-translucent="true"] .btn--secondary:hover:not(:disabled) {
+  background-color: color-mix(in oklch, var(--surface-elevated) 70%, transparent);
+}
+
 :root[data-translucent="true"] .btn--danger {
-  background-color: var(--frost-fill-danger);
+  background-color: color-mix(in oklch, var(--danger) 78%, transparent);
+  color: var(--accent-fg);
+  border-color: color-mix(in oklch, var(--danger) 55%, transparent);
+}
+
+:root[data-translucent="true"] .btn--danger:hover:not(:disabled) {
+  background-color: color-mix(in oklch, var(--danger) 88%, transparent);
 }
 
 :root[data-translucent="true"] .toggle__track {

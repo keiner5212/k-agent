@@ -5,14 +5,10 @@ import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { highlightMatch } from "@/lib/highlight";
 import { useProvidersStore } from "@/lib/providers";
-import {
-  formatContextWindow,
-  type ModelDraft,
-  type ModelInfo,
-  type Provider,
-} from "@/types/providers";
-import { ModelForm } from "./ModelForm";
-import { ProviderForm } from "./ProviderForm";
+import { formatContextWindow, type ModelInfo, type Provider } from "@/types/providers";
+import { DeleteProviderDialog } from "./DeleteProviderDialog";
+import { ModelFormDialog } from "./ModelFormDialog";
+import { ProviderFormDialog } from "./ProviderFormDialog";
 
 type ProvidersPanelProps = {
   query: string;
@@ -173,29 +169,30 @@ const ModelRow = ({
   );
 };
 
+type ModelEditorState = {
+  providerId: string;
+  model?: ModelInfo;
+  familyPreset?: string;
+};
+
 const ProviderCard = ({
   provider,
   locale,
   onEdit,
   onRefresh,
   onDelete,
+  onEditModel,
 }: {
   provider: Provider;
   locale: string;
   onEdit: () => void;
   onRefresh: () => Promise<void>;
-  onDelete: () => Promise<void>;
+  onDelete: () => void;
+  onEditModel: (state: ModelEditorState) => void;
 }): ReactNode => {
   const { t } = useTranslation();
-  const upsertModel = useProvidersStore((state) => state.upsertModel);
-  const removeModel = useProvidersStore((state) => state.removeModel);
   const setFavorite = useProvidersStore((state) => state.setFavorite);
   const [refreshing, setRefreshing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [editor, setEditor] = useState<{
-    model?: ModelInfo;
-    familyPreset?: string;
-  } | null>(null);
 
   const handleRefresh = async (): Promise<void> => {
     setRefreshing(true);
@@ -203,15 +200,6 @@ const ProviderCard = ({
       await onRefresh();
     } finally {
       setRefreshing(false);
-    }
-  };
-
-  const handleDelete = async (): Promise<void> => {
-    setDeleting(true);
-    try {
-      await onDelete();
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -240,7 +228,7 @@ const ProviderCard = ({
           <IconButton
             label={t("providers.actions.refresh")}
             onClick={() => void handleRefresh()}
-            disabled={refreshing || deleting}
+            disabled={refreshing}
           >
             {refreshing ? (
               <Loader2 size={14} strokeWidth={1.5} className="spin" />
@@ -248,19 +236,11 @@ const ProviderCard = ({
               <RefreshCw size={14} strokeWidth={1.5} />
             )}
           </IconButton>
-          <IconButton label={t("providers.actions.edit")} onClick={onEdit} disabled={deleting}>
+          <IconButton label={t("providers.actions.edit")} onClick={onEdit}>
             <Pencil size={14} strokeWidth={1.5} />
           </IconButton>
-          <IconButton
-            label={t("providers.actions.delete")}
-            onClick={() => void handleDelete()}
-            disabled={refreshing || deleting}
-          >
-            {deleting ? (
-              <Loader2 size={14} strokeWidth={1.5} className="spin" />
-            ) : (
-              <Trash2 size={14} strokeWidth={1.5} />
-            )}
+          <IconButton label={t("providers.actions.delete")} onClick={onDelete}>
+            <Trash2 size={14} strokeWidth={1.5} />
           </IconButton>
         </div>
       </div>
@@ -269,36 +249,10 @@ const ProviderCard = ({
         <span>{t("providers.modelsCount", { count: provider.models.length })}</span>
         {synced ? <span className="provider-card__synced">{synced}</span> : null}
       </div>
-      <div className="provider-card__editor" hidden={editor === null}>
-        {editor ? (
-          <ModelForm
-            key={editor.model?.id ?? editor.familyPreset ?? "new"}
-            model={editor.model}
-            familyPreset={editor.familyPreset}
-            onCancel={() => setEditor(null)}
-            onSave={async (draft: ModelDraft) => {
-              const result = await upsertModel(provider.id, draft);
-              if (result.error) return result.error;
-              setEditor(null);
-              return undefined;
-            }}
-            onDelete={
-              editor.model
-                ? async () => {
-                    const result = await removeModel(provider.id, editor.model?.id ?? "");
-                    if (result.error) return result.error;
-                    setEditor(null);
-                    return undefined;
-                  }
-                : undefined
-            }
-          />
-        ) : null}
-      </div>
-      <details className="provider-card__models" hidden={editor !== null}>
+      <details className="provider-card__models">
         <summary>{t("providers.viewModels")}</summary>
         <div className="model-list-actions">
-          <GlassButton variant="ghost" onClick={() => setEditor({})}>
+          <GlassButton variant="primary" onClick={() => onEditModel({ providerId: provider.id })}>
             <Plus strokeWidth={1.5} />
             {t("providers.actions.addModel")}
           </GlassButton>
@@ -309,7 +263,7 @@ const ProviderCard = ({
               <ModelRow
                 key={model.id}
                 model={model}
-                onEdit={() => setEditor({ model })}
+                onEdit={() => onEditModel({ providerId: provider.id, model })}
                 onToggleFavorite={async () => {
                   await setFavorite(provider.id, model.id, !model.favorite);
                 }}
@@ -333,25 +287,16 @@ const ProvidersList = (): ReactNode => {
   const load = useProvidersStore((state) => state.load);
   const remove = useProvidersStore((state) => state.remove);
   const refresh = useProvidersStore((state) => state.refresh);
-  const [editing, setEditing] = useState<Provider | null>(null);
-  const [adding, setAdding] = useState(false);
+  const upsertModel = useProvidersStore((state) => state.upsertModel);
+  const removeModel = useProvidersStore((state) => state.removeModel);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<Provider | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Provider | null>(null);
+  const [modelEditor, setModelEditor] = useState<ModelEditorState | null>(null);
 
-  if (editing || adding) {
-    return (
-      <ProviderForm
-        draft={editing ?? undefined}
-        onCancel={() => {
-          setEditing(null);
-          setAdding(false);
-        }}
-        onSaved={() => {
-          setEditing(null);
-          setAdding(false);
-          void load();
-        }}
-      />
-    );
-  }
+  const editingProvider = modelEditor
+    ? providers.find((provider) => provider.id === modelEditor.providerId)
+    : undefined;
 
   return (
     <>
@@ -367,13 +312,12 @@ const ProvidersList = (): ReactNode => {
               key={provider.id}
               provider={provider}
               locale={i18n.language}
-              onEdit={() => setEditing(provider)}
+              onEdit={() => setEditTarget(provider)}
               onRefresh={async () => {
                 await refresh(provider.id);
               }}
-              onDelete={async () => {
-                await remove(provider.id);
-              }}
+              onDelete={() => setDeleteTarget(provider)}
+              onEditModel={setModelEditor}
             />
           ))}
         </ul>
@@ -387,11 +331,67 @@ const ProvidersList = (): ReactNode => {
       ) : null}
 
       <div className="provider-actions">
-        <GlassButton variant="primary" onClick={() => setAdding(true)} disabled={loading}>
+        <GlassButton variant="primary" onClick={() => setCreateOpen(true)} disabled={loading}>
           <Plus strokeWidth={1.5} />
           {t("providers.add")}
         </GlassButton>
       </div>
+
+      <ProviderFormDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSaved={() => void load()}
+      />
+
+      <ProviderFormDialog
+        open={editTarget !== null}
+        draft={editTarget ?? undefined}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null);
+        }}
+        onSaved={() => void load()}
+      />
+
+      <DeleteProviderDialog
+        open={deleteTarget !== null}
+        providerName={deleteTarget?.name ?? ""}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        onConfirm={async () => {
+          if (!deleteTarget) return "missing target";
+          const result = await remove(deleteTarget.id);
+          if (result.error) return result.error;
+          await load();
+          return undefined;
+        }}
+      />
+
+      <ModelFormDialog
+        open={modelEditor !== null}
+        model={modelEditor?.model}
+        familyPreset={modelEditor?.familyPreset}
+        onOpenChange={(open) => {
+          if (!open) setModelEditor(null);
+        }}
+        onSave={async (draft) => {
+          if (!modelEditor) return "missing provider";
+          const result = await upsertModel(modelEditor.providerId, draft);
+          if (result.error) return result.error;
+          await load();
+          return undefined;
+        }}
+        onDelete={
+          modelEditor?.model && editingProvider
+            ? async () => {
+                const result = await removeModel(editingProvider.id, modelEditor.model?.id ?? "");
+                if (result.error) return result.error;
+                await load();
+                return undefined;
+              }
+            : undefined
+        }
+      />
     </>
   );
 };

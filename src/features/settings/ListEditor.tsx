@@ -73,7 +73,7 @@ export const ListEditor = ({
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onInputKey}
         />
-        <GlassButton variant="ghost" onClick={appendDraft} disabled={draft.trim().length === 0}>
+        <GlassButton variant="primary" onClick={appendDraft} disabled={draft.trim().length === 0}>
           {addLabel}
         </GlassButton>
       </div>

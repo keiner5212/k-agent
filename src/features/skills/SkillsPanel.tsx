@@ -175,7 +175,7 @@ const SkillContextView = ({
           {context.path}
         </span>
         <GlassButton
-          variant="ghost"
+          variant="primary"
           className="skill-context__new"
           onClick={onCreate}
           aria-label={t("skills.actions.create")}

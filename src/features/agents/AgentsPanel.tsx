@@ -4,6 +4,7 @@ import { Folder, FileText, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react"
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { highlightMatch } from "@/lib/highlight";
+import { listAllBuiltinAgents } from "@/lib/builtin-agents";
 import { useAgentsStore } from "@/lib/agents";
 import { useSkillsStore } from "@/lib/skills";
 import { formatContextWindow } from "@/types/providers";
@@ -17,7 +18,7 @@ import { AgentFormDialog } from "./AgentFormDialog";
 import { AgentPersonalityDialog } from "./AgentPersonalityDialog";
 import { DeleteAgentDialog } from "./DeleteAgentDialog";
 
-type Tab = AgentContextKind;
+type Tab = "default" | AgentContextKind;
 
 type AgentsPanelProps = {
   query: string;
@@ -37,10 +38,11 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
   const skillContexts = useSkillsStore((state) => state.contexts);
   const loadSkills = useSkillsStore((state) => state.load);
 
-  const [tab, setTab] = useState<Tab>("global");
+  const [tab, setTab] = useState<Tab>("default");
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AgentMeta | null>(null);
   const [personalityTarget, setPersonalityTarget] = useState<AgentMeta | null>(null);
+  const [defaultViewTarget, setDefaultViewTarget] = useState<AgentMeta | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string } | null>(null);
 
   useEffect(() => {
@@ -51,9 +53,11 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
   const global = contexts.find((context) => context.kind === "global");
   const local = contexts.find((context) => context.kind === "local");
   const showLocal = Boolean(workspacePath) && Boolean(local);
-  const active = tab === "local" && showLocal ? local : global;
+  const builtinAgents = listAllBuiltinAgents(t);
+  const active = tab === "local" && showLocal ? local : tab === "global" ? global : undefined;
   const formKind: AgentContextKind = tab === "local" && showLocal ? "local" : "global";
   const tabs: Array<{ id: Tab; count: number; available: boolean }> = [
+    { id: "default", count: builtinAgents.length, available: true },
     { id: "global", count: global?.agents.length ?? 0, available: Boolean(global) },
     { id: "local", count: local?.agents.length ?? 0, available: showLocal },
   ];
@@ -89,7 +93,12 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
 
       <div className="skills-panel__tabs" role="tablist">
         {tabs.map((entry) => {
-          const labelKey = entry.id === "global" ? "agents.context.global" : "agents.context.local";
+          const labelKey =
+            entry.id === "default"
+              ? "agents.context.default"
+              : entry.id === "global"
+                ? "agents.context.global"
+                : "agents.context.local";
           const isActive = entry.id === tab;
           return (
             <button
@@ -111,7 +120,9 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
       </div>
 
       <div id="agents-panel-tab-panel" role="tabpanel" className="skills-panel__panel" key={tab}>
-        {active ? (
+        {tab === "default" ? (
+          <DefaultAgentsView agents={builtinAgents} onViewPersonality={setDefaultViewTarget} />
+        ) : active ? (
           <AgentContextView
             context={active}
             onCreate={() => setCreateOpen(true)}
@@ -178,6 +189,15 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
         }}
       />
 
+      <AgentPersonalityDialog
+        open={defaultViewTarget !== null}
+        agent={defaultViewTarget}
+        readOnly
+        onOpenChange={(open) => {
+          if (!open) setDefaultViewTarget(null);
+        }}
+      />
+
       <DeleteAgentDialog
         open={deleteTarget !== null}
         agentName={deleteTarget?.id ?? ""}
@@ -193,6 +213,54 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
         }}
       />
     </section>
+  );
+};
+
+type DefaultAgentsViewProps = {
+  agents: AgentMeta[];
+  onViewPersonality: (agent: AgentMeta) => void;
+};
+
+const DefaultAgentsView = ({ agents, onViewPersonality }: DefaultAgentsViewProps): ReactNode => {
+  const { t } = useTranslation();
+  return (
+    <article className="skill-context">
+      <p className="skill-context__hint">{t("agents.default.description")}</p>
+      <div className="skill-table-wrap">
+        <table className="skill-table">
+          <thead>
+            <tr>
+              <th>{t("agents.table.name")}</th>
+              <th>{t("agents.table.description")}</th>
+              <th>
+                <span className="visually-hidden">{t("agents.table.actions")}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {agents.map((agent) => (
+              <tr key={agent.id}>
+                <td className="skill-table__name">{agent.name}</td>
+                <td
+                  className="skill-table__desc"
+                  data-empty={agent.description.trim() ? undefined : "true"}
+                >
+                  {agent.description.trim() ? agent.description : t("agents.table.noDescription")}
+                </td>
+                <td className="skill-table__actions">
+                  <IconButton
+                    label={t("agents.actions.viewPersonality")}
+                    onClick={() => onViewPersonality(agent)}
+                  >
+                    <FileText size={12} strokeWidth={1.5} />
+                  </IconButton>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </article>
   );
 };
 
@@ -220,7 +288,7 @@ const AgentContextView = ({
           {context.path}
         </span>
         <GlassButton
-          variant="ghost"
+          variant="primary"
           className="skill-context__new"
           onClick={onCreate}
           aria-label={t("agents.actions.create")}

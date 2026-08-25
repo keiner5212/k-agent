@@ -61,6 +61,9 @@ export const DEFAULT_LSP_ENABLED = false;
 
 export const DEFAULT_SESSION_SIDEBAR_OPEN = true;
 
+export const DEFAULT_BUILD_AGENT_ENABLED = true;
+export const DEFAULT_PLAN_AGENT_ENABLED = true;
+
 export const hardwareThreadCount = (): number => {
   if (typeof navigator === "undefined") return 8;
   const n = navigator.hardwareConcurrency;
@@ -81,7 +84,13 @@ export const DEFAULT_WINDOW_BOUNDS: WindowBounds = {
 };
 
 export type KeybindingAction =
-  "settings.open" | "settings.close" | "sidebar.toggle" | "chat.clear" | "editor.save";
+  | "settings.open"
+  | "settings.close"
+  | "sidebar.toggle"
+  | "chat.clear"
+  | "editor.save"
+  | "editor.undo"
+  | "editor.redo";
 
 export type Keybindings = Record<KeybindingAction, string>;
 
@@ -91,6 +100,8 @@ export const DEFAULT_KEYBINDINGS: Keybindings = {
   "sidebar.toggle": "Ctrl+B",
   "chat.clear": "Alt+C",
   "editor.save": "Ctrl+S",
+  "editor.undo": "Ctrl+Z",
+  "editor.redo": "Ctrl+Shift+Z",
 };
 
 export type Settings = {
@@ -118,6 +129,8 @@ export type Settings = {
   lspEnabled: boolean;
   keybindings: Keybindings;
   sessionSidebarOpen: boolean;
+  buildAgentEnabled: boolean;
+  planAgentEnabled: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -145,4 +158,6 @@ export const DEFAULT_SETTINGS: Settings = {
   lspEnabled: DEFAULT_LSP_ENABLED,
   keybindings: DEFAULT_KEYBINDINGS,
   sessionSidebarOpen: DEFAULT_SESSION_SIDEBAR_OPEN,
+  buildAgentEnabled: DEFAULT_BUILD_AGENT_ENABLED,
+  planAgentEnabled: DEFAULT_PLAN_AGENT_ENABLED,
 };

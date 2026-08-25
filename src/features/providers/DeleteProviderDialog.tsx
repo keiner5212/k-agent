@@ -4,19 +4,19 @@ import { Loader2 } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 
-type DeleteSkillDialogProps = {
+type DeleteProviderDialogProps = {
   open: boolean;
-  skillName: string;
+  providerName: string;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => Promise<string | undefined>;
 };
 
-export const DeleteSkillDialog = ({
+export const DeleteProviderDialog = ({
   open,
-  skillName,
+  providerName,
   onOpenChange,
   onConfirm,
-}: DeleteSkillDialogProps): ReactNode => {
+}: DeleteProviderDialogProps): ReactNode => {
   const { t } = useTranslation();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,12 +37,12 @@ export const DeleteSkillDialog = ({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      titleKey="skills.delete.title"
+      titleKey="providers.delete.title"
       placement="center"
       size="narrow"
     >
       <div className="delete-skill">
-        <p className="delete-skill__body">{t("skills.delete.body", { name: skillName })}</p>
+        <p className="delete-skill__body">{t("providers.delete.body", { name: providerName })}</p>
         {error ? (
           <div className="form-error" role="alert">
             {error}
@@ -54,16 +54,16 @@ export const DeleteSkillDialog = ({
             onClick={() => onOpenChange(false)}
             disabled={submitting}
           >
-            {t("skills.delete.cancel")}
+            {t("providers.delete.cancel")}
           </GlassButton>
           <GlassButton variant="danger" onClick={() => void handleConfirm()} disabled={submitting}>
             {submitting ? (
               <>
                 <Loader2 size={14} strokeWidth={1.5} className="spin" />
-                <span>{t("skills.delete.deleting")}</span>
+                <span>{t("providers.delete.deleting")}</span>
               </>
             ) : (
-              <span>{t("skills.delete.confirm")}</span>
+              <span>{t("providers.delete.confirm")}</span>
             )}
           </GlassButton>
         </div>

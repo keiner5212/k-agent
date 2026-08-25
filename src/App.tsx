@@ -12,6 +12,7 @@ import { ChatComposer } from "@/features/chat/ChatComposer";
 import { ChatThread } from "@/features/chat/ChatThread";
 import { ContextStrip } from "@/features/chat/ContextStrip";
 import { EDITOR_SAVE_EVENT } from "@/lib/keybindings";
+import { closeTopDialog } from "@/lib/dialog-stack";
 import { useGlobalKeybindings } from "@/lib/use-global-keybindings";
 import { useSettingsStore } from "@/lib/settings";
 import { useComposerStore } from "@/lib/composer";
@@ -65,7 +66,7 @@ export const App = (): ReactNode => {
   const handleAction = useCallback(
     (action: KeybindingAction) => {
       if (action === "settings.open") setSettingsOpen(true);
-      else if (action === "settings.close") setSettingsOpen(false);
+      else if (action === "settings.close") closeTopDialog();
       else if (action === "sidebar.toggle")
         setSidebarOpen(!useSettingsStore.getState().sessionSidebarOpen);
       else if (action === "chat.clear") clearComposer();

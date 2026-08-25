@@ -140,7 +140,11 @@ const AgentFormBody = ({
       placement="center"
       footer={
         <>
-          <GlassButton variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
+          <GlassButton
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
             {t("agents.form.cancel")}
           </GlassButton>
           <GlassButton

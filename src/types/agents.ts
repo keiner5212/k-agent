@@ -1,4 +1,4 @@
-export type AgentContextKind = "global" | "local";
+export type AgentContextKind = "global" | "local" | "builtin";
 
 export const AGENT_TOOL_IDS = [
   "read_file",
@@ -56,7 +56,7 @@ export const parseAgentKey = (value: string): { kind: AgentContextKind; id: stri
   if (sep <= 0) return null;
   const kind = value.slice(0, sep);
   const id = value.slice(sep + 1);
-  if ((kind !== "global" && kind !== "local") || id.length === 0) return null;
+  if ((kind !== "global" && kind !== "local" && kind !== "builtin") || id.length === 0) return null;
   return { kind, id };
 };
 

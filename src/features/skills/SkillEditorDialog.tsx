@@ -139,14 +139,14 @@ const SkillEditorBody = ({ skillPath, onCancel, onSave }: SkillEditorBodyProps):
       </div>
       <div className="form-actions">
         <GlassButton
-          variant="ghost"
+          variant="secondary"
           onClick={handleRevert}
           disabled={submitting || !dirty || loading}
         >
           {t("skills.editor.revert")}
         </GlassButton>
         <GlassButton
-          variant="ghost"
+          variant="secondary"
           onClick={() => void handleSave()}
           disabled={submitting || loading || !dirty}
         >

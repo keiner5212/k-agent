@@ -115,6 +115,14 @@
       "label": "Guardar notas en la memoria del espacio de trabajo",
       "description": "Guarda anotaciones utiles del chat en archivos dentro del espacio de trabajo actual."
     },
+    "buildAgentEnabled": {
+      "label": "Agente Build",
+      "description": "Muestra el agente Build integrado en el chat. Puede editar archivos y ejecutar comandos."
+    },
+    "planAgentEnabled": {
+      "label": "Agente Plan",
+      "description": "Muestra el agente Plan integrado en el chat. Explora y planifica sin hacer cambios."
+    },
     "translucency": {
       "label": "Desactivar transparencia",
       "description": "Las superficies usan un desenfoque tipo cristal por defecto. Activa esto para superficies sólidas."
@@ -155,7 +163,7 @@
       "actions": {
         "settings": {
           "open": "Abrir ajustes",
-          "close": "Cerrar ajustes"
+          "close": "Cerrar modal superior"
         },
         "sidebar": {
           "toggle": "Mostrar u ocultar barra de sesiones"
@@ -164,7 +172,9 @@
           "clear": "Limpiar entrada del chat"
         },
         "editor": {
-          "save": "Guardar editor"
+          "save": "Guardar editor",
+          "undo": "Deshacer en editor",
+          "redo": "Rehacer en editor"
         }
       },
       "record": "Grabando",
@@ -288,6 +298,8 @@
       }
     },
     "modelForm": {
+      "createTitle": "Nuevo modelo",
+      "editTitle": "Editar modelo",
       "id": "Id del modelo",
       "displayName": "Nombre visible",
       "family": "Familia / grupo de variantes",
@@ -306,6 +318,8 @@
       }
     },
     "form": {
+      "createTitle": "Nuevo proveedor",
+      "editTitle": "Editar proveedor",
       "name": "Nombre",
       "kind": "Tipo",
       "baseUrl": "URL base",
@@ -328,6 +342,13 @@
       "errors": {
         "required": "Nombre y URL base son obligatorios."
       }
+    },
+    "delete": {
+      "title": "Eliminar proveedor",
+      "body": "Eliminar \"{{name}}\" y todos sus modelos? Esto no se puede deshacer.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar",
+      "deleting": "Eliminando"
     }
   },
   "skills": {
@@ -394,8 +415,14 @@
     "title": "Agentes",
     "description": "Un agente de sesión es una personalidad para el chat: prompt, habilidades y herramientas. Los globales viven en ~/.k-agent/agents. Los locales viven en .agents/agents del workspace.",
     "context": {
+      "default": "Integrados",
       "global": "Global",
       "local": "Workspace"
+    },
+    "default": {
+      "description": "Los agentes integrados vienen con la app. Activalos o desactivalos en ajustes de Chat.",
+      "viewTitle": "Personalidad del agente integrado",
+      "close": "Cerrar"
     },
     "empty": "Aún no hay agentes en esta carpeta.",
     "emptyTab": "Inicia la app con una ruta de workspace para ver agentes locales.",
@@ -412,6 +439,7 @@
       "create": "Nuevo agente",
       "edit": "Editar agente",
       "editPersonality": "Editar personalidad",
+      "viewPersonality": "Ver personalidad",
       "delete": "Eliminar agente"
     },
     "form": {
@@ -521,6 +549,18 @@
       "cancel": "Cancelar",
       "confirm": "Eliminar",
       "deleting": "Eliminando"
+    }
+  },
+  "builtinAgents": {
+    "build": {
+      "name": "Build",
+      "description": "Implementa cambios en el codigo.",
+      "personality": "Eres el agente Build. Implementa los cambios solicitados directamente en el codigo. Prefiere diffs pequenos y correctos. Ejecuta comprobaciones cuando ayuden. Pregunta solo cuando estes bloqueado."
+    },
+    "plan": {
+      "name": "Plan",
+      "description": "Explora y planifica sin hacer cambios.",
+      "personality": "Eres el agente Plan. Explora el codigo, compara opciones y propone un plan claro. No edites archivos ni ejecutes comandos de shell."
     }
   },
   "chat": {

@@ -16,7 +16,11 @@ export const SessionsSidebar = (): ReactNode => {
       <div className="sessions-sidebar__head">
         <span className="sessions-sidebar__title">{t("sessions.title")}</span>
       </div>
-      <GlassButton variant="ghost" className="sessions-sidebar__new" aria-label={t("sessions.new")}>
+      <GlassButton
+        variant="primary"
+        className="sessions-sidebar__new"
+        aria-label={t("sessions.new")}
+      >
         <MessageSquarePlus strokeWidth={1.5} />
         {t("sessions.new")}
       </GlassButton>

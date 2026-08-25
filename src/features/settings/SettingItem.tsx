@@ -50,6 +50,8 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
   const taskCompleteSoundEnabled = useSettingsStore((state) => state.taskCompleteSoundEnabled);
   const workspaceMemoryEnabled = useSettingsStore((state) => state.workspaceMemoryEnabled);
+  const buildAgentEnabled = useSettingsStore((state) => state.buildAgentEnabled);
+  const planAgentEnabled = useSettingsStore((state) => state.planAgentEnabled);
   const titleGenerationModel = useSettingsStore((state) => state.titleGenerationModel);
   const titleUseFirstMessage = useSettingsStore((state) => state.titleUseFirstMessage);
   const appGenerationModel = useSettingsStore((state) => state.appGenerationModel);
@@ -69,6 +71,8 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
     (state) => state.setTaskCompleteSoundEnabled,
   );
   const setWorkspaceMemoryEnabled = useSettingsStore((state) => state.setWorkspaceMemoryEnabled);
+  const setBuildAgentEnabled = useSettingsStore((state) => state.setBuildAgentEnabled);
+  const setPlanAgentEnabled = useSettingsStore((state) => state.setPlanAgentEnabled);
   const setTitleGenerationModel = useSettingsStore((state) => state.setTitleGenerationModel);
   const setTitleUseFirstMessage = useSettingsStore((state) => state.setTitleUseFirstMessage);
   const setAppGenerationModel = useSettingsStore((state) => state.setAppGenerationModel);
@@ -163,6 +167,8 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               notificationsEnabled,
               taskCompleteSoundEnabled,
               workspaceMemoryEnabled,
+              buildAgentEnabled,
+              planAgentEnabled,
               titleUseFirstMessage,
               lspEnabled,
             })}
@@ -176,6 +182,8 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setNotificationsEnabled,
                 setTaskCompleteSoundEnabled,
                 setWorkspaceMemoryEnabled,
+                setBuildAgentEnabled,
+                setPlanAgentEnabled,
                 setTitleUseFirstMessage,
                 setLspEnabled,
               })
@@ -190,7 +198,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
         ) : null}
 
         {item.type === "action" ? (
-          <GlassButton variant="ghost" onClick={() => runSettingAction(item.id)}>
+          <GlassButton variant="secondary" onClick={() => runSettingAction(item.id)}>
             {t("settings.debug.devtools.action")}
           </GlassButton>
         ) : null}
@@ -284,6 +292,8 @@ type ToggleState = {
   notificationsEnabled: boolean;
   taskCompleteSoundEnabled: boolean;
   workspaceMemoryEnabled: boolean;
+  buildAgentEnabled: boolean;
+  planAgentEnabled: boolean;
   titleUseFirstMessage: boolean;
   lspEnabled: boolean;
 };
@@ -389,6 +399,10 @@ const toggleChecked = (id: string, state: ToggleState): boolean => {
       return state.taskCompleteSoundEnabled;
     case "workspaceMemoryEnabled":
       return state.workspaceMemoryEnabled;
+    case "buildAgentEnabled":
+      return state.buildAgentEnabled;
+    case "planAgentEnabled":
+      return state.planAgentEnabled;
     case "titleUseFirstMessage":
       return state.titleUseFirstMessage;
     case "lspEnabled":
@@ -410,6 +424,8 @@ const onToggleChange = (
     setNotificationsEnabled: (v: boolean) => void;
     setTaskCompleteSoundEnabled: (v: boolean) => void;
     setWorkspaceMemoryEnabled: (v: boolean) => void;
+    setBuildAgentEnabled: (v: boolean) => void;
+    setPlanAgentEnabled: (v: boolean) => void;
     setTitleUseFirstMessage: (v: boolean) => void;
     setLspEnabled: (v: boolean) => void;
   },
@@ -438,6 +454,12 @@ const onToggleChange = (
       return;
     case "workspaceMemoryEnabled":
       setters.setWorkspaceMemoryEnabled(next);
+      return;
+    case "buildAgentEnabled":
+      setters.setBuildAgentEnabled(next);
+      return;
+    case "planAgentEnabled":
+      setters.setPlanAgentEnabled(next);
       return;
     case "titleUseFirstMessage":
       setters.setTitleUseFirstMessage(next);

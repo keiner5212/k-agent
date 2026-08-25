@@ -15,13 +15,15 @@ import {
 type AgentPersonalityDialogProps = {
   open: boolean;
   agent: AgentMeta | null;
+  readOnly?: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (personality: string) => Promise<string | undefined>;
+  onSave?: (personality: string) => Promise<string | undefined>;
 };
 
 export const AgentPersonalityDialog = ({
   open,
   agent,
+  readOnly = false,
   onOpenChange,
   onSave,
 }: AgentPersonalityDialogProps): ReactNode => {
@@ -29,7 +31,7 @@ export const AgentPersonalityDialog = ({
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      titleKey="agents.editor.title"
+      titleKey={readOnly ? "agents.default.viewTitle" : "agents.editor.title"}
       size="wide"
       surfaceStyle={{
         height: "calc(100vh - var(--titlebar-height) - var(--space-6))",
@@ -38,8 +40,9 @@ export const AgentPersonalityDialog = ({
     >
       {open && agent ? (
         <AgentPersonalityBody
-          key={agent.path}
+          key={agent.path || agent.id}
           agent={agent}
+          readOnly={readOnly}
           onCancel={() => onOpenChange(false)}
           onSave={onSave}
         />
@@ -50,12 +53,14 @@ export const AgentPersonalityDialog = ({
 
 type AgentPersonalityBodyProps = {
   agent: AgentMeta;
+  readOnly?: boolean;
   onCancel: () => void;
-  onSave: (personality: string) => Promise<string | undefined>;
+  onSave?: (personality: string) => Promise<string | undefined>;
 };
 
 const AgentPersonalityBody = ({
   agent,
+  readOnly = false,
   onCancel,
   onSave,
 }: AgentPersonalityBodyProps): ReactNode => {
@@ -67,6 +72,7 @@ const AgentPersonalityBody = ({
   const lines = personalityLineCount(content);
 
   const handleSave = useCallback(async (): Promise<boolean> => {
+    if (readOnly || !onSave) return true;
     if (submitting) return false;
     if (content === original) return true;
     setSubmitting(true);
@@ -79,7 +85,7 @@ const AgentPersonalityBody = ({
     }
     setOriginal(content);
     return true;
-  }, [submitting, content, original, onSave]);
+  }, [readOnly, onSave, submitting, content, original]);
 
   const handleDone = async (): Promise<void> => {
     const saved = await handleSave();
@@ -93,18 +99,21 @@ const AgentPersonalityBody = ({
   const dirty = content !== original;
 
   useEffect(() => {
+    if (readOnly) return;
     const onKeySave = (): void => {
       void handleSave();
     };
     window.addEventListener(EDITOR_SAVE_EVENT, onKeySave);
     return () => window.removeEventListener(EDITOR_SAVE_EVENT, onKeySave);
-  }, [handleSave]);
+  }, [handleSave, readOnly]);
 
   return (
     <div className="skill-editor">
-      <div className="skill-editor__path" title={agent.path}>
-        {agent.path}
-      </div>
+      {agent.path ? (
+        <div className="skill-editor__path" title={agent.path}>
+          {agent.path}
+        </div>
+      ) : null}
       {error ? (
         <div className="form-error" role="alert">
           {error}
@@ -114,6 +123,7 @@ const AgentPersonalityBody = ({
         value={content}
         onChange={(next) => setContent(clampPersonality(next))}
         maxLines={MAX_AGENT_PERSONALITY_LINES}
+        readOnly={readOnly}
       />
       <div className="skill-editor__meta">
         <span className="agent-form__count">
@@ -122,31 +132,41 @@ const AgentPersonalityBody = ({
             max: MAX_AGENT_PERSONALITY_LINES,
           })}
         </span>
-        <span className="skill-editor__dirty" data-dirty={dirty ? "true" : "false"}>
-          {dirty ? t("agents.editor.dirty") : t("agents.editor.clean")}
-        </span>
+        {!readOnly ? (
+          <span className="skill-editor__dirty" data-dirty={dirty ? "true" : "false"}>
+            {dirty ? t("agents.editor.dirty") : t("agents.editor.clean")}
+          </span>
+        ) : null}
       </div>
       <div className="form-actions">
-        <GlassButton variant="ghost" onClick={handleRevert} disabled={submitting || !dirty}>
-          {t("agents.editor.revert")}
-        </GlassButton>
-        <GlassButton
-          variant="ghost"
-          onClick={() => void handleSave()}
-          disabled={submitting || !dirty}
-        >
-          {submitting ? (
-            <>
-              <Loader2 size={14} strokeWidth={1.5} className="spin" />
-              <span>{t("agents.editor.saving")}</span>
-            </>
-          ) : (
-            <span>{t("agents.editor.save")}</span>
-          )}
-        </GlassButton>
-        <GlassButton variant="primary" onClick={() => void handleDone()} disabled={submitting}>
-          {t("agents.editor.done")}
-        </GlassButton>
+        {readOnly ? (
+          <GlassButton variant="secondary" onClick={onCancel}>
+            {t("agents.default.close")}
+          </GlassButton>
+        ) : (
+          <>
+            <GlassButton variant="secondary" onClick={handleRevert} disabled={submitting || !dirty}>
+              {t("agents.editor.revert")}
+            </GlassButton>
+            <GlassButton
+              variant="secondary"
+              onClick={() => void handleSave()}
+              disabled={submitting || !dirty}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 size={14} strokeWidth={1.5} className="spin" />
+                  <span>{t("agents.editor.saving")}</span>
+                </>
+              ) : (
+                <span>{t("agents.editor.save")}</span>
+              )}
+            </GlassButton>
+            <GlassButton variant="primary" onClick={() => void handleDone()} disabled={submitting}>
+              {t("agents.editor.done")}
+            </GlassButton>
+          </>
+        )}
       </div>
     </div>
   );

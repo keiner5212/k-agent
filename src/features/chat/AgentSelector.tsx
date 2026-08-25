@@ -1,8 +1,14 @@
 import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Select } from "@/components/Select";
+import {
+  builtinAgentKey,
+  listEnabledBuiltinAgents,
+  type BuiltinAgentId,
+} from "@/lib/builtin-agents";
 import { useAgentsStore } from "@/lib/agents";
 import { useComposerStore } from "@/lib/composer";
+import { useSettingsStore } from "@/lib/settings";
 import { agentKey } from "@/types/agents";
 
 export const AgentSelector = (): ReactNode => {
@@ -11,12 +17,19 @@ export const AgentSelector = (): ReactNode => {
   const setSelectedAgent = useComposerStore((state) => state.setSelectedAgent);
   const contexts = useAgentsStore((state) => state.contexts);
   const load = useAgentsStore((state) => state.load);
+  const buildAgentEnabled = useSettingsStore((state) => state.buildAgentEnabled);
+  const planAgentEnabled = useSettingsStore((state) => state.planAgentEnabled);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const options = contexts.flatMap((context) =>
+  const builtinAgents = listEnabledBuiltinAgents(t, {
+    build: buildAgentEnabled,
+    plan: planAgentEnabled,
+  });
+
+  const userOptions = contexts.flatMap((context) =>
     context.agents.map((agent) => ({
       value: agentKey(context.kind, agent.id),
       label: (
@@ -29,6 +42,18 @@ export const AgentSelector = (): ReactNode => {
       ),
     })),
   );
+
+  const builtinOptions = builtinAgents.map((agent) => ({
+    value: builtinAgentKey(agent.id as BuiltinAgentId),
+    label: (
+      <span className="agent-option">
+        <span className="agent-option__name">{agent.name}</span>
+        {agent.description ? <span className="agent-option__desc">{agent.description}</span> : null}
+      </span>
+    ),
+  }));
+
+  const options = [...builtinOptions, ...userOptions];
   const optionValues = options.map((option) => option.value).join("|");
 
   useEffect(() => {

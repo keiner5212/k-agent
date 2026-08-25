@@ -7,7 +7,9 @@ import {
   DEFAULT_ANIMATIONS_ENABLED,
   DEFAULT_FONT_FAMILY,
   DEFAULT_FORCE_RESPONSE_LANGUAGE,
+  DEFAULT_BUILD_AGENT_ENABLED,
   DEFAULT_LSP_ENABLED,
+  DEFAULT_PLAN_AGENT_ENABLED,
   DEFAULT_MAX_WORKER_CORES,
   DEFAULT_NOTIFICATIONS_ENABLED,
   DEFAULT_REMINDER_INTERVAL,
@@ -207,6 +209,8 @@ const sanitizeSettings = (raw: unknown): Settings => {
       obj.sessionSidebarOpen,
       DEFAULT_SETTINGS.sessionSidebarOpen,
     ),
+    buildAgentEnabled: sanitizeBoolean(obj.buildAgentEnabled, DEFAULT_BUILD_AGENT_ENABLED),
+    planAgentEnabled: sanitizeBoolean(obj.planAgentEnabled, DEFAULT_PLAN_AGENT_ENABLED),
   };
 };
 
@@ -237,6 +241,8 @@ type SettingsStore = Settings & {
   setLspEnabled: (enabled: boolean) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
   setSessionSidebarOpen: (open: boolean) => void;
+  setBuildAgentEnabled: (enabled: boolean) => void;
+  setPlanAgentEnabled: (enabled: boolean) => void;
   resetKeybindings: () => void;
   resetAll: () => void;
 };
@@ -339,6 +345,8 @@ const snapshot = (state: SettingsStore): Settings => ({
   lspEnabled: state.lspEnabled,
   keybindings: state.keybindings,
   sessionSidebarOpen: state.sessionSidebarOpen,
+  buildAgentEnabled: state.buildAgentEnabled,
+  planAgentEnabled: state.planAgentEnabled,
 });
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
@@ -501,6 +509,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setSessionSidebarOpen: (open) => {
     set({ sessionSidebarOpen: open });
+    void persist(snapshot(get()));
+  },
+
+  setBuildAgentEnabled: (enabled) => {
+    set({ buildAgentEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setPlanAgentEnabled: (enabled) => {
+    set({ planAgentEnabled: enabled });
     void persist(snapshot(get()));
   },
 

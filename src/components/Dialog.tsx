@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from "re
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "./IconButton";
+import { popDialog, pushDialog } from "@/lib/dialog-stack";
 
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -37,6 +38,13 @@ export const Dialog = ({
 
   useEffect(() => {
     if (!open) return;
+    const close = (): void => onOpenChange(false);
+    pushDialog(close);
+    return () => popDialog(close);
+  }, [open, onOpenChange]);
+
+  useEffect(() => {
+    if (!open) return;
     const previous = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -52,12 +60,6 @@ export const Dialog = ({
     focusables()[0]?.focus();
 
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") {
-        if (event.defaultPrevented) return;
-        event.preventDefault();
-        onOpenChange(false);
-        return;
-      }
       if (event.key !== "Tab" || !panel) return;
       const items = focusables();
       if (items.length === 0) return;
@@ -78,7 +80,7 @@ export const Dialog = ({
       document.body.style.overflow = previousOverflow;
       if (previous instanceof HTMLElement) previous.focus();
     };
-  }, [open, onOpenChange]);
+  }, [open]);
 
   if (!open || typeof document === "undefined") return null;
 

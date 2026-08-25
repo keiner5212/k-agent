@@ -1,6 +1,6 @@
 import { forwardRef, type ButtonHTMLAttributes, type MouseEvent } from "react";
 
-type GlassButtonVariant = "primary" | "ghost" | "danger";
+type GlassButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 type GlassButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: GlassButtonVariant;
@@ -8,6 +8,7 @@ type GlassButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variantClass: Record<GlassButtonVariant, string> = {
   primary: "btn--primary",
+  secondary: "btn--secondary",
   ghost: "btn--ghost",
   danger: "btn--danger",
 };

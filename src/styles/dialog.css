@@ -108,6 +108,11 @@
 .dialog-surface[data-placement="center"] .dialog-body {
   overflow-y: auto;
   overscroll-behavior: contain;
+  padding: var(--space-3);
+}
+
+.dialog-surface[data-placement="center"] .dialog-body .skill-form {
+  padding: 0;
 }
 
 @keyframes dialog-in-center {
@@ -125,7 +130,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: 0;
 }
 
 .about-dialog__version {

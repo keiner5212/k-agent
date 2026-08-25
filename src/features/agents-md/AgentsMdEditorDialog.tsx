@@ -128,11 +128,11 @@ const AgentsMdEditorBody = ({ file, onCancel, onSave }: AgentsMdEditorBodyProps)
         </span>
       </div>
       <div className="form-actions">
-        <GlassButton variant="ghost" onClick={handleRevert} disabled={submitting || !dirty}>
+        <GlassButton variant="secondary" onClick={handleRevert} disabled={submitting || !dirty}>
           {t("agentsMd.editor.revert")}
         </GlassButton>
         <GlassButton
-          variant="ghost"
+          variant="secondary"
           onClick={() => void handleSave()}
           disabled={submitting || (file.exists && !dirty)}
         >

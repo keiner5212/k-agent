@@ -49,10 +49,14 @@ export const DeleteAgentsMdDialog = ({
           </div>
         ) : null}
         <div className="form-actions">
-          <GlassButton variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
+          <GlassButton
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
             {t("agentsMd.delete.cancel")}
           </GlassButton>
-          <GlassButton variant="primary" onClick={() => void handleConfirm()} disabled={submitting}>
+          <GlassButton variant="danger" onClick={() => void handleConfirm()} disabled={submitting}>
             {submitting ? (
               <>
                 <Loader2 size={14} strokeWidth={1.5} className="spin" />

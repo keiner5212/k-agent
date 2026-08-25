@@ -162,27 +162,39 @@
   background-color: var(--accent-hover);
 }
 
+.btn--secondary {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background-color: var(--surface-elevated);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background-color: color-mix(in oklch, var(--surface-elevated) 88%, var(--text-primary));
+}
+
 .btn--ghost {
   color: var(--text-secondary);
   border-color: var(--border);
-  background-color: var(--surface-elevated);
+  background-color: color-mix(in oklch, var(--surface-elevated) 70%, transparent);
 }
 
 .btn--ghost:hover:not(:disabled) {
   color: var(--text-primary);
   border-color: var(--border-strong);
-  background-color: var(--background);
+  background-color: var(--surface-elevated);
 }
 
 .btn--danger {
-  color: var(--danger);
-  border-color: color-mix(in oklch, var(--danger) 35%, transparent);
-  background-color: color-mix(in oklch, var(--danger) 8%, transparent);
+  color: var(--accent-fg);
+  border-color: color-mix(in oklch, var(--danger) 70%, transparent);
+  background-color: var(--danger);
 }
 
 .btn--danger:hover:not(:disabled) {
-  background-color: color-mix(in oklch, var(--danger) 14%, transparent);
-  border-color: color-mix(in oklch, var(--danger) 55%, transparent);
+  background-color: color-mix(in oklch, var(--danger) 88%, white);
+  border-color: color-mix(in oklch, var(--danger) 80%, transparent);
 }
 
 /* ========== Toggle ========== */
