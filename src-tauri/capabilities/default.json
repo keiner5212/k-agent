@@ -27,6 +27,7 @@
     "allow-window-start-resize",
     "allow-window-start-drag",
     "allow-window-open-devtools",
+    "allow-list-system-fonts",
     "allow-list-skills",
     "allow-read-skill-meta",
     "allow-read-skill-file",

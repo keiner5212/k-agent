@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
@@ -7,6 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@/lib/platform";
 import { highlightMatch } from "@/lib/highlight";
 import { useSettingsStore } from "@/lib/settings";
+import { listSystemFonts } from "@/lib/system-fonts";
 import {
   FONT_FAMILY_OPTIONS,
   SUPPORTED_LANGUAGES,
@@ -45,6 +46,18 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
   const setMinimizeToTray = useSettingsStore((state) => state.setMinimizeToTray);
   const setRememberWindowSize = useSettingsStore((state) => state.setRememberWindowSize);
+  const [systemFonts, setSystemFonts] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (item.id !== "fontFamily") return;
+    let cancelled = false;
+    void listSystemFonts().then((names) => {
+      if (!cancelled) setSystemFonts(names);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.id]);
 
   const titleText = t(item.titleKey);
   const descriptionText = t(item.descriptionKey);
@@ -75,7 +88,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setMaxWorkerCores,
               })
             }
-            options={selectOptions(item, t)}
+            options={selectOptions(item, t, { systemFonts, fontFamily })}
           />
         ) : null}
 
@@ -124,7 +137,8 @@ type CoresState = { maxWorkerCores: number };
 const selectOptions = (
   item: SettingItemDef,
   t: (key: string) => string,
-): { value: string; label: string }[] => {
+  extras: { systemFonts: string[]; fontFamily: string },
+): { value: string; label: ReactNode }[] => {
   if (item.id === "maxWorkerCores") {
     const options = [{ value: "0", label: t("settings.maxWorkerCores.options.auto") }];
     const max = hardwareThreadCount();
@@ -133,10 +147,39 @@ const selectOptions = (
     }
     return options;
   }
+  if (item.id === "fontFamily") {
+    return fontFamilyOptions(t, extras.systemFonts, extras.fontFamily);
+  }
   return (item.options ?? []).map((option) => ({
     value: option.value,
     label: t(option.labelKey),
   }));
+};
+
+const fontFamilyOptions = (
+  t: (key: string) => string,
+  systemFonts: string[],
+  current: string,
+): { value: string; label: ReactNode }[] => {
+  const presetValues = new Set<string>(FONT_FAMILY_OPTIONS);
+  const options: { value: string; label: ReactNode }[] = FONT_FAMILY_OPTIONS.map((value) => ({
+    value,
+    label: t(`settings.fontFamily.options.${value}`),
+  }));
+  for (const name of systemFonts) {
+    if (presetValues.has(name)) continue;
+    options.push({
+      value: name,
+      label: <span style={{ fontFamily: `"${name}", sans-serif` }}>{name}</span>,
+    });
+  }
+  if (current.length > 0 && !options.some((option) => option.value === current)) {
+    options.push({
+      value: current,
+      label: <span style={{ fontFamily: `"${current}", sans-serif` }}>{current}</span>,
+    });
+  }
+  return options;
 };
 
 type ToggleState = {
@@ -201,9 +244,7 @@ const onSelectChange = (
       setters.setTextScale(Number(next) as TextScale);
       return;
     case "fontFamily":
-      if ((FONT_FAMILY_OPTIONS as readonly string[]).includes(next)) {
-        setters.setFontFamily(next as AppFontFamily);
-      }
+      setters.setFontFamily(next);
       return;
     case "maxWorkerCores":
       setters.setMaxWorkerCores(Number(next));

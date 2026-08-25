@@ -70,7 +70,7 @@
     },
     "fontFamily": {
       "label": "Font",
-      "description": "Choose the interface typeface. Code blocks stay monospace.",
+      "description": "Choose the interface typeface from fonts installed on this system. Code blocks stay monospace.",
       "options": {
         "system": "System",
         "humanist": "Humanist",

@@ -9,7 +9,7 @@ pub const WORKSPACE_AGENTS_DIR: &str = ".agents";
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 use tauri::{
@@ -137,6 +137,34 @@ fn window_start_drag(window: tauri::Window) -> Result<(), String> {
 #[tauri::command]
 fn window_open_devtools(window: tauri::WebviewWindow) {
     window.open_devtools();
+}
+
+static SYSTEM_FONTS: OnceLock<Vec<String>> = OnceLock::new();
+
+fn collect_system_font_families() -> Vec<String> {
+    let mut db = fontdb::Database::new();
+    db.load_system_fonts();
+    let mut names: Vec<String> = db
+        .faces()
+        .filter_map(|face| {
+            let (name, _) = face.families.first()?;
+            let trimmed = name.trim();
+            if trimmed.is_empty() || trimmed.starts_with('.') {
+                return None;
+            }
+            Some(trimmed.to_string())
+        })
+        .collect();
+    names.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    names.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+    names
+}
+
+#[tauri::command]
+async fn list_system_fonts() -> Result<Vec<String>, String> {
+    tokio::task::spawn_blocking(|| SYSTEM_FONTS.get_or_init(collect_system_font_families).clone())
+        .await
+        .map_err(|error| error.to_string())
 }
 
 fn toggle_window_visibility(app: &tauri::AppHandle) {
@@ -311,6 +339,7 @@ pub fn run() {
             window_start_resize,
             window_start_drag,
             window_open_devtools,
+            list_system_fonts,
             get_workspace_path,
             set_workspace_path,
             repo::get_repo_info,

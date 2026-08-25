@@ -16,15 +16,9 @@ export const TEXT_SCALE_OPTIONS: readonly TextScale[] = [
 
 export const DEFAULT_TEXT_SCALE: TextScale = 1;
 
-export type AppFontFamily = "system" | "humanist" | "geometric" | "serif" | "mono";
+export type AppFontFamily = string;
 
-export const FONT_FAMILY_OPTIONS: readonly AppFontFamily[] = [
-  "system",
-  "humanist",
-  "geometric",
-  "serif",
-  "mono",
-] as const;
+export const FONT_FAMILY_OPTIONS = ["system", "humanist", "geometric", "serif", "mono"] as const;
 
 export const DEFAULT_FONT_FAMILY: AppFontFamily = "system";
 

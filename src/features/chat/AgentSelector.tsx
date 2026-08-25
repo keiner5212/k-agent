@@ -20,6 +20,7 @@ export const AgentSelector = (): ReactNode => {
           label: t(`chat.agent.options.${mode}`),
         }))}
         ariaLabel={t("chat.agent.label")}
+        placement="up"
       />
     </div>
   );

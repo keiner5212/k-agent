@@ -14,6 +14,8 @@ type SelectOption = {
   label: ReactNode;
 };
 
+type SelectPlacement = "auto" | "up" | "down";
+
 type SelectProps = {
   value: string;
   onChange: (next: string) => void;
@@ -22,6 +24,7 @@ type SelectProps = {
   ariaLabel?: string;
   id?: string;
   disabled?: boolean;
+  placement?: SelectPlacement;
 };
 
 type MenuPos = {
@@ -29,25 +32,40 @@ type MenuPos = {
   bottom?: number;
   left: number;
   width: number;
+  maxHeight: number;
+  placement: "up" | "down";
 };
 
-const MENU_MAX_HEIGHT = 320;
+const MENU_MAX_HEIGHT = 240;
+const MENU_MIN_HEIGHT = 48;
 const MENU_GAP = 4;
+const VIEW_PAD = 8;
 
-const menuPosFromRect = (rect: DOMRect): MenuPos => {
+const menuPosFromRect = (rect: DOMRect, placement: SelectPlacement): MenuPos => {
   const width = rect.width;
-  const left = Math.min(rect.left, Math.max(8, window.innerWidth - width - 8));
-  const spaceBelow = window.innerHeight - rect.bottom - 8;
-  const openUp = spaceBelow < 160 && rect.top > spaceBelow;
+  const left = Math.min(rect.left, Math.max(VIEW_PAD, window.innerWidth - width - VIEW_PAD));
+  const spaceBelow = window.innerHeight - rect.bottom - VIEW_PAD;
+  const spaceAbove = rect.top - VIEW_PAD;
+  const openUp =
+    placement === "up" || (placement === "auto" && spaceBelow < 160 && spaceAbove > spaceBelow);
+  const available = (openUp ? spaceAbove : spaceBelow) - MENU_GAP;
+  const maxHeight = Math.max(MENU_MIN_HEIGHT, Math.min(MENU_MAX_HEIGHT, available));
   if (openUp) {
     return {
       bottom: window.innerHeight - rect.top + MENU_GAP,
       left,
       width,
+      maxHeight,
+      placement: "up",
     };
   }
-  const maxTop = window.innerHeight - Math.min(MENU_MAX_HEIGHT, Math.max(spaceBelow, 0)) - 8;
-  return { top: Math.min(rect.bottom + MENU_GAP, maxTop), left, width };
+  return {
+    top: rect.bottom + MENU_GAP,
+    left,
+    width,
+    maxHeight,
+    placement: "down",
+  };
 };
 
 export const Select = ({
@@ -58,10 +76,12 @@ export const Select = ({
   ariaLabel,
   id,
   disabled,
+  placement = "auto",
 }: SelectProps): ReactNode => {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null);
   const [activeIndex, setActiveIndex] = useState(() =>
@@ -82,7 +102,7 @@ export const Select = ({
     if (disabled) return;
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setMenuPos(menuPosFromRect(rect));
+    setMenuPos(menuPosFromRect(rect, placement));
     setActiveIndex(
       Math.max(
         0,
@@ -106,7 +126,7 @@ export const Select = ({
     const onReposition = (): void => {
       const rect = triggerRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setMenuPos(menuPosFromRect(rect));
+      setMenuPos(menuPosFromRect(rect, placement));
     };
 
     const onKey = (event: globalThis.KeyboardEvent): void => {
@@ -127,7 +147,13 @@ export const Select = ({
       window.removeEventListener("resize", onReposition);
       window.removeEventListener("scroll", onReposition, true);
     };
-  }, [open, listId]);
+  }, [open, listId, placement]);
+
+  useEffect(() => {
+    if (!open) return;
+    const item = menuRef.current?.querySelector<HTMLElement>('[data-active="true"]');
+    item?.scrollIntoView({ block: "nearest" });
+  }, [open, activeIndex]);
 
   const choose = (next: string): void => {
     onChange(next);
@@ -135,7 +161,12 @@ export const Select = ({
   };
 
   const onTriggerKey = (event: ReactKeyboardEvent<HTMLButtonElement>): void => {
-    if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+    if (
+      event.key === "ArrowDown" ||
+      event.key === "ArrowUp" ||
+      event.key === "Enter" ||
+      event.key === " "
+    ) {
       event.preventDefault();
       openMenu();
     }
@@ -193,14 +224,17 @@ export const Select = ({
               className="select-menu"
               role="listbox"
               tabIndex={-1}
+              data-placement={menuPos.placement}
               style={{
                 top: menuPos.top,
                 bottom: menuPos.bottom,
                 left: menuPos.left,
                 width: menuPos.width,
+                maxHeight: menuPos.maxHeight,
               }}
               onKeyDown={onListKey}
               ref={(node) => {
+                menuRef.current = node;
                 node?.focus();
               }}
             >

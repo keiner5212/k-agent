@@ -35,6 +35,7 @@ export const EffortSelector = (): ReactNode => {
         onChange={(next) => setEffort(next)}
         options={effortLevels.map((level) => ({ value: level, label: level }))}
         ariaLabel={t("chat.effort.label")}
+        placement="up"
       />
     </div>
   );

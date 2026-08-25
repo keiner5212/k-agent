@@ -20,6 +20,7 @@ permissions = [
   "allow-window-start-resize",
   "allow-window-start-drag",
   "allow-window-open-devtools",
+  "allow-list-system-fonts",
   "allow-list-skills",
   "allow-read-skill-meta",
   "allow-read-skill-file",
@@ -126,6 +127,11 @@ commands.allow = ["window_start_drag"]
 identifier = "allow-window-open-devtools"
 description = "Open the webview developer tools."
 commands.allow = ["window_open_devtools"]
+
+[[permission]]
+identifier = "allow-list-system-fonts"
+description = "List font families installed on this system."
+commands.allow = ["list_system_fonts"]
 
 [[permission]]
 identifier = "allow-list-skills"

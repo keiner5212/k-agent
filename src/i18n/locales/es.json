@@ -70,7 +70,7 @@
     },
     "fontFamily": {
       "label": "Fuente",
-      "description": "Elige la tipografia de la interfaz. Los bloques de codigo siguen en monoespaciada.",
+      "description": "Elige la tipografia de la interfaz entre las fuentes instaladas en este sistema. Los bloques de codigo siguen en monoespaciada.",
       "options": {
         "system": "Sistema",
         "humanist": "Humanista",

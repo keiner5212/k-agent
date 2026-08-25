@@ -46,10 +46,16 @@ const sanitizeTextScale = (value: unknown): TextScale => {
   return match ?? DEFAULT_TEXT_SCALE;
 };
 
-const sanitizeFontFamily = (value: unknown): AppFontFamily =>
-  typeof value === "string" && (FONT_FAMILY_OPTIONS as readonly string[]).includes(value)
-    ? (value as AppFontFamily)
-    : DEFAULT_FONT_FAMILY;
+const FONT_FAMILY_MAX = 80;
+const UNSAFE_FONT = /[;{}<>'"\\\n\r]/;
+
+const sanitizeFontFamily = (value: unknown): AppFontFamily => {
+  if (typeof value !== "string") return DEFAULT_FONT_FAMILY;
+  const name = value.trim();
+  if (name.length === 0 || name.length > FONT_FAMILY_MAX) return DEFAULT_FONT_FAMILY;
+  if (UNSAFE_FONT.test(name)) return DEFAULT_FONT_FAMILY;
+  return name;
+};
 
 const sanitizeWindowBounds = (value: unknown): WindowBounds => {
   if (!value || typeof value !== "object") return DEFAULT_WINDOW_BOUNDS;
@@ -171,9 +177,19 @@ const applyTextScale = (scale: TextScale): void => {
   document.documentElement.style.setProperty("--text-scale", String(scale));
 };
 
+const SYSTEM_SANS_STACK =
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+
 const applyFontFamily = (family: AppFontFamily): void => {
   if (typeof document === "undefined") return;
-  document.documentElement.dataset.font = family;
+  const root = document.documentElement;
+  if ((FONT_FAMILY_OPTIONS as readonly string[]).includes(family)) {
+    root.dataset.font = family;
+    root.style.removeProperty("--font-sans");
+    return;
+  }
+  root.dataset.font = "custom";
+  root.style.setProperty("--font-sans", `"${family}", ${SYSTEM_SANS_STACK}`);
 };
 
 const systemPrefersReducedMotion = (): boolean => {
