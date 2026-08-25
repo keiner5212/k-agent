@@ -1,5 +1,6 @@
 /** Add a JobName + handleJob case for new heavy work. Do not run it on the UI thread. */
-export type JobName = "listSkills" | "listAgents" | "listSystemFonts" | "estimateTokens";
+export type JobName =
+  "listSkills" | "listAgents" | "listAgentsMd" | "listSystemFonts" | "estimateTokens";
 
 export type ListBundle<T> = {
   contexts: T[];
@@ -44,6 +45,13 @@ export const handleJob = async (name: JobName, payload: unknown, host: Host): Pr
     case "listAgents": {
       const [contexts, workspacePath] = await Promise.all([
         host.invoke("list_agents"),
+        host.invoke("get_workspace_path"),
+      ]);
+      return { contexts, workspacePath };
+    }
+    case "listAgentsMd": {
+      const [contexts, workspacePath] = await Promise.all([
+        host.invoke("list_agents_md"),
         host.invoke("get_workspace_path"),
       ]);
       return { contexts, workspacePath };

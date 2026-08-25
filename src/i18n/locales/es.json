@@ -33,6 +33,7 @@
       "providers": "Proveedores",
       "skills": "Habilidades",
       "agents": "Agentes",
+      "agentsMd": "AGENTS.md",
       "keybindings": "Atajos de teclado",
       "debug": "Depuracion"
     },
@@ -381,6 +382,22 @@
       "cancel": "Cancelar",
       "confirm": "Eliminar",
       "deleting": "Eliminando"
+    }
+  },
+  "agentsMd": {
+    "title": "AGENTS.md",
+    "description": "Archivos de instrucciones del agente de codigo. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md en la raiz del workspace. Solo deteccion; esta app no los crea.",
+    "context": {
+      "global": "Global",
+      "local": "Workspace"
+    },
+    "empty": "No hay AGENTS.md en esta ruta.",
+    "emptyTab": "Inicia la app con una ruta de workspace para ver el AGENTS.md del workspace.",
+    "detected": "Detectado",
+    "missing": "No detectado",
+    "tokens": "~{{value}}",
+    "actions": {
+      "refresh": "Actualizar AGENTS.md"
     }
   },
   "chat": {

@@ -471,6 +471,26 @@
   margin: 0;
 }
 
+.agents-md__body {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-2);
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
 :root[data-translucent="true"] .skill-context,
 :root[data-translucent="true"] .skill-row,
 :root[data-translucent="true"] .skill-context__count {

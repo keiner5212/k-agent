@@ -36,6 +36,7 @@
     "allow-update-skill-content",
     "allow-delete-skill",
     "allow-list-agents",
+    "allow-list-agents-md",
     "allow-read-agent-meta",
     "allow-create-agent",
     "allow-update-agent",

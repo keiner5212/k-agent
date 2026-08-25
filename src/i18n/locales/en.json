@@ -33,6 +33,7 @@
       "providers": "Providers",
       "skills": "Skills",
       "agents": "Agents",
+      "agentsMd": "AGENTS.md",
       "keybindings": "Keybindings",
       "debug": "Debug"
     },
@@ -380,6 +381,22 @@
       "cancel": "Cancel",
       "confirm": "Delete",
       "deleting": "Deleting"
+    }
+  },
+  "agentsMd": {
+    "title": "AGENTS.md",
+    "description": "Instruction files for the coding agent. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md at the workspace root. Detection only; this app does not create them.",
+    "context": {
+      "global": "Global",
+      "local": "Workspace"
+    },
+    "empty": "No AGENTS.md at this path.",
+    "emptyTab": "Launch the app with a workspace path to see the workspace AGENTS.md.",
+    "detected": "Detected",
+    "missing": "Not detected",
+    "tokens": "~{{value}}",
+    "actions": {
+      "refresh": "Refresh AGENTS.md"
     }
   },
   "chat": {

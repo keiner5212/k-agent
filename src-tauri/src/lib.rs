@@ -1,4 +1,5 @@
 mod agents;
+mod agents_md;
 mod catalog;
 mod providers;
 mod repo;
@@ -364,6 +365,7 @@ pub fn run() {
             agents::create_agent,
             agents::update_agent,
             agents::delete_agent,
+            agents_md::list_agents_md,
         ])
         .setup(|app| {
             if let Ok(home) = app.path().home_dir() {

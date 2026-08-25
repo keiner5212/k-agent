@@ -89,10 +89,12 @@ App data dir:
 - `providers.json` (no API keys)
 - `models-dev-cache.json` (24h TTL)
 - `skills/` global skills. Created on first global skill create.
-- `agents/` session agents (OpenCode-style personas: `{name}/persona.md`). Not AGENT.md. Created on first global agent create.
+- `agents/` session agents (OpenCode-style personas: `{name}/persona.md`). Not AGENTS.md. Created on first global agent create.
+- `AGENTS.md` optional global instruction file. Detected only; list never creates it.
 
 Workspace `{workspace}/.agents/skills/`: local skills. Created on first local skill create.
-Workspace `{workspace}/.agents/agents/`: local session agents (`persona.md`). Created on first local agent create. Do not scan `.k-agent` inside a workspace. AGENT.md workspace instruction files are not implemented yet; do not store session agents as AGENT.md.
+Workspace `{workspace}/.agents/agents/`: local session agents (`persona.md`). Created on first local agent create. Do not scan `.k-agent` inside a workspace.
+Workspace `{workspace}/AGENTS.md`: optional workspace instruction file (fallback `agents.md`). Detected only; list never creates it. Session agents are not stored as AGENTS.md.
 
 Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then bundled overlay. User-edited / custom models are not overwritten.
 

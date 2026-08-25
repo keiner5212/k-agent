@@ -29,6 +29,7 @@ permissions = [
   "allow-update-skill-content",
   "allow-delete-skill",
   "allow-list-agents",
+  "allow-list-agents-md",
   "allow-read-agent-meta",
   "allow-create-agent",
   "allow-update-agent",
@@ -177,6 +178,11 @@ commands.allow = ["delete_skill"]
 identifier = "allow-list-agents"
 description = "List global and workspace agents."
 commands.allow = ["list_agents"]
+
+[[permission]]
+identifier = "allow-list-agents-md"
+description = "Detect and read global and workspace AGENTS.md files."
+commands.allow = ["list_agents_md"]
 
 [[permission]]
 identifier = "allow-read-agent-meta"

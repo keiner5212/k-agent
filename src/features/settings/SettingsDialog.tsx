@@ -1,12 +1,13 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Bug, Bot, Keyboard, Plug, Sliders, Sparkles } from "lucide-react";
+import { Bug, Bot, Keyboard, Plug, ScrollText, Sliders, Sparkles } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { highlightMatch } from "@/lib/highlight";
 import { ProvidersPanel } from "@/features/providers/ProvidersPanel";
 import { SkillsPanel } from "@/features/skills/SkillsPanel";
 import { AgentsPanel } from "@/features/agents/AgentsPanel";
+import { AgentsMdPanel } from "@/features/agents-md/AgentsMdPanel";
 import { SETTINGS_REGISTRY } from "./registry-data";
 import { SettingItem } from "./SettingItem";
 import { KeybindingField } from "./KeybindingField";
@@ -26,6 +27,7 @@ const SECTION_ICONS: Record<SettingsSectionDef["id"], typeof Sliders> = {
   providers: Plug,
   skills: Sparkles,
   agents: Bot,
+  agentsMd: ScrollText,
   keybindings: Keyboard,
   debug: Bug,
 };
@@ -152,6 +154,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
               <SkillsPanel query={query.trim()} />
             ) : resolvedTab === "agents" ? (
               <AgentsPanel query={query.trim()} />
+            ) : resolvedTab === "agentsMd" ? (
+              <AgentsMdPanel query={query.trim()} />
             ) : resolvedTab === "keybindings" ? (
               <KeybindingsPanel items={activeSection?.items ?? []} query={trimmed} />
             ) : (

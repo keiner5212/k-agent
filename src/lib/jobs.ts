@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { handleJob, type Host, type JobName, type ListBundle } from "./jobs-handlers";
 import { isTauri } from "./platform";
 import type { AgentContext } from "@/types/agents";
+import type { AgentsMdFile } from "@/types/agents-md";
 import type { SkillContext } from "@/types/skills";
 
 type JobResultMessage = {
@@ -94,6 +95,8 @@ export const runJob = async <T>(name: JobName, payload?: unknown): Promise<T> =>
 export const runListSkillsJob = (): Promise<ListBundle<SkillContext>> => runJob("listSkills");
 
 export const runListAgentsJob = (): Promise<ListBundle<AgentContext>> => runJob("listAgents");
+
+export const runListAgentsMdJob = (): Promise<ListBundle<AgentsMdFile>> => runJob("listAgentsMd");
 
 export const runListSystemFontsJob = (): Promise<string[]> => runJob("listSystemFonts");
 
