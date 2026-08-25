@@ -8,8 +8,10 @@ import { isTauri } from "@/lib/platform";
 import { highlightMatch } from "@/lib/highlight";
 import { useSettingsStore } from "@/lib/settings";
 import {
+  FONT_FAMILY_OPTIONS,
   SUPPORTED_LANGUAGES,
   hardwareThreadCount,
+  type AppFontFamily,
   type AppLanguage,
   type AppTheme,
   type KeybindingAction,
@@ -28,6 +30,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const language = useSettingsStore((state) => state.language);
   const theme = useSettingsStore((state) => state.theme);
   const textScale = useSettingsStore((state) => state.textScale);
+  const fontFamily = useSettingsStore((state) => state.fontFamily);
   const translucencyEnabled = useSettingsStore((state) => state.translucencyEnabled);
   const animationsEnabled = useSettingsStore((state) => state.animationsEnabled);
   const minimizeToTray = useSettingsStore((state) => state.minimizeToTray);
@@ -36,6 +39,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const setTextScale = useSettingsStore((state) => state.setTextScale);
+  const setFontFamily = useSettingsStore((state) => state.setFontFamily);
   const setMaxWorkerCores = useSettingsStore((state) => state.setMaxWorkerCores);
   const setTranslucencyEnabled = useSettingsStore((state) => state.setTranslucencyEnabled);
   const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
@@ -59,6 +63,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               language,
               theme,
               textScale,
+              fontFamily,
               maxWorkerCores,
             })}
             onChange={(next) =>
@@ -66,6 +71,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setLanguage,
                 setTheme,
                 setTextScale,
+                setFontFamily,
                 setMaxWorkerCores,
               })
             }
@@ -112,6 +118,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
 type LangState = { language: AppLanguage };
 type ThemeState = { theme: AppTheme };
 type ScaleState = { textScale: TextScale };
+type FontState = { fontFamily: AppFontFamily };
 type CoresState = { maxWorkerCores: number };
 
 const selectOptions = (
@@ -152,7 +159,7 @@ const runSettingAction = (id: string): void => {
 
 const selectValue = (
   id: string,
-  state: LangState & ThemeState & ScaleState & CoresState,
+  state: LangState & ThemeState & ScaleState & FontState & CoresState,
 ): string => {
   switch (id) {
     case "language":
@@ -161,6 +168,8 @@ const selectValue = (
       return state.theme;
     case "textScale":
       return String(state.textScale);
+    case "fontFamily":
+      return state.fontFamily;
     case "maxWorkerCores":
       return String(state.maxWorkerCores);
     default:
@@ -175,6 +184,7 @@ const onSelectChange = (
     setLanguage: (l: AppLanguage) => void;
     setTheme: (t: AppTheme) => void;
     setTextScale: (s: TextScale) => void;
+    setFontFamily: (f: AppFontFamily) => void;
     setMaxWorkerCores: (n: number) => void;
   },
 ): void => {
@@ -189,6 +199,11 @@ const onSelectChange = (
       return;
     case "textScale":
       setters.setTextScale(Number(next) as TextScale);
+      return;
+    case "fontFamily":
+      if ((FONT_FAMILY_OPTIONS as readonly string[]).includes(next)) {
+        setters.setFontFamily(next as AppFontFamily);
+      }
       return;
     case "maxWorkerCores":
       setters.setMaxWorkerCores(Number(next));

@@ -16,6 +16,18 @@ export const TEXT_SCALE_OPTIONS: readonly TextScale[] = [
 
 export const DEFAULT_TEXT_SCALE: TextScale = 1;
 
+export type AppFontFamily = "system" | "humanist" | "geometric" | "serif" | "mono";
+
+export const FONT_FAMILY_OPTIONS: readonly AppFontFamily[] = [
+  "system",
+  "humanist",
+  "geometric",
+  "serif",
+  "mono",
+] as const;
+
+export const DEFAULT_FONT_FAMILY: AppFontFamily = "system";
+
 export const DEFAULT_REMEMBER_WINDOW_SIZE = true;
 export const DEFAULT_WINDOW_WIDTH = 1100;
 export const DEFAULT_WINDOW_HEIGHT = 720;
@@ -67,6 +79,7 @@ export type Settings = {
   rememberWindowSize: boolean;
   windowBounds: WindowBounds;
   textScale: TextScale;
+  fontFamily: AppFontFamily;
   maxWorkerCores: number;
   keybindings: Keybindings;
   sessionSidebarOpen: boolean;
@@ -81,6 +94,7 @@ export const DEFAULT_SETTINGS: Settings = {
   rememberWindowSize: DEFAULT_REMEMBER_WINDOW_SIZE,
   windowBounds: DEFAULT_WINDOW_BOUNDS,
   textScale: DEFAULT_TEXT_SCALE,
+  fontFamily: DEFAULT_FONT_FAMILY,
   maxWorkerCores: DEFAULT_MAX_WORKER_CORES,
   keybindings: DEFAULT_KEYBINDINGS,
   sessionSidebarOpen: DEFAULT_SESSION_SIDEBAR_OPEN,

@@ -3,17 +3,20 @@ import { LazyStore } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import {
   DEFAULT_ANIMATIONS_ENABLED,
+  DEFAULT_FONT_FAMILY,
   DEFAULT_MAX_WORKER_CORES,
   DEFAULT_SETTINGS,
   DEFAULT_TEXT_SCALE,
   DEFAULT_TRANSLUCENCY_ENABLED,
   DEFAULT_WINDOW_BOUNDS,
+  FONT_FAMILY_OPTIONS,
   MAX_WORKER_CORES_AUTO,
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
   SUPPORTED_LANGUAGES,
   TEXT_SCALE_OPTIONS,
   hardwareThreadCount,
+  type AppFontFamily,
   type AppLanguage,
   type AppTheme,
   type Keybindings,
@@ -42,6 +45,11 @@ const sanitizeTextScale = (value: unknown): TextScale => {
   const match = TEXT_SCALE_OPTIONS.find((option) => Math.abs(option - value) < 0.001);
   return match ?? DEFAULT_TEXT_SCALE;
 };
+
+const sanitizeFontFamily = (value: unknown): AppFontFamily =>
+  typeof value === "string" && (FONT_FAMILY_OPTIONS as readonly string[]).includes(value)
+    ? (value as AppFontFamily)
+    : DEFAULT_FONT_FAMILY;
 
 const sanitizeWindowBounds = (value: unknown): WindowBounds => {
   if (!value || typeof value !== "object") return DEFAULT_WINDOW_BOUNDS;
@@ -98,6 +106,7 @@ const sanitizeSettings = (raw: unknown): Settings => {
     ),
     windowBounds: sanitizeWindowBounds(obj.windowBounds),
     textScale: sanitizeTextScale(obj.textScale),
+    fontFamily: sanitizeFontFamily(obj.fontFamily),
     maxWorkerCores: sanitizeMaxWorkerCores(obj.maxWorkerCores),
     keybindings: sanitizeKeybindings(obj.keybindings),
     sessionSidebarOpen: sanitizeBoolean(
@@ -118,6 +127,7 @@ type SettingsStore = Settings & {
   setRememberWindowSize: (enabled: boolean) => void;
   setWindowBounds: (bounds: WindowBounds) => void;
   setTextScale: (scale: TextScale) => void;
+  setFontFamily: (family: AppFontFamily) => void;
   setMaxWorkerCores: (cores: number) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
   setSessionSidebarOpen: (open: boolean) => void;
@@ -161,6 +171,11 @@ const applyTextScale = (scale: TextScale): void => {
   document.documentElement.style.setProperty("--text-scale", String(scale));
 };
 
+const applyFontFamily = (family: AppFontFamily): void => {
+  if (typeof document === "undefined") return;
+  document.documentElement.dataset.font = family;
+};
+
 const systemPrefersReducedMotion = (): boolean => {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -171,6 +186,7 @@ const applyChrome = (settings: Settings): void => {
   applyTranslucency(settings.translucencyEnabled);
   applyAnimations(settings.animationsEnabled && !systemPrefersReducedMotion());
   applyTextScale(settings.textScale);
+  applyFontFamily(settings.fontFamily);
 };
 
 const syncMinimizeToTray = async (enabled: boolean): Promise<void> => {
@@ -191,6 +207,7 @@ const snapshot = (state: SettingsStore): Settings => ({
   rememberWindowSize: state.rememberWindowSize,
   windowBounds: state.windowBounds,
   textScale: state.textScale,
+  fontFamily: state.fontFamily,
   maxWorkerCores: state.maxWorkerCores,
   keybindings: state.keybindings,
   sessionSidebarOpen: state.sessionSidebarOpen,
@@ -273,6 +290,13 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     const textScale = sanitizeTextScale(scale);
     applyTextScale(textScale);
     set({ textScale });
+    void persist(snapshot(get()));
+  },
+
+  setFontFamily: (family) => {
+    const fontFamily = sanitizeFontFamily(family);
+    applyFontFamily(fontFamily);
+    set({ fontFamily });
     void persist(snapshot(get()));
   },
 

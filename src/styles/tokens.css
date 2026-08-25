@@ -118,3 +118,23 @@
 
   color-scheme: light;
 }
+
+:root[data-font="humanist"] {
+  --font-sans: "Segoe UI", Candara, "DejaVu Sans", Ubuntu, Cantarell, "Noto Sans", sans-serif;
+}
+
+:root[data-font="geometric"] {
+  --font-sans: "Avenir Next", Avenir, "Century Gothic", "Trebuchet MS", "Nimbus Sans", sans-serif;
+}
+
+:root[data-font="serif"] {
+  --font-sans:
+    "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Liberation Serif",
+    serif;
+}
+
+:root[data-font="mono"] {
+  --font-sans:
+    ui-monospace, SFMono-Regular, "SF Mono", "Cascadia Code", "DejaVu Sans Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+}

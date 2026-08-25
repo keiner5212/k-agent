@@ -68,6 +68,17 @@
       "label": "Desactivar animaciones",
       "description": "Apaga todas las transiciones y movimientos. Tambien respeta el ajuste reducir movimiento del sistema."
     },
+    "fontFamily": {
+      "label": "Fuente",
+      "description": "Elige la tipografia de la interfaz. Los bloques de codigo siguen en monoespaciada.",
+      "options": {
+        "system": "Sistema",
+        "humanist": "Humanista",
+        "geometric": "Geometrica",
+        "serif": "Serif",
+        "mono": "Monoespaciada"
+      }
+    },
     "textScale": {
       "label": "Tamano del texto",
       "description": "Escala todo el texto de la aplicacion.",

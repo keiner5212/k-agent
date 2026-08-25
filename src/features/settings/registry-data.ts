@@ -47,6 +47,20 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         keywords: ["size", "font", "zoom", "scale", "tamano"],
       },
       {
+        id: "fontFamily",
+        type: "select",
+        titleKey: "settings.fontFamily.label",
+        descriptionKey: "settings.fontFamily.description",
+        options: [
+          { value: "system", labelKey: "settings.fontFamily.options.system" },
+          { value: "humanist", labelKey: "settings.fontFamily.options.humanist" },
+          { value: "geometric", labelKey: "settings.fontFamily.options.geometric" },
+          { value: "serif", labelKey: "settings.fontFamily.options.serif" },
+          { value: "mono", labelKey: "settings.fontFamily.options.mono" },
+        ],
+        keywords: ["font", "typeface", "typography", "fuente", "tipografia"],
+      },
+      {
         id: "translucencyEnabled",
         type: "toggle",
         titleKey: "settings.translucency.label",

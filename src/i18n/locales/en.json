@@ -68,6 +68,17 @@
       "label": "Disable animations",
       "description": "Turn off all transitions and motion. Also follows your system reduce-motion setting."
     },
+    "fontFamily": {
+      "label": "Font",
+      "description": "Choose the interface typeface. Code blocks stay monospace.",
+      "options": {
+        "system": "System",
+        "humanist": "Humanist",
+        "geometric": "Geometric",
+        "serif": "Serif",
+        "mono": "Monospace"
+      }
+    },
     "textScale": {
       "label": "Text size",
       "description": "Scale all text in the app.",
