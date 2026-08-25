@@ -19,29 +19,3 @@ export const perfLog = (
     message: `[perf] ${scope} ${durationMs.toFixed(1)}ms${suffix}`,
   }).catch(() => undefined);
 };
-
-export const perfMeasure = async <T>(
-  scope: string,
-  run: () => Promise<T>,
-  detail?: Record<string, string | number | boolean>,
-): Promise<T> => {
-  const start = performance.now();
-  try {
-    return await run();
-  } finally {
-    perfLog(scope, performance.now() - start, detail);
-  }
-};
-
-export const perfMeasureSync = <T>(
-  scope: string,
-  run: () => T,
-  detail?: Record<string, string | number | boolean>,
-): T => {
-  const start = performance.now();
-  try {
-    return run();
-  } finally {
-    perfLog(scope, performance.now() - start, detail);
-  }
-};

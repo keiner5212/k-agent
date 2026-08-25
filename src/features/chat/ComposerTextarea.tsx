@@ -64,7 +64,8 @@ export const ComposerTextarea = ({
   const syncCursor = useCallback(() => {
     const field = textareaRef.current;
     if (!field) return;
-    setCursor(field.selectionStart ?? 0);
+    const next = field.selectionStart ?? 0;
+    setCursor((current) => (current === next ? current : next));
   }, [textareaRef]);
 
   const syncScroll = useCallback(() => {
@@ -86,7 +87,8 @@ export const ComposerTextarea = ({
 
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>): void => {
     onChange(event.target.value);
-    setCursor(event.target.selectionStart ?? 0);
+    const next = event.target.selectionStart ?? 0;
+    setCursor((current) => (current === next ? current : next));
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -97,15 +99,17 @@ export const ComposerTextarea = ({
   return (
     <div className="chat-composer__input-stack">
       <div ref={backdropRef} className="chat-composer__input-backdrop" aria-hidden="true">
-        {segments.map((segment, index) =>
-          segment.mention ? (
-            <mark key={index} className="chat-composer__mention">
-              {segment.text}
-            </mark>
-          ) : (
-            <span key={index}>{segment.text}</span>
-          ),
-        )}
+        {segments.length === 1 && !segments[0]?.mention
+          ? segments[0]?.text
+          : segments.map((segment, index) =>
+              segment.mention ? (
+                <mark key={index} className="chat-composer__mention">
+                  {segment.text}
+                </mark>
+              ) : (
+                <span key={index}>{segment.text}</span>
+              ),
+            )}
       </div>
       <textarea
         ref={textareaRef}
@@ -114,7 +118,6 @@ export const ComposerTextarea = ({
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        onKeyUp={syncCursor}
         onClick={syncCursor}
         onSelect={syncCursor}
         onScroll={syncScroll}

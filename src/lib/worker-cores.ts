@@ -19,7 +19,6 @@ export type WorkerCoreSnapshot = {
   limit: number;
   inUse: number;
   available: number;
-  leases: readonly WorkerCoreLeaseInfo[];
 };
 
 type Listener = (snapshot: WorkerCoreSnapshot) => void;
@@ -51,7 +50,6 @@ export const getWorkerCoreSnapshot = (): WorkerCoreSnapshot => {
     limit,
     inUse,
     available: Math.max(0, limit - inUse),
-    leases: [...leases.values()],
   };
 };
 
@@ -75,18 +73,19 @@ export const subscribeWorkerCores = (listener: Listener): (() => void) => {
   };
 };
 
-export const acquireWorkerCores = (label: string, cores?: number): WorkerCoreLease => {
-  const limit = resolveWorkerCoreLimit(configuredCores);
-  const want = Math.min(cores ?? limit, limit);
+export const acquireWorkerCores = (label: string, cores = 1): WorkerCoreLease => {
+  const snapshot = getWorkerCoreSnapshot();
+  const want = Math.max(1, Math.floor(cores));
+  const granted = Math.min(want, Math.max(1, snapshot.available || 1), snapshot.limit);
   const id = crypto.randomUUID();
-  leases.set(id, { id, label, cores: want });
+  leases.set(id, { id, label, cores: granted });
   notify();
   return {
     id,
     label,
-    cores: want,
+    cores: granted,
     release: () => {
-      leases.delete(id);
+      if (!leases.delete(id)) return;
       notify();
     },
   };

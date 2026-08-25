@@ -139,6 +139,3 @@ export const runLspRequestJob = (
 
 export const runListWorkspaceDirJob = (relativeDir = ""): Promise<WorkspaceEntry[]> =>
   runJob("listWorkspaceFiles", { relativeDir });
-
-/** @deprecated Use runListWorkspaceDirJob */
-export const runListWorkspaceFilesJob = runListWorkspaceDirJob;

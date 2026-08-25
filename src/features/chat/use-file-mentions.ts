@@ -1,12 +1,17 @@
-import { useCallback, useEffect, useMemo, useState, useDeferredValue } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   applyMentionSelection,
   buildMentionPathSet,
-  filterWorkspaceEntries,
+  filterDirEntries,
+  mentionListingContext,
   parseActiveMention,
   type ActiveMention,
 } from "@/lib/file-mentions";
-import { useWorkspaceFilesStore, workspaceFilesLoading } from "@/lib/workspace-files";
+import {
+  useWorkspaceFilesStore,
+  hasDirInCache,
+  workspaceFilesLoading,
+} from "@/lib/workspace-files";
 import type { WorkspaceEntry } from "@/types/workspace-files";
 
 type UseFileMentionsArgs = {
@@ -34,33 +39,55 @@ type MentionSelection = {
   index: number;
 };
 
+const scheduleIdle = (run: () => void): (() => void) => {
+  if (typeof requestIdleCallback === "function") {
+    const id = requestIdleCallback(run);
+    return () => cancelIdleCallback(id);
+  }
+  const id = window.setTimeout(run, 0);
+  return () => window.clearTimeout(id);
+};
+
 export const useFileMentions = ({
   value,
   cursor,
   onApply,
 }: UseFileMentionsArgs): UseFileMentionsResult => {
-  const entries = useWorkspaceFilesStore((state) => state.entries);
-  const deferredEntries = useDeferredValue(entries);
-  const loading = useWorkspaceFilesStore(workspaceFilesLoading);
+  const dirs = useWorkspaceFilesStore((state) => state.dirs);
   const error = useWorkspaceFilesStore((state) => state.error);
   const ensureRootLoaded = useWorkspaceFilesStore((state) => state.ensureRootLoaded);
   const ensureMentionScope = useWorkspaceFilesStore((state) => state.ensureMentionScope);
+  const prefetchDir = useWorkspaceFilesStore((state) => state.prefetchDir);
   const [selection, setSelection] = useState<MentionSelection>({ key: "", index: 0 });
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
 
   const activeMention = useMemo(() => parseActiveMention(value, cursor), [value, cursor]);
   const mentionKey = activeMention ? `${activeMention.start}:${activeMention.query}` : "";
   const menuOpen = mentionKey.length > 0 && dismissedKey !== mentionKey;
+  const listing = useMemo(
+    () => mentionListingContext(activeMention?.query ?? "", (path) => hasDirInCache(dirs, path)),
+    [activeMention?.query, dirs],
+  );
+  const loading = useWorkspaceFilesStore((state) =>
+    workspaceFilesLoading(state, listing.parentDir),
+  );
   const activeIndex = selection.key === mentionKey ? selection.index : 0;
 
   const filterResult = useMemo(() => {
-    if (!activeMention) return { items: [], tooMany: false };
-    return filterWorkspaceEntries(deferredEntries, activeMention.query);
-  }, [activeMention, deferredEntries]);
+    const scoped = dirs[listing.parentDir]?.entries ?? [];
+    return filterDirEntries(scoped, listing.prefix);
+  }, [dirs, listing.parentDir, listing.prefix]);
   const items = filterResult.items;
   const tooMany = filterResult.tooMany;
 
-  const mentionPaths = useMemo(() => buildMentionPathSet(entries), [entries]);
+  const mentionPaths = useMemo(() => {
+    if (!value.includes("@")) return new Set<string>();
+    const entries: WorkspaceEntry[] = [];
+    for (const cached of Object.values(dirs)) {
+      entries.push(...cached.entries);
+    }
+    return buildMentionPathSet(entries);
+  }, [dirs, value]);
 
   useEffect(() => {
     void ensureRootLoaded();
@@ -70,6 +97,13 @@ export const useFileMentions = ({
     if (!activeMention) return;
     void ensureMentionScope(activeMention.query);
   }, [activeMention, ensureMentionScope]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const entry = items[activeIndex];
+    if (!entry || entry.kind !== "dir") return;
+    return scheduleIdle(() => prefetchDir(entry.path));
+  }, [activeIndex, items, menuOpen, prefetchDir]);
 
   const setActiveIndex = useCallback(
     (next: number | ((prev: number) => number)) => {

@@ -1,5 +1,5 @@
-import type { WorkspaceEntry } from "@/types/workspace-files";
 import { perfLog } from "@/lib/perf-log";
+import type { WorkspaceEntry } from "@/types/workspace-files";
 
 export type ActiveMention = {
   start: number;
@@ -19,7 +19,8 @@ export type MentionListingContext = {
 
 const MENTION_PATH_RE = /@([^\s@]+)/g;
 export const MENTION_RESULT_LIMIT = 20;
-const ROOT_DIR = "";
+export const ROOT_DIR = "";
+const FILTER_LOG_MS = 8;
 
 export type MentionFilterResult = {
   items: WorkspaceEntry[];
@@ -38,27 +39,18 @@ export const parseActiveMention = (text: string, cursor: number): ActiveMention 
   return { start: atIndex, end: cursor, query };
 };
 
-const isDirPath = (entries: readonly WorkspaceEntry[], path: string): boolean => {
-  const lower = path.toLowerCase();
-  return entries.some((entry) => entry.kind === "dir" && entry.path.toLowerCase() === lower);
-};
-
 export const mentionListingContext = (
   query: string,
-  entries: readonly WorkspaceEntry[],
+  hasDir: (path: string) => boolean,
 ): MentionListingContext => {
   const normalized = normalizeMentionPath(query);
-  if (!normalized) {
-    return { parentDir: ROOT_DIR, prefix: "" };
-  }
+  if (!normalized) return { parentDir: ROOT_DIR, prefix: "" };
   if (normalized.endsWith("/")) {
     return { parentDir: normalized.replace(/\/+$/, ""), prefix: "" };
   }
   const slash = normalized.lastIndexOf("/");
   if (slash === -1) {
-    if (isDirPath(entries, normalized)) {
-      return { parentDir: normalized, prefix: "" };
-    }
+    if (hasDir(normalized)) return { parentDir: normalized, prefix: "" };
     return { parentDir: ROOT_DIR, prefix: normalized };
   }
   return {
@@ -69,7 +61,7 @@ export const mentionListingContext = (
 
 export const dirsToLoadForMention = (
   query: string,
-  entries: readonly WorkspaceEntry[],
+  hasDir: (path: string) => boolean,
 ): string[] => {
   const normalized = normalizeMentionPath(query);
   const dirs = new Set<string>([ROOT_DIR]);
@@ -87,65 +79,46 @@ export const dirsToLoadForMention = (
     if (!part) continue;
     built = built ? `${built}/${part}` : part;
     const isLast = index === parts.length - 1;
-    if (!isLast) {
-      dirs.add(built);
-      continue;
-    }
-    if (isDirPath(entries, built)) {
-      dirs.add(built);
-    }
+    if (!isLast || hasDir(built)) dirs.add(built);
   }
   return [...dirs];
 };
 
-const scopeEntries = (
-  entries: readonly WorkspaceEntry[],
-  parentDir: string,
-  prefix: string,
-): WorkspaceEntry[] => {
-  const lowerPrefix = prefix.toLowerCase();
-  const scoped: WorkspaceEntry[] = [];
-  for (const entry of entries) {
-    if (parentDir === ROOT_DIR) {
-      const slash = entry.path.indexOf("/");
-      if (slash !== -1) continue;
-      if (prefix.length > 0 && !entry.path.toLowerCase().startsWith(lowerPrefix)) continue;
-      scoped.push(entry);
-      continue;
-    }
-    const parentPrefix = `${parentDir}/`;
-    if (!entry.path.startsWith(parentPrefix)) continue;
-    const rest = entry.path.slice(parentPrefix.length);
-    if (!rest || rest.includes("/")) continue;
-    if (prefix.length > 0 && !rest.toLowerCase().startsWith(lowerPrefix)) continue;
-    scoped.push(entry);
-  }
-  return scoped;
+const entryName = (path: string): string => {
+  const slash = path.lastIndexOf("/");
+  return slash === -1 ? path : path.slice(slash + 1);
 };
 
-export const filterWorkspaceEntries = (
+export const filterDirEntries = (
   entries: readonly WorkspaceEntry[],
-  query: string,
+  prefix: string,
 ): MentionFilterResult => {
   const start = performance.now();
-  const context = mentionListingContext(query, entries);
-  const scoped = scopeEntries(entries, context.parentDir, context.prefix);
-  const sorted = [...scoped].sort((a, b) => a.path.localeCompare(b.path));
-  const result: MentionFilterResult =
-    sorted.length > MENTION_RESULT_LIMIT
-      ? { items: [], tooMany: true }
-      : { items: sorted, tooMany: false };
-
-  perfLog("fileMentions.filter", performance.now() - start, {
-    query: normalizeMentionPath(query),
-    parentDir: context.parentDir || ".",
-    prefix: context.prefix,
-    entries: entries.length,
-    scoped: scoped.length,
-    matches: result.items.length,
-    tooMany: result.tooMany,
-  });
-  return result;
+  const lowerPrefix = prefix.toLowerCase();
+  const items: WorkspaceEntry[] = [];
+  for (const entry of entries) {
+    if (lowerPrefix.length > 0 && !entryName(entry.path).toLowerCase().startsWith(lowerPrefix)) {
+      continue;
+    }
+    items.push(entry);
+    if (items.length > MENTION_RESULT_LIMIT) {
+      perfLog("fileMentions.filter", performance.now() - start, {
+        prefix,
+        scanned: entries.length,
+        tooMany: true,
+      });
+      return { items: [], tooMany: true };
+    }
+  }
+  const elapsed = performance.now() - start;
+  if (elapsed >= FILTER_LOG_MS) {
+    perfLog("fileMentions.filter", elapsed, {
+      prefix,
+      scanned: entries.length,
+      matches: items.length,
+    });
+  }
+  return { items, tooMany: false };
 };
 
 export const buildMentionPathSet = (entries: readonly WorkspaceEntry[]): Set<string> => {
@@ -166,6 +139,7 @@ export const segmentMentionHighlights = (
   text: string,
   paths: ReadonlySet<string>,
 ): MentionSegment[] => {
+  if (!text.includes("@")) return [{ text, mention: false }];
   const segments: MentionSegment[] = [];
   let last = 0;
   for (const match of text.matchAll(MENTION_PATH_RE)) {
@@ -177,7 +151,7 @@ export const segmentMentionHighlights = (
     const path = match[1] ?? "";
     segments.push({
       text: token,
-      mention: isExactMentionPath(paths, path),
+      mention: isExactMentionPath(paths, path.replace(/\/+$/, "")),
     });
     last = index + token.length;
   }

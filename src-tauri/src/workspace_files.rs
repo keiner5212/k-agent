@@ -130,28 +130,29 @@ fn list_dir_level(root: &Path, relative_dir: &Path) -> Result<Vec<WorkspaceEntry
         if out.len() >= MAX_DIR_ENTRIES {
             break;
         }
+        let file_type = match entry.file_type() {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
-        if path.is_dir() {
+        let kind = if file_type.is_dir() {
             if should_skip_dir(&name) {
                 continue;
             }
-            let rel = path
-                .strip_prefix(root)
-                .map_err(|error| error.to_string())?;
-            out.push(WorkspaceEntry {
-                path: path_to_posix(rel),
-                kind: "dir".to_string(),
-            });
-        } else if path.is_file() {
-            let rel = path
-                .strip_prefix(root)
-                .map_err(|error| error.to_string())?;
-            out.push(WorkspaceEntry {
-                path: path_to_posix(rel),
-                kind: "file".to_string(),
-            });
-        }
+            "dir"
+        } else if file_type.is_file() {
+            "file"
+        } else {
+            continue;
+        };
+        let Ok(rel) = path.strip_prefix(root) else {
+            continue;
+        };
+        out.push(WorkspaceEntry {
+            path: path_to_posix(rel),
+            kind: kind.to_string(),
+        });
     }
     out.sort_by(|a, b| a.path.cmp(&b.path));
     Ok(out)

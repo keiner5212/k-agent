@@ -808,6 +808,7 @@ button.change-bar__stat:focus-visible {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   transition: border-color var(--duration-fast) var(--ease-out);
+  contain: layout;
 }
 
 .chat-composer__input-stack:focus-within {
@@ -897,6 +898,7 @@ button.change-bar__stat:focus-visible {
   border-radius: var(--radius-md);
   box-shadow: 0 4px 16px color-mix(in oklch, var(--background) 60%, transparent);
   z-index: 30;
+  contain: layout paint;
 }
 
 .file-mention-menu__list {
