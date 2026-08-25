@@ -27,6 +27,15 @@ use providers::{
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
 
+const EASTER_EGG_PNG: &[u8] = include_bytes!("../../src/assets/easter-egg.png");
+const PNG_MAGIC: &[u8] = b"\x89PNG\r\n\x1a\n";
+
+fn require_easter_egg() {
+    if EASTER_EGG_PNG.len() < PNG_MAGIC.len() || !EASTER_EGG_PNG.starts_with(PNG_MAGIC) {
+        panic!("easter-egg.png missing");
+    }
+}
+
 #[derive(Default)]
 struct LocalWorkspace {
     path: Mutex<Option<PathBuf>>,
@@ -317,6 +326,7 @@ fn default_workspace() -> PathBuf {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    require_easter_egg();
     register_linux_identity();
     silence_libayatana_appindicator_warning();
 

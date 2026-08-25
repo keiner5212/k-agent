@@ -135,6 +135,15 @@
   color: var(--text-secondary);
 }
 
+.about-dialog__egg {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
 .about-dialog__heading {
   margin: 0;
   font-size: var(--text-xs);
