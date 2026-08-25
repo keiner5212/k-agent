@@ -35,10 +35,7 @@ const persistSelection = async (selection: SelectedModel | null): Promise<void> 
   }
 };
 
-const persistEffort = async (
-  selection: SelectedModel,
-  effort: string,
-): Promise<void> => {
+const persistEffort = async (selection: SelectedModel, effort: string): Promise<void> => {
   if (!isTauri()) return;
   try {
     await getStore().set(effortKey(selection), effort);

@@ -65,8 +65,7 @@ export const SkillsPanel = (): ReactNode => {
 
       <div className="skills-panel__tabs" role="tablist">
         {tabs.map((entry) => {
-          const labelKey =
-            entry.id === "global" ? "skills.context.global" : "skills.context.local";
+          const labelKey = entry.id === "global" ? "skills.context.global" : "skills.context.local";
           const isActive = entry.id === tab;
           return (
             <button
@@ -87,12 +86,7 @@ export const SkillsPanel = (): ReactNode => {
         })}
       </div>
 
-      <div
-        id="skills-panel-tab-panel"
-        role="tabpanel"
-        className="skills-panel__panel"
-        key={tab}
-      >
+      <div id="skills-panel-tab-panel" role="tabpanel" className="skills-panel__panel" key={tab}>
         {active ? (
           <SkillContextView
             context={active}
@@ -191,16 +185,10 @@ const SkillContextView = ({
             <li key={skill.id} className="skill-row" title={skill.path}>
               <span className="skill-row__id">{skill.id}</span>
               <span className="skill-row__actions">
-                <IconButton
-                  label={t("skills.actions.edit")}
-                  onClick={() => onEdit(skill)}
-                >
+                <IconButton label={t("skills.actions.edit")} onClick={() => onEdit(skill)}>
                   <Pencil size={12} strokeWidth={1.5} />
                 </IconButton>
-                <IconButton
-                  label={t("skills.actions.delete")}
-                  onClick={() => onDelete(skill)}
-                >
+                <IconButton label={t("skills.actions.delete")} onClick={() => onDelete(skill)}>
                   <Trash2 size={12} strokeWidth={1.5} />
                 </IconButton>
               </span>
@@ -211,4 +199,3 @@ const SkillContextView = ({
     </article>
   );
 };
-

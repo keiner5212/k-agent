@@ -14,7 +14,11 @@ type SkillEditorDialogProps = {
 };
 
 const errorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : typeof error === "string" ? error : "Failed to read skill";
+  error instanceof Error
+    ? error.message
+    : typeof error === "string"
+      ? error
+      : "Failed to read skill";
 
 export const SkillEditorDialog = ({
   open,
@@ -24,15 +28,15 @@ export const SkillEditorDialog = ({
 }: SkillEditorDialogProps): ReactNode => {
   return (
     <Dialog
-  open={open}
-  onOpenChange={onOpenChange}
-  titleKey="skills.editor.title"
-  size="wide"
-  surfaceStyle={{
-    height: "calc(100vh - var(--titlebar-height) - var(--space-6))",
-    maxHeight: "calc(100vh - var(--titlebar-height) - var(--space-6))",
-  }}
->
+      open={open}
+      onOpenChange={onOpenChange}
+      titleKey="skills.editor.title"
+      size="wide"
+      surfaceStyle={{
+        height: "calc(100vh - var(--titlebar-height) - var(--space-6))",
+        maxHeight: "calc(100vh - var(--titlebar-height) - var(--space-6))",
+      }}
+    >
       {open && skillPath ? (
         <SkillEditorBody
           key={skillPath}
@@ -51,11 +55,7 @@ type SkillEditorBodyProps = {
   onSave: (content: string) => Promise<string | undefined>;
 };
 
-const SkillEditorBody = ({
-  skillPath,
-  onCancel,
-  onSave,
-}: SkillEditorBodyProps): ReactNode => {
+const SkillEditorBody = ({ skillPath, onCancel, onSave }: SkillEditorBodyProps): ReactNode => {
   const { t } = useTranslation();
   const [content, setContent] = useState("");
   const [original, setOriginal] = useState("");

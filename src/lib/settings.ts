@@ -110,7 +110,10 @@ const sanitizeSettings = (raw: unknown): Settings => {
     maxWorkerCores: sanitizeMaxWorkerCores(obj.maxWorkerCores),
     keybindings: sanitizeKeybindings(obj.keybindings),
     globalSkillsPath: sanitizePath(obj.globalSkillsPath),
-    sessionSidebarOpen: sanitizeBoolean(obj.sessionSidebarOpen, DEFAULT_SETTINGS.sessionSidebarOpen),
+    sessionSidebarOpen: sanitizeBoolean(
+      obj.sessionSidebarOpen,
+      DEFAULT_SETTINGS.sessionSidebarOpen,
+    ),
   };
 };
 

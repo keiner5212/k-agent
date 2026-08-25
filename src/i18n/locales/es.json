@@ -161,7 +161,7 @@
         "attachment": "Adjuntos"
       }
     },
-"modelForm": {
+    "modelForm": {
       "id": "Id del modelo",
       "displayName": "Nombre visible",
       "family": "Familia / grupo de variantes",

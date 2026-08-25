@@ -125,9 +125,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
             type="text"
             className="input"
             value={pathValue(item.id, { globalSkillsPath })}
-            onChange={(event) =>
-              onPathChange(item.id, event.target.value, { setGlobalSkillsPath })
-            }
+            onChange={(event) => onPathChange(item.id, event.target.value, { setGlobalSkillsPath })}
             spellCheck={false}
             autoCorrect="off"
             autoCapitalize="off"

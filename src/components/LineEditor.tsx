@@ -6,11 +6,7 @@ type LineEditorProps = {
   readOnly?: boolean;
 };
 
-export const LineEditor = ({
-  value,
-  onChange,
-  readOnly,
-}: LineEditorProps): ReactNode => {
+export const LineEditor = ({ value, onChange, readOnly }: LineEditorProps): ReactNode => {
   const lineCount = useMemo(() => {
     if (value.length === 0) return 1;
     return value.split("\n").length;

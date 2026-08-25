@@ -20,18 +20,9 @@ type SkillsStore = {
   error?: string;
   load: (globalPath: string) => Promise<void>;
   refresh: (globalPath: string) => Promise<{ error?: string; payload?: FetchPayload }>;
-  readMeta: (
-    rootPath: string,
-    name: string,
-  ) => Promise<{ error?: string; meta?: SkillMeta }>;
-  readFile: (
-    path: string,
-  ) => Promise<{ error?: string; content?: string }>;
-  create: (
-    rootPath: string,
-    name: string,
-    description: string,
-  ) => Promise<{ error?: string }>;
+  readMeta: (rootPath: string, name: string) => Promise<{ error?: string; meta?: SkillMeta }>;
+  readFile: (path: string) => Promise<{ error?: string; content?: string }>;
+  create: (rootPath: string, name: string, description: string) => Promise<{ error?: string }>;
   updateContent: (path: string, content: string) => Promise<{ error?: string }>;
   remove: (rootPath: string, name: string) => Promise<{ error?: string }>;
 };
@@ -104,9 +95,9 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
     if (!isTauri()) return { error: DESKTOP_REQUIRED };
     try {
       await invoke("create_skill", { input: { rootPath, name, description } });
-      await get().refresh(
-        (await invoke<string>("get_global_skills_path").catch(() => "")) || "",
-      ).catch(() => undefined);
+      await get()
+        .refresh((await invoke<string>("get_global_skills_path").catch(() => "")) || "")
+        .catch(() => undefined);
       return {};
     } catch (error) {
       return { error: toMessage(error) };

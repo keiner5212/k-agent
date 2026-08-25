@@ -42,12 +42,12 @@ export const CreateSkillDialog = ({
 
   return (
     <Dialog
-  open={open}
-  onOpenChange={onOpenChange}
-  titleKey="skills.form.createTitle"
-  size="narrow"
-  placement="center"
->
+      open={open}
+      onOpenChange={onOpenChange}
+      titleKey="skills.form.createTitle"
+      size="narrow"
+      placement="center"
+    >
       <form className="skill-form" onSubmit={(event) => void handleSubmit(event)}>
         <div className="field">
           <label className="field__label" htmlFor="skill-name">

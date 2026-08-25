@@ -104,6 +104,20 @@ Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then b
 - No new global caches, clients, or wrappers. Search first.
 - Zustand: select fields, do not subscribe to the whole store in hot views.
 
+## Checks
+
+Run before commit. CI runs the same three. All must exit zero.
+
+```
+pnpm typecheck
+pnpm lint
+pnpm format:check
+```
+
+Order: typecheck, then lint, then format. Fix in that order; lint errors after a type fix are usually follow-ons.
+
+`pnpm format` (prettier --write) is the only acceptable way to resolve format failures. Do not hand-edit whitespace to satisfy prettier.
+
 ## Do not
 
 - Add a second settings store, or a Rust copy of UI settings, until workers need it.
@@ -111,3 +125,4 @@ Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then b
 - Add a second Dialog/Select/Toggle/store/platform helper.
 - Comment what the code already says. Comment only a non-obvious why.
 - Expand scope past the asked change.
+- Ship code with `pnpm format:check`, `pnpm lint`, or `pnpm typecheck` failing.

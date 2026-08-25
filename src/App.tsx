@@ -26,7 +26,9 @@ const startWindowDrag = (event: MouseEvent<HTMLElement>): void => {
   if (!isTauri() || event.button !== 0) return;
   const target = event.target;
   if (!(target instanceof Element)) return;
-  if (target.closest(".app-titlebar__actions, .app-titlebar__sidebar, button, a, input, textarea")) {
+  if (
+    target.closest(".app-titlebar__actions, .app-titlebar__sidebar, button, a, input, textarea")
+  ) {
     return;
   }
   event.preventDefault();
@@ -63,7 +65,8 @@ export const App = (): ReactNode => {
     (action: KeybindingAction) => {
       if (action === "settings.open") setSettingsOpen(true);
       else if (action === "settings.close") setSettingsOpen(false);
-      else if (action === "sidebar.toggle") setSidebarOpen(!useSettingsStore.getState().sessionSidebarOpen);
+      else if (action === "sidebar.toggle")
+        setSidebarOpen(!useSettingsStore.getState().sessionSidebarOpen);
       else if (action === "chat.clear") clearComposer();
     },
     [clearComposer, setSidebarOpen],

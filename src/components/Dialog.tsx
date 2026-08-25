@@ -1,11 +1,5 @@
 import { X } from "lucide-react";
-import {
-  useEffect,
-  useId,
-  useRef,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "./IconButton";
@@ -91,7 +85,12 @@ export const Dialog = ({
   return createPortal(
     <div className="dialog-root">
       <div className="dialog-overlay" onClick={() => onOpenChange(false)} />
-      <div className="dialog-surface" data-size={size} data-placement={placement} style={surfaceStyle}>
+      <div
+        className="dialog-surface"
+        data-size={size}
+        data-placement={placement}
+        style={surfaceStyle}
+      >
         <div
           ref={panelRef}
           className="dialog-panel"

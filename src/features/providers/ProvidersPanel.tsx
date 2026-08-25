@@ -1,14 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Loader2,
-  Pencil,
-  Plug,
-  Plus,
-  RefreshCw,
-  Star,
-  Trash2,
-} from "lucide-react";
+import { Loader2, Pencil, Plug, Plus, RefreshCw, Star, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { useProvidersStore } from "@/lib/providers";
@@ -110,18 +102,12 @@ const ModelRow = ({
           </span>
         ))}
         {model.reasoning ? (
-          <span
-            className="model-row__chip"
-            title={t("providers.model.capability.reasoning")}
-          >
+          <span className="model-row__chip" title={t("providers.model.capability.reasoning")}>
             {t("providers.model.capability.reasoning")}
           </span>
         ) : null}
         {model.toolCall ? (
-          <span
-            className="model-row__chip"
-            title={t("providers.model.capability.toolCall")}
-          >
+          <span className="model-row__chip" title={t("providers.model.capability.toolCall")}>
             {t("providers.model.capability.toolCall")}
           </span>
         ) : null}
@@ -134,10 +120,7 @@ const ModelRow = ({
           </span>
         ) : null}
         {model.attachment ? (
-          <span
-            className="model-row__chip"
-            title={t("providers.model.capability.attachment")}
-          >
+          <span className="model-row__chip" title={t("providers.model.capability.attachment")}>
             {t("providers.model.capability.attachment")}
           </span>
         ) : null}
