@@ -38,6 +38,7 @@ export type AgentMeta = {
   name: string;
   description: string;
   personality: string;
+  estimatedTokens: number;
   skills: AgentSkillRef[];
   tools: string[];
 };

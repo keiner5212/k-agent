@@ -53,15 +53,17 @@ export const DEFAULT_WINDOW_BOUNDS: WindowBounds = {
   maximized: false,
 };
 
-export type KeybindingAction = "settings.open" | "settings.close" | "sidebar.toggle" | "chat.clear";
+export type KeybindingAction =
+  "settings.open" | "settings.close" | "sidebar.toggle" | "chat.clear" | "editor.save";
 
 export type Keybindings = Record<KeybindingAction, string>;
 
 export const DEFAULT_KEYBINDINGS: Keybindings = {
-  "settings.open": "Mod+P",
+  "settings.open": "Ctrl+P",
   "settings.close": "Escape",
   "sidebar.toggle": "Ctrl+B",
   "chat.clear": "Alt+C",
+  "editor.save": "Ctrl+S",
 };
 
 export type Settings = {

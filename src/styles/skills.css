@@ -252,7 +252,7 @@
 }
 
 .skill-table__actions {
-  width: 4.5rem;
+  width: 6.75rem;
   text-align: right;
   white-space: nowrap;
 }
@@ -429,9 +429,14 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: var(--space-2);
   font-size: var(--text-xs);
   color: var(--text-muted);
   flex-shrink: 0;
+}
+
+.skill-editor__meta .agent-form__count {
+  margin-right: auto;
 }
 
 .skill-editor__dirty[data-dirty="true"] {

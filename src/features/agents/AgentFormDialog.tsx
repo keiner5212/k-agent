@@ -1,17 +1,13 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useState, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
-import { LineEditor } from "@/components/LineEditor";
 import { Toggle } from "@/components/Toggle";
 import type { AgentWriteInput } from "@/lib/agents";
 import {
   AGENT_TOOL_IDS,
-  MAX_AGENT_PERSONALITY_LINES,
   MAX_AGENT_SKILLS,
-  clampPersonality,
-  personalityLineCount,
   skillRefKey,
   type AgentContextKind,
   type AgentMeta,
@@ -71,14 +67,12 @@ const AgentFormBody = ({
   const { t } = useTranslation();
   const [name, setName] = useState(initial?.id ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [personality, setPersonality] = useState(initial?.personality ?? "");
   const [skills, setSkills] = useState<AgentSkillRef[]>(initial?.skills ?? []);
   const [tools, setTools] = useState<string[]>(initial?.tools ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const atSkillCap = skills.length >= MAX_AGENT_SKILLS;
-  const personalityLines = personalityLineCount(personality);
 
   const toggleSkill = (skill: AgentSkillRef, checked: boolean): void => {
     if (checked) {
@@ -99,8 +93,8 @@ const AgentFormBody = ({
     setTools(tools.filter((item) => item !== tool));
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
+  const persist = useCallback(async (): Promise<void> => {
+    if (submitting) return;
     if (!name.trim()) {
       setError(t("agents.form.errors.nameRequired"));
       return;
@@ -110,7 +104,7 @@ const AgentFormBody = ({
     const saveError = await onSubmit({
       name: name.trim(),
       description: description.trim(),
-      personality: clampPersonality(personality),
+      personality: initial?.personality ?? "",
       skills,
       tools,
     });
@@ -120,6 +114,21 @@ const AgentFormBody = ({
       return;
     }
     onOpenChange(false);
+  }, [
+    submitting,
+    name,
+    description,
+    skills,
+    tools,
+    initial?.personality,
+    onSubmit,
+    onOpenChange,
+    t,
+  ]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    await persist();
   };
 
   return (
@@ -189,26 +198,6 @@ const AgentFormBody = ({
             autoComplete="off"
           />
           <span className="field__hint">{t("agents.form.descriptionHint")}</span>
-        </div>
-        <div className="field">
-          <label className="field__label" htmlFor="agent-personality">
-            {t("agents.form.personality")}
-            <span className="agent-form__count">
-              {t("agents.form.personalityCount", {
-                count: personalityLines,
-                max: MAX_AGENT_PERSONALITY_LINES,
-              })}
-            </span>
-          </label>
-          <LineEditor
-            id="agent-personality"
-            value={personality}
-            onChange={(next) => setPersonality(clampPersonality(next))}
-            maxLines={MAX_AGENT_PERSONALITY_LINES}
-          />
-          <span className="field__hint">
-            {t("agents.form.personalityHint", { max: MAX_AGENT_PERSONALITY_LINES })}
-          </span>
         </div>
         <fieldset className="field agent-form__fieldset">
           <legend className="field__label">

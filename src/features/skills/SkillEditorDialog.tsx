@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { LineEditor } from "@/components/LineEditor";
+import { EDITOR_SAVE_EVENT } from "@/lib/keybindings";
 
 type SkillEditorDialogProps = {
   open: boolean;
@@ -103,14 +104,11 @@ const SkillEditorBody = ({ skillPath, onCancel, onSave }: SkillEditorBodyProps):
   const dirty = content !== original;
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return;
-      event.preventDefault();
-      event.stopPropagation();
+    const onSave = (): void => {
       void handleSave();
     };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    window.addEventListener(EDITOR_SAVE_EVENT, onSave);
+    return () => window.removeEventListener(EDITOR_SAVE_EVENT, onSave);
   }, [handleSave]);
 
   return (

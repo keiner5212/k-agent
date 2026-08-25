@@ -161,6 +161,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         descriptionKey: "settings.keybindings.description",
         keywords: ["shortcut", "hotkey", "clear", "composer"],
       },
+      {
+        id: "editor.save",
+        type: "keybinding",
+        titleKey: "settings.keybindings.actions.editor.save",
+        descriptionKey: "settings.keybindings.description",
+        keywords: ["shortcut", "hotkey", "save", "guardar", "ctrl"],
+      },
     ],
   },
   {

@@ -170,7 +170,7 @@ pub(crate) fn list_skills_in(root: &Path) -> Result<Vec<SkillInfo>, SkillError> 
     Ok(skills)
 }
 
-fn estimate_tokens(content: &str) -> u32 {
+pub(crate) fn estimate_tokens(content: &str) -> u32 {
     let chars = content.chars().count();
     u32::try_from((chars + 3) / 4).unwrap_or(u32::MAX)
 }

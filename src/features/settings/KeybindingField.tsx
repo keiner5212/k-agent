@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { formatChordLabel } from "@/lib/keybindings";
 import { useSettingsStore } from "@/lib/settings";
 import type { KeybindingAction } from "@/types/settings";
 
@@ -60,8 +61,12 @@ export const KeybindingField = ({ action }: KeybindingFieldProps): ReactNode => 
   }, [recording, action, setKeybinding]);
 
   const display = recording
-    ? (draft ?? t("settings.keybindings.record"))
-    : chord || t("settings.keybindings.unset");
+    ? draft
+      ? formatChordLabel(draft)
+      : t("settings.keybindings.record")
+    : chord
+      ? formatChordLabel(chord)
+      : t("settings.keybindings.unset");
 
   return (
     <button

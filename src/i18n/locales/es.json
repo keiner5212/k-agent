@@ -114,6 +114,9 @@
         },
         "chat": {
           "clear": "Limpiar entrada del chat"
+        },
+        "editor": {
+          "save": "Guardar editor"
         }
       },
       "record": "Grabando",
@@ -285,17 +288,26 @@
   },
   "agents": {
     "title": "Agentes",
-    "description": "Un agente es una carpeta que contiene AGENT.md. Los globales viven en ~/.k-agent/agents. Los locales viven en .agents/agents del workspace.",
+    "description": "Un agente de sesion es una personalidad para el chat: prompt, habilidades y herramientas. Los globales viven en ~/.k-agent/agents. Los locales viven en .agents/agents del workspace.",
     "context": {
       "global": "Global",
       "local": "Workspace"
     },
     "empty": "Aun no hay agentes en esta carpeta.",
     "emptyTab": "Inicia la app con una ruta de workspace para ver agentes locales.",
+    "table": {
+      "name": "Nombre",
+      "description": "Descripcion",
+      "tokens": "Tokens",
+      "actions": "Acciones",
+      "noDescription": "-",
+      "tokenValue": "~{{value}}"
+    },
     "actions": {
       "refresh": "Actualizar agentes",
       "create": "Nuevo agente",
       "edit": "Editar agente",
+      "editPersonality": "Editar personalidad",
       "delete": "Eliminar agente"
     },
     "form": {
@@ -308,7 +320,7 @@
       "descriptionPlaceholder": "Se muestra en el selector de agentes.",
       "descriptionHint": "Solo para la UI. No se envia al modelo.",
       "personality": "Personalidad",
-      "personalityHint": "Se guarda en AGENT.md. Se envia al modelo. Maximo {{max}} lineas.",
+      "personalityHint": "Prompt de sesion que se envia al modelo. Se guarda en persona.md. Maximo {{max}} lineas.",
       "personalityCount": "{{count}} / {{max}}",
       "skills": "Habilidades",
       "skillsCount": "{{count}} / {{max}}",
@@ -323,6 +335,15 @@
       "errors": {
         "nameRequired": "El nombre es obligatorio."
       }
+    },
+    "editor": {
+      "title": "Editar personalidad",
+      "revert": "Revertir",
+      "save": "Guardar",
+      "saving": "Guardando",
+      "done": "Listo",
+      "clean": "Guardado",
+      "dirty": "Cambios sin guardar"
     },
     "tools": {
       "read_file": {

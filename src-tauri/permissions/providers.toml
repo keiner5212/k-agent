@@ -180,17 +180,17 @@ commands.allow = ["list_agents"]
 
 [[permission]]
 identifier = "allow-read-agent-meta"
-description = "Read an agent's metadata from its AGENT.md frontmatter."
+description = "Read a session agent's metadata from persona.md frontmatter."
 commands.allow = ["read_agent_meta"]
 
 [[permission]]
 identifier = "allow-create-agent"
-description = "Create a new agent folder with an AGENT.md manifest."
+description = "Create a new session agent folder with a persona.md manifest."
 commands.allow = ["create_agent"]
 
 [[permission]]
 identifier = "allow-update-agent"
-description = "Rename an agent folder and rewrite its AGENT.md frontmatter."
+description = "Rename a session agent folder and rewrite its persona.md."
 commands.allow = ["update_agent"]
 
 [[permission]]

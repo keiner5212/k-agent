@@ -6,10 +6,14 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use thiserror::Error;
 
-use crate::skills::{global_skills_root, list_skills_in, local_skills_root, parse_yaml_scalar};
+use crate::skills::{
+    estimate_tokens, global_skills_root, list_skills_in, local_skills_root, parse_yaml_scalar,
+};
 
 pub const MAX_AGENT_SKILLS: usize = 10;
 pub const MAX_AGENT_PERSONALITY_LINES: usize = 200;
+const PERSONA_MANIFEST: &str = "persona.md";
+const LEGACY_MANIFESTS: &[&str] = &["PERSONA.md", "AGENT.md", "agent.md"];
 
 const AGENT_TOOLS: &[&str] = &[
     "read_file",
@@ -43,6 +47,7 @@ pub struct AgentMeta {
     pub name: String,
     pub description: String,
     pub personality: String,
+    pub estimated_tokens: u32,
     pub skills: Vec<AgentSkillRef>,
     pub tools: Vec<String>,
 }
@@ -143,15 +148,25 @@ fn resolve_workspace(app: &AppHandle) -> Option<PathBuf> {
 }
 
 fn has_agent_manifest(dir: &Path) -> bool {
-    dir.join("AGENT.md").is_file() || dir.join("agent.md").is_file()
+    find_agent_manifest(dir).is_some()
+}
+
+fn find_agent_manifest(dir: &Path) -> Option<PathBuf> {
+    let preferred = dir.join(PERSONA_MANIFEST);
+    if preferred.is_file() {
+        return Some(preferred);
+    }
+    for name in LEGACY_MANIFESTS {
+        let path = dir.join(name);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+    None
 }
 
 fn agent_manifest_path(dir: &Path) -> PathBuf {
-    if dir.join("AGENT.md").is_file() || !dir.join("agent.md").is_file() {
-        dir.join("AGENT.md")
-    } else {
-        dir.join("agent.md")
-    }
+    dir.join(PERSONA_MANIFEST)
 }
 
 fn validate_agent_name(name: &str) -> Result<String, AgentError> {
@@ -435,17 +450,22 @@ fn sanitize_skills(
 }
 
 fn read_parsed_agent(dir: &Path) -> Result<ParsedAgent, AgentError> {
-    let path = if dir.join("AGENT.md").is_file() {
-        dir.join("AGENT.md")
-    } else {
-        dir.join("agent.md")
-    };
+    let path =
+        find_agent_manifest(dir).ok_or_else(|| AgentError::NotFound(dir.display().to_string()))?;
     let raw = fs::read_to_string(&path).map_err(|error| AgentError::Io(error.to_string()))?;
     Ok(parse_agent_md(&raw))
 }
 
 fn write_agent_md(dir: &Path, content: &str) -> Result<(), AgentError> {
-    fs::write(agent_manifest_path(dir), content).map_err(|error| AgentError::Io(error.to_string()))
+    fs::write(agent_manifest_path(dir), content)
+        .map_err(|error| AgentError::Io(error.to_string()))?;
+    for name in LEGACY_MANIFESTS {
+        let leftover = dir.join(name);
+        if leftover.is_file() {
+            let _ = fs::remove_file(leftover);
+        }
+    }
+    Ok(())
 }
 
 fn agent_meta_from_dir(
@@ -479,6 +499,13 @@ fn agent_meta_from_dir(
     } else {
         parsed.name
     };
+    let content = build_agent_md(
+        &display_name,
+        &parsed.description,
+        &skills,
+        &tools,
+        &parsed.body,
+    );
     Ok((
         AgentMeta {
             id,
@@ -486,6 +513,7 @@ fn agent_meta_from_dir(
             name: display_name,
             description: parsed.description,
             personality: parsed.body,
+            estimated_tokens: estimate_tokens(&content),
             skills,
             tools,
         },
@@ -710,14 +738,14 @@ pub async fn create_agent(
         &tools,
         &personality,
     );
-    fs::write(agent_path.join("AGENT.md"), content)
-        .map_err(|error| AgentError::Io(error.to_string()))?;
+    write_agent_md(&agent_path, &content)?;
     Ok(AgentMeta {
         id: validated.clone(),
         path: agent_path.display().to_string(),
         name: validated,
         description: input.description,
         personality,
+        estimated_tokens: estimate_tokens(&content),
         skills,
         tools,
     })
@@ -762,22 +790,21 @@ pub async fn update_agent(
     let skills = sanitize_skills(&input.skills, input.kind, &live);
     let tools = sanitize_tools(&input.tools);
     let personality = clamp_personality(&input.personality);
-    write_agent_md(
-        &new_path,
-        &build_agent_md(
-            &validated,
-            &input.description,
-            &skills,
-            &tools,
-            &personality,
-        ),
-    )?;
+    let content = build_agent_md(
+        &validated,
+        &input.description,
+        &skills,
+        &tools,
+        &personality,
+    );
+    write_agent_md(&new_path, &content)?;
     Ok(AgentMeta {
         id: validated.clone(),
         path: new_path.display().to_string(),
         name: validated,
         description: input.description,
         personality,
+        estimated_tokens: estimate_tokens(&content),
         skills,
         tools,
     })

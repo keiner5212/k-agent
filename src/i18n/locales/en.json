@@ -114,6 +114,9 @@
         },
         "chat": {
           "clear": "Clear chat input"
+        },
+        "editor": {
+          "save": "Save editor"
         }
       },
       "record": "Recording",
@@ -284,17 +287,26 @@
   },
   "agents": {
     "title": "Agents",
-    "description": "An agent is a folder that contains AGENT.md. Global agents live in ~/.k-agent/agents. Local agents live in .agents/agents under the workspace.",
+    "description": "A session agent is a personality for the chat: prompt, skills, and tools. Global agents live in ~/.k-agent/agents. Local agents live in .agents/agents under the workspace.",
     "context": {
       "global": "Global",
       "local": "Workspace"
     },
     "empty": "No agents in this folder yet.",
     "emptyTab": "Launch the app with a workspace path to see local agents.",
+    "table": {
+      "name": "Name",
+      "description": "Description",
+      "tokens": "Tokens",
+      "actions": "Actions",
+      "noDescription": "-",
+      "tokenValue": "~{{value}}"
+    },
     "actions": {
       "refresh": "Refresh agents",
       "create": "New agent",
       "edit": "Edit agent",
+      "editPersonality": "Edit personality",
       "delete": "Delete agent"
     },
     "form": {
@@ -307,7 +319,7 @@
       "descriptionPlaceholder": "Shown in the agent selector.",
       "descriptionHint": "UI only. Not sent to the model.",
       "personality": "Personality",
-      "personalityHint": "Written to AGENT.md. Sent to the model. Max {{max}} lines.",
+      "personalityHint": "Session prompt sent to the model. Stored in persona.md. Max {{max}} lines.",
       "personalityCount": "{{count}} / {{max}}",
       "skills": "Skills",
       "skillsCount": "{{count}} / {{max}}",
@@ -322,6 +334,15 @@
       "errors": {
         "nameRequired": "Name is required."
       }
+    },
+    "editor": {
+      "title": "Edit personality",
+      "revert": "Revert",
+      "save": "Save",
+      "saving": "Saving",
+      "done": "Done",
+      "clean": "Saved",
+      "dirty": "Unsaved changes"
     },
     "tools": {
       "read_file": {

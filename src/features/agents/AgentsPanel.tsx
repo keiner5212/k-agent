@@ -1,11 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Folder, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Folder, FileText, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { highlightMatch } from "@/lib/highlight";
 import { useAgentsStore } from "@/lib/agents";
 import { useSkillsStore } from "@/lib/skills";
+import { formatContextWindow } from "@/types/providers";
 import type {
   AgentContext as AgentContextType,
   AgentContextKind,
@@ -13,6 +14,7 @@ import type {
   AgentSkillRef,
 } from "@/types/agents";
 import { AgentFormDialog } from "./AgentFormDialog";
+import { AgentPersonalityDialog } from "./AgentPersonalityDialog";
 import { DeleteAgentDialog } from "./DeleteAgentDialog";
 
 type Tab = AgentContextKind;
@@ -38,6 +40,7 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
   const [tab, setTab] = useState<Tab>("global");
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<AgentMeta | null>(null);
+  const [personalityTarget, setPersonalityTarget] = useState<AgentMeta | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string } | null>(null);
 
   useEffect(() => {
@@ -113,6 +116,7 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
             context={active}
             onCreate={() => setCreateOpen(true)}
             onEdit={setEditTarget}
+            onEditPersonality={setPersonalityTarget}
             onDelete={(agent) => setDeleteTarget({ id: agent.id })}
           />
         ) : (
@@ -153,6 +157,27 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
         }}
       />
 
+      <AgentPersonalityDialog
+        open={personalityTarget !== null}
+        agent={personalityTarget}
+        onOpenChange={(open) => {
+          if (!open) setPersonalityTarget(null);
+        }}
+        onSave={async (personality) => {
+          if (!personalityTarget) return "no agent";
+          const result = await updateAgent(personalityTarget.path, formKind, {
+            name: personalityTarget.id,
+            description: personalityTarget.description,
+            personality,
+            skills: personalityTarget.skills,
+            tools: personalityTarget.tools,
+          });
+          if (result.error) return result.error;
+          await refresh();
+          return undefined;
+        }}
+      />
+
       <DeleteAgentDialog
         open={deleteTarget !== null}
         agentName={deleteTarget?.id ?? ""}
@@ -175,6 +200,7 @@ type AgentContextViewProps = {
   context: AgentContextType;
   onCreate: () => void;
   onEdit: (agent: AgentMeta) => void;
+  onEditPersonality: (agent: AgentMeta) => void;
   onDelete: (agent: AgentMeta) => void;
 };
 
@@ -182,6 +208,7 @@ const AgentContextView = ({
   context,
   onCreate,
   onEdit,
+  onEditPersonality,
   onDelete,
 }: AgentContextViewProps): ReactNode => {
   const { t } = useTranslation();
@@ -205,21 +232,52 @@ const AgentContextView = ({
       {context.agents.length === 0 ? (
         <p className="skill-context__empty">{t("agents.empty")}</p>
       ) : (
-        <ul className="skill-list">
-          {context.agents.map((agent) => (
-            <li key={agent.id} className="skill-row" title={agent.description || agent.path}>
-              <span className="skill-row__id">{agent.id}</span>
-              <span className="skill-row__actions">
-                <IconButton label={t("agents.actions.edit")} onClick={() => onEdit(agent)}>
-                  <Pencil size={12} strokeWidth={1.5} />
-                </IconButton>
-                <IconButton label={t("agents.actions.delete")} onClick={() => onDelete(agent)}>
-                  <Trash2 size={12} strokeWidth={1.5} />
-                </IconButton>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="skill-table-wrap">
+          <table className="skill-table">
+            <thead>
+              <tr>
+                <th>{t("agents.table.name")}</th>
+                <th>{t("agents.table.description")}</th>
+                <th>{t("agents.table.tokens")}</th>
+                <th>
+                  <span className="visually-hidden">{t("agents.table.actions")}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {context.agents.map((agent) => (
+                <tr key={agent.id} title={agent.path}>
+                  <td className="skill-table__name">{agent.name}</td>
+                  <td
+                    className="skill-table__desc"
+                    data-empty={agent.description.trim() ? undefined : "true"}
+                  >
+                    {agent.description.trim() ? agent.description : t("agents.table.noDescription")}
+                  </td>
+                  <td className="skill-table__tokens">
+                    {t("agents.table.tokenValue", {
+                      value: formatContextWindow(agent.estimatedTokens),
+                    })}
+                  </td>
+                  <td className="skill-table__actions">
+                    <IconButton
+                      label={t("agents.actions.editPersonality")}
+                      onClick={() => onEditPersonality(agent)}
+                    >
+                      <FileText size={12} strokeWidth={1.5} />
+                    </IconButton>
+                    <IconButton label={t("agents.actions.edit")} onClick={() => onEdit(agent)}>
+                      <Pencil size={12} strokeWidth={1.5} />
+                    </IconButton>
+                    <IconButton label={t("agents.actions.delete")} onClick={() => onDelete(agent)}>
+                      <Trash2 size={12} strokeWidth={1.5} />
+                    </IconButton>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </article>
   );

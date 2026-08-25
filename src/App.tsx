@@ -11,6 +11,7 @@ import { SessionsSidebar } from "@/features/sessions/SessionsSidebar";
 import { ChatComposer } from "@/features/chat/ChatComposer";
 import { ChatThread } from "@/features/chat/ChatThread";
 import { ContextStrip } from "@/features/chat/ContextStrip";
+import { EDITOR_SAVE_EVENT } from "@/lib/keybindings";
 import { useGlobalKeybindings } from "@/lib/use-global-keybindings";
 import { useSettingsStore } from "@/lib/settings";
 import { useComposerStore } from "@/lib/composer";
@@ -68,6 +69,9 @@ export const App = (): ReactNode => {
       else if (action === "sidebar.toggle")
         setSidebarOpen(!useSettingsStore.getState().sessionSidebarOpen);
       else if (action === "chat.clear") clearComposer();
+      else if (action === "editor.save") {
+        window.dispatchEvent(new Event(EDITOR_SAVE_EVENT));
+      }
     },
     [clearComposer, setSidebarOpen],
   );
