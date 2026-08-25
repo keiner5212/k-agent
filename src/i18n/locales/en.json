@@ -85,6 +85,22 @@
         "es": "Spanish"
       }
     },
+    "blockedCommands": {
+      "label": "Blocked commands",
+      "description": "Shell commands the agent must never run. Matched exactly against the full command string.",
+      "placeholder": "e.g. rm -rf /",
+      "add": "Add",
+      "empty": "No blocked commands yet.",
+      "remove": "Remove command"
+    },
+    "allowedCommands": {
+      "label": "Allowed commands",
+      "description": "Shell commands the agent can run without asking. Matched exactly against the full command string.",
+      "placeholder": "e.g. git status",
+      "add": "Add",
+      "empty": "No allowed commands yet.",
+      "remove": "Remove command"
+    },
     "translucency": {
       "label": "Disable translucency",
       "description": "Surfaces use a frosted, glass-like blur by default. Turn this on for solid surfaces."

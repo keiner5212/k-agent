@@ -21,6 +21,7 @@ import {
 } from "@/types/settings";
 import type { SettingItem as SettingItemDef } from "./registry";
 import { KeybindingField } from "./KeybindingField";
+import { ListEditor } from "./ListEditor";
 
 type SettingItemProps = {
   item: SettingItemDef;
@@ -41,6 +42,8 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const reminderInterval = useSettingsStore((state) => state.reminderInterval);
   const forceResponseLanguage = useSettingsStore((state) => state.forceResponseLanguage);
   const responseLanguage = useSettingsStore((state) => state.responseLanguage);
+  const blockedCommands = useSettingsStore((state) => state.blockedCommands);
+  const allowedCommands = useSettingsStore((state) => state.allowedCommands);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const setTextScale = useSettingsStore((state) => state.setTextScale);
@@ -49,6 +52,8 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setReminderInterval = useSettingsStore((state) => state.setReminderInterval);
   const setForceResponseLanguage = useSettingsStore((state) => state.setForceResponseLanguage);
   const setResponseLanguage = useSettingsStore((state) => state.setResponseLanguage);
+  const setBlockedCommands = useSettingsStore((state) => state.setBlockedCommands);
+  const setAllowedCommands = useSettingsStore((state) => state.setAllowedCommands);
   const setTranslucencyEnabled = useSettingsStore((state) => state.setTranslucencyEnabled);
   const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
   const setMinimizeToTray = useSettingsStore((state) => state.setMinimizeToTray);
@@ -135,6 +140,20 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
           <GlassButton variant="ghost" onClick={() => runSettingAction(item.id)}>
             {t("settings.debug.devtools.action")}
           </GlassButton>
+        ) : null}
+
+        {item.type === "list" ? (
+          <ListEditor
+            id={`setting-${item.id}`}
+            value={listValue(item.id, { blockedCommands, allowedCommands })}
+            onChange={(next) =>
+              onListChange(item.id, next, { setBlockedCommands, setAllowedCommands })
+            }
+            placeholder={t(`${listKeys(item.id)}.placeholder`)}
+            addLabel={t(`${listKeys(item.id)}.add`)}
+            emptyMessage={t(`${listKeys(item.id)}.empty`)}
+            removeLabel={t(`${listKeys(item.id)}.remove`)}
+          />
         ) : null}
       </div>
     </div>
@@ -340,3 +359,33 @@ const onToggleChange = (
       return;
   }
 };
+
+type ListValueState = { blockedCommands: string[]; allowedCommands: string[] };
+
+const listValue = (id: string, state: ListValueState): string[] => {
+  switch (id) {
+    case "blockedCommands":
+      return state.blockedCommands;
+    case "allowedCommands":
+      return state.allowedCommands;
+    default:
+      return [];
+  }
+};
+
+const onListChange = (
+  id: string,
+  next: string[],
+  setters: { setBlockedCommands: (v: string[]) => void; setAllowedCommands: (v: string[]) => void },
+): void => {
+  switch (id) {
+    case "blockedCommands":
+      setters.setBlockedCommands(next);
+      return;
+    case "allowedCommands":
+      setters.setAllowedCommands(next);
+      return;
+  }
+};
+
+const listKeys = (id: string): string => `settings.${id}`;

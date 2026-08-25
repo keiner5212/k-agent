@@ -85,6 +85,22 @@
         "es": "Español"
       }
     },
+    "blockedCommands": {
+      "label": "Comandos bloqueados",
+      "description": "Comandos que el agente no debe ejecutar nunca. Se comparan de forma exacta con la cadena completa.",
+      "placeholder": "ej. rm -rf /",
+      "add": "Agregar",
+      "empty": "Aun no hay comandos bloqueados.",
+      "remove": "Quitar comando"
+    },
+    "allowedCommands": {
+      "label": "Comandos permitidos",
+      "description": "Comandos que el agente puede ejecutar sin preguntar. Se comparan de forma exacta con la cadena completa.",
+      "placeholder": "ej. git status",
+      "add": "Agregar",
+      "empty": "Aun no hay comandos permitidos.",
+      "remove": "Quitar comando"
+    },
     "translucency": {
       "label": "Desactivar transparencia",
       "description": "Las superficies usan un desenfoque tipo cristal por defecto. Activa esto para superficies sólidas."

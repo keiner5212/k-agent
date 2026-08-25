@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { LazyStore } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  COMMAND_LIST_MAX_ITEMS,
+  COMMAND_LIST_MAX_LENGTH,
   DEFAULT_ANIMATIONS_ENABLED,
   DEFAULT_FONT_FAMILY,
   DEFAULT_FORCE_RESPONSE_LANGUAGE,
@@ -109,6 +111,26 @@ const sanitizeReminderInterval = (value: unknown): number => {
   return Math.min(MAX_REMINDER_INTERVAL, Math.max(MIN_REMINDER_INTERVAL, rounded));
 };
 
+const sanitizeCommandList = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") continue;
+    const trimmed = entry.trim();
+    if (trimmed.length === 0) continue;
+    const clipped =
+      trimmed.length > COMMAND_LIST_MAX_LENGTH
+        ? trimmed.slice(0, COMMAND_LIST_MAX_LENGTH)
+        : trimmed;
+    if (seen.has(clipped)) continue;
+    seen.add(clipped);
+    out.push(clipped);
+    if (out.length >= COMMAND_LIST_MAX_ITEMS) break;
+  }
+  return out;
+};
+
 const sanitizeSettings = (raw: unknown): Settings => {
   if (!raw || typeof raw !== "object") return DEFAULT_SETTINGS;
   const obj = raw as Record<string, unknown>;
@@ -132,6 +154,8 @@ const sanitizeSettings = (raw: unknown): Settings => {
       DEFAULT_FORCE_RESPONSE_LANGUAGE,
     ),
     responseLanguage: sanitizeLanguage(obj.responseLanguage ?? DEFAULT_RESPONSE_LANGUAGE),
+    blockedCommands: sanitizeCommandList(obj.blockedCommands),
+    allowedCommands: sanitizeCommandList(obj.allowedCommands),
     keybindings: sanitizeKeybindings(obj.keybindings),
     sessionSidebarOpen: sanitizeBoolean(
       obj.sessionSidebarOpen,
@@ -156,6 +180,8 @@ type SettingsStore = Settings & {
   setReminderInterval: (interval: number) => void;
   setForceResponseLanguage: (enabled: boolean) => void;
   setResponseLanguage: (language: AppLanguage) => void;
+  setBlockedCommands: (commands: string[]) => void;
+  setAllowedCommands: (commands: string[]) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
   setSessionSidebarOpen: (open: boolean) => void;
   resetKeybindings: () => void;
@@ -249,6 +275,8 @@ const snapshot = (state: SettingsStore): Settings => ({
   reminderInterval: state.reminderInterval,
   forceResponseLanguage: state.forceResponseLanguage,
   responseLanguage: state.responseLanguage,
+  blockedCommands: state.blockedCommands,
+  allowedCommands: state.allowedCommands,
   keybindings: state.keybindings,
   sessionSidebarOpen: state.sessionSidebarOpen,
 });
@@ -357,6 +385,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setResponseLanguage: (language) => {
     set({ responseLanguage: sanitizeLanguage(language) });
+    void persist(snapshot(get()));
+  },
+
+  setBlockedCommands: (commands) => {
+    set({ blockedCommands: sanitizeCommandList(commands) });
+    void persist(snapshot(get()));
+  },
+
+  setAllowedCommands: (commands) => {
+    set({ allowedCommands: sanitizeCommandList(commands) });
     void persist(snapshot(get()));
   },
 

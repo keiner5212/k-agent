@@ -1,4 +1,4 @@
-export type SettingItemType = "select" | "toggle" | "keybinding" | "action";
+export type SettingItemType = "select" | "toggle" | "keybinding" | "action" | "list";
 
 export type SettingOption = {
   value: string;

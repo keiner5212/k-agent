@@ -41,6 +41,12 @@ export const REMINDER_INTERVAL_OPTIONS = [4, 6, 8, 10, 12, 16, 20, 30, 50] as co
 export const DEFAULT_FORCE_RESPONSE_LANGUAGE = false;
 export const DEFAULT_RESPONSE_LANGUAGE: AppLanguage = DEFAULT_LANGUAGE;
 
+export const COMMAND_LIST_MAX_ITEMS = 200;
+export const COMMAND_LIST_MAX_LENGTH = 200;
+
+export const DEFAULT_BLOCKED_COMMANDS: string[] = [];
+export const DEFAULT_ALLOWED_COMMANDS: string[] = [];
+
 export const DEFAULT_SESSION_SIDEBAR_OPEN = true;
 
 export const hardwareThreadCount = (): number => {
@@ -89,6 +95,8 @@ export type Settings = {
   reminderInterval: number;
   forceResponseLanguage: boolean;
   responseLanguage: AppLanguage;
+  blockedCommands: string[];
+  allowedCommands: string[];
   keybindings: Keybindings;
   sessionSidebarOpen: boolean;
 };
@@ -107,6 +115,8 @@ export const DEFAULT_SETTINGS: Settings = {
   reminderInterval: DEFAULT_REMINDER_INTERVAL,
   forceResponseLanguage: DEFAULT_FORCE_RESPONSE_LANGUAGE,
   responseLanguage: DEFAULT_RESPONSE_LANGUAGE,
+  blockedCommands: DEFAULT_BLOCKED_COMMANDS,
+  allowedCommands: DEFAULT_ALLOWED_COMMANDS,
   keybindings: DEFAULT_KEYBINDINGS,
   sessionSidebarOpen: DEFAULT_SESSION_SIDEBAR_OPEN,
 };
