@@ -105,10 +105,6 @@
         "description": "Abre el inspector webview de esta ventana.",
         "action": "Abrir DevTools"
       }
-    },
-    "skillsPath": {
-      "label": "Carpeta global de habilidades",
-      "description": "Carpeta escaneada para habilidades globales. Cada subcarpeta con un archivo SKILL.md cuenta como una habilidad. Usa ~ para tu directorio home."
     }
   },
   "providers": {
@@ -206,7 +202,7 @@
   },
   "skills": {
     "title": "Habilidades",
-    "description": "Una habilidad es una carpeta que contiene SKILL.md. Las globales viven en la carpeta configurada. Las locales viven en .agents/skills del workspace (tu carpeta home por defecto).",
+    "description": "Una habilidad es una carpeta que contiene SKILL.md. Las globales viven en ~/.k-agent/skills. Las locales viven en .agents/skills del workspace.",
     "context": {
       "global": "Global",
       "local": "Local"

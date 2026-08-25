@@ -5,6 +5,7 @@ mod secret;
 mod skills;
 
 pub const APP_CONFIG_DIR: &str = ".k-agent";
+pub const WORKSPACE_AGENTS_DIR: &str = ".agents";
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -302,7 +303,12 @@ pub fn run() {
         ])
         .setup(|app| {
             if let Ok(home) = app.path().home_dir() {
-                if let Err(error) = crate::secret::ensure_master_key(&home.join(APP_CONFIG_DIR)) {
+                let config_dir = home.join(APP_CONFIG_DIR);
+                let _ = std::fs::create_dir_all(&config_dir);
+            }
+            if let Ok(secrets_dir) = app.path().app_data_dir() {
+                let _ = std::fs::create_dir_all(&secrets_dir);
+                if let Err(error) = crate::secret::ensure_master_key(&secrets_dir) {
                     eprintln!("k-agent master key: {error}");
                 }
             }

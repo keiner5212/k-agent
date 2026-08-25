@@ -38,12 +38,6 @@ pub struct SkillMeta {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ListSkillsInput {
-    pub global_path: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CreateSkillInput {
     pub root_path: String,
     pub name: String,
@@ -116,29 +110,17 @@ fn absolute_root(expanded: PathBuf) -> Result<PathBuf, SkillError> {
         .join(expanded))
 }
 
-fn normalize_global_root(path: PathBuf) -> PathBuf {
-    match path.file_name().and_then(|name| name.to_str()) {
-        Some(".k-agent") => path.join("skills"),
-        _ => path,
-    }
+fn global_skills_root(home: &Path) -> PathBuf {
+    home.join(crate::APP_CONFIG_DIR).join("skills")
 }
 
 fn local_skills_root(workspace: &Path) -> PathBuf {
-    workspace.join(".k-agent").join("skills")
+    workspace.join(crate::WORKSPACE_AGENTS_DIR).join("skills")
 }
 
-fn scan_local_skills(workspace: &Path) -> (Vec<PathBuf>, Vec<SkillInfo>) {
-    let mut roots = Vec::new();
-    let mut skills = Vec::new();
-    let candidate = workspace.join(".agents").join("skills");
-    if candidate.is_dir() {
-        roots.push(candidate.clone());
-        if let Ok(items) = list_skills_in(&candidate) {
-            skills.extend(items);
-        }
-    }
-    skills.sort_by(|left, right| left.id.cmp(&right.id));
-    (roots, skills)
+fn ensure_dir(path: &Path) -> Result<PathBuf, SkillError> {
+    fs::create_dir_all(path).map_err(|error| SkillError::Io(error.to_string()))?;
+    canonicalize_safe(path)
 }
 
 fn resolve_workspace(app: &AppHandle) -> Option<PathBuf> {
@@ -293,14 +275,12 @@ fn yaml_quote(value: &str) -> String {
 }
 
 #[tauri::command]
-pub async fn list_skills(
-    app: AppHandle,
-    input: ListSkillsInput,
-) -> Result<Vec<SkillContext>, SkillError> {
-    let expanded = expand_path(&input.global_path)
-        .ok_or_else(|| SkillError::InvalidPath(input.global_path.clone()))?;
-    let global_root = normalize_global_root(absolute_root(expanded)?);
-    let global_canon = fs::canonicalize(&global_root).unwrap_or_else(|_| global_root.clone());
+pub async fn list_skills(app: AppHandle) -> Result<Vec<SkillContext>, SkillError> {
+    let home = app
+        .path()
+        .home_dir()
+        .map_err(|error| SkillError::Io(error.to_string()))?;
+    let global_root = global_skills_root(&home);
     let global = SkillContext {
         kind: SkillContextKind::Global,
         path: global_root.display().to_string(),
@@ -308,34 +288,12 @@ pub async fn list_skills(
     };
     let mut contexts = vec![global];
     if let Some(workspace) = resolve_workspace(&app) {
-        let (roots, _) = scan_local_skills(&workspace);
-        let mut deduped_roots = Vec::new();
-        for root in roots {
-            let canon = fs::canonicalize(&root).unwrap_or_else(|_| root.clone());
-            if canon == global_canon {
-                continue;
-            }
-            deduped_roots.push(root);
-        }
-        let mut deduped_skills: Vec<SkillInfo> = Vec::new();
-        for root in &deduped_roots {
-            if let Ok(items) = list_skills_in(root) {
-                deduped_skills.extend(items);
-            }
-        }
-        deduped_skills.sort_by(|left, right| left.id.cmp(&right.id));
-        if !deduped_roots.is_empty() {
-            let local_path = deduped_roots
-                .first()
-                .cloned()
-                .unwrap_or_else(|| local_skills_root(&workspace));
-            let local = SkillContext {
-                kind: SkillContextKind::Local,
-                path: local_path.display().to_string(),
-                skills: deduped_skills,
-            };
-            contexts.push(local);
-        }
+        let local_root = local_skills_root(&workspace);
+        contexts.push(SkillContext {
+            kind: SkillContextKind::Local,
+            path: local_root.display().to_string(),
+            skills: list_skills_in(&local_root)?,
+        });
     }
     Ok(contexts)
 }
@@ -398,7 +356,7 @@ pub async fn update_skill_content(input: UpdateSkillContentInput) -> Result<(), 
 
 #[tauri::command]
 pub async fn create_skill(input: CreateSkillInput) -> Result<SkillInfo, SkillError> {
-    let root = resolve_root_path(&input.root_path)?;
+    let root = ensure_dir(&resolve_root_path(&input.root_path)?)?;
     let validated = validate_skill_name(&input.name)?;
     let skill_path = root.join(&validated);
     if skill_path.exists() {

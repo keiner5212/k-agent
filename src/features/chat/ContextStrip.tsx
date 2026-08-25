@@ -1,7 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Folder, GitBranch } from "lucide-react";
-import { useSettingsStore } from "@/lib/settings";
 import { useSkillsStore } from "@/lib/skills";
 import { useRepoInfo } from "./use-repo-info";
 
@@ -14,15 +13,14 @@ const shortPath = (path: string): string => {
 
 export const ContextStrip = (): ReactNode => {
   const { t } = useTranslation();
-  const globalSkillsPath = useSettingsStore((state) => state.globalSkillsPath);
   const loadSkills = useSkillsStore((state) => state.load);
   const workspacePath = useSkillsStore((state) => state.workspacePath);
 
   const repo = useRepoInfo(workspacePath);
 
   useEffect(() => {
-    void loadSkills(globalSkillsPath);
-  }, [globalSkillsPath, loadSkills]);
+    void loadSkills();
+  }, [loadSkills]);
 
   return (
     <footer className="context-strip">

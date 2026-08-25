@@ -1254,8 +1254,13 @@
   border-radius: var(--radius-sm);
   background-color: var(--surface-elevated);
   max-height: calc(
-    100vh - var(--titlebar-height) - 18rem
-  ); /* TODO: find the propper value to restrict the height */
+    100vh - var(--titlebar-height) - var(--space-6) - /* dialog header */
+      calc(var(--space-2) * 2 + 32px + 1px) - /* dialog footer */
+      calc(var(--space-2) * 2 + 28px + 1px) - /* settings-content padding */ var(--space-3) * 2 -
+      /* skills-panel gaps */ var(--space-3) * 2 - /* skills-panel__head */
+      calc(var(--text-sm) * 1.5 + var(--space-1) + var(--text-xs) * 1.5) - /* skills-panel__tabs */
+      30px - /* subpixel buffer */ 5px
+  );
   min-height: 0;
   overflow: hidden;
   transition: border-color var(--duration-fast) var(--ease-standard);
@@ -1826,7 +1831,7 @@
 .window-resize {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 60;
   pointer-events: none;
 }
 

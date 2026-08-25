@@ -99,15 +99,7 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
     titleKey: "settings.sections.skills",
     descriptionKey: "skills.description",
     keywords: ["skill", "ability", "habilidad", "context", "contexto"],
-    items: [
-      {
-        id: "globalSkillsPath",
-        type: "path",
-        titleKey: "settings.skillsPath.label",
-        descriptionKey: "settings.skillsPath.description",
-        keywords: ["path", "folder", "directory", "ruta", "carpeta"],
-      },
-    ],
+    items: [],
   },
   {
     id: "keybindings",

@@ -45,7 +45,6 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const minimizeToTray = useSettingsStore((state) => state.minimizeToTray);
   const rememberWindowSize = useSettingsStore((state) => state.rememberWindowSize);
   const maxWorkerCores = useSettingsStore((state) => state.maxWorkerCores);
-  const globalSkillsPath = useSettingsStore((state) => state.globalSkillsPath);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const setTextScale = useSettingsStore((state) => state.setTextScale);
@@ -54,7 +53,6 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
   const setMinimizeToTray = useSettingsStore((state) => state.setMinimizeToTray);
   const setRememberWindowSize = useSettingsStore((state) => state.setRememberWindowSize);
-  const setGlobalSkillsPath = useSettingsStore((state) => state.setGlobalSkillsPath);
 
   const titleText = t(item.titleKey);
   const descriptionText = t(item.descriptionKey);
@@ -117,19 +115,6 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
           <GlassButton variant="ghost" onClick={() => runSettingAction(item.id)}>
             {t("settings.debug.devtools.action")}
           </GlassButton>
-        ) : null}
-
-        {item.type === "path" ? (
-          <input
-            id={`setting-${item.id}`}
-            type="text"
-            className="input"
-            value={pathValue(item.id, { globalSkillsPath })}
-            onChange={(event) => onPathChange(item.id, event.target.value, { setGlobalSkillsPath })}
-            spellCheck={false}
-            autoCorrect="off"
-            autoCapitalize="off"
-          />
         ) : null}
       </div>
     </div>
@@ -235,29 +220,6 @@ const toggleChecked = (id: string, state: ToggleState): boolean => {
       return state.rememberWindowSize;
     default:
       return false;
-  }
-};
-
-type PathState = { globalSkillsPath: string };
-
-const pathValue = (id: string, state: PathState): string => {
-  switch (id) {
-    case "globalSkillsPath":
-      return state.globalSkillsPath;
-    default:
-      return "";
-  }
-};
-
-const onPathChange = (
-  id: string,
-  next: string,
-  setters: { setGlobalSkillsPath: (path: string) => void },
-): void => {
-  switch (id) {
-    case "globalSkillsPath":
-      setters.setGlobalSkillsPath(next);
-      return;
   }
 };
 

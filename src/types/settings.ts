@@ -24,8 +24,6 @@ export const MAX_WORKER_CORES_AUTO = 0;
 export const DEFAULT_MAX_WORKER_CORES = MAX_WORKER_CORES_AUTO;
 export const MAX_WORKER_CORES_CAP = 256;
 
-export const DEFAULT_GLOBAL_SKILLS_PATH = "~/.k-agent/skills";
-
 export const DEFAULT_SESSION_SIDEBAR_OPEN = true;
 
 export const hardwareThreadCount = (): number => {
@@ -69,7 +67,6 @@ export type Settings = {
   textScale: TextScale;
   maxWorkerCores: number;
   keybindings: Keybindings;
-  globalSkillsPath: string;
   sessionSidebarOpen: boolean;
 };
 
@@ -84,6 +81,5 @@ export const DEFAULT_SETTINGS: Settings = {
   textScale: DEFAULT_TEXT_SCALE,
   maxWorkerCores: DEFAULT_MAX_WORKER_CORES,
   keybindings: DEFAULT_KEYBINDINGS,
-  globalSkillsPath: DEFAULT_GLOBAL_SKILLS_PATH,
   sessionSidebarOpen: DEFAULT_SESSION_SIDEBAR_OPEN,
 };

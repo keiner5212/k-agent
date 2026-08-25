@@ -105,10 +105,6 @@
         "description": "Open the webview inspector for this window.",
         "action": "Open DevTools"
       }
-    },
-    "skillsPath": {
-      "label": "Global skills folder",
-      "description": "Folder scanned for global skills. Each subfolder with a SKILL.md file counts as one skill. Use ~ for your home directory."
     }
   },
   "providers": {
@@ -206,7 +202,7 @@
   },
   "skills": {
     "title": "Skills",
-    "description": "A skill is a folder that contains SKILL.md. Global skills live in the configured folder. Local skills live in .agents/skills under the workspace (your home folder by default).",
+    "description": "A skill is a folder that contains SKILL.md. Global skills live in ~/.k-agent/skills. Local skills live in .agents/skills under the workspace.",
     "context": {
       "global": "Global",
       "local": "Local"

@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Folder, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { IconButton } from "@/components/IconButton";
-import { useSettingsStore } from "@/lib/settings";
 import { useSkillsStore } from "@/lib/skills";
 import type { SkillContext as SkillContextType } from "@/types/skills";
 import { CreateSkillDialog } from "./CreateSkillDialog";
@@ -13,7 +12,6 @@ type Tab = "global" | "local";
 
 export const SkillsPanel = (): ReactNode => {
   const { t } = useTranslation();
-  const globalSkillsPath = useSettingsStore((state) => state.globalSkillsPath);
   const contexts = useSkillsStore((state) => state.contexts);
   const workspacePath = useSkillsStore((state) => state.workspacePath);
   const loading = useSkillsStore((state) => state.loading);
@@ -30,8 +28,8 @@ export const SkillsPanel = (): ReactNode => {
   const [createName, setCreateName] = useState<string | null>(null);
 
   useEffect(() => {
-    void load(globalSkillsPath);
-  }, [globalSkillsPath, load]);
+    void load();
+  }, [load]);
 
   const global = contexts.find((context) => context.kind === "global");
   const local = contexts.find((context) => context.kind === "local");
@@ -43,7 +41,7 @@ export const SkillsPanel = (): ReactNode => {
   ];
 
   const handleRefresh = (): void => {
-    void refresh(globalSkillsPath);
+    void refresh();
   };
 
   return (
@@ -108,7 +106,7 @@ export const SkillsPanel = (): ReactNode => {
           if (!createName) return "no root";
           const result = await createSkill(createName, name, description);
           if (result.error) return result.error;
-          await refresh(globalSkillsPath);
+          await refresh();
           return undefined;
         }}
       />
@@ -123,7 +121,7 @@ export const SkillsPanel = (): ReactNode => {
           if (!editorPath) return "no skill";
           const result = await updateContent(editorPath, content);
           if (result.error) return result.error;
-          await refresh(globalSkillsPath);
+          await refresh();
           return undefined;
         }}
       />
@@ -138,7 +136,7 @@ export const SkillsPanel = (): ReactNode => {
           if (!deleteTarget || !active) return "missing target";
           const result = await deleteSkill(active.path, deleteTarget.id);
           if (result.error) return result.error;
-          await refresh(globalSkillsPath);
+          await refresh();
           return undefined;
         }}
       />

@@ -44,7 +44,7 @@ src-tauri/catalog/  bundled models.json (Rust only; never import in the UI)
 
 ## Settings
 
-Persist only in `src/lib/settings.ts` (plugin-store file `settings.json`, key `settings`). Sanitize on hydrate. Persist the full `Settings` object.
+Persist only in `src/lib/settings.ts` (plugin-store file `settings.json` in the app data dir, key `settings`). Sanitize on hydrate. Persist the full `Settings` object.
 
 Add a setting in this order:
 
@@ -69,17 +69,27 @@ Window min size is 720x480 in `src/types/settings.ts` and `src-tauri/src/lib.rs`
 
 - Commands return `Result`. Frontend mutations return `{ provider?, error? }` via `runMutation`. Show `error` on the form. Do not warn-and-rethrow.
 - `load` without Tauri: empty list. Mutations without Tauri: `{ error: "Desktop shell required" }`.
-- Never send API key plaintext back over IPC. Disk uses `enc:v1:` blobs. UI only sees `hasApiKey`. Empty edit keeps the key; explicit clear removes it.
+- Never send API key plaintext back over IPC. Disk uses `enc:v1:` blobs in the app data dir. UI only sees `hasApiKey`. Empty edit keeps the key; explicit clear removes it.
 - `ModelInfo` in `src/types/providers.ts` matches the Rust IPC shape, including optional capability fields. The model form does not edit those fields; upsert omits empty vectors so Rust keeps catalog values.
 - Provider kind labels: `t("providers.kinds." + kind)`.
 
 ## Rust disk layout
 
-All app files live under `~/.k-agent/` (`APP_CONFIG_DIR` in `lib.rs`). Reuse that const.
+Secrets and UI settings live in the Tauri app data dir (`app.path().app_data_dir()`). Model and context files live under `~/.k-agent/` (`APP_CONFIG_DIR`). Workspace files live under `{workspace}/.agents/` (`WORKSPACE_AGENTS_DIR`).
 
+App data dir:
+
+- `settings.json` (plugin-store; keys `settings`, `selectedModel`, `modelEffort:*`)
 - `master.key` (mode 0600) via `secret.rs`
-- `providers.json`
+- `provider-keys.json` (`enc:v1:` blobs keyed by provider id, mode 0600)
+
+`~/.k-agent/`:
+
+- `providers.json` (no API keys)
 - `models-dev-cache.json` (24h TTL)
+- `skills/` global skills. Created on first global skill create.
+
+Workspace `{workspace}/.agents/skills/`: local skills. Created on first local skill create. Do not scan `.k-agent` inside a workspace.
 
 Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then bundled overlay. User-edited / custom models are not overwritten.
 
