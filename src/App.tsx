@@ -16,6 +16,7 @@ import { closeTopDialog } from "@/lib/dialog-stack";
 import { useGlobalKeybindings } from "@/lib/use-global-keybindings";
 import { useSettingsStore } from "@/lib/settings";
 import { useComposerStore } from "@/lib/composer";
+import { useSessionsStore } from "@/lib/sessions";
 import { useSelectionStore } from "@/lib/selected-model";
 import { isTauri } from "@/lib/platform";
 import { useWindowBoundsSync } from "@/lib/window-bounds";
@@ -56,6 +57,7 @@ export const App = (): ReactNode => {
   const sidebarOpen = useSettingsStore((state) => state.sessionSidebarOpen);
   const setSidebarOpen = useSettingsStore((state) => state.setSessionSidebarOpen);
   const hydrateSelection = useSelectionStore((state) => state.hydrate);
+  const hydrateSessions = useSessionsStore((state) => state.hydrate);
   const clearComposer = useComposerStore((state) => state.clear);
 
   useEffect(() => {
@@ -65,6 +67,10 @@ export const App = (): ReactNode => {
   useEffect(() => {
     void hydrateSelection();
   }, [hydrateSelection]);
+
+  useEffect(() => {
+    void hydrateSessions();
+  }, [hydrateSessions]);
 
   useEffect(() => {
     if (i18n.language !== language) {

@@ -1,6 +1,7 @@
 mod agents;
 mod agents_md;
 mod catalog;
+mod chat;
 mod lsp;
 mod lsp_client;
 mod mcp_client;
@@ -9,6 +10,7 @@ mod pathutil;
 mod providers;
 mod repo;
 mod secret;
+mod sessions;
 mod skills;
 mod workspace_files;
 
@@ -38,6 +40,8 @@ use providers::{
     delete_provider, delete_provider_model, list_providers, refresh_provider_models,
     refresh_single_model, save_provider, set_model_favorite, upsert_provider_model,
 };
+use chat::{generate_session_title, send_chat_message};
+use sessions::{load_sessions, save_sessions};
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
 static WINDOW_BOUNDS_RESTORED: AtomicBool = AtomicBool::new(false);
@@ -494,6 +498,10 @@ pub fn run() {
             lsp::resolve_language_server,
             lsp_client::lsp_request,
             workspace_files::list_workspace_files,
+            load_sessions,
+            save_sessions,
+            send_chat_message,
+            generate_session_title,
             webview_log,
         ])
         .setup(|app| {

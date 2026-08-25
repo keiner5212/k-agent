@@ -57,6 +57,10 @@
     "allow-save-mcp-server",
     "allow-delete-mcp-server",
     "allow-refresh-mcp-server-tools",
-    "allow-set-mcp-server-enabled"
+    "allow-set-mcp-server-enabled",
+    "allow-send-chat-message",
+    "allow-load-sessions",
+    "allow-save-sessions",
+    "allow-generate-session-title"
   ]
 }

@@ -385,7 +385,7 @@ fn redact(mut provider: Provider) -> Provider {
     provider
 }
 
-async fn load_all(app: &AppHandle) -> Result<Vec<Provider>, ProviderError> {
+pub(crate) async fn load_all(app: &AppHandle) -> Result<Vec<Provider>, ProviderError> {
     let path = providers_path(app)?;
     let mut providers = load(&path).await?;
     let dir = secrets_dir(app)?;
@@ -424,7 +424,7 @@ async fn save_all(app: &AppHandle, providers: &[Provider]) -> Result<(), Provide
     save(&path, &stored).await
 }
 
-fn http_client() -> Result<reqwest::Client, ProviderError> {
+pub(crate) fn http_client() -> Result<reqwest::Client, ProviderError> {
     reqwest::Client::builder()
         .timeout(HTTP_TIMEOUT)
         .user_agent(concat!("k-agent/", env!("CARGO_PKG_VERSION")))
@@ -432,7 +432,7 @@ fn http_client() -> Result<reqwest::Client, ProviderError> {
         .map_err(|e| ProviderError::Http(e.to_string()))
 }
 
-fn attach_auth(req: reqwest::RequestBuilder, provider: &Provider) -> reqwest::RequestBuilder {
+pub(crate) fn attach_auth(req: reqwest::RequestBuilder, provider: &Provider) -> reqwest::RequestBuilder {
     match provider.kind {
         ProviderKind::OpenAiLike => {
             if let Some(key) = provider.api_key.as_deref() {

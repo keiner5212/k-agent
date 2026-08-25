@@ -49,6 +49,10 @@ permissions = [
   "allow-list-mcp-servers",
   "allow-save-mcp-server",
   "allow-delete-mcp-server",
+  "allow-send-chat-message",
+  "allow-load-sessions",
+  "allow-save-sessions",
+  "allow-generate-session-title",
 ]
 
 [[permission]]
@@ -300,3 +304,23 @@ commands.allow = ["refresh_mcp_server_tools"]
 identifier = "allow-set-mcp-server-enabled"
 description = "Enable or disable an MCP server."
 commands.allow = ["set_mcp_server_enabled"]
+
+[[permission]]
+identifier = "allow-send-chat-message"
+description = "Send a simple chat message to the selected model."
+commands.allow = ["send_chat_message"]
+
+[[permission]]
+identifier = "allow-load-sessions"
+description = "Load persisted chat sessions."
+commands.allow = ["load_sessions"]
+
+[[permission]]
+identifier = "allow-save-sessions"
+description = "Persist chat sessions."
+commands.allow = ["save_sessions"]
+
+[[permission]]
+identifier = "allow-generate-session-title"
+description = "Generate a session title from the first message."
+commands.allow = ["generate_session_title"]

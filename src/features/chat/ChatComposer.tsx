@@ -1,8 +1,9 @@
-import { useRef, type ReactNode } from "react";
+import { useCallback, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowUp, Paperclip, Play } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
+import { useChatStore } from "@/lib/chat";
 import { useComposerStore } from "@/lib/composer";
 import { useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
@@ -21,12 +22,35 @@ export const ChatComposer = (): ReactNode => {
   const value = useComposerStore((state) => state.value);
   const mode = useComposerStore((state) => state.mode);
   const setValue = useComposerStore((state) => state.setValue);
+  const clearComposer = useComposerStore((state) => state.clear);
   const selection = useSelectionStore((state) => state.selection);
+  const sending = useChatStore((state) => state.sending);
+  const hydrated = useChatStore((state) => state.hydrated);
+  const sendMessage = useChatStore((state) => state.send);
   const keybindings = useSettingsStore((state) => state.keybindings);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { pushChange, undo, redo } = useUndoableText(value, setValue);
   const shellMode = mode === "shell";
-  const canSend = Boolean(selection) && value.trim().length > 0;
+  const canSend = Boolean(selection) && hydrated && value.trim().length > 0 && !sending;
+
+  const handleSend = useCallback(async () => {
+    if (!canSend) return;
+    const text = value;
+    clearComposer();
+    await sendMessage(text);
+    textareaRef.current?.focus();
+  }, [canSend, clearComposer, sendMessage, value]);
+
+  const handleComposerKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (shellMode) return;
+      if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+      if (!canSend) return;
+      event.preventDefault();
+      void handleSend();
+    },
+    [canSend, handleSend, shellMode],
+  );
 
   useUndoRedoKeydown(textareaRef, keybindings, undo, redo);
   useComposerFocusKeys(textareaRef, pushChange);
@@ -46,6 +70,7 @@ export const ChatComposer = (): ReactNode => {
           mode={mode}
           onChange={pushChange}
           textareaRef={textareaRef}
+          onKeyDown={handleComposerKeyDown}
         />
         <div className="chat-composer__actions">
           {!shellMode ? (
@@ -78,7 +103,9 @@ export const ChatComposer = (): ReactNode => {
                   ? t("chat.composer.send")
                   : t("chat.composer.disabledHint")
             }
-            onClick={() => undefined}
+            onClick={() => {
+              void handleSend();
+            }}
             disabled={!canSend}
           >
             {shellMode ? <Play size={16} strokeWidth={2} /> : <ArrowUp strokeWidth={2} />}

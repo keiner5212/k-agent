@@ -239,17 +239,23 @@ button.change-bar__stat:focus-visible {
 .sessions-sidebar__item-wrap {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
+}
+
+.sessions-sidebar__item-wrap:hover .sessions-sidebar__item-delete,
+.sessions-sidebar__item-wrap:focus-within .sessions-sidebar__item-delete {
+  opacity: 1;
 }
 
 .sessions-sidebar__item {
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: var(--control-height);
-  padding: 0 var(--space-2);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  min-height: var(--control-height);
+  padding: var(--space-2);
   font-size: var(--text-sm);
   text-align: left;
   color: var(--text-primary);
@@ -273,7 +279,6 @@ button.change-bar__stat:focus-visible {
 }
 
 .sessions-sidebar__item-title {
-  flex: 1;
   min-width: 0;
   font-weight: var(--weight-medium);
   white-space: nowrap;
@@ -281,12 +286,25 @@ button.change-bar__stat:focus-visible {
   text-overflow: ellipsis;
 }
 
+.sessions-sidebar__item-preview {
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sessions-sidebar__item[data-active="true"] .sessions-sidebar__item-preview {
+  color: var(--text-secondary);
+}
+
 .sessions-sidebar__item-delete {
   width: var(--control-height);
   height: var(--control-height);
   flex-shrink: 0;
   color: var(--text-muted);
-  opacity: 0;
+  opacity: 1;
   transition:
     opacity var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
@@ -297,18 +315,8 @@ button.change-bar__stat:focus-visible {
   height: 1em;
 }
 
-.sessions-sidebar__item:hover .sessions-sidebar__item-delete,
-.sessions-sidebar__item:focus-within .sessions-sidebar__item-delete {
-  opacity: 1;
-}
-
 .sessions-sidebar__item-delete:hover {
-  color: var(--text-primary);
-}
-
-.sessions-sidebar__item[data-active="true"] .sessions-sidebar__item-delete {
-  opacity: 1;
-  color: var(--text-secondary);
+  color: var(--danger);
 }
 
 .sessions-sidebar__empty {
@@ -781,6 +789,60 @@ button.change-bar__stat:focus-visible {
   color: var(--text-muted);
 }
 
+.chat-thread--active {
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.chat-thread__messages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+.chat-message {
+  max-width: min(100%, 36rem);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background-color: var(--surface-elevated);
+}
+
+.chat-message--user {
+  align-self: flex-end;
+  border-color: color-mix(in oklch, var(--accent) 28%, var(--border));
+}
+
+.chat-message--assistant {
+  align-self: flex-start;
+}
+
+.chat-message--pending {
+  color: var(--text-muted);
+}
+
+.chat-message__content {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.chat-thread__error {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--danger);
+  border: 1px solid color-mix(in oklch, var(--danger) 35%, var(--border));
+  border-radius: var(--radius-sm);
+  background-color: color-mix(in oklch, var(--danger) 8%, transparent);
+}
+
 /* Composer */
 
 .chat-composer {
@@ -853,8 +915,8 @@ button.change-bar__stat:focus-visible {
   display: block;
   width: 100%;
   resize: none;
-  min-height: 4.5rem;
-  max-height: 10rem;
+  min-height: 3.825rem;
+  max-height: 8.5rem;
   padding: var(--space-2) var(--space-3);
   padding-right: 4.75rem;
   padding-bottom: 2.5rem;
