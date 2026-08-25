@@ -159,25 +159,7 @@
 }
 
 .skill-context__new {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: 22px;
-  padding: 0 var(--space-2);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  color: var(--text-secondary);
-  background-color: var(--background);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  white-space: nowrap;
   flex-shrink: 0;
-}
-
-.skill-context__new:hover {
-  color: var(--text-primary);
-  border-color: var(--border-strong);
 }
 
 .skill-context__count {

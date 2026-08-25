@@ -299,8 +299,8 @@ const ProviderCard = ({
         <summary>{t("providers.viewModels")}</summary>
         <div className="model-list-actions">
           <GlassButton variant="ghost" onClick={() => setEditor({})}>
-            <Plus size={14} strokeWidth={1.5} />
-            <span>{t("providers.actions.addModel")}</span>
+            <Plus strokeWidth={1.5} />
+            {t("providers.actions.addModel")}
           </GlassButton>
         </div>
         {provider.models.length > 0 ? (
@@ -388,8 +388,8 @@ const ProvidersList = (): ReactNode => {
 
       <div className="provider-actions">
         <GlassButton variant="primary" onClick={() => setAdding(true)} disabled={loading}>
-          <Plus size={14} strokeWidth={1.5} />
-          <span>{t("providers.add")}</span>
+          <Plus strokeWidth={1.5} />
+          {t("providers.add")}
         </GlassButton>
       </div>
     </>

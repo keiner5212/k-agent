@@ -4,7 +4,7 @@
 .input {
   display: inline-flex;
   align-items: center;
-  height: 28px;
+  height: var(--control-height);
   padding: 0 var(--space-2);
   background-color: var(--background);
   color: var(--text-primary);
@@ -76,6 +76,11 @@
   pointer-events: none;
   display: inline-flex;
   transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.select__icon svg {
+  width: 1em;
+  height: 1em;
 }
 
 .select[data-open="true"] .select__icon {

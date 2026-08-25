@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Folder, GitBranch } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useSkillsStore } from "@/lib/skills";
+import { ChangeBar } from "./ChangeBar";
 import { useRepoInfo } from "./use-repo-info";
 
 const shortPath = (path: string): string => {
@@ -57,6 +58,7 @@ export const ContextStrip = (): ReactNode => {
             <span className="context-strip__chip-value">{repo.branch}</span>
           </span>
         ) : null}
+        <ChangeBar />
       </div>
     </footer>
   );

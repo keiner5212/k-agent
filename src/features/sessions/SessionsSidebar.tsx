@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { MessageSquarePlus, Trash2 } from "lucide-react";
+import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { type SessionSummary } from "@/types/sessions";
 import { useSessionsStore } from "@/lib/sessions";
@@ -15,10 +16,10 @@ export const SessionsSidebar = (): ReactNode => {
       <div className="sessions-sidebar__head">
         <span className="sessions-sidebar__title">{t("sessions.title")}</span>
       </div>
-      <button type="button" className="sessions-sidebar__new" aria-label={t("sessions.new")}>
-        <MessageSquarePlus size={14} strokeWidth={1.5} />
-        <span>{t("sessions.new")}</span>
-      </button>
+      <GlassButton variant="ghost" className="sessions-sidebar__new" aria-label={t("sessions.new")}>
+        <MessageSquarePlus strokeWidth={1.5} />
+        {t("sessions.new")}
+      </GlassButton>
       {sessions.length === 0 ? (
         <p className="sessions-sidebar__empty">{t("sessions.empty")}</p>
       ) : (

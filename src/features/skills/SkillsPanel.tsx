@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Folder, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { highlightMatch } from "@/lib/highlight";
 import { useSkillsStore } from "@/lib/skills";
@@ -170,15 +171,15 @@ const SkillContextView = ({
         <span className="skill-context__path" title={context.path}>
           {context.path}
         </span>
-        <button
-          type="button"
+        <GlassButton
+          variant="ghost"
           className="skill-context__new"
           onClick={onCreate}
           aria-label={t("skills.actions.create")}
         >
-          <Plus size={12} strokeWidth={1.5} />
-          <span>{t("skills.actions.create")}</span>
-        </button>
+          <Plus strokeWidth={1.5} />
+          {t("skills.actions.create")}
+        </GlassButton>
       </div>
       {context.skills.length === 0 ? (
         <p className="skill-context__empty">{t("skills.empty")}</p>

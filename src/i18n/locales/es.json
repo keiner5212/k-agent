@@ -72,11 +72,16 @@
       "label": "Tamano del texto",
       "description": "Escala todo el texto de la aplicacion.",
       "options": {
+        "50": "50%",
+        "60": "60%",
+        "70": "70%",
+        "80": "80%",
         "87": "87%",
         "92": "92%",
         "100": "100%",
         "112": "112%",
-        "125": "125%"
+        "125": "125%",
+        "140": "140%"
       }
     },
     "keybindings": {
@@ -266,10 +271,44 @@
     "composer": {
       "placeholder": "Escribe un mensaje",
       "send": "Enviar",
+      "attach": "Adjuntar",
       "disabledHint": "Elige un modelo para enviar."
     },
     "effort": {
       "label": "Esfuerzo"
+    },
+    "agent": {
+      "label": "Agente",
+      "options": {
+        "plan": "Plan",
+        "build": "Build"
+      }
+    },
+    "usage": {
+      "label": "Contexto {{percent}}%, costo {{cost}}",
+      "percent": "{{percent}}%",
+      "contextLabel": "Contexto",
+      "costLabel": "Costo",
+      "title": "Uso de contexto",
+      "percentFull": "{{percent}}% lleno",
+      "tokens": "~{{used}} / {{window}} tokens",
+      "categories": {
+        "systemPrompt": "Prompt de sistema",
+        "toolDefinitions": "Definiciones de herramientas",
+        "rules": "Reglas",
+        "skills": "Skills",
+        "mcpTools": "MCP y herramientas dinamicas",
+        "subagentDefinitions": "Definiciones de subagentes",
+        "conversation": "Conversacion"
+      }
+    },
+    "changes": {
+      "label": "Cambios en el arbol de trabajo",
+      "title": "Archivos modificados",
+      "files_one": "archivo",
+      "files_other": "archivos",
+      "lines_one": "linea",
+      "lines_other": "lineas"
     }
   },
   "sessions": {

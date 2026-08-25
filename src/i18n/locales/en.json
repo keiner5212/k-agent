@@ -72,11 +72,16 @@
       "label": "Text size",
       "description": "Scale all text in the app.",
       "options": {
+        "50": "50%",
+        "60": "60%",
+        "70": "70%",
+        "80": "80%",
         "87": "87%",
         "92": "92%",
         "100": "100%",
         "112": "112%",
-        "125": "125%"
+        "125": "125%",
+        "140": "140%"
       }
     },
     "keybindings": {
@@ -265,10 +270,44 @@
     "composer": {
       "placeholder": "Write a message",
       "send": "Send",
+      "attach": "Attach",
       "disabledHint": "Pick a model to send."
     },
     "effort": {
       "label": "Effort"
+    },
+    "agent": {
+      "label": "Agent",
+      "options": {
+        "plan": "Plan",
+        "build": "Build"
+      }
+    },
+    "usage": {
+      "label": "Context {{percent}}%, cost {{cost}}",
+      "percent": "{{percent}}%",
+      "contextLabel": "Context",
+      "costLabel": "Cost",
+      "title": "Context Usage",
+      "percentFull": "{{percent}}% Full",
+      "tokens": "~{{used}} / {{window}} Tokens",
+      "categories": {
+        "systemPrompt": "System prompt",
+        "toolDefinitions": "Tool definitions",
+        "rules": "Rules",
+        "skills": "Skills",
+        "mcpTools": "MCP & dynamic tools",
+        "subagentDefinitions": "Subagent definitions",
+        "conversation": "Conversation"
+      }
+    },
+    "changes": {
+      "label": "Working tree changes",
+      "title": "Changed files",
+      "files_one": "file",
+      "files_other": "files",
+      "lines_one": "line",
+      "lines_other": "lines"
     }
   },
   "sessions": {

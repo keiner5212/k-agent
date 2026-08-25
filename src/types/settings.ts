@@ -8,9 +8,11 @@ export const DEFAULT_MINIMIZE_TO_TRAY = false;
 export const DEFAULT_TRANSLUCENCY_ENABLED = true;
 export const DEFAULT_ANIMATIONS_ENABLED = true;
 
-export type TextScale = 0.875 | 0.92 | 1 | 1.125 | 1.25;
+export type TextScale = 0.5 | 0.6 | 0.7 | 0.8 | 0.875 | 0.92 | 1 | 1.125 | 1.25 | 1.4;
 
-export const TEXT_SCALE_OPTIONS: readonly TextScale[] = [0.875, 0.92, 1, 1.125, 1.25] as const;
+export const TEXT_SCALE_OPTIONS: readonly TextScale[] = [
+  0.5, 0.6, 0.7, 0.8, 0.875, 0.92, 1, 1.125, 1.25, 1.4,
+] as const;
 
 export const DEFAULT_TEXT_SCALE: TextScale = 1;
 
