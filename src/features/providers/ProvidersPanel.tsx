@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Loader2, Pencil, Plug, Plus, RefreshCw, Star, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
+import { highlightMatch } from "@/lib/highlight";
 import { useProvidersStore } from "@/lib/providers";
 import {
   formatContextWindow,
@@ -13,7 +14,11 @@ import {
 import { ModelForm } from "./ModelForm";
 import { ProviderForm } from "./ProviderForm";
 
-export const ProvidersPanel = (): ReactNode => {
+type ProvidersPanelProps = {
+  query: string;
+};
+
+export const ProvidersPanel = ({ query }: ProvidersPanelProps): ReactNode => {
   const { t } = useTranslation();
   const load = useProvidersStore((state) => state.load);
 
@@ -24,8 +29,8 @@ export const ProvidersPanel = (): ReactNode => {
   return (
     <section className="section">
       <header>
-        <h2 className="section__heading">{t("providers.title")}</h2>
-        <p className="section__description">{t("providers.description")}</p>
+        <h2 className="section__heading">{highlightMatch(t("providers.title"), query)}</h2>
+        <p className="section__description">{highlightMatch(t("providers.description"), query)}</p>
       </header>
       <ProvidersList />
     </section>

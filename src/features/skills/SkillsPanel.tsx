@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Folder, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { IconButton } from "@/components/IconButton";
+import { highlightMatch } from "@/lib/highlight";
 import { useSkillsStore } from "@/lib/skills";
 import type { SkillContext as SkillContextType } from "@/types/skills";
 import { CreateSkillDialog } from "./CreateSkillDialog";
@@ -10,7 +11,11 @@ import { SkillEditorDialog } from "./SkillEditorDialog";
 
 type Tab = "global" | "local";
 
-export const SkillsPanel = (): ReactNode => {
+type SkillsPanelProps = {
+  query: string;
+};
+
+export const SkillsPanel = ({ query }: SkillsPanelProps): ReactNode => {
   const { t } = useTranslation();
   const contexts = useSkillsStore((state) => state.contexts);
   const workspacePath = useSkillsStore((state) => state.workspacePath);
@@ -47,8 +52,8 @@ export const SkillsPanel = (): ReactNode => {
   return (
     <section className="skills-panel">
       <header className="skills-panel__head">
-        <h2 className="section__heading">{t("skills.title")}</h2>
-        <p className="section__description">{t("skills.description")}</p>
+        <h2 className="section__heading">{highlightMatch(t("skills.title"), query)}</h2>
+        <p className="section__description">{highlightMatch(t("skills.description"), query)}</p>
         <IconButton
           className="skills-panel__refresh"
           label={t("skills.actions.refresh")}

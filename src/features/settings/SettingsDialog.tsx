@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Bug, Keyboard, Plug, Sliders, Sparkles } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
+import { highlightMatch } from "@/lib/highlight";
 import { ProvidersPanel } from "@/features/providers/ProvidersPanel";
 import { SkillsPanel } from "@/features/skills/SkillsPanel";
 import { SETTINGS_REGISTRY } from "./registry-data";
@@ -144,9 +145,9 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
             {visibleTabs.length === 0 ? (
               <div className="settings-empty">{t("settings.searchEmpty")}</div>
             ) : resolvedTab === "providers" ? (
-              <ProvidersPanel />
+              <ProvidersPanel query={query.trim()} />
             ) : resolvedTab === "skills" ? (
-              <SkillsPanel />
+              <SkillsPanel query={query.trim()} />
             ) : resolvedTab === "keybindings" ? (
               <KeybindingsPanel items={activeSection?.items ?? []} query={trimmed} />
             ) : (
@@ -175,8 +176,12 @@ const KeybindingsPanel = ({
   return (
     <section className="kbd-section">
       <header className="kbd-section__head">
-        <h3 className="section__heading">{t("settings.sections.keybindings")}</h3>
-        <p className="section__description">{t("settings.keybindings.description")}</p>
+        <h3 className="section__heading">
+          {highlightMatch(t("settings.sections.keybindings"), query)}
+        </h3>
+        <p className="section__description">
+          {highlightMatch(t("settings.keybindings.description"), query)}
+        </p>
       </header>
       {items.length === 0 ? (
         <div className="settings-empty">{t("settings.searchEmpty")}</div>
@@ -191,7 +196,7 @@ const KeybindingsPanel = ({
           <tbody>
             {items.map((item) => (
               <tr key={item.id}>
-                <td>{highlightLabel(t(item.titleKey), query)}</td>
+                <td>{highlightMatch(t(item.titleKey), query)}</td>
                 <td>
                   <KeybindingField action={item.id as KeybindingAction} />
                 </td>
@@ -201,18 +206,5 @@ const KeybindingsPanel = ({
         </table>
       )}
     </section>
-  );
-};
-
-const highlightLabel = (text: string, query: string): ReactNode => {
-  if (query.length === 0) return text;
-  const idx = text.toLowerCase().indexOf(query.toLowerCase());
-  if (idx === -1) return text;
-  return (
-    <>
-      {text.slice(0, idx)}
-      <mark className="search-mark">{text.slice(idx, idx + query.length)}</mark>
-      {text.slice(idx + query.length)}
-    </>
   );
 };
