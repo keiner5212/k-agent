@@ -205,7 +205,7 @@
     "description": "Una habilidad es una carpeta que contiene SKILL.md. Las globales viven en ~/.k-agent/skills. Las locales viven en .agents/skills del workspace.",
     "context": {
       "global": "Global",
-      "local": "Local"
+      "local": "Workspace"
     },
     "empty": "Aun no se detectan habilidades en esta carpeta.",
     "emptyTab": "Inicia la app con una ruta de workspace para ver habilidades locales.",
@@ -242,21 +242,6 @@
       "saving": "Guardando",
       "clean": "Guardado",
       "dirty": "Cambios sin guardar"
-    },
-    "form": {
-      "createTitle": "Nueva habilidad",
-      "name": "Nombre",
-      "namePlaceholder": "mi-habilidad",
-      "nameHint": "Letras minusculas, numeros, guiones y guiones bajos.",
-      "description": "Descripcion",
-      "descriptionPlaceholder": "¿Que hace esta habilidad?",
-      "descriptionHint": "Se guarda en el frontmatter de SKILL.md.",
-      "cancel": "Cancelar",
-      "save": "Guardar",
-      "saving": "Guardando",
-      "errors": {
-        "nameRequired": "El nombre es obligatorio."
-      }
     },
     "delete": {
       "title": "Eliminar habilidad",

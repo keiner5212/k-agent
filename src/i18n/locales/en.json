@@ -205,7 +205,7 @@
     "description": "A skill is a folder that contains SKILL.md. Global skills live in ~/.k-agent/skills. Local skills live in .agents/skills under the workspace.",
     "context": {
       "global": "Global",
-      "local": "Local"
+      "local": "Workspace"
     },
     "empty": "No skills detected in this folder yet.",
     "emptyTab": "Launch the app with a workspace path to see local skills.",
