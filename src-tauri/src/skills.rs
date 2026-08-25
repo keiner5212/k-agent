@@ -125,7 +125,7 @@ fn ensure_dir(path: &Path) -> Result<PathBuf, SkillError> {
 
 fn resolve_workspace(app: &AppHandle) -> Option<PathBuf> {
     let state = app.state::<crate::LocalWorkspace>();
-    state.path.clone()
+    state.path.lock().ok().and_then(|guard| guard.clone())
 }
 
 fn has_skill_manifest(dir: &Path) -> bool {

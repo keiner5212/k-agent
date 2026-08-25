@@ -297,6 +297,8 @@
   },
   "workspace": {
     "label": "Workspace",
-    "unset": "El workspace no esta disponible."
+    "unset": "El workspace no esta disponible.",
+    "pickFolder": "Elige la carpeta de workspace",
+    "change": "Click para cambiar de workspace"
   }
 }

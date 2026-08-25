@@ -28,6 +28,7 @@ permissions = [
   "allow-update-skill-content",
   "allow-delete-skill",
   "allow-get-workspace-path",
+  "allow-set-workspace-path",
   "allow-get-repo-info",
 ]
 
@@ -165,6 +166,11 @@ commands.allow = ["delete_skill"]
 identifier = "allow-get-workspace-path"
 description = "Read the current workspace path."
 commands.allow = ["get_workspace_path"]
+
+[[permission]]
+identifier = "allow-set-workspace-path"
+description = "Change the current workspace path for this session."
+commands.allow = ["set_workspace_path"]
 
 [[permission]]
 identifier = "allow-get-repo-info"

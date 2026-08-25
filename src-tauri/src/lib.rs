@@ -9,6 +9,7 @@ pub const WORKSPACE_AGENTS_DIR: &str = ".agents";
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::{
@@ -26,7 +27,7 @@ static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
 
 #[derive(Default)]
 struct LocalWorkspace {
-    path: Option<PathBuf>,
+    path: Mutex<Option<PathBuf>>,
 }
 
 #[tauri::command]
@@ -208,7 +209,30 @@ fn register_linux_identity() {}
 
 #[tauri::command]
 fn get_workspace_path(state: State<'_, LocalWorkspace>) -> Option<String> {
-    state.path.as_ref().map(|path| path.display().to_string())
+    state
+        .path
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().map(|path| path.display().to_string()))
+}
+
+#[tauri::command]
+fn set_workspace_path(state: State<'_, LocalWorkspace>, path: String) -> Result<(), String> {
+    let expanded = expand_user_path(&path).ok_or_else(|| format!("invalid path: {path}"))?;
+    let absolute = if expanded.is_absolute() {
+        expanded
+    } else {
+        std::env::current_dir()
+            .map_err(|error| error.to_string())?
+            .join(expanded)
+    };
+    if !absolute.exists() {
+        std::fs::create_dir_all(&absolute).map_err(|error| error.to_string())?;
+    }
+    let canonical = std::fs::canonicalize(&absolute).map_err(|error| error.to_string())?;
+    let mut guard = state.path.lock().map_err(|error| error.to_string())?;
+    *guard = Some(canonical);
+    Ok(())
 }
 
 fn expand_user_path(input: &str) -> Option<PathBuf> {
@@ -247,6 +271,9 @@ fn parse_workspace_arg() -> Option<PathBuf> {
         if arg == "--workspace" || arg == "-w" {
             return args.get(index + 1).and_then(|value| resolve_existing_path(value));
         }
+        if !arg.starts_with('-') {
+            return resolve_existing_path(arg);
+        }
         index += 1;
     }
     None
@@ -265,11 +292,12 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(LocalWorkspace {
-            path: parse_workspace_arg().or_else(|| {
+            path: Mutex::new(parse_workspace_arg().or_else(|| {
                 let home = default_workspace();
                 std::fs::canonicalize(&home).ok().or(Some(home))
-            }),
+            })),
         })
         .invoke_handler(tauri::generate_handler![
             set_minimize_to_tray,
@@ -284,6 +312,7 @@ pub fn run() {
             window_start_drag,
             window_open_devtools,
             get_workspace_path,
+            set_workspace_path,
             repo::get_repo_info,
             list_providers,
             save_provider,

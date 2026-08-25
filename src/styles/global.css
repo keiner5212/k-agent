@@ -2339,6 +2339,20 @@
   max-width: 100%;
 }
 
+.context-strip__chip--button {
+  cursor: pointer;
+  font: inherit;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.context-strip__chip--button:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
 .context-strip__chip--accent {
   color: var(--accent);
   border-color: color-mix(in oklch, var(--accent) 35%, transparent);

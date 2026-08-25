@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "store:default",
+    "dialog:default",
+    "dialog:allow-open",
     "allow-list",
     "allow-save",
     "allow-delete",
@@ -33,6 +35,7 @@
     "allow-update-skill-content",
     "allow-delete-skill",
     "allow-get-workspace-path",
+    "allow-set-workspace-path",
     "allow-get-repo-info"
   ]
 }

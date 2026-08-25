@@ -20,6 +20,7 @@ type SkillsStore = {
   error?: string;
   load: () => Promise<void>;
   refresh: () => Promise<{ error?: string; payload?: FetchPayload }>;
+  setWorkspacePath: (path: string) => Promise<{ error?: string }>;
   readMeta: (rootPath: string, name: string) => Promise<{ error?: string; meta?: SkillMeta }>;
   readFile: (path: string) => Promise<{ error?: string; content?: string }>;
   create: (rootPath: string, name: string, description: string) => Promise<{ error?: string }>;
@@ -60,6 +61,20 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
       const payload = await fetchPayload();
       set({ ...payload, error: undefined });
       return { payload };
+    } catch (error) {
+      const message = toMessage(error);
+      set({ error: message });
+      return { error: message };
+    }
+  },
+
+  setWorkspacePath: async (path) => {
+    if (!isTauri()) return { error: DESKTOP_REQUIRED };
+    try {
+      await invoke("set_workspace_path", { path });
+      const payload = await fetchPayload();
+      set({ ...payload, error: undefined });
+      return {};
     } catch (error) {
       const message = toMessage(error);
       set({ error: message });
