@@ -7,6 +7,7 @@ import "./styles/base.css";
 import "./styles/dialog.css";
 import "./styles/settings.css";
 import "./styles/inputs.css";
+import "./styles/table.css";
 import "./styles/controls.css";
 import "./styles/providers.css";
 import "./styles/skills.css";

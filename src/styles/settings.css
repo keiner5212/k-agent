@@ -83,7 +83,7 @@
 
 .settings-content {
   padding: var(--space-3) var(--space-4);
-  overflow-y: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
   min-height: 0;
   display: flex;
@@ -97,7 +97,12 @@
   flex: 1;
   min-height: 0;
   gap: var(--space-4);
+  overflow-y: auto;
   animation: pane-in var(--duration-enter) var(--ease-out);
+}
+
+.settings-pane--dense {
+  overflow: hidden;
 }
 
 /* ========== Sections & fields ========== */

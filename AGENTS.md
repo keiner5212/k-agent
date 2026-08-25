@@ -33,6 +33,7 @@ src-tauri/catalog/  bundled models.json (Rust only; never import in the UI)
 | ------------- | ------------------------------------------ |
 | Modal         | `Dialog`                                   |
 | Dropdown      | `Select` with `{ value, label }`           |
+| Data table    | `Table` with column defs + `rowKey`        |
 | Boolean       | `Toggle`                                   |
 | Button        | `GlassButton` / `IconButton`               |
 | Desktop check | `isTauri()` from `src/lib/platform.ts`     |

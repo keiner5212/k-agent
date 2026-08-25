@@ -125,11 +125,6 @@
   background-color: var(--danger);
 }
 
-:root[data-translucent="true"] .kbd-table th,
-:root[data-translucent="true"] .kbd-table td {
-  border-color: color-mix(in oklch, var(--border) 70%, transparent);
-}
-
 :root[data-translucent="true"] .provider-card__badge,
 :root[data-translucent="true"] .provider-card__model-list li {
   background-color: color-mix(in oklch, var(--background) 45%, transparent);

@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Folder, FileText, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
+import { Table, type TableColumn } from "@/components/Table";
 import { highlightMatch } from "@/lib/highlight";
 import { builtinAgentContext } from "@/lib/builtin-agents";
 import { useAgentsStore } from "@/lib/agents";
@@ -255,6 +256,71 @@ const AgentContextView = ({
   onDelete,
 }: AgentContextViewProps): ReactNode => {
   const { t } = useTranslation();
+  const columns = useMemo(
+    (): TableColumn<AgentMeta>[] => [
+      {
+        id: "name",
+        header: t("agents.table.name"),
+        className: "data-table__name",
+        render: (agent) => agent.name,
+      },
+      {
+        id: "description",
+        header: t("agents.table.description"),
+        className: "data-table__desc",
+        cellProps: (agent) => ({
+          "data-empty": agent.description.trim() ? undefined : "true",
+        }),
+        render: (agent) =>
+          agent.description.trim() ? agent.description : t("agents.table.noDescription"),
+      },
+      {
+        id: "tokens",
+        header: t("agents.table.tokens"),
+        className: "data-table__tokens",
+        render: (agent) =>
+          t("agents.table.tokenValue", {
+            value: formatContextWindow(agent.estimatedTokens),
+          }),
+      },
+      {
+        id: "actions",
+        header: <span className="visually-hidden">{t("agents.table.actions")}</span>,
+        className: "data-table__actions",
+        render: (agent) => (
+          <>
+            {onEditPersonality ? (
+              <IconButton
+                label={
+                  readOnly
+                    ? t("agents.actions.viewPersonality")
+                    : t("agents.actions.editPersonality")
+                }
+                onClick={() => onEditPersonality(agent)}
+              >
+                <FileText size={12} strokeWidth={1.5} />
+              </IconButton>
+            ) : null}
+            {onEdit ? (
+              <IconButton
+                label={readOnly ? t("agents.form.viewTitle") : t("agents.actions.edit")}
+                onClick={() => onEdit(agent)}
+              >
+                <Pencil size={12} strokeWidth={1.5} />
+              </IconButton>
+            ) : null}
+            {!readOnly && onDelete ? (
+              <IconButton label={t("agents.actions.delete")} onClick={() => onDelete(agent)}>
+                <Trash2 size={12} strokeWidth={1.5} />
+              </IconButton>
+            ) : null}
+          </>
+        ),
+      },
+    ],
+    [onDelete, onEdit, onEditPersonality, readOnly, t],
+  );
+
   return (
     <article className="skill-context">
       <div className="skill-context__header">
@@ -278,68 +344,15 @@ const AgentContextView = ({
       {context.agents.length === 0 ? (
         <p className="skill-context__empty">{t("agents.empty")}</p>
       ) : (
-        <div className="skill-table-wrap">
-          <table className="skill-table">
-            <thead>
-              <tr>
-                <th>{t("agents.table.name")}</th>
-                <th>{t("agents.table.description")}</th>
-                <th>{t("agents.table.tokens")}</th>
-                <th>
-                  <span className="visually-hidden">{t("agents.table.actions")}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {context.agents.map((agent) => (
-                <tr key={agent.id} title={agent.path}>
-                  <td className="skill-table__name">{agent.name}</td>
-                  <td
-                    className="skill-table__desc"
-                    data-empty={agent.description.trim() ? undefined : "true"}
-                  >
-                    {agent.description.trim() ? agent.description : t("agents.table.noDescription")}
-                  </td>
-                  <td className="skill-table__tokens">
-                    {t("agents.table.tokenValue", {
-                      value: formatContextWindow(agent.estimatedTokens),
-                    })}
-                  </td>
-                  <td className="skill-table__actions">
-                    {onEditPersonality ? (
-                      <IconButton
-                        label={
-                          readOnly
-                            ? t("agents.actions.viewPersonality")
-                            : t("agents.actions.editPersonality")
-                        }
-                        onClick={() => onEditPersonality(agent)}
-                      >
-                        <FileText size={12} strokeWidth={1.5} />
-                      </IconButton>
-                    ) : null}
-                    {onEdit ? (
-                      <IconButton
-                        label={readOnly ? t("agents.form.viewTitle") : t("agents.actions.edit")}
-                        onClick={() => onEdit(agent)}
-                      >
-                        <Pencil size={12} strokeWidth={1.5} />
-                      </IconButton>
-                    ) : null}
-                    {!readOnly && onDelete ? (
-                      <IconButton
-                        label={t("agents.actions.delete")}
-                        onClick={() => onDelete(agent)}
-                      >
-                        <Trash2 size={12} strokeWidth={1.5} />
-                      </IconButton>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          columns={columns}
+          rows={context.agents}
+          rowKey={(agent) => agent.id}
+          rowTitle={(agent) => agent.path}
+          layout="fixed"
+          stickyHeader
+          scrollable
+        />
       )}
     </article>
   );

@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Folder, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
+import { Table, type TableColumn } from "@/components/Table";
 import { highlightMatch } from "@/lib/highlight";
 import { useSkillsStore } from "@/lib/skills";
 import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
@@ -167,6 +168,52 @@ const SkillContextView = ({
   onDelete,
 }: SkillContextViewProps): ReactNode => {
   const { t } = useTranslation();
+  const columns = useMemo(
+    (): TableColumn<SkillInfo>[] => [
+      {
+        id: "name",
+        header: t("skills.table.name"),
+        className: "data-table__name",
+        render: (skill) => skill.name,
+      },
+      {
+        id: "description",
+        header: t("skills.table.description"),
+        className: "data-table__desc",
+        cellProps: (skill) => ({
+          "data-empty": skill.description.trim() ? undefined : "true",
+        }),
+        render: (skill) =>
+          skill.description.trim() ? skill.description : t("skills.table.noDescription"),
+      },
+      {
+        id: "tokens",
+        header: t("skills.table.tokens"),
+        className: "data-table__tokens",
+        render: (skill) =>
+          t("skills.table.tokenValue", {
+            value: formatContextWindow(skill.estimatedTokens),
+          }),
+      },
+      {
+        id: "actions",
+        header: <span className="visually-hidden">{t("skills.table.actions")}</span>,
+        className: "data-table__actions",
+        render: (skill) => (
+          <>
+            <IconButton label={t("skills.actions.edit")} onClick={() => onEdit(skill)}>
+              <Pencil size={12} strokeWidth={1.5} />
+            </IconButton>
+            <IconButton label={t("skills.actions.delete")} onClick={() => onDelete(skill)}>
+              <Trash2 size={12} strokeWidth={1.5} />
+            </IconButton>
+          </>
+        ),
+      },
+    ],
+    [onDelete, onEdit, t],
+  );
+
   return (
     <article className="skill-context">
       <div className="skill-context__header">
@@ -187,46 +234,15 @@ const SkillContextView = ({
       {context.skills.length === 0 ? (
         <p className="skill-context__empty">{t("skills.empty")}</p>
       ) : (
-        <div className="skill-table-wrap">
-          <table className="skill-table">
-            <thead>
-              <tr>
-                <th>{t("skills.table.name")}</th>
-                <th>{t("skills.table.description")}</th>
-                <th>{t("skills.table.tokens")}</th>
-                <th>
-                  <span className="visually-hidden">{t("skills.table.actions")}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {context.skills.map((skill) => (
-                <tr key={skill.id} title={skill.path}>
-                  <td className="skill-table__name">{skill.name}</td>
-                  <td
-                    className="skill-table__desc"
-                    data-empty={skill.description.trim() ? undefined : "true"}
-                  >
-                    {skill.description.trim() ? skill.description : t("skills.table.noDescription")}
-                  </td>
-                  <td className="skill-table__tokens">
-                    {t("skills.table.tokenValue", {
-                      value: formatContextWindow(skill.estimatedTokens),
-                    })}
-                  </td>
-                  <td className="skill-table__actions">
-                    <IconButton label={t("skills.actions.edit")} onClick={() => onEdit(skill)}>
-                      <Pencil size={12} strokeWidth={1.5} />
-                    </IconButton>
-                    <IconButton label={t("skills.actions.delete")} onClick={() => onDelete(skill)}>
-                      <Trash2 size={12} strokeWidth={1.5} />
-                    </IconButton>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          columns={columns}
+          rows={context.skills}
+          rowKey={(skill) => skill.id}
+          rowTitle={(skill) => skill.path}
+          layout="fixed"
+          stickyHeader
+          scrollable
+        />
       )}
     </article>
   );

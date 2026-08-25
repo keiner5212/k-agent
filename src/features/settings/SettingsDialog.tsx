@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
+import { Table, type TableColumn } from "@/components/Table";
 import { highlightMatch } from "@/lib/highlight";
 import { ProvidersPanel } from "@/features/providers/ProvidersPanel";
 import { SkillsPanel } from "@/features/skills/SkillsPanel";
@@ -106,6 +107,11 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
     : (visibleTabs[0]?.id ?? "general");
 
   const activeSection = sections.find((section) => section.id === resolvedTab);
+  const densePane =
+    resolvedTab === "skills" ||
+    resolvedTab === "agents" ||
+    resolvedTab === "agentsMd" ||
+    resolvedTab === "lsps";
 
   return (
     <Dialog
@@ -160,7 +166,10 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
           ) : null}
         </nav>
         <div className="settings-content" role="tabpanel">
-          <div key={resolvedTab} className="settings-pane">
+          <div
+            key={resolvedTab}
+            className={densePane ? "settings-pane settings-pane--dense" : "settings-pane"}
+          >
             {visibleTabs.length === 0 ? (
               <div className="settings-empty">{t("settings.searchEmpty")}</div>
             ) : resolvedTab === "providers" ? (
@@ -197,6 +206,23 @@ const KeybindingsPanel = ({
   query: string;
 }): ReactNode => {
   const { t } = useTranslation();
+  const columns = useMemo(
+    (): TableColumn<SettingsSectionDef["items"][number]>[] => [
+      {
+        id: "action",
+        header: t("settings.keybindings.action"),
+        className: "data-table__desc",
+        render: (item) => highlightMatch(t(item.titleKey), query),
+      },
+      {
+        id: "shortcut",
+        header: t("settings.keybindings.shortcut"),
+        className: "data-table__actions",
+        render: (item) => <KeybindingField action={item.id as KeybindingAction} />,
+      },
+    ],
+    [query, t],
+  );
 
   return (
     <section className="kbd-section">
@@ -211,24 +237,14 @@ const KeybindingsPanel = ({
       {items.length === 0 ? (
         <div className="settings-empty">{t("settings.searchEmpty")}</div>
       ) : (
-        <table className="kbd-table">
-          <thead>
-            <tr>
-              <th>{t("settings.keybindings.action")}</th>
-              <th>{t("settings.keybindings.shortcut")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id}>
-                <td>{highlightMatch(t(item.titleKey), query)}</td>
-                <td>
-                  <KeybindingField action={item.id as KeybindingAction} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Table
+          columns={columns}
+          rows={items}
+          rowKey={(item) => item.id}
+          layout="fixed"
+          stickyHeader
+          scrollable
+        />
       )}
     </section>
   );
