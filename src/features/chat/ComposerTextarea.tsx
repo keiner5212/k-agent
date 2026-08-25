@@ -9,12 +9,19 @@ import {
   type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { segmentMentionHighlights } from "@/lib/file-mentions";
+import { segmentComposerHighlights } from "@/lib/composer-highlights";
+import { tryMentionBackspace } from "@/lib/composer-mention-edits";
+import type { ComposerMode } from "@/lib/composer";
 import { FileMentionMenu } from "./FileMentionMenu";
+import { SlashCommandMenu } from "./SlashCommandMenu";
 import { useFileMentions } from "./use-file-mentions";
+import { useSlashCommands } from "./use-slash-commands";
+
+const EMPTY_SLASH_NAMES = new Set<string>();
 
 type ComposerTextareaProps = {
   value: string;
+  mode: ComposerMode;
   onChange: (next: string) => void;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   onKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -22,6 +29,7 @@ type ComposerTextareaProps = {
 
 export const ComposerTextarea = ({
   value,
+  mode,
   onChange,
   textareaRef,
   onKeyDown,
@@ -29,6 +37,9 @@ export const ComposerTextarea = ({
   const { t } = useTranslation();
   const backdropRef = useRef<HTMLDivElement>(null);
   const [cursor, setCursor] = useState(0);
+
+  const shellMode = mode === "shell";
+  const slashEnabled = !shellMode;
 
   const applyValue = useCallback(
     (next: string, nextCursor: number) => {
@@ -45,19 +56,37 @@ export const ComposerTextarea = ({
   );
 
   const {
-    menuOpen,
-    items,
-    tooMany,
-    activeIndex,
+    menuOpen: atMenuOpen,
+    items: atItems,
+    tooMany: atTooMany,
+    activeIndex: atActiveIndex,
     mentionPaths,
-    loading,
-    error,
-    handleKeyDown: handleMentionKeyDown,
-    pickItem,
+    loading: atLoading,
+    error: atError,
+    handleKeyDown: handleAtKeyDown,
+    pickItem: pickAtItem,
     activeMention,
   } = useFileMentions({
     value,
     cursor,
+    onApply: applyValue,
+  });
+
+  const {
+    menuOpen: slashMenuOpen,
+    items: slashItems,
+    tooMany: slashTooMany,
+    activeIndex: slashActiveIndex,
+    query: slashQuery,
+    slashNames,
+    loading: slashLoading,
+    error: slashError,
+    handleKeyDown: handleSlashKeyDown,
+    pickItem: pickSlashItem,
+  } = useSlashCommands({
+    value,
+    cursor,
+    enabled: slashEnabled,
     onApply: applyValue,
   });
 
@@ -80,9 +109,11 @@ export const ComposerTextarea = ({
     syncScroll();
   }, [value, syncScroll]);
 
+  const slashHighlightNames = slashEnabled ? slashNames : EMPTY_SLASH_NAMES;
+
   const segments = useMemo(
-    () => segmentMentionHighlights(value, mentionPaths),
-    [mentionPaths, value],
+    () => segmentComposerHighlights(value, mentionPaths, slashHighlightNames),
+    [mentionPaths, slashHighlightNames, value],
   );
 
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>): void => {
@@ -92,12 +123,35 @@ export const ComposerTextarea = ({
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (handleMentionKeyDown(event)) return;
+    if (event.key === "Backspace" && !event.shiftKey) {
+      const field = textareaRef.current;
+      const selStart = field?.selectionStart ?? cursor;
+      const selEnd = field?.selectionEnd ?? cursor;
+      if (selStart === selEnd) {
+        const edited = tryMentionBackspace(value, selStart);
+        if (edited) {
+          event.preventDefault();
+          applyValue(edited.next, edited.cursor);
+          return;
+        }
+      }
+    }
+    if (slashEnabled && slashMenuOpen && handleSlashKeyDown(event)) return;
+    if (atMenuOpen && handleAtKeyDown(event)) return;
     onKeyDown?.(event);
   };
 
+  const placeholder = shellMode
+    ? t("chat.composer.placeholderShell")
+    : t("chat.composer.placeholder");
+
   return (
-    <div className="chat-composer__input-stack">
+    <div className="chat-composer__input-stack" {...(shellMode ? { "data-mode": "shell" } : {})}>
+      {shellMode ? (
+        <span className="chat-composer__shell-prompt" aria-hidden="true">
+          $
+        </span>
+      ) : null}
       <div ref={backdropRef} className="chat-composer__input-backdrop" aria-hidden="true">
         {segments.length === 1 && !segments[0]?.mention
           ? segments[0]?.text
@@ -114,7 +168,7 @@ export const ComposerTextarea = ({
       <textarea
         ref={textareaRef}
         className="chat-composer__input chat-composer__input--mentions"
-        placeholder={t("chat.composer.placeholder")}
+        placeholder={placeholder}
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
@@ -122,19 +176,31 @@ export const ComposerTextarea = ({
         onSelect={syncCursor}
         onScroll={syncScroll}
         rows={3}
-        aria-label={t("chat.composer.placeholder")}
-        aria-expanded={menuOpen}
+        aria-label={placeholder}
+        aria-expanded={atMenuOpen || (slashEnabled && slashMenuOpen)}
         spellCheck={false}
       />
+      {slashEnabled ? (
+        <SlashCommandMenu
+          open={slashMenuOpen}
+          items={slashItems}
+          query={slashQuery}
+          activeIndex={slashActiveIndex}
+          loading={slashLoading}
+          error={slashError}
+          tooMany={slashTooMany}
+          onPick={pickSlashItem}
+        />
+      ) : null}
       <FileMentionMenu
-        open={menuOpen}
-        items={items}
+        open={atMenuOpen}
+        items={atItems}
         query={activeMention?.query ?? ""}
-        activeIndex={activeIndex}
-        loading={loading}
-        error={error}
-        tooMany={tooMany}
-        onPick={pickItem}
+        activeIndex={atActiveIndex}
+        loading={atLoading}
+        error={atError}
+        tooMany={atTooMany}
+        onPick={pickAtItem}
       />
     </div>
   );

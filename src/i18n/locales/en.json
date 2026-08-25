@@ -170,7 +170,8 @@
           "toggle": "Toggle sessions sidebar"
         },
         "chat": {
-          "clear": "Clear chat input"
+          "clear": "Clear chat input",
+          "modeToggle": "Toggle shell / prompt mode"
         },
         "search": {
           "focus": "Focus search field"
@@ -666,15 +667,32 @@
     },
     "composer": {
       "placeholder": "Write a message",
+      "placeholderShell": "run a shell command...",
       "send": "Send",
+      "run": "Run",
       "attach": "Attach",
-      "disabledHint": "Pick a model to send."
+      "disabledHint": "Pick a model to send.",
+      "disabledHintShell": "Type a command to run.",
+      "mode": {
+        "prompt": "Prompt",
+        "shell": "Shell",
+        "hint": "Shift+! toggles mode when input is empty"
+      }
     },
     "fileMentions": {
       "label": "Workspace files",
       "empty": "No matching files",
       "loading": "Indexing workspace...",
       "tooMany": "Too many matches. Keep typing to narrow the list."
+    },
+    "slashCommands": {
+      "label": "Commands and skills",
+      "empty": "No matching commands or skills",
+      "loading": "Loading commands and skills...",
+      "tooMany": "Too many matches. Keep typing to narrow the list.",
+      "review": {
+        "description": "Review current changes or last commit"
+      }
     },
     "effort": {
       "label": "Effort"

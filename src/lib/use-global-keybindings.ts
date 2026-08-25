@@ -1,14 +1,8 @@
 import { useEffect } from "react";
 import { closeAllDialogs, closeTopDialog, hasOpenDialogs } from "./dialog-stack";
-import { matchesChordString } from "./keybindings";
+import { isEditableTarget, matchesChordString } from "./keybindings";
 import { useSettingsStore } from "./settings";
 import type { KeybindingAction } from "@/types/settings";
-
-const isEditableTarget = (target: EventTarget | null): boolean =>
-  target instanceof HTMLInputElement ||
-  target instanceof HTMLTextAreaElement ||
-  target instanceof HTMLSelectElement ||
-  (target instanceof HTMLElement && target.isContentEditable);
 
 const isKeybindingCaptureActive = (): boolean =>
   Boolean(document.querySelector(".kbd-capture[data-recording='true']"));
@@ -72,6 +66,7 @@ export const useGlobalKeybindings = (onAction: (action: KeybindingAction) => voi
           event.stopPropagation();
           return;
         }
+        if (action === "chat.modeToggle") continue;
         const inUndoableText =
           event.target instanceof HTMLTextAreaElement &&
           (event.target.closest(".line-editor") !== null ||

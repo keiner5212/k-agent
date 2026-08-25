@@ -88,6 +88,7 @@ export type KeybindingAction =
   | "settings.close"
   | "sidebar.toggle"
   | "chat.clear"
+  | "chat.modeToggle"
   | "search.focus"
   | "editor.save"
   | "editor.undo"
@@ -100,6 +101,7 @@ export const DEFAULT_KEYBINDINGS: Keybindings = {
   "settings.close": "Escape",
   "sidebar.toggle": "Ctrl+B",
   "chat.clear": "Alt+C",
+  "chat.modeToggle": "Shift+!",
   "search.focus": "Ctrl+F",
   "editor.save": "Ctrl+S",
   "editor.undo": "Ctrl+Z",

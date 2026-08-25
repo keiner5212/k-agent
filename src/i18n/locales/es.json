@@ -170,7 +170,8 @@
           "toggle": "Mostrar u ocultar barra de sesiones"
         },
         "chat": {
-          "clear": "Limpiar entrada del chat"
+          "clear": "Limpiar entrada del chat",
+          "modeToggle": "Alternar modo shell / prompt"
         },
         "search": {
           "focus": "Enfocar campo de busqueda"
@@ -667,15 +668,32 @@
     },
     "composer": {
       "placeholder": "Escribe un mensaje",
+      "placeholderShell": "ejecuta un comando shell...",
       "send": "Enviar",
+      "run": "Ejecutar",
       "attach": "Adjuntar",
-      "disabledHint": "Elige un modelo para enviar."
+      "disabledHint": "Elige un modelo para enviar.",
+      "disabledHintShell": "Escribe un comando para ejecutar.",
+      "mode": {
+        "prompt": "Prompt",
+        "shell": "Shell",
+        "hint": "Shift+! alterna modo con input vacio"
+      }
     },
     "fileMentions": {
       "label": "Archivos del workspace",
       "empty": "Sin archivos coincidentes",
       "loading": "Indexando workspace...",
       "tooMany": "Demasiadas coincidencias. Sigue escribiendo para acotar la lista."
+    },
+    "slashCommands": {
+      "label": "Comandos y skills",
+      "empty": "Sin comandos o skills coincidentes",
+      "loading": "Cargando comandos y skills...",
+      "tooMany": "Demasiadas coincidencias. Sigue escribiendo para acotar la lista.",
+      "review": {
+        "description": "Revisar cambios actuales o ultimo commit"
+      }
     },
     "effort": {
       "label": "Esfuerzo"

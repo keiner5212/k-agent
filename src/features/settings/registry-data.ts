@@ -377,6 +377,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         keywords: ["shortcut", "hotkey", "clear", "composer"],
       },
       {
+        id: "chat.modeToggle",
+        type: "keybinding",
+        titleKey: "settings.keybindings.actions.chat.modeToggle",
+        descriptionKey: "settings.keybindings.description",
+        keywords: ["shortcut", "hotkey", "shell", "prompt", "composer", "mode"],
+      },
+      {
         id: "search.focus",
         type: "keybinding",
         titleKey: "settings.keybindings.actions.search.focus",

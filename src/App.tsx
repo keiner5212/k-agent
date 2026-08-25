@@ -38,6 +38,15 @@ const startWindowDrag = (event: MouseEvent<HTMLElement>): void => {
   });
 };
 
+const focusMainPane = (event: MouseEvent<HTMLElement>): void => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  if (target.closest("button, a, input, textarea, select, [role='listbox'], [role='option']")) {
+    return;
+  }
+  event.currentTarget.focus();
+};
+
 export const App = (): ReactNode => {
   const { t } = useTranslation();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -109,7 +118,7 @@ export const App = (): ReactNode => {
       </header>
       <div className="app-body">
         <SessionsSidebar />
-        <main className="app-main" aria-live="polite">
+        <main className="app-main" aria-live="polite" tabIndex={-1} onMouseDown={focusMainPane}>
           <ChatThread />
           <ChatComposer />
           <ContextStrip />

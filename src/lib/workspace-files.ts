@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
-import { dirsToLoadForMention, ROOT_DIR } from "@/lib/file-mentions";
+import { dirsToLoadForMention } from "@/lib/file-mentions";
 import { runListWorkspaceDirJob } from "@/lib/jobs";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
 import { perfLog } from "@/lib/perf-log";
@@ -8,13 +8,14 @@ import { acquireWorkerCores } from "@/lib/worker-cores";
 import type { WorkspaceEntry } from "@/types/workspace-files";
 
 export const DIR_CACHE_TTL_MS = 1000;
+const WORKSPACE_ROOT_DIR = "";
 
 export type CachedDir = {
   entries: WorkspaceEntry[];
   loadedAt: number;
 };
 
-type WorkspaceFilesStore = {
+export type WorkspaceFilesStore = {
   dirs: Record<string, CachedDir>;
   workspacePath: string | null;
   loadingDirs: string[];
@@ -40,7 +41,7 @@ export const hasDirInCache = (dirs: Record<string, CachedDir>, path: string): bo
   if (!normalized) return true;
   if (dirs[normalized]) return true;
   const slash = normalized.lastIndexOf("/");
-  const parent = slash === -1 ? ROOT_DIR : normalized.slice(0, slash);
+  const parent = slash === -1 ? WORKSPACE_ROOT_DIR : normalized.slice(0, slash);
   const siblings = dirs[parent]?.entries;
   return Boolean(siblings?.some((entry) => entry.kind === "dir" && entry.path === normalized));
 };
@@ -146,7 +147,7 @@ export const useWorkspaceFilesStore = create<WorkspaceFilesStore>((set, get) => 
   },
 
   ensureRootLoaded: async () => {
-    await get().ensureDirLoaded(ROOT_DIR);
+    await get().ensureDirLoaded(WORKSPACE_ROOT_DIR);
   },
 
   invalidate: () => {
@@ -162,7 +163,7 @@ export const useWorkspaceFilesStore = create<WorkspaceFilesStore>((set, get) => 
 
 export const workspaceFilesLoading = (
   state: WorkspaceFilesStore,
-  relativeDir = ROOT_DIR,
+  relativeDir = WORKSPACE_ROOT_DIR,
 ): boolean => {
   const dir = normalizeDir(relativeDir);
   return state.loadingDirs.includes(dir) && !state.dirs[dir];

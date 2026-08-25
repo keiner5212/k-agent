@@ -11,12 +11,15 @@ import {
   useWorkspaceFilesStore,
   hasDirInCache,
   workspaceFilesLoading,
+  type CachedDir,
+  type WorkspaceFilesStore,
 } from "@/lib/workspace-files";
 import type { WorkspaceEntry } from "@/types/workspace-files";
 
 type UseFileMentionsArgs = {
   value: string;
   cursor: number;
+  enabled?: boolean;
   onApply: (next: string, cursor: number) => void;
 };
 
@@ -48,27 +51,41 @@ const scheduleIdle = (run: () => void): (() => void) => {
   return () => window.clearTimeout(id);
 };
 
+const collectWorkspaceEntries = (dirs: Record<string, CachedDir>): WorkspaceEntry[] => {
+  const entries: WorkspaceEntry[] = [];
+  for (const key of Object.keys(dirs)) {
+    const cached = dirs[key];
+    if (cached) entries.push(...cached.entries);
+  }
+  return entries;
+};
+
 export const useFileMentions = ({
   value,
   cursor,
+  enabled = true,
   onApply,
 }: UseFileMentionsArgs): UseFileMentionsResult => {
-  const dirs = useWorkspaceFilesStore((state) => state.dirs);
-  const error = useWorkspaceFilesStore((state) => state.error);
-  const ensureRootLoaded = useWorkspaceFilesStore((state) => state.ensureRootLoaded);
-  const ensureMentionScope = useWorkspaceFilesStore((state) => state.ensureMentionScope);
-  const prefetchDir = useWorkspaceFilesStore((state) => state.prefetchDir);
+  const dirs = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.dirs);
+  const error = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.error);
+  const ensureRootLoaded = useWorkspaceFilesStore(
+    (state: WorkspaceFilesStore) => state.ensureRootLoaded,
+  );
+  const ensureMentionScope = useWorkspaceFilesStore(
+    (state: WorkspaceFilesStore) => state.ensureMentionScope,
+  );
+  const prefetchDir = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.prefetchDir);
   const [selection, setSelection] = useState<MentionSelection>({ key: "", index: 0 });
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
 
   const activeMention = useMemo(() => parseActiveMention(value, cursor), [value, cursor]);
   const mentionKey = activeMention ? `${activeMention.start}:${activeMention.query}` : "";
-  const menuOpen = mentionKey.length > 0 && dismissedKey !== mentionKey;
+  const menuOpen = enabled && mentionKey.length > 0 && dismissedKey !== mentionKey;
   const listing = useMemo(
     () => mentionListingContext(activeMention?.query ?? "", (path) => hasDirInCache(dirs, path)),
     [activeMention?.query, dirs],
   );
-  const loading = useWorkspaceFilesStore((state) =>
+  const loading = useWorkspaceFilesStore((state: WorkspaceFilesStore): boolean =>
     workspaceFilesLoading(state, listing.parentDir),
   );
   const activeIndex = selection.key === mentionKey ? selection.index : 0;
@@ -82,21 +99,18 @@ export const useFileMentions = ({
 
   const mentionPaths = useMemo(() => {
     if (!value.includes("@")) return new Set<string>();
-    const entries: WorkspaceEntry[] = [];
-    for (const cached of Object.values(dirs)) {
-      entries.push(...cached.entries);
-    }
-    return buildMentionPathSet(entries);
+    return buildMentionPathSet(collectWorkspaceEntries(dirs));
   }, [dirs, value]);
 
   useEffect(() => {
+    if (!enabled) return;
     void ensureRootLoaded();
-  }, [ensureRootLoaded]);
+  }, [enabled, ensureRootLoaded]);
 
   useEffect(() => {
-    if (!activeMention) return;
+    if (!enabled || !activeMention) return;
     void ensureMentionScope(activeMention.query);
-  }, [activeMention, ensureMentionScope]);
+  }, [activeMention, enabled, ensureMentionScope]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -134,7 +148,7 @@ export const useFileMentions = ({
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>): boolean => {
-      if (!menuOpen || tooMany) return false;
+      if (!enabled || !menuOpen || tooMany) return false;
       if (event.key === "ArrowDown") {
         event.preventDefault();
         if (items.length === 0) return true;
@@ -161,7 +175,7 @@ export const useFileMentions = ({
       }
       return false;
     },
-    [activeIndex, items, menuOpen, pickItem, resetMenu, setActiveIndex, tooMany],
+    [activeIndex, enabled, items, menuOpen, pickItem, resetMenu, setActiveIndex, tooMany],
   );
 
   return {

@@ -215,7 +215,7 @@ const sanitizeSettings = (raw: unknown): Settings => {
   };
 };
 
-type SettingsStore = Settings & {
+export type SettingsStore = Settings & {
   hydrated: boolean;
   hydrate: () => Promise<void>;
   setLanguage: (language: AppLanguage) => void;
