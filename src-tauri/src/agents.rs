@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use thiserror::Error;
 
+use crate::pathutil;
 use crate::skills::{
     estimate_tokens, global_skills_root, list_skills_in, local_skills_root, parse_yaml_scalar,
 };
@@ -196,7 +197,7 @@ fn resolve_root_path(raw: &str) -> Result<PathBuf, AgentError> {
 }
 
 fn canonicalize_safe(p: &Path) -> Result<PathBuf, AgentError> {
-    fs::canonicalize(p).map_err(|error| AgentError::Io(error.to_string()))
+    pathutil::canonicalize_path(p).map_err(|error| AgentError::Io(error.to_string()))
 }
 
 fn ensure_inside(child: &Path, root: &Path) -> Result<(), AgentError> {

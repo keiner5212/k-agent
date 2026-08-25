@@ -32,6 +32,7 @@ hkdf = "0.12.4"
 sha2 = "0.10.9"
 zeroize = "1.8.1"
 fontdb = "0.23"
+dunce = "1.0.5"
 
 # Linux tray icon needs GLib + a system-tray indicator; macOS/Windows use native APIs.
 [target.'cfg(target_os = "linux")'.dependencies]

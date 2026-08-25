@@ -5,6 +5,7 @@ mod providers;
 mod repo;
 mod secret;
 mod skills;
+mod pathutil;
 
 pub const APP_CONFIG_DIR: &str = ".k-agent";
 pub const WORKSPACE_AGENTS_DIR: &str = ".agents";
@@ -276,7 +277,7 @@ fn set_workspace_path(state: State<'_, LocalWorkspace>, path: String) -> Result<
     if !absolute.exists() {
         std::fs::create_dir_all(&absolute).map_err(|error| error.to_string())?;
     }
-    let canonical = std::fs::canonicalize(&absolute).map_err(|error| error.to_string())?;
+    let canonical = crate::pathutil::canonicalize_path(&absolute).map_err(|error| error.to_string())?;
     let mut guard = state.path.lock().map_err(|error| error.to_string())?;
     *guard = Some(canonical);
     Ok(())
@@ -299,7 +300,7 @@ fn expand_user_path(input: &str) -> Option<PathBuf> {
 
 fn resolve_existing_path(input: &str) -> Option<PathBuf> {
     let expanded = expand_user_path(input)?;
-    std::fs::canonicalize(&expanded).ok().or(Some(expanded))
+    crate::pathutil::canonicalize_path(&expanded).ok().or(Some(expanded))
 }
 
 fn parse_workspace_arg() -> Option<PathBuf> {
@@ -344,7 +345,7 @@ pub fn run() {
         .manage(LocalWorkspace {
             path: Mutex::new(parse_workspace_arg().or_else(|| {
                 let home = default_workspace();
-                std::fs::canonicalize(&home).ok().or(Some(home))
+                crate::pathutil::canonicalize_path(&home).ok().or(Some(home))
             })),
         })
         .invoke_handler(tauri::generate_handler![

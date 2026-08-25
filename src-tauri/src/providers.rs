@@ -329,8 +329,8 @@ async fn save(path: &Path, providers: &[Provider]) -> Result<(), ProviderError> 
             .await
             .map_err(|e| ProviderError::Io(e.to_string()))?;
     }
-    let json = serde_json::to_string_pretty(providers)
-        .map_err(|e| ProviderError::Parse(e.to_string()))?;
+    let json =
+        serde_json::to_string_pretty(providers).map_err(|e| ProviderError::Parse(e.to_string()))?;
     tokio::fs::write(path, json)
         .await
         .map_err(|e| ProviderError::Io(e.to_string()))?;
@@ -524,7 +524,12 @@ async fn fetch_models(provider: &Provider) -> Result<Vec<String>, ProviderError>
             Ok(body
                 .models
                 .into_iter()
-                .map(|m| m.name.strip_prefix("models/").unwrap_or(&m.name).to_string())
+                .map(|m| {
+                    m.name
+                        .strip_prefix("models/")
+                        .unwrap_or(&m.name)
+                        .to_string()
+                })
                 .collect())
         }
     }
@@ -590,7 +595,11 @@ async fn fetch_model_details(provider: &Provider, model_id: &str) -> ModelInfo {
                         let multimodal = detail
                             .supported_generation_methods
                             .as_ref()
-                            .map(|methods| methods.iter().any(|m| m.contains("image") || m.contains("vision")))
+                            .map(|methods| {
+                                methods
+                                    .iter()
+                                    .any(|m| m.contains("image") || m.contains("vision"))
+                            })
                             .unwrap_or(false);
                         let mut info = ModelInfo::detected(model_id);
                         info.context_window = detail.input_token_limit;
@@ -608,10 +617,7 @@ async fn fetch_model_details(provider: &Provider, model_id: &str) -> ModelInfo {
     }
 }
 
-async fn fetch_all_model_details(
-    provider: &Provider,
-    model_ids: &[String],
-) -> Vec<ModelInfo> {
+async fn fetch_all_model_details(provider: &Provider, model_ids: &[String]) -> Vec<ModelInfo> {
     let mut details = Vec::with_capacity(model_ids.len());
     for chunk in model_ids.chunks(DETAIL_CONCURRENCY) {
         let mut handles = Vec::with_capacity(chunk.len());
@@ -680,10 +686,7 @@ async fn enrich_models(
             by_id.insert(model.id.clone(), model);
         }
     }
-    let fetched = model_ids
-        .iter()
-        .filter_map(|id| by_id.remove(id))
-        .collect();
+    let fetched = model_ids.iter().filter_map(|id| by_id.remove(id)).collect();
     merge_models(previous, fetched)
 }
 
@@ -706,9 +709,7 @@ pub async fn save_provider(
 ) -> Result<Provider, ProviderError> {
     let mut providers = load_all(&app).await?;
 
-    let id = input
-        .id
-        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    let id = input.id.unwrap_or_else(|| Uuid::new_v4().to_string());
 
     let existing_idx = providers.iter().position(|p| p.id == id);
     let now = Utc::now().timestamp();

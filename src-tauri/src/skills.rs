@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use thiserror::Error;
 
+use crate::pathutil;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum SkillContextKind {
@@ -226,7 +228,7 @@ fn resolve_root_path(raw: &str) -> Result<PathBuf, SkillError> {
 }
 
 fn canonicalize_safe(p: &Path) -> Result<PathBuf, SkillError> {
-    fs::canonicalize(p).map_err(|error| SkillError::Io(error.to_string()))
+    pathutil::canonicalize_path(p).map_err(|error| SkillError::Io(error.to_string()))
 }
 
 fn ensure_inside(child: &Path, root: &Path) -> Result<(), SkillError> {
