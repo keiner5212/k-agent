@@ -58,7 +58,7 @@ Add a setting in this order:
 
 Theme, translucency, animations, and text scale go through `applyChrome`. Hydrate, hydrate-fail, and reset all call it. Do not copy those four applies again.
 
-`maxWorkerCores`: `0` = auto (all logical CPUs). Else clamp `1..=hardwareThreadCount()`. Persist only. Do not start thread pools or grep workers yet. Rust `DETAIL_CONCURRENCY` stays a local const until that work reads this setting.
+`maxWorkerCores`: `0` = auto (all logical CPUs). Else clamp `1..=hardwareThreadCount()`. Sync into `src/lib/worker-cores.ts` on hydrate and on change. Heavy work leases cores with `acquireWorkerCores(label, want)` and always `release()`. Never exceed the configured limit. Never wait for cores (UI must not stall). Grant `min(want, available, limit)` with a floor of 1 so IO still proceeds. Use the full remaining pool when the job is actually parallel (model detail fetch, bundled workspace config list). Shallow IO (one directory, one font scan) leases 1.
 
 Disable-style toggles (`translucencyEnabled`, `animationsEnabled`): copy says Disable X; `checked` is `!enabled`. Other toggles are positive (`checked === enabled`).
 
@@ -114,11 +114,24 @@ Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then b
 
 ## Performance
 
+Goal: the UI never blocks and never feels laggy. Optimize only when the win is real.
+
+Priority order:
+
+1. Keep input and pointer handlers on the fast path. No await, no sync IPC, no layout thrash in the typing path.
+2. Cache before refetch. Directory listings: 1s TTL, stale-while-revalidate, show stale data, refresh in the background, no loading flash. Workspace config (skills, agents, AGENTS.md): one bundled job, inflight dedupe, 1s TTL.
+3. Cut draw cost. Select only the zustand fields a view needs. Skip extra `setState` when the value did not change. Do not wrap every character in a node. `contain` paint isolation on overlays. `Select` window-virtualizes when options exceed the visible window (fonts, language, model pickers). Do not virtualize variable-height rows (agent selector) or tiny lists (chat `@` mentions cap 20).
+4. Respect `maxWorkerCores` and spend what is left. Lease from `acquireWorkerCores`. Parallelize only work that scales (HTTP model details, independent list IPC). One-directory walks stay single-core.
+5. Skip low-value machinery. No virtual lists for <=20 rows. No worker-thread filters on tiny arrays. No extra wrappers, caches, or schedulers without a measured hitch.
+
+Also:
+
 - Do not import `models.json` into the webview.
 - Do not re-parse the bundled catalog on every command.
-- No new global caches, clients, or wrappers. Search first.
+- No new global caches, clients, or wrappers. Search first. Reuse `worker-cores`, `runJob`, and per-dir workspace file cache.
 - Zustand: select fields, do not subscribe to the whole store in hot views.
-- Heavy disk/CPU work (skills, agents, fonts, token estimates, future jobs): `runJob` in `src/lib/jobs.ts`. Add a `JobName` and a `handleJob` case. Tauri IPC stays on the UI thread; the worker asks for it with `kind: "invoke"`.
+- Heavy disk/CPU work (skills, agents, fonts, token estimates, workspace files, future jobs): `runJob` in `src/lib/jobs.ts`. Add a `JobName` and a `handleJob` case. Tauri IPC stays on the UI thread; the worker asks for it with `kind: "invoke"`.
+- Perf logs (`perfLog`) only for slow work. Do not log every keystroke.
 
 ## Checks
 

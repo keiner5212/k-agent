@@ -5,6 +5,7 @@ import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { highlightMatch } from "@/lib/highlight";
 import { useSkillsStore } from "@/lib/skills";
+import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { useAgentsStore } from "@/lib/agents";
 import { formatContextWindow } from "@/types/providers";
 import type { SkillContext as SkillContextType, SkillInfo } from "@/types/skills";
@@ -24,7 +25,6 @@ export const SkillsPanel = ({ query }: SkillsPanelProps): ReactNode => {
   const workspacePath = useSkillsStore((state) => state.workspacePath);
   const loading = useSkillsStore((state) => state.loading);
   const error = useSkillsStore((state) => state.error);
-  const load = useSkillsStore((state) => state.load);
   const refresh = useSkillsStore((state) => state.refresh);
   const createSkill = useSkillsStore((state) => state.create);
   const updateContent = useSkillsStore((state) => state.updateContent);
@@ -36,8 +36,8 @@ export const SkillsPanel = ({ query }: SkillsPanelProps): ReactNode => {
   const [createName, setCreateName] = useState<string | null>(null);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void hydrateWorkspaceConfig();
+  }, []);
 
   const global = contexts.find((context) => context.kind === "global");
   const local = contexts.find((context) => context.kind === "local");

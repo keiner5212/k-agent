@@ -1,4 +1,7 @@
 /** Add a JobName + handleJob case for new heavy work. Do not run it on the UI thread. */
+import type { AgentContext } from "@/types/agents";
+import type { AgentsMdFile } from "@/types/agents-md";
+import type { SkillContext } from "@/types/skills";
 import type { WorkspaceEntry } from "@/types/workspace-files";
 
 export type JobName =
@@ -12,7 +15,8 @@ export type JobName =
   | "uninstallLanguageServer"
   | "resolveLanguageServer"
   | "lspRequest"
-  | "listWorkspaceFiles";
+  | "listWorkspaceFiles"
+  | "listWorkspaceConfig";
 
 export type ListBundle<T> = {
   contexts: T[];
@@ -39,6 +43,13 @@ export type LspRequestPayload = {
 
 export type ListWorkspaceFilesPayload = {
   relativeDir: string;
+};
+
+export type WorkspaceConfigBundle = {
+  skills: SkillContext[];
+  agents: AgentContext[];
+  agentsMd: AgentsMdFile[];
+  workspacePath: string | null;
 };
 
 export type Host = {
@@ -138,6 +149,15 @@ export const handleJob = async (name: JobName, payload: unknown, host: Host): Pr
           ? String((payload as ListWorkspaceFilesPayload).relativeDir)
           : "";
       return host.invoke<WorkspaceEntry[]>("list_workspace_files", { relativeDir });
+    }
+    case "listWorkspaceConfig": {
+      const [skills, agents, agentsMd, workspacePath] = await Promise.all([
+        host.invoke("list_skills"),
+        host.invoke("list_agents"),
+        host.invoke("list_agents_md"),
+        host.invoke("get_workspace_path"),
+      ]);
+      return { skills, agents, agentsMd, workspacePath };
     }
     default: {
       const exhaustive: never = name;

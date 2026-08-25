@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Folder, GitBranch } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useSkillsStore } from "@/lib/skills";
+import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { useWorkspaceFilesStore } from "@/lib/workspace-files";
 import { ChangeBar } from "./ChangeBar";
 import { useRepoInfo } from "./use-repo-info";
@@ -16,7 +17,6 @@ const shortPath = (path: string): string => {
 
 export const ContextStrip = (): ReactNode => {
   const { t } = useTranslation();
-  const loadSkills = useSkillsStore((state) => state.load);
   const setWorkspacePath = useSkillsStore((state) => state.setWorkspacePath);
   const workspacePath = useSkillsStore((state) => state.workspacePath);
   const invalidateWorkspaceFiles = useWorkspaceFilesStore((state) => state.invalidate);
@@ -25,9 +25,9 @@ export const ContextStrip = (): ReactNode => {
   const repo = useRepoInfo(workspacePath);
 
   useEffect(() => {
-    void loadSkills();
+    void hydrateWorkspaceConfig();
     void ensureRootLoaded();
-  }, [loadSkills, ensureRootLoaded]);
+  }, [ensureRootLoaded]);
 
   const handlePickWorkspace = (event: MouseEvent<HTMLButtonElement>): void => {
     event.preventDefault();

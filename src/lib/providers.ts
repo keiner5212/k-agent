@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import type { ModelDraft, Provider, ProviderDraft } from "@/types/providers";
 import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "@/lib/platform";
+import { acquireWorkerCores, getWorkerCoreSnapshot } from "@/lib/worker-cores";
 
 export type ProviderMutationResult = {
   provider?: Provider;
@@ -14,6 +15,15 @@ const replaceProvider = (providers: Provider[], provider: Provider): Provider[] 
   const next = [...providers];
   next[idx] = provider;
   return next;
+};
+
+const withMaxCores = async <T>(label: string, run: (cores: number) => Promise<T>): Promise<T> => {
+  const lease = acquireWorkerCores(label, getWorkerCoreSnapshot().limit);
+  try {
+    return await run(lease.cores);
+  } finally {
+    lease.release();
+  }
 };
 
 const runMutation = async (
@@ -64,20 +74,26 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
   },
 
   save: async (draft) =>
-    runMutation(async () => {
-      const provider = await invoke<Provider>("save_provider", {
-        input: {
-          id: draft.id ?? null,
-          name: draft.name,
-          kind: draft.kind,
-          baseUrl: draft.baseUrl,
-          apiKey: draft.apiKey ?? null,
-          clearApiKey: Boolean(draft.clearApiKey),
-        },
-      });
-      set((state) => ({ providers: replaceProvider(state.providers, provider), error: undefined }));
-      return provider;
-    }),
+    runMutation(async () =>
+      withMaxCores("saveProvider", async (workerCores) => {
+        const provider = await invoke<Provider>("save_provider", {
+          input: {
+            id: draft.id ?? null,
+            name: draft.name,
+            kind: draft.kind,
+            baseUrl: draft.baseUrl,
+            apiKey: draft.apiKey ?? null,
+            clearApiKey: Boolean(draft.clearApiKey),
+            workerCores,
+          },
+        });
+        set((state) => ({
+          providers: replaceProvider(state.providers, provider),
+          error: undefined,
+        }));
+        return provider;
+      }),
+    ),
 
   remove: async (id) =>
     runMutation(async () => {
@@ -89,11 +105,13 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
     }),
 
   refresh: async (id) =>
-    runMutation(async () => {
-      const provider = await invoke<Provider>("refresh_provider_models", { id });
-      set((state) => ({ providers: replaceProvider(state.providers, provider) }));
-      return provider;
-    }),
+    runMutation(async () =>
+      withMaxCores("refreshProviderModels", async (workerCores) => {
+        const provider = await invoke<Provider>("refresh_provider_models", { id, workerCores });
+        set((state) => ({ providers: replaceProvider(state.providers, provider) }));
+        return provider;
+      }),
+    ),
 
   upsertModel: async (providerId, draft) =>
     runMutation(async () => {

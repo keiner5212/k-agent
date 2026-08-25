@@ -7,6 +7,7 @@ import { highlightMatch } from "@/lib/highlight";
 import { builtinAgentContext } from "@/lib/builtin-agents";
 import { useAgentsStore } from "@/lib/agents";
 import { useSkillsStore } from "@/lib/skills";
+import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { formatContextWindow } from "@/types/providers";
 import type {
   AgentContext as AgentContextType,
@@ -30,13 +31,11 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
   const workspacePath = useAgentsStore((state) => state.workspacePath);
   const loading = useAgentsStore((state) => state.loading);
   const error = useAgentsStore((state) => state.error);
-  const load = useAgentsStore((state) => state.load);
   const refresh = useAgentsStore((state) => state.refresh);
   const createAgent = useAgentsStore((state) => state.create);
   const updateAgent = useAgentsStore((state) => state.update);
   const deleteAgent = useAgentsStore((state) => state.remove);
   const skillContexts = useSkillsStore((state) => state.contexts);
-  const loadSkills = useSkillsStore((state) => state.load);
 
   const [tab, setTab] = useState<Tab>("default");
   const [createOpen, setCreateOpen] = useState(false);
@@ -47,9 +46,8 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string } | null>(null);
 
   useEffect(() => {
-    void load();
-    void loadSkills();
-  }, [load, loadSkills]);
+    void hydrateWorkspaceConfig();
+  }, []);
 
   const global = contexts.find((context) => context.kind === "global");
   const local = contexts.find((context) => context.kind === "local");

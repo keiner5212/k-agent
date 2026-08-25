@@ -7,6 +7,7 @@ import {
   type BuiltinAgentId,
 } from "@/lib/builtin-agents";
 import { useAgentsStore } from "@/lib/agents";
+import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { useComposerStore } from "@/lib/composer";
 import { useSettingsStore } from "@/lib/settings";
 import { agentKey } from "@/types/agents";
@@ -16,13 +17,12 @@ export const AgentSelector = (): ReactNode => {
   const selectedAgent = useComposerStore((state) => state.selectedAgent);
   const setSelectedAgent = useComposerStore((state) => state.setSelectedAgent);
   const contexts = useAgentsStore((state) => state.contexts);
-  const load = useAgentsStore((state) => state.load);
   const buildAgentEnabled = useSettingsStore((state) => state.buildAgentEnabled);
   const planAgentEnabled = useSettingsStore((state) => state.planAgentEnabled);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void hydrateWorkspaceConfig();
+  }, []);
 
   const builtinAgents = listEnabledBuiltinAgents(t, {
     build: buildAgentEnabled,
@@ -78,6 +78,7 @@ export const AgentSelector = (): ReactNode => {
         ariaLabel={t("chat.agent.label")}
         placement="up"
         menuMinWidth={240}
+        virtualize={false}
         disabled={options.length === 0}
       />
     </div>

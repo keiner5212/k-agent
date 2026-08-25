@@ -1,6 +1,7 @@
 import { isTauri } from "@/lib/platform";
 import { runListSystemFontsJob } from "@/lib/jobs";
 import { uniqueSortedNames } from "@/lib/jobs-handlers";
+import { acquireWorkerCores } from "@/lib/worker-cores";
 
 let cached: Promise<string[]> | null = null;
 
@@ -21,10 +22,13 @@ const queryLocalFonts = async (): Promise<string[]> => {
 
 const load = async (): Promise<string[]> => {
   if (isTauri()) {
+    const lease = acquireWorkerCores("listSystemFonts", 1);
     try {
       return await runListSystemFontsJob();
     } catch (error) {
       console.warn("list_system_fonts failed", error);
+    } finally {
+      lease.release();
     }
   }
   return queryLocalFonts();

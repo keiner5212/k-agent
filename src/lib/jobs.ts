@@ -1,5 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import { handleJob, type Host, type JobName, type ListBundle } from "./jobs-handlers";
+import {
+  handleJob,
+  type Host,
+  type JobName,
+  type ListBundle,
+  type WorkspaceConfigBundle,
+} from "./jobs-handlers";
 import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "./platform";
 import type { AgentContext } from "@/types/agents";
 import type { AgentsMdFile } from "@/types/agents-md";
@@ -139,3 +145,6 @@ export const runLspRequestJob = (
 
 export const runListWorkspaceDirJob = (relativeDir = ""): Promise<WorkspaceEntry[]> =>
   runJob("listWorkspaceFiles", { relativeDir });
+
+export const runListWorkspaceConfigJob = (): Promise<WorkspaceConfigBundle> =>
+  runJob("listWorkspaceConfig");

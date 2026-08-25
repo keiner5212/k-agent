@@ -62,9 +62,12 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
     if (!isTauri()) return { error: DESKTOP_REQUIRED };
     try {
       await invoke("set_workspace_path", { path });
-      const payload = await fetchPayload();
-      set({ ...payload, error: undefined });
-      return {};
+      const { hydrateWorkspaceConfig, invalidateWorkspaceConfig } =
+        await import("@/lib/workspace-config");
+      invalidateWorkspaceConfig();
+      await hydrateWorkspaceConfig(true);
+      const error = get().error;
+      return error ? { error } : {};
     } catch (error) {
       const message = ipcErrorMessage(error);
       set({ error: message });

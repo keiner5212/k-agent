@@ -5,6 +5,7 @@ import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { highlightMatch } from "@/lib/highlight";
 import { useAgentsMdStore } from "@/lib/agents-md";
+import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { formatContextWindow } from "@/types/providers";
 import type { AgentsMdFile, AgentsMdKind } from "@/types/agents-md";
 import { AgentsMdEditorDialog } from "./AgentsMdEditorDialog";
@@ -22,7 +23,6 @@ export const AgentsMdPanel = ({ query }: AgentsMdPanelProps): ReactNode => {
   const workspacePath = useAgentsMdStore((state) => state.workspacePath);
   const loading = useAgentsMdStore((state) => state.loading);
   const error = useAgentsMdStore((state) => state.error);
-  const load = useAgentsMdStore((state) => state.load);
   const refresh = useAgentsMdStore((state) => state.refresh);
   const writeFile = useAgentsMdStore((state) => state.write);
   const deleteFile = useAgentsMdStore((state) => state.remove);
@@ -32,8 +32,8 @@ export const AgentsMdPanel = ({ query }: AgentsMdPanelProps): ReactNode => {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void hydrateWorkspaceConfig();
+  }, []);
 
   const global = files.find((file) => file.kind === "global");
   const local = files.find((file) => file.kind === "local");

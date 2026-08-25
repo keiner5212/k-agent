@@ -13,7 +13,6 @@ use crate::APP_CONFIG_DIR;
 const PROVIDERS_FILE: &str = "providers.json";
 const PROVIDER_KEYS_FILE: &str = "provider-keys.json";
 const HTTP_TIMEOUT: Duration = Duration::from_secs(20);
-const DETAIL_CONCURRENCY: usize = 8;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ProviderKind {
@@ -193,6 +192,8 @@ pub struct SaveProviderInput {
     pub api_key: Option<String>,
     #[serde(default)]
     pub clear_api_key: bool,
+    #[serde(default)]
+    pub worker_cores: Option<u32>,
 }
 
 #[derive(Debug, Error)]
@@ -617,9 +618,18 @@ async fn fetch_model_details(provider: &Provider, model_id: &str) -> ModelInfo {
     }
 }
 
-async fn fetch_all_model_details(provider: &Provider, model_ids: &[String]) -> Vec<ModelInfo> {
+fn detail_concurrency(worker_cores: Option<u32>) -> usize {
+    (worker_cores.unwrap_or(1) as usize).clamp(1, 64)
+}
+
+async fn fetch_all_model_details(
+    provider: &Provider,
+    model_ids: &[String],
+    worker_cores: usize,
+) -> Vec<ModelInfo> {
     let mut details = Vec::with_capacity(model_ids.len());
-    for chunk in model_ids.chunks(DETAIL_CONCURRENCY) {
+    let concurrency = worker_cores.max(1);
+    for chunk in model_ids.chunks(concurrency) {
         let mut handles = Vec::with_capacity(chunk.len());
         for id in chunk {
             let provider = provider.clone();
@@ -667,6 +677,7 @@ async fn enrich_models(
     provider: &Provider,
     model_ids: &[String],
     previous: Vec<ModelInfo>,
+    worker_cores: usize,
 ) -> Vec<ModelInfo> {
     let catalog = crate::catalog::load(app).await;
     let mut by_id: HashMap<String, ModelInfo> = HashMap::new();
@@ -681,7 +692,7 @@ async fn enrich_models(
         }
     }
     if !missing.is_empty() {
-        for mut model in fetch_all_model_details(provider, &missing).await {
+        for mut model in fetch_all_model_details(provider, &missing, worker_cores).await {
             catalog.apply(&mut model);
             by_id.insert(model.id.clone(), model);
         }
@@ -744,7 +755,14 @@ pub async fn save_provider(
 
     match fetch_models(&stored).await {
         Ok(model_ids) => {
-            stored.models = enrich_models(&app, &stored, &model_ids, previous_models).await;
+            stored.models = enrich_models(
+                &app,
+                &stored,
+                &model_ids,
+                previous_models,
+                detail_concurrency(input.worker_cores),
+            )
+            .await;
             stored.last_synced_at = Some(now);
         }
         Err(_) => {
@@ -777,6 +795,7 @@ pub async fn delete_provider(app: AppHandle, id: String) -> Result<(), ProviderE
 pub async fn refresh_provider_models(
     app: AppHandle,
     id: String,
+    worker_cores: Option<u32>,
 ) -> Result<Provider, ProviderError> {
     let mut providers = load_all(&app).await?;
     let provider = providers
@@ -787,7 +806,14 @@ pub async fn refresh_provider_models(
     let snapshot = provider.clone();
     let previous = snapshot.models.clone();
     let model_ids = fetch_models(&snapshot).await?;
-    let models = enrich_models(&app, &snapshot, &model_ids, previous).await;
+    let models = enrich_models(
+        &app,
+        &snapshot,
+        &model_ids,
+        previous,
+        detail_concurrency(worker_cores),
+    )
+    .await;
     provider.models = models;
     provider.last_synced_at = Some(Utc::now().timestamp());
 

@@ -2,10 +2,12 @@ import { Check, ChevronDown } from "lucide-react";
 import {
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  type UIEvent,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -26,6 +28,7 @@ type SelectProps = {
   disabled?: boolean;
   placement?: SelectPlacement;
   menuMinWidth?: number;
+  virtualize?: boolean;
 };
 
 type MenuPos = {
@@ -41,6 +44,14 @@ const MENU_MAX_HEIGHT = 240;
 const MENU_MIN_HEIGHT = 48;
 const MENU_GAP = 4;
 const VIEW_PAD = 8;
+const ITEM_HEIGHT_REM = 2.25;
+const OVERSCAN = 4;
+
+const itemHeightPx = (): number => {
+  if (typeof window === "undefined") return 36;
+  const root = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+  return (Number.isFinite(root) ? root : 16) * ITEM_HEIGHT_REM;
+};
 
 const menuPosFromRect = (
   rect: DOMRect,
@@ -83,13 +94,16 @@ export const Select = ({
   disabled,
   placement = "auto",
   menuMinWidth = 0,
+  virtualize: allowVirtualize = true,
 }: SelectProps): ReactNode => {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
+  const scrollRaf = useRef(0);
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
   const [activeIndex, setActiveIndex] = useState(() =>
     Math.max(
       0,
@@ -98,6 +112,27 @@ export const Select = ({
   );
 
   const selected = options.find((option) => option.value === value);
+  const rowHeight = itemHeightPx();
+  const virtualize = Boolean(
+    allowVirtualize && menuPos && options.length * rowHeight > menuPos.maxHeight + rowHeight,
+  );
+
+  const visible = useMemo(() => {
+    if (!virtualize || !menuPos) {
+      return { start: 0, end: options.length, padTop: 0, padBottom: 0 };
+    }
+    const start = Math.max(0, Math.floor(scrollTop / rowHeight) - OVERSCAN);
+    const end = Math.min(
+      options.length,
+      Math.ceil((scrollTop + menuPos.maxHeight) / rowHeight) + OVERSCAN,
+    );
+    return {
+      start,
+      end,
+      padTop: start * rowHeight,
+      padBottom: Math.max(0, (options.length - end) * rowHeight),
+    };
+  }, [menuPos, options.length, rowHeight, scrollTop, virtualize]);
 
   const close = (): void => {
     setOpen(false);
@@ -108,13 +143,13 @@ export const Select = ({
     if (disabled) return;
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setMenuPos(menuPosFromRect(rect, placement, menuMinWidth));
-    setActiveIndex(
-      Math.max(
-        0,
-        options.findIndex((option) => option.value === value),
-      ),
+    const nextIndex = Math.max(
+      0,
+      options.findIndex((option) => option.value === value),
     );
+    setMenuPos(menuPosFromRect(rect, placement, menuMinWidth));
+    setActiveIndex(nextIndex);
+    setScrollTop(nextIndex * rowHeight);
     setOpen(true);
   };
 
@@ -157,9 +192,16 @@ export const Select = ({
 
   useEffect(() => {
     if (!open) return;
-    const item = menuRef.current?.querySelector<HTMLElement>('[data-active="true"]');
-    item?.scrollIntoView({ block: "nearest" });
-  }, [open, activeIndex]);
+    const menu = menuRef.current;
+    if (!menu) return;
+    const top = activeIndex * rowHeight;
+    const bottom = top + rowHeight;
+    if (top < menu.scrollTop) menu.scrollTop = top;
+    else if (bottom > menu.scrollTop + menu.clientHeight) {
+      menu.scrollTop = bottom - menu.clientHeight;
+    }
+    if (virtualize) setScrollTop(menu.scrollTop);
+  }, [open, activeIndex, rowHeight, virtualize]);
 
   const choose = (next: string): void => {
     onChange(next);
@@ -202,6 +244,20 @@ export const Select = ({
     }
   };
 
+  const onMenuScroll = (event: UIEvent<HTMLUListElement>): void => {
+    if (!virtualize) return;
+    const top = event.currentTarget.scrollTop;
+    if (scrollRaf.current !== 0) {
+      cancelAnimationFrame(scrollRaf.current);
+    }
+    scrollRaf.current = requestAnimationFrame(() => {
+      scrollRaf.current = 0;
+      setScrollTop(top);
+    });
+  };
+
+  const slice = virtualize ? options.slice(visible.start, visible.end) : options;
+
   return (
     <div ref={rootRef} className="select-root">
       <button
@@ -239,12 +295,21 @@ export const Select = ({
                 maxHeight: menuPos.maxHeight,
               }}
               onKeyDown={onListKey}
+              onScroll={onMenuScroll}
               ref={(node) => {
                 menuRef.current = node;
-                node?.focus();
+                if (node && document.activeElement !== node) node.focus();
               }}
             >
-              {options.map((option, index) => {
+              {virtualize ? (
+                <li
+                  aria-hidden="true"
+                  className="select-item-spacer"
+                  style={{ height: visible.padTop }}
+                />
+              ) : null}
+              {slice.map((option, sliceIndex) => {
+                const index = virtualize ? visible.start + sliceIndex : sliceIndex;
                 const isSelected = option.value === value;
                 return (
                   <li
@@ -265,6 +330,13 @@ export const Select = ({
                   </li>
                 );
               })}
+              {virtualize ? (
+                <li
+                  aria-hidden="true"
+                  className="select-item-spacer"
+                  style={{ height: visible.padBottom }}
+                />
+              ) : null}
             </ul>,
             document.body,
           )
