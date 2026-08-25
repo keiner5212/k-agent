@@ -74,19 +74,25 @@ const AgentsMdEditorBody = ({ file, onCancel, onSave }: AgentsMdEditorBodyProps)
     };
   }, [content]);
 
-  const handleSave = useCallback(async (): Promise<void> => {
-    if (submitting) return;
-    if (file.exists && content === original) return;
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (submitting) return false;
+    if (file.exists && content === original) return true;
     setSubmitting(true);
     setError(null);
     const saveError = await onSave(content);
     setSubmitting(false);
     if (saveError) {
       setError(saveError);
-      return;
+      return false;
     }
     setOriginal(content);
+    return true;
   }, [submitting, file.exists, content, original, onSave]);
+
+  const handleDone = async (): Promise<void> => {
+    const saved = await handleSave();
+    if (saved) onCancel();
+  };
 
   const handleRevert = (): void => {
     setContent(original);
@@ -139,7 +145,7 @@ const AgentsMdEditorBody = ({ file, onCancel, onSave }: AgentsMdEditorBodyProps)
             <span>{t("agentsMd.editor.save")}</span>
           )}
         </GlassButton>
-        <GlassButton variant="primary" onClick={onCancel} disabled={submitting}>
+        <GlassButton variant="primary" onClick={() => void handleDone()} disabled={submitting}>
           {t("agentsMd.editor.done")}
         </GlassButton>
       </div>

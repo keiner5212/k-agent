@@ -9,6 +9,14 @@ mod skills;
 pub const APP_CONFIG_DIR: &str = ".k-agent";
 pub const WORKSPACE_AGENTS_DIR: &str = ".agents";
 
+pub(crate) fn serialize_error<E, S>(error: &E, serializer: S) -> Result<S::Ok, S::Error>
+where
+    E: std::fmt::Display,
+    S: serde::Serializer,
+{
+    serializer.serialize_str(&error.to_string())
+}
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};

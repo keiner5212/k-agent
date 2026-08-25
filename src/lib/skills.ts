@@ -1,13 +1,8 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import { isTauri } from "@/lib/platform";
+import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "@/lib/platform";
 import { runListSkillsJob } from "@/lib/jobs";
 import type { SkillContext, SkillMeta } from "@/types/skills";
-
-const DESKTOP_REQUIRED = "Desktop shell required";
-
-const toMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error";
 
 type FetchPayload = {
   contexts: SkillContext[];
@@ -46,7 +41,7 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
       const payload = await fetchPayload();
       set({ ...payload, loading: false });
     } catch (error) {
-      set({ loading: false, error: toMessage(error) });
+      set({ loading: false, error: ipcErrorMessage(error) });
     }
   },
 
@@ -57,7 +52,7 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
       set({ ...payload, error: undefined });
       return { payload };
     } catch (error) {
-      const message = toMessage(error);
+      const message = ipcErrorMessage(error);
       set({ error: message });
       return { error: message };
     }
@@ -71,7 +66,7 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
       set({ ...payload, error: undefined });
       return {};
     } catch (error) {
-      const message = toMessage(error);
+      const message = ipcErrorMessage(error);
       set({ error: message });
       return { error: message };
     }
@@ -85,7 +80,7 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
       });
       return { meta };
     } catch (error) {
-      return { error: toMessage(error) };
+      return { error: ipcErrorMessage(error) };
     }
   },
 
@@ -97,7 +92,7 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
       });
       return { content };
     } catch (error) {
-      return { error: toMessage(error) };
+      return { error: ipcErrorMessage(error) };
     }
   },
 
@@ -105,12 +100,10 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
     if (!isTauri()) return { error: DESKTOP_REQUIRED };
     try {
       await invoke("create_skill", { input: { rootPath, name, description } });
-      await get()
-        .refresh()
-        .catch(() => undefined);
+      await get().refresh();
       return {};
     } catch (error) {
-      return { error: toMessage(error) };
+      return { error: ipcErrorMessage(error) };
     }
   },
 
@@ -120,7 +113,7 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
       await invoke("update_skill_content", { input: { path, content } });
       return {};
     } catch (error) {
-      return { error: toMessage(error) };
+      return { error: ipcErrorMessage(error) };
     }
   },
 
@@ -130,7 +123,7 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
       await invoke("delete_skill", { input: { rootPath, name } });
       return {};
     } catch (error) {
-      return { error: toMessage(error) };
+      return { error: ipcErrorMessage(error) };
     }
   },
 }));

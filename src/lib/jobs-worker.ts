@@ -1,4 +1,5 @@
 import { handleJob, type JobName } from "./jobs-handlers";
+import { ipcErrorMessage } from "./platform";
 
 type RunMessage = {
   kind: "run";
@@ -51,8 +52,7 @@ const onMessage = (event: MessageEvent<RunMessage | InvokeResultMessage>): void 
       postMessage({ kind: "jobResult", id: message.id, ok: true, result });
     })
     .catch((error: unknown) => {
-      const text = error instanceof Error ? error.message : "job failed";
-      postMessage({ kind: "jobResult", id: message.id, ok: false, error: text });
+      postMessage({ kind: "jobResult", id: message.id, ok: false, error: ipcErrorMessage(error) });
     });
 };
 

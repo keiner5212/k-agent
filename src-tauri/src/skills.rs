@@ -75,7 +75,7 @@ pub struct SkillPathOnlyInput {
     pub path: String,
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error)]
 pub enum SkillError {
     #[error("invalid path: {0}")]
     InvalidPath(String),
@@ -87,6 +87,12 @@ pub enum SkillError {
     NotFound(String),
     #[error("forbidden: path escapes skills root")]
     Forbidden,
+}
+
+impl Serialize for SkillError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        crate::serialize_error(self, serializer)
+    }
 }
 
 fn expand_path(input: &str) -> Option<PathBuf> {

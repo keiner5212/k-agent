@@ -67,6 +67,7 @@ pub struct CreateAgentInput {
     pub kind: AgentContextKind,
     pub name: String,
     pub description: String,
+    #[serde(default)]
     pub personality: String,
     pub skills: Vec<AgentSkillRef>,
     pub tools: Vec<String>,
@@ -91,7 +92,7 @@ pub struct UpdateAgentInput {
     pub tools: Vec<String>,
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error)]
 pub enum AgentError {
     #[error("invalid path: {0}")]
     InvalidPath(String),
@@ -103,6 +104,12 @@ pub enum AgentError {
     NotFound(String),
     #[error("forbidden: path escapes agents root")]
     Forbidden,
+}
+
+impl Serialize for AgentError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        crate::serialize_error(self, serializer)
+    }
 }
 
 fn expand_path(input: &str) -> Option<PathBuf> {
@@ -554,8 +561,10 @@ fn list_agents_in(
         if !has_agent_manifest(&path) {
             continue;
         }
-        let (meta, _) = agent_meta_from_dir(&path, name.to_string(), agent_kind, live)?;
-        agents.push(meta);
+        match agent_meta_from_dir(&path, name.to_string(), agent_kind, live) {
+            Ok((meta, _)) => agents.push(meta),
+            Err(_) => continue,
+        }
     }
     agents.sort_by(|left, right| left.id.cmp(&right.id));
     Ok(agents)
@@ -721,7 +730,8 @@ pub async fn create_agent(
     let root = ensure_dir(&resolve_root_path(&input.root_path)?)?;
     let validated = validate_agent_name(&input.name)?;
     let agent_path = root.join(&validated);
-    if agent_path.exists() {
+    let resumable = agent_path.is_dir() && !has_agent_manifest(&agent_path);
+    if agent_path.exists() && !resumable {
         return Err(AgentError::InvalidName(format!(
             "{validated} already exists"
         )));
@@ -738,7 +748,12 @@ pub async fn create_agent(
         &tools,
         &personality,
     );
-    write_agent_md(&agent_path, &content)?;
+    if let Err(error) = write_agent_md(&agent_path, &content) {
+        if !has_agent_manifest(&agent_path) {
+            let _ = fs::remove_dir(&agent_path);
+        }
+        return Err(error);
+    }
     Ok(AgentMeta {
         id: validated.clone(),
         path: agent_path.display().to_string(),

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { handleJob, type Host, type JobName, type ListBundle } from "./jobs-handlers";
-import { isTauri } from "./platform";
+import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "./platform";
 import type { AgentContext } from "@/types/agents";
 import type { AgentsMdFile } from "@/types/agents-md";
 import type { SkillContext } from "@/types/skills";
@@ -30,7 +30,7 @@ const jobWaiters = new Map<string, JobWaiter>();
 const tauriHost: Host = {
   invoke: async <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
     if (!isTauri()) {
-      throw new Error("Desktop shell required");
+      throw new Error(DESKTOP_REQUIRED);
     }
     return args ? invoke<T>(cmd, args) : invoke<T>(cmd);
   },
@@ -38,6 +38,13 @@ const tauriHost: Host = {
 
 let worker: Worker | null = null;
 let workerFailed = false;
+
+const failWaiters = (reason: string): void => {
+  for (const waiter of jobWaiters.values()) {
+    waiter.reject(new Error(reason));
+  }
+  jobWaiters.clear();
+};
 
 const attachWorker = (next: Worker): void => {
   next.addEventListener("message", (event: MessageEvent<JobResultMessage | InvokeMessage>) => {
@@ -50,8 +57,7 @@ const attachWorker = (next: Worker): void => {
         .invoke(message.cmd, message.args)
         .then((result) => send(true, result))
         .catch((error: unknown) => {
-          const text = error instanceof Error ? error.message : "invoke failed";
-          send(false, undefined, text);
+          send(false, undefined, ipcErrorMessage(error));
         });
       return;
     }
@@ -61,6 +67,14 @@ const attachWorker = (next: Worker): void => {
     jobWaiters.delete(message.id);
     if (message.ok) waiter.resolve(message.result);
     else waiter.reject(new Error(message.error ?? "job failed"));
+  });
+  next.addEventListener("error", () => {
+    failWaiters("job worker failed");
+    worker = null;
+  });
+  next.addEventListener("messageerror", () => {
+    failWaiters("job worker message failed");
+    worker = null;
   });
 };
 

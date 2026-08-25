@@ -14,12 +14,12 @@
     "close": "Cerrar"
   },
   "empty": {
-    "title": "Todavia no hay nada aqui",
-    "description": "Esta es una aplicacion vacia. Construye tu orquestador encima."
+    "title": "Todavía no hay nada aquí",
+    "description": "Esta es una aplicación vacía. Construye tu orquestador encima."
   },
   "about": {
     "title": "Acerca de",
-    "version": "Version {{version}}",
+    "version": "Versión {{version}}",
     "creators": "Creadores",
     "close": "Cerrar"
   },
@@ -27,7 +27,7 @@
     "title": "Ajustes",
     "close": "Cerrar",
     "searchPlaceholder": "Buscar ajustes",
-    "searchEmpty": "Ningun ajuste coincide con la busqueda.",
+    "searchEmpty": "Ningún ajuste coincide con la búsqueda.",
     "sections": {
       "general": "General",
       "providers": "Proveedores",
@@ -35,14 +35,14 @@
       "agents": "Agentes",
       "agentsMd": "AGENTS.md",
       "keybindings": "Atajos de teclado",
-      "debug": "Depuracion"
+      "debug": "Depuración"
     },
     "language": {
       "description": "Elige el idioma de la interfaz.",
       "label": "Idioma de la pantalla",
       "options": {
-        "en": "Ingles",
-        "es": "Espanol"
+        "en": "Inglés",
+        "es": "Español"
       }
     },
     "theme": {
@@ -55,41 +55,41 @@
     },
     "tray": {
       "label": "Minimizar a la bandeja del sistema",
-      "description": "Al cerrar la ventana la app sigue ejecutandose en la bandeja del sistema en lugar de salir."
+      "description": "Al cerrar la ventana la app sigue ejecutándose en la bandeja del sistema en lugar de salir."
     },
     "windowSize": {
-      "label": "Recordar tamano de ventana",
-      "description": "Al iniciar, restaura el ultimo tamano y si la ventana estaba maximizada."
+      "label": "Recordar tamaño de ventana",
+      "description": "Al iniciar, restaura el último tamaño y si la ventana estaba maximizada."
     },
     "maxWorkerCores": {
-      "label": "Nucleos maximos de trabajo",
-      "description": "Limite de nucleos de CPU para trabajo interno. Auto usa todos los nucleos disponibles.",
+      "label": "Núcleos máximos de trabajo",
+      "description": "Límite de núcleos de CPU para trabajo interno. Auto usa todos los núcleos disponibles.",
       "options": {
-        "auto": "Auto (todos los nucleos)"
+        "auto": "Auto (todos los núcleos)"
       }
     },
     "translucency": {
       "label": "Desactivar transparencia",
-      "description": "Las superficies usan un desenfoque tipo cristal por defecto. Activa esto para superficies solidas."
+      "description": "Las superficies usan un desenfoque tipo cristal por defecto. Activa esto para superficies sólidas."
     },
     "animations": {
       "label": "Desactivar animaciones",
-      "description": "Apaga todas las transiciones y movimientos. Tambien respeta el ajuste reducir movimiento del sistema."
+      "description": "Apaga todas las transiciones y movimientos. También respeta el ajuste reducir movimiento del sistema."
     },
     "fontFamily": {
       "label": "Fuente",
-      "description": "Elige la tipografia de la interfaz entre las fuentes instaladas en este sistema. Los bloques de codigo siguen en monoespaciada.",
+      "description": "Elige la tipografía de la interfaz entre las fuentes instaladas en este sistema. Los bloques de código siguen en monoespaciada.",
       "options": {
         "system": "Sistema",
         "humanist": "Humanista",
-        "geometric": "Geometrica",
+        "geometric": "Geométrica",
         "serif": "Serif",
         "mono": "Monoespaciada"
       }
     },
     "textScale": {
-      "label": "Tamano del texto",
-      "description": "Escala todo el texto de la aplicacion.",
+      "label": "Tamaño del texto",
+      "description": "Escala todo el texto de la aplicación.",
       "options": {
         "50": "50%",
         "60": "60%",
@@ -104,7 +104,7 @@
       }
     },
     "keybindings": {
-      "description": "Haz clic en un atajo y pulsa la nueva combinacion. Pulsa Escape para cancelar.",
+      "description": "Haz clic en un atajo y pulsa la nueva combinación. Pulsa Escape para cancelar.",
       "actions": {
         "settings": {
           "open": "Abrir ajustes",
@@ -123,7 +123,7 @@
       "record": "Grabando",
       "unset": "Sin asignar",
       "reset": "Restablecer valores",
-      "action": "Accion",
+      "action": "Acción",
       "shortcut": "Atajo"
     },
     "debug": {
@@ -141,10 +141,10 @@
       "gemini-like": "Compatible con Gemini"
     },
     "title": "Proveedores",
-    "description": "Endpoints de proveedores de IA. Los modelos detectados toman capacidades de models.dev; puedes editar o anadir modelos y variantes.",
-    "add": "Anadir proveedor",
+    "description": "Endpoints de proveedores de IA. Los modelos detectados toman capacidades de models.dev; puedes editar o añadir modelos y variantes.",
+    "add": "Añadir proveedor",
     "close": "Cerrar",
-    "empty": "Aun no hay proveedores configurados.",
+    "empty": "Aún no hay proveedores configurados.",
     "loading": "Cargando proveedores",
     "viewModels": "Ver modelos",
     "noModels": "No se han detectado modelos. Prueba a refrescar.",
@@ -155,9 +155,9 @@
       "refreshModel": "Refrescar este modelo",
       "edit": "Editar",
       "delete": "Eliminar",
-      "addModel": "Anadir modelo",
-      "addVariant": "Anadir variante",
-      "favorite": "Anadir a favoritos",
+      "addModel": "Añadir modelo",
+      "addVariant": "Añadir variante",
+      "favorite": "Añadir a favoritos",
       "unfavorite": "Quitar de favoritos"
     },
     "model": {
@@ -194,12 +194,12 @@
       "effortLevels": {
         "label": "Niveles de esfuerzo",
         "placeholder": "bajo, medio, alto",
-        "hint": "Lista separada por comas de modos de esfuerzo admitidos. Vacia si no aplica."
+        "hint": "Lista separada por comas de modos de esfuerzo admitidos. Vacía si no aplica."
       },
       "saving": "Guardando",
       "errors": {
         "required": "El id del modelo es obligatorio.",
-        "tokens": "Valor invalido para {{field}}."
+        "tokens": "Valor inválido para {{field}}."
       }
     },
     "form": {
@@ -207,21 +207,21 @@
       "kind": "Tipo",
       "baseUrl": "URL base",
       "apiKey": "Clave API (opcional)",
-      "apiKeyPlaceholder": "Deja vacio si el proveedor no requiere clave",
-      "apiKeyPlaceholderKeep": "Guardada cifrada. Deja vacio para conservarla.",
+      "apiKeyPlaceholder": "Deja vacío si el proveedor no requiere clave",
+      "apiKeyPlaceholderKeep": "Guardada cifrada. Deja vacío para conservarla.",
       "apiKeyHint": "Se cifra en disco con un secreto local creado en el primer arranque. Solo esta app puede descifrarla.",
       "apiKeyRemove": "Quitar clave guardada",
       "kindHint": {
         "openai-like": "Llama a GET {base}/models. Usa auth Bearer.",
         "anthropic-like": "Llama a GET {base}/v1/models. Usa la cabecera x-api-key.",
-        "gemini-like": "Llama a GET {base}/v1beta/models. La clave viaja como parametro de consulta."
+        "gemini-like": "Llama a GET {base}/v1beta/models. La clave viaja como parámetro de consulta."
       },
       "cancel": "Cancelar",
       "save": "Guardar",
-      "add": "Detectar y anadir",
+      "add": "Detectar y añadir",
       "detecting": "Detectando modelos",
       "detected": "Se detectaron {{count}} modelos.",
-      "detected_plural": "Se detecto {{count}} modelo.",
+      "detected_plural": "Se detectó {{count}} modelo.",
       "errors": {
         "required": "Nombre y URL base son obligatorios."
       }
@@ -234,13 +234,13 @@
       "global": "Global",
       "local": "Workspace"
     },
-    "empty": "Aun no se detectan habilidades en esta carpeta.",
+    "empty": "Aún no se detectan habilidades en esta carpeta.",
     "emptyTab": "Inicia la app con una ruta de workspace para ver habilidades locales.",
     "count": "{{count}} habilidad",
     "count_plural": "{{count}} habilidades",
     "table": {
       "name": "Nombre",
-      "description": "Descripcion",
+      "description": "Descripción",
       "tokens": "Tokens",
       "actions": "Acciones",
       "noDescription": "-",
@@ -257,9 +257,9 @@
       "editTitle": "Editar habilidad",
       "name": "Nombre",
       "namePlaceholder": "mi-habilidad",
-      "nameHint": "Letras minusculas, numeros, guiones y guiones bajos.",
-      "description": "Descripcion",
-      "descriptionPlaceholder": "¿Que hace esta habilidad?",
+      "nameHint": "Letras minúsculas, números, guiones y guiones bajos.",
+      "description": "Descripción",
+      "descriptionPlaceholder": "¿Qué hace esta habilidad?",
       "descriptionHint": "Se guarda en el frontmatter de SKILL.md.",
       "cancel": "Cancelar",
       "save": "Guardar",
@@ -281,7 +281,7 @@
     },
     "delete": {
       "title": "Eliminar habilidad",
-      "body": "¿Eliminar \"{{name}}\"? Se borrara la carpeta y todo su contenido.",
+      "body": "¿Eliminar \"{{name}}\"? Se borrará la carpeta y todo su contenido.",
       "cancel": "Cancelar",
       "confirm": "Eliminar",
       "deleting": "Eliminando"
@@ -289,16 +289,16 @@
   },
   "agents": {
     "title": "Agentes",
-    "description": "Un agente de sesion es una personalidad para el chat: prompt, habilidades y herramientas. Los globales viven en ~/.k-agent/agents. Los locales viven en .agents/agents del workspace.",
+    "description": "Un agente de sesión es una personalidad para el chat: prompt, habilidades y herramientas. Los globales viven en ~/.k-agent/agents. Los locales viven en .agents/agents del workspace.",
     "context": {
       "global": "Global",
       "local": "Workspace"
     },
-    "empty": "Aun no hay agentes en esta carpeta.",
+    "empty": "Aún no hay agentes en esta carpeta.",
     "emptyTab": "Inicia la app con una ruta de workspace para ver agentes locales.",
     "table": {
       "name": "Nombre",
-      "description": "Descripcion",
+      "description": "Descripción",
       "tokens": "Tokens",
       "actions": "Acciones",
       "noDescription": "-",
@@ -316,20 +316,20 @@
       "editTitle": "Editar agente",
       "name": "Nombre",
       "namePlaceholder": "mi-agente",
-      "nameHint": "Letras minusculas, numeros, guiones y guiones bajos.",
-      "description": "Descripcion",
+      "nameHint": "Letras minúsculas, números, guiones y guiones bajos.",
+      "description": "Descripción",
       "descriptionPlaceholder": "Se muestra en el selector de agentes.",
-      "descriptionHint": "Solo para la UI. No se envia al modelo.",
+      "descriptionHint": "Solo para la UI. No se envía al modelo.",
       "personality": "Personalidad",
-      "personalityHint": "Prompt de sesion que se envia al modelo. Se guarda en persona.md. Maximo {{max}} lineas.",
+      "personalityHint": "Prompt de sesión que se envía al modelo. Se guarda en persona.md. Máximo {{max}} líneas.",
       "personalityCount": "{{count}} / {{max}}",
       "skills": "Habilidades",
       "skillsCount": "{{count}} / {{max}}",
-      "skillsHintGlobal": "Un agente global solo puede cargar habilidades globales. Maximo 10.",
-      "skillsHintLocal": "Un agente de workspace puede cargar habilidades globales y locales. Maximo 10.",
-      "skillsEmpty": "No hay habilidades disponibles para esta ubicacion.",
+      "skillsHintGlobal": "Un agente global solo puede cargar habilidades globales. Máximo 10.",
+      "skillsHintLocal": "Un agente de workspace puede cargar habilidades globales y locales. Máximo 10.",
+      "skillsEmpty": "No hay habilidades disponibles para esta ubicación.",
       "tools": "Herramientas",
-      "toolsHint": "Permisos de ejemplo. Las herramientas reales vendran despues.",
+      "toolsHint": "Permisos de ejemplo. Las herramientas reales vendrán después.",
       "cancel": "Cancelar",
       "save": "Guardar",
       "saving": "Guardando",
@@ -368,7 +368,7 @@
         "description": "Correr comandos de shell."
       },
       "search_code": {
-        "label": "Buscar codigo",
+        "label": "Buscar código",
         "description": "Buscar texto o patrones en el workspace."
       },
       "web_fetch": {
@@ -378,7 +378,7 @@
     },
     "delete": {
       "title": "Eliminar agente",
-      "body": "Eliminar \"{{name}}\"? Se borrara la carpeta y todo su contenido.",
+      "body": "Eliminar \"{{name}}\"? Se borrará la carpeta y todo su contenido.",
       "cancel": "Cancelar",
       "confirm": "Eliminar",
       "deleting": "Eliminando"
@@ -386,7 +386,7 @@
   },
   "agentsMd": {
     "title": "AGENTS.md",
-    "description": "Archivos de instrucciones del agente de codigo. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md en la raiz del workspace.",
+    "description": "Archivos de instrucciones del agente de código. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md en la raíz del workspace.",
     "context": {
       "global": "Global",
       "local": "Workspace"
@@ -424,12 +424,12 @@
     "modelSelector": {
       "label": "Modelo",
       "empty": "Elige un modelo",
-      "noFavorites": "Marca un modelo como favorito en Proveedores para usarlo aqui.",
+      "noFavorites": "Marca un modelo como favorito en Proveedores para usarlo aquí.",
       "context": "{{count}} contexto",
       "context_plural": "{{count}} contexto"
     },
     "thread": {
-      "emptyTitle": "Inicia una conversacion",
+      "emptyTitle": "Inicia una conversación",
       "emptyDescription": "Elige un modelo y escribe un mensaje abajo."
     },
     "composer": {
@@ -458,30 +458,30 @@
         "toolDefinitions": "Definiciones de herramientas",
         "rules": "Reglas",
         "skills": "Skills",
-        "mcpTools": "MCP y herramientas dinamicas",
+        "mcpTools": "MCP y herramientas dinámicas",
         "subagentDefinitions": "Definiciones de subagentes",
-        "conversation": "Conversacion"
+        "conversation": "Conversación"
       }
     },
     "changes": {
-      "label": "Cambios en el arbol de trabajo",
+      "label": "Cambios en el árbol de trabajo",
       "title": "Archivos modificados",
       "files_one": "archivo",
       "files_other": "archivos",
-      "lines_one": "linea",
-      "lines_other": "lineas"
+      "lines_one": "línea",
+      "lines_other": "líneas"
     }
   },
   "sessions": {
     "title": "Sesiones",
-    "new": "Nueva sesion",
-    "empty": "Aun no hay sesiones.",
+    "new": "Nueva sesión",
+    "empty": "Aún no hay sesiones.",
     "toggle": "Mostrar u ocultar barra de sesiones",
-    "delete": "Eliminar sesion",
+    "delete": "Eliminar sesión",
     "active": "Activa"
   },
   "workspace": {
-    "unset": "El workspace no esta disponible.",
+    "unset": "El workspace no está disponible.",
     "pickFolder": "Elige la carpeta de workspace",
     "change": "Click para cambiar de workspace"
   }

@@ -195,7 +195,7 @@ pub struct SaveProviderInput {
     pub clear_api_key: bool,
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error)]
 pub enum ProviderError {
     #[error("path resolution failed: {0}")]
     Path(String),
@@ -213,6 +213,12 @@ pub enum ProviderError {
     ApiStatus { status: u16, body: String },
     #[error("{0}")]
     Crypto(String),
+}
+
+impl Serialize for ProviderError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        crate::serialize_error(self, serializer)
+    }
 }
 
 impl From<crate::secret::SecretError> for ProviderError {

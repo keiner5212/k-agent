@@ -37,7 +37,7 @@ pub struct WriteAgentsMdInput {
     pub content: String,
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error)]
 pub enum AgentsMdError {
     #[error("io error: {0}")]
     Io(String),
@@ -45,6 +45,12 @@ pub enum AgentsMdError {
     NotFound(String),
     #[error("no workspace")]
     NoWorkspace,
+}
+
+impl Serialize for AgentsMdError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        crate::serialize_error(self, serializer)
+    }
 }
 
 fn resolve_workspace(app: &AppHandle) -> Option<PathBuf> {

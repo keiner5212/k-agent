@@ -1,13 +1,8 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import { isTauri } from "@/lib/platform";
+import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "@/lib/platform";
 import { runListAgentsMdJob } from "@/lib/jobs";
 import type { AgentsMdFile, AgentsMdKind } from "@/types/agents-md";
-
-const DESKTOP_REQUIRED = "Desktop shell required";
-
-const toMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error";
 
 type FetchPayload = {
   files: AgentsMdFile[];
@@ -45,7 +40,7 @@ export const useAgentsMdStore = create<AgentsMdStore>((set, get) => ({
       const payload = await fetchPayload();
       set({ ...payload, loading: false });
     } catch (error) {
-      set({ loading: false, error: toMessage(error) });
+      set({ loading: false, error: ipcErrorMessage(error) });
     }
   },
 
@@ -56,7 +51,7 @@ export const useAgentsMdStore = create<AgentsMdStore>((set, get) => ({
       set({ ...payload, error: undefined });
       return { payload };
     } catch (error) {
-      const message = toMessage(error);
+      const message = ipcErrorMessage(error);
       set({ error: message });
       return { error: message };
     }
@@ -66,12 +61,10 @@ export const useAgentsMdStore = create<AgentsMdStore>((set, get) => ({
     if (!isTauri()) return { error: DESKTOP_REQUIRED };
     try {
       await invoke("write_agents_md", { input: { kind, content } });
-      await get()
-        .refresh()
-        .catch(() => undefined);
+      await get().refresh();
       return {};
     } catch (error) {
-      return { error: toMessage(error) };
+      return { error: ipcErrorMessage(error) };
     }
   },
 
@@ -79,12 +72,10 @@ export const useAgentsMdStore = create<AgentsMdStore>((set, get) => ({
     if (!isTauri()) return { error: DESKTOP_REQUIRED };
     try {
       await invoke("delete_agents_md", { input: { kind } });
-      await get()
-        .refresh()
-        .catch(() => undefined);
+      await get().refresh();
       return {};
     } catch (error) {
-      return { error: toMessage(error) };
+      return { error: ipcErrorMessage(error) };
     }
   },
 }));

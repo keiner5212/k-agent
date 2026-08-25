@@ -1,17 +1,12 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import type { ModelDraft, Provider, ProviderDraft } from "@/types/providers";
-import { isTauri } from "@/lib/platform";
+import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "@/lib/platform";
 
 export type ProviderMutationResult = {
   provider?: Provider;
   error?: string;
 };
-
-const DESKTOP_REQUIRED = "Desktop shell required";
-
-const toMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error";
 
 const replaceProvider = (providers: Provider[], provider: Provider): Provider[] => {
   const idx = providers.findIndex((item) => item.id === provider.id);
@@ -29,7 +24,7 @@ const runMutation = async (
     const provider = await work();
     return provider ? { provider } : {};
   } catch (error) {
-    return { error: toMessage(error) };
+    return { error: ipcErrorMessage(error) };
   }
 };
 
@@ -64,7 +59,7 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
       const providers = await invoke<Provider[]>("list_providers");
       set({ providers, loading: false });
     } catch (error) {
-      set({ loading: false, error: toMessage(error) });
+      set({ loading: false, error: ipcErrorMessage(error) });
     }
   },
 

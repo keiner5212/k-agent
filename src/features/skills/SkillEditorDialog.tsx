@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { LineEditor } from "@/components/LineEditor";
 import { EDITOR_SAVE_EVENT } from "@/lib/keybindings";
+import { useSkillsStore } from "@/lib/skills";
 
 type SkillEditorDialogProps = {
   open: boolean;
@@ -13,13 +13,6 @@ type SkillEditorDialogProps = {
   onOpenChange: (open: boolean) => void;
   onSave: (content: string) => Promise<string | undefined>;
 };
-
-const errorMessage = (error: unknown): string =>
-  error instanceof Error
-    ? error.message
-    : typeof error === "string"
-      ? error
-      : "Failed to read skill";
 
 export const SkillEditorDialog = ({
   open,
@@ -66,15 +59,18 @@ const SkillEditorBody = ({ skillPath, onCancel, onSave }: SkillEditorBodyProps):
 
   useEffect(() => {
     let cancelled = false;
-    invoke<string>("read_skill_file", { input: { path: skillPath } })
-      .then((value) => {
+    void useSkillsStore
+      .getState()
+      .readFile(skillPath)
+      .then((result) => {
         if (cancelled) return;
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        const value = result.content ?? "";
         setContent(value);
         setOriginal(value);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(errorMessage(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -84,18 +80,25 @@ const SkillEditorBody = ({ skillPath, onCancel, onSave }: SkillEditorBodyProps):
     };
   }, [skillPath]);
 
-  const handleSave = useCallback(async (): Promise<void> => {
-    if (submitting || loading || content === original) return;
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (submitting || loading) return false;
+    if (content === original) return true;
     setSubmitting(true);
     setError(null);
     const saveError = await onSave(content);
     setSubmitting(false);
     if (saveError) {
       setError(saveError);
-      return;
+      return false;
     }
     setOriginal(content);
+    return true;
   }, [submitting, loading, content, original, onSave]);
+
+  const handleDone = async (): Promise<void> => {
+    const saved = await handleSave();
+    if (saved) onCancel();
+  };
 
   const handleRevert = (): void => {
     setContent(original);
@@ -156,7 +159,11 @@ const SkillEditorBody = ({ skillPath, onCancel, onSave }: SkillEditorBodyProps):
             <span>{t("skills.editor.save")}</span>
           )}
         </GlassButton>
-        <GlassButton variant="primary" onClick={onCancel} disabled={submitting}>
+        <GlassButton
+          variant="primary"
+          onClick={() => void handleDone()}
+          disabled={submitting || loading}
+        >
           {t("skills.editor.done")}
         </GlassButton>
       </div>
