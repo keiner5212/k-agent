@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@/lib/platform";
+import { runListAgentsJob } from "@/lib/jobs";
 import type { AgentContext, AgentContextKind, AgentMeta, AgentSkillRef } from "@/types/agents";
 
 const DESKTOP_REQUIRED = "Desktop shell required";
@@ -16,6 +17,7 @@ type FetchPayload = {
 export type AgentWriteInput = {
   name: string;
   description: string;
+  personality: string;
   skills: AgentSkillRef[];
   tools: string[];
 };
@@ -40,13 +42,7 @@ type AgentsStore = {
   remove: (rootPath: string, name: string) => Promise<{ error?: string }>;
 };
 
-const fetchPayload = async (): Promise<FetchPayload> => {
-  const [contexts, workspacePath] = await Promise.all([
-    invoke<AgentContext[]>("list_agents"),
-    invoke<string | null>("get_workspace_path"),
-  ]);
-  return { contexts, workspacePath };
-};
+const fetchPayload = async (): Promise<FetchPayload> => runListAgentsJob();
 
 export const useAgentsStore = create<AgentsStore>((set, get) => ({
   contexts: [],

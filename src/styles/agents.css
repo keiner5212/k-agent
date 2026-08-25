@@ -1,5 +1,12 @@
-.agent-form {
-  max-height: calc(100vh - var(--titlebar-height) - var(--space-6) - 48px);
+.agent-form .line-editor {
+  height: 260px;
+}
+
+.agent-form .field__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .agent-form__fieldset {

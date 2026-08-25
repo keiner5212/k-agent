@@ -13,6 +13,19 @@ export const AGENT_TOOL_IDS = [
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
 
 export const MAX_AGENT_SKILLS = 10;
+export const MAX_AGENT_PERSONALITY_LINES = 200;
+
+export const personalityLineCount = (text: string): number => {
+  if (text.length === 0) return 0;
+  return text.split("\n").length;
+};
+
+export const clampPersonality = (text: string): string => {
+  if (text.length === 0) return "";
+  const lines = text.split("\n");
+  if (lines.length <= MAX_AGENT_PERSONALITY_LINES) return text;
+  return lines.slice(0, MAX_AGENT_PERSONALITY_LINES).join("\n");
+};
 
 export type AgentSkillRef = {
   kind: AgentContextKind;
@@ -24,6 +37,7 @@ export type AgentMeta = {
   path: string;
   name: string;
   description: string;
+  personality: string;
   skills: AgentSkillRef[];
   tools: string[];
 };

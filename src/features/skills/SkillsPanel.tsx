@@ -6,7 +6,8 @@ import { IconButton } from "@/components/IconButton";
 import { highlightMatch } from "@/lib/highlight";
 import { useSkillsStore } from "@/lib/skills";
 import { useAgentsStore } from "@/lib/agents";
-import type { SkillContext as SkillContextType } from "@/types/skills";
+import { formatContextWindow } from "@/types/providers";
+import type { SkillContext as SkillContextType, SkillInfo } from "@/types/skills";
 import { CreateSkillDialog } from "./CreateSkillDialog";
 import { DeleteSkillDialog } from "./DeleteSkillDialog";
 import { SkillEditorDialog } from "./SkillEditorDialog";
@@ -155,8 +156,8 @@ export const SkillsPanel = ({ query }: SkillsPanelProps): ReactNode => {
 type SkillContextViewProps = {
   context: SkillContextType;
   onCreate: () => void;
-  onEdit: (skill: { id: string; path: string }) => void;
-  onDelete: (skill: { id: string; path: string }) => void;
+  onEdit: (skill: SkillInfo) => void;
+  onDelete: (skill: SkillInfo) => void;
 };
 
 const SkillContextView = ({
@@ -186,21 +187,46 @@ const SkillContextView = ({
       {context.skills.length === 0 ? (
         <p className="skill-context__empty">{t("skills.empty")}</p>
       ) : (
-        <ul className="skill-list">
-          {context.skills.map((skill) => (
-            <li key={skill.id} className="skill-row" title={skill.path}>
-              <span className="skill-row__id">{skill.id}</span>
-              <span className="skill-row__actions">
-                <IconButton label={t("skills.actions.edit")} onClick={() => onEdit(skill)}>
-                  <Pencil size={12} strokeWidth={1.5} />
-                </IconButton>
-                <IconButton label={t("skills.actions.delete")} onClick={() => onDelete(skill)}>
-                  <Trash2 size={12} strokeWidth={1.5} />
-                </IconButton>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <div className="skill-table-wrap">
+          <table className="skill-table">
+            <thead>
+              <tr>
+                <th>{t("skills.table.name")}</th>
+                <th>{t("skills.table.description")}</th>
+                <th>{t("skills.table.tokens")}</th>
+                <th>
+                  <span className="visually-hidden">{t("skills.table.actions")}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {context.skills.map((skill) => (
+                <tr key={skill.id} title={skill.path}>
+                  <td className="skill-table__name">{skill.name}</td>
+                  <td
+                    className="skill-table__desc"
+                    data-empty={skill.description.trim() ? undefined : "true"}
+                  >
+                    {skill.description.trim() ? skill.description : t("skills.table.noDescription")}
+                  </td>
+                  <td className="skill-table__tokens">
+                    {t("skills.table.tokenValue", {
+                      value: formatContextWindow(skill.estimatedTokens),
+                    })}
+                  </td>
+                  <td className="skill-table__actions">
+                    <IconButton label={t("skills.actions.edit")} onClick={() => onEdit(skill)}>
+                      <Pencil size={12} strokeWidth={1.5} />
+                    </IconButton>
+                    <IconButton label={t("skills.actions.delete")} onClick={() => onDelete(skill)}>
+                      <Trash2 size={12} strokeWidth={1.5} />
+                    </IconButton>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </article>
   );

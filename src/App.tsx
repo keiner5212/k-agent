@@ -5,6 +5,7 @@ import { GearButton } from "@/components/GearButton";
 import { IconButton } from "@/components/IconButton";
 import { WindowControls } from "@/components/WindowControls";
 import { WindowResizeFrame } from "@/components/WindowResizeFrame";
+import { AboutDialog } from "@/features/about/AboutDialog";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
 import { SessionsSidebar } from "@/features/sessions/SessionsSidebar";
 import { ChatComposer } from "@/features/chat/ChatComposer";
@@ -16,7 +17,7 @@ import { useComposerStore } from "@/lib/composer";
 import { useSelectionStore } from "@/lib/selected-model";
 import { isTauri } from "@/lib/platform";
 import { useWindowBoundsSync } from "@/lib/window-bounds";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Info, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { KeybindingAction } from "@/types/settings";
 import i18n from "@/i18n";
 
@@ -38,6 +39,7 @@ const startWindowDrag = (event: MouseEvent<HTMLElement>): void => {
 export const App = (): ReactNode => {
   const { t } = useTranslation();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const language = useSettingsStore((state) => state.language);
   const hydrate = useSettingsStore((state) => state.hydrate);
   const sidebarOpen = useSettingsStore((state) => state.sessionSidebarOpen);
@@ -93,6 +95,9 @@ export const App = (): ReactNode => {
         </span>
         <span className="app-titlebar__drag" data-tauri-drag-region aria-hidden="true" />
         <div className="app-titlebar__actions">
+          <IconButton label={t("about.title")} onClick={() => setAboutOpen(true)}>
+            <Info size={16} strokeWidth={1.5} />
+          </IconButton>
           <GearButton onClick={() => setSettingsOpen(true)} />
           <WindowControls />
         </div>
@@ -106,6 +111,7 @@ export const App = (): ReactNode => {
         </main>
       </div>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
     </div>
   );
 };

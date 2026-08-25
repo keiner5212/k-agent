@@ -17,6 +17,12 @@
     "title": "Todavia no hay nada aqui",
     "description": "Esta es una aplicacion vacia. Construye tu orquestador encima."
   },
+  "about": {
+    "title": "Acerca de",
+    "version": "Version {{version}}",
+    "creators": "Creadores",
+    "close": "Cerrar"
+  },
   "settings": {
     "title": "Ajustes",
     "close": "Cerrar",
@@ -228,6 +234,14 @@
     "emptyTab": "Inicia la app con una ruta de workspace para ver habilidades locales.",
     "count": "{{count}} habilidad",
     "count_plural": "{{count}} habilidades",
+    "table": {
+      "name": "Nombre",
+      "description": "Descripcion",
+      "tokens": "Tokens",
+      "actions": "Acciones",
+      "noDescription": "-",
+      "tokenValue": "~{{value}}"
+    },
     "actions": {
       "refresh": "Actualizar habilidades",
       "create": "Nueva habilidad",
@@ -257,6 +271,7 @@
       "revert": "Revertir",
       "save": "Guardar",
       "saving": "Guardando",
+      "done": "Listo",
       "clean": "Guardado",
       "dirty": "Cambios sin guardar"
     },
@@ -292,6 +307,9 @@
       "description": "Descripcion",
       "descriptionPlaceholder": "Se muestra en el selector de agentes.",
       "descriptionHint": "Solo para la UI. No se envia al modelo.",
+      "personality": "Personalidad",
+      "personalityHint": "Se guarda en AGENT.md. Se envia al modelo. Maximo {{max}} lineas.",
+      "personalityCount": "{{count}} / {{max}}",
       "skills": "Habilidades",
       "skillsCount": "{{count}} / {{max}}",
       "skillsHintGlobal": "Un agente global solo puede cargar habilidades globales. Maximo 10.",

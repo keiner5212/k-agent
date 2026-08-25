@@ -17,6 +17,12 @@
     "title": "Nothing here yet",
     "description": "This is a blank shell. Build your orchestrator on top of it."
   },
+  "about": {
+    "title": "About",
+    "version": "Version {{version}}",
+    "creators": "Creators",
+    "close": "Close"
+  },
   "settings": {
     "title": "Settings",
     "close": "Close",
@@ -228,6 +234,14 @@
     "emptyTab": "Launch the app with a workspace path to see local skills.",
     "count": "{{count}} skill",
     "count_plural": "{{count}} skills",
+    "table": {
+      "name": "Name",
+      "description": "Description",
+      "tokens": "Tokens",
+      "actions": "Actions",
+      "noDescription": "-",
+      "tokenValue": "~{{value}}"
+    },
     "actions": {
       "refresh": "Refresh skills",
       "create": "New skill",
@@ -256,6 +270,7 @@
       "revert": "Revert",
       "save": "Save",
       "saving": "Saving",
+      "done": "Done",
       "clean": "Saved",
       "dirty": "Unsaved changes"
     },
@@ -291,6 +306,9 @@
       "description": "Description",
       "descriptionPlaceholder": "Shown in the agent selector.",
       "descriptionHint": "UI only. Not sent to the model.",
+      "personality": "Personality",
+      "personalityHint": "Written to AGENT.md. Sent to the model. Max {{max}} lines.",
+      "personalityCount": "{{count}} / {{max}}",
       "skills": "Skills",
       "skillsCount": "{{count}} / {{max}}",
       "skillsHintGlobal": "Global agents can only load global skills. Up to 10.",

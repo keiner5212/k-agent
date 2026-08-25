@@ -2,9 +2,11 @@
 
 Desktop AI coding orchestrator. Tauri 2 + Rust + React 19 + TypeScript.
 
-## Author
+## Creators
 
-Maintained by Keiner Jose Alvarado Quintero. Contact: <keinerjosealvaradoquintero@gmail.com>
+- [Keiner Jose Alvarado Quintero](https://github.com/keiner5212)
+- [Victor Rafael Villarreal Utria](https://github.com/Viraviutt)
+- [Cristian Andres Garcia Sierra](https://github.com/Akiii-lab)
 
 ## Start
 

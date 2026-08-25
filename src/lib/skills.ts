@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@/lib/platform";
+import { runListSkillsJob } from "@/lib/jobs";
 import type { SkillContext, SkillMeta } from "@/types/skills";
 
 const DESKTOP_REQUIRED = "Desktop shell required";
@@ -28,13 +29,7 @@ type SkillsStore = {
   remove: (rootPath: string, name: string) => Promise<{ error?: string }>;
 };
 
-const fetchPayload = async (): Promise<FetchPayload> => {
-  const [contexts, workspacePath] = await Promise.all([
-    invoke<SkillContext[]>("list_skills"),
-    invoke<string | null>("get_workspace_path"),
-  ]);
-  return { contexts, workspacePath };
-};
+const fetchPayload = async (): Promise<FetchPayload> => runListSkillsJob();
 
 export const useSkillsStore = create<SkillsStore>((set, get) => ({
   contexts: [],

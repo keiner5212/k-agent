@@ -100,6 +100,11 @@
   animation: dialog-in-center var(--duration-enter) var(--ease-out);
 }
 
+.dialog-surface[data-placement="center"] .dialog-panel {
+  max-height: inherit;
+  min-height: 0;
+}
+
 .dialog-surface[data-placement="center"] .dialog-body {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -114,4 +119,61 @@
     opacity: 1;
     transform: translate(-50%, -50%);
   }
+}
+
+.about-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.about-dialog__version {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.about-dialog__heading {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.about-dialog__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.about-dialog__list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.about-dialog__name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.about-dialog__link {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.about-dialog__link:hover {
+  text-decoration: underline;
 }

@@ -6,9 +6,10 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use thiserror::Error;
 
-use crate::skills::{global_skills_root, list_skills_in, local_skills_root};
+use crate::skills::{global_skills_root, list_skills_in, local_skills_root, parse_yaml_scalar};
 
 pub const MAX_AGENT_SKILLS: usize = 10;
+pub const MAX_AGENT_PERSONALITY_LINES: usize = 200;
 
 const AGENT_TOOLS: &[&str] = &[
     "read_file",
@@ -41,6 +42,7 @@ pub struct AgentMeta {
     pub path: String,
     pub name: String,
     pub description: String,
+    pub personality: String,
     pub skills: Vec<AgentSkillRef>,
     pub tools: Vec<String>,
 }
@@ -60,6 +62,7 @@ pub struct CreateAgentInput {
     pub kind: AgentContextKind,
     pub name: String,
     pub description: String,
+    pub personality: String,
     pub skills: Vec<AgentSkillRef>,
     pub tools: Vec<String>,
 }
@@ -78,6 +81,7 @@ pub struct UpdateAgentInput {
     pub kind: AgentContextKind,
     pub name: String,
     pub description: String,
+    pub personality: String,
     pub skills: Vec<AgentSkillRef>,
     pub tools: Vec<String>,
 }
@@ -206,6 +210,18 @@ fn yaml_quote(value: &str) -> String {
     }
 }
 
+fn clamp_personality(raw: &str) -> String {
+    if raw.is_empty() {
+        return String::new();
+    }
+    let mut lines: Vec<&str> = raw.split('\n').collect();
+    if lines.len() > MAX_AGENT_PERSONALITY_LINES {
+        lines.truncate(MAX_AGENT_PERSONALITY_LINES);
+        return lines.join("\n");
+    }
+    raw.to_string()
+}
+
 fn parse_skill_ref(raw: &str) -> Option<AgentSkillRef> {
     let (kind_raw, id_raw) = raw.split_once('/')?;
     let kind = match kind_raw {
@@ -263,15 +279,19 @@ fn parse_agent_md(raw: &str) -> ParsedAgent {
     let mut skills = Vec::new();
     let mut tools = Vec::new();
     let mut list: Option<&str> = None;
-    for line in block.lines() {
-        let line = line.trim_end();
+    let lines: Vec<&str> = block.lines().collect();
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i].trim_end();
         let trimmed_line = line.trim();
         if trimmed_line == "skills:" || trimmed_line == "skills: []" {
             list = Some("skills");
+            i += 1;
             continue;
         }
         if trimmed_line == "tools:" || trimmed_line == "tools: []" {
             list = Some("tools");
+            i += 1;
             continue;
         }
         if let Some(item) = trimmed_line.strip_prefix("- ") {
@@ -285,14 +305,23 @@ fn parse_agent_md(raw: &str) -> ParsedAgent {
                     tools.push(tool);
                 }
             }
+            i += 1;
             continue;
         }
         list = None;
-        if let Some(value) = line.strip_prefix("name:") {
-            name = value.trim().trim_matches('"').to_string();
-        } else if let Some(value) = line.strip_prefix("description:") {
-            description = value.trim().trim_matches('"').to_string();
+        if let Some(rest) = line.strip_prefix("name:") {
+            let (value, next) = parse_yaml_scalar(rest, &lines, i + 1);
+            name = value;
+            i = next;
+            continue;
         }
+        if let Some(rest) = line.strip_prefix("description:") {
+            let (value, next) = parse_yaml_scalar(rest, &lines, i + 1);
+            description = value;
+            i = next;
+            continue;
+        }
+        i += 1;
     }
     ParsedAgent {
         name,
@@ -333,15 +362,12 @@ fn build_agent_md(
             out.push('\n');
         }
     }
-    out.push_str("---\n\n");
-    let trimmed_body = body.trim();
+    out.push_str("---\n");
+    let trimmed_body = body.trim_end_matches('\n');
     if trimmed_body.is_empty() {
-        out.push_str("# ");
-        out.push_str(name);
-        out.push_str("\n\n");
-        out.push_str(description);
         out.push('\n');
     } else {
+        out.push('\n');
         out.push_str(trimmed_body);
         out.push('\n');
     }
@@ -436,7 +462,11 @@ fn agent_meta_from_dir(
         write_agent_md(
             dir,
             &build_agent_md(
-                if parsed.name.is_empty() { &id } else { &parsed.name },
+                if parsed.name.is_empty() {
+                    &id
+                } else {
+                    &parsed.name
+                },
                 &parsed.description,
                 &skills,
                 &tools,
@@ -455,6 +485,7 @@ fn agent_meta_from_dir(
             path: dir.display().to_string(),
             name: display_name,
             description: parsed.description,
+            personality: parsed.body,
             skills,
             tools,
         },
@@ -572,11 +603,17 @@ pub(crate) fn drop_skill_ref(
 
 #[tauri::command]
 pub async fn list_agents(app: AppHandle) -> Result<Vec<AgentContext>, AgentError> {
+    tokio::task::spawn_blocking(move || collect_agent_contexts(&app))
+        .await
+        .map_err(|error| AgentError::Io(error.to_string()))?
+}
+
+fn collect_agent_contexts(app: &AppHandle) -> Result<Vec<AgentContext>, AgentError> {
     let home = app
         .path()
         .home_dir()
         .map_err(|error| AgentError::Io(error.to_string()))?;
-    let workspace = resolve_workspace(&app);
+    let workspace = resolve_workspace(app);
     let live = live_skill_ids(&home, workspace.as_deref())?;
     let global_root = global_agents_root(&home);
     let global = AgentContext {
@@ -597,7 +634,10 @@ pub async fn list_agents(app: AppHandle) -> Result<Vec<AgentContext>, AgentError
 }
 
 #[tauri::command]
-pub async fn read_agent_meta(app: AppHandle, input: AgentPathInput) -> Result<AgentMeta, AgentError> {
+pub async fn read_agent_meta(
+    app: AppHandle,
+    input: AgentPathInput,
+) -> Result<AgentMeta, AgentError> {
     let home = app
         .path()
         .home_dir()
@@ -640,7 +680,10 @@ fn agent_kind_for_root(root: &Path, home: &Path, workspace: Option<&Path>) -> Ag
 }
 
 #[tauri::command]
-pub async fn create_agent(app: AppHandle, input: CreateAgentInput) -> Result<AgentMeta, AgentError> {
+pub async fn create_agent(
+    app: AppHandle,
+    input: CreateAgentInput,
+) -> Result<AgentMeta, AgentError> {
     let home = app
         .path()
         .home_dir()
@@ -658,8 +701,15 @@ pub async fn create_agent(app: AppHandle, input: CreateAgentInput) -> Result<Age
     ensure_inside(&agent_path, &root)?;
     let skills = sanitize_skills(&input.skills, input.kind, &live);
     let tools = sanitize_tools(&input.tools);
+    let personality = clamp_personality(&input.personality);
     fs::create_dir_all(&agent_path).map_err(|error| AgentError::Io(error.to_string()))?;
-    let content = build_agent_md(&validated, &input.description, &skills, &tools, "");
+    let content = build_agent_md(
+        &validated,
+        &input.description,
+        &skills,
+        &tools,
+        &personality,
+    );
     fs::write(agent_path.join("AGENT.md"), content)
         .map_err(|error| AgentError::Io(error.to_string()))?;
     Ok(AgentMeta {
@@ -667,13 +717,17 @@ pub async fn create_agent(app: AppHandle, input: CreateAgentInput) -> Result<Age
         path: agent_path.display().to_string(),
         name: validated,
         description: input.description,
+        personality,
         skills,
         tools,
     })
 }
 
 #[tauri::command]
-pub async fn update_agent(app: AppHandle, input: UpdateAgentInput) -> Result<AgentMeta, AgentError> {
+pub async fn update_agent(
+    app: AppHandle,
+    input: UpdateAgentInput,
+) -> Result<AgentMeta, AgentError> {
     let home = app
         .path()
         .home_dir()
@@ -705,15 +759,9 @@ pub async fn update_agent(app: AppHandle, input: UpdateAgentInput) -> Result<Age
         }
         fs::rename(&agent_path, &new_path).map_err(|error| AgentError::Io(error.to_string()))?;
     }
-    let parsed = read_parsed_agent(&new_path).unwrap_or(ParsedAgent {
-        name: String::new(),
-        description: String::new(),
-        skills: Vec::new(),
-        tools: Vec::new(),
-        body: String::new(),
-    });
     let skills = sanitize_skills(&input.skills, input.kind, &live);
     let tools = sanitize_tools(&input.tools);
+    let personality = clamp_personality(&input.personality);
     write_agent_md(
         &new_path,
         &build_agent_md(
@@ -721,7 +769,7 @@ pub async fn update_agent(app: AppHandle, input: UpdateAgentInput) -> Result<Age
             &input.description,
             &skills,
             &tools,
-            &parsed.body,
+            &personality,
         ),
     )?;
     Ok(AgentMeta {
@@ -729,6 +777,7 @@ pub async fn update_agent(app: AppHandle, input: UpdateAgentInput) -> Result<Age
         path: new_path.display().to_string(),
         name: validated,
         description: input.description,
+        personality,
         skills,
         tools,
     })

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
@@ -83,7 +83,8 @@ const SkillEditorBody = ({ skillPath, onCancel, onSave }: SkillEditorBodyProps):
     };
   }, [skillPath]);
 
-  const handleSave = async (): Promise<void> => {
+  const handleSave = useCallback(async (): Promise<void> => {
+    if (submitting || loading || content === original) return;
     setSubmitting(true);
     setError(null);
     const saveError = await onSave(content);
@@ -93,14 +94,24 @@ const SkillEditorBody = ({ skillPath, onCancel, onSave }: SkillEditorBodyProps):
       return;
     }
     setOriginal(content);
-    onCancel();
-  };
+  }, [submitting, loading, content, original, onSave]);
 
   const handleRevert = (): void => {
     setContent(original);
   };
 
   const dirty = content !== original;
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return;
+      event.preventDefault();
+      event.stopPropagation();
+      void handleSave();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [handleSave]);
 
   return (
     <div className="skill-editor">
@@ -126,9 +137,6 @@ const SkillEditorBody = ({ skillPath, onCancel, onSave }: SkillEditorBodyProps):
         </span>
       </div>
       <div className="form-actions">
-        <GlassButton variant="ghost" onClick={onCancel} disabled={submitting}>
-          {t("skills.editor.cancel")}
-        </GlassButton>
         <GlassButton
           variant="ghost"
           onClick={handleRevert}
@@ -137,7 +145,7 @@ const SkillEditorBody = ({ skillPath, onCancel, onSave }: SkillEditorBodyProps):
           {t("skills.editor.revert")}
         </GlassButton>
         <GlassButton
-          variant="primary"
+          variant="ghost"
           onClick={() => void handleSave()}
           disabled={submitting || loading || !dirty}
         >
@@ -149,6 +157,9 @@ const SkillEditorBody = ({ skillPath, onCancel, onSave }: SkillEditorBodyProps):
           ) : (
             <span>{t("skills.editor.save")}</span>
           )}
+        </GlassButton>
+        <GlassButton variant="primary" onClick={onCancel} disabled={submitting}>
+          {t("skills.editor.done")}
         </GlassButton>
       </div>
     </div>

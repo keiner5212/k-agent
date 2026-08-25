@@ -41,6 +41,7 @@ src-tauri/catalog/  bundled models.json (Rust only; never import in the UI)
 | Copy          | `t("...")`. No hardcoded UI English.       |
 | Token amounts | `formatContextWindow` / `parseTokenAmount` |
 | Logical CPUs  | `hardwareThreadCount()`                    |
+| Heavy jobs    | `runJob` in `src/lib/jobs.ts`              |
 
 ## Settings
 
@@ -115,6 +116,7 @@ Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then b
 - Do not re-parse the bundled catalog on every command.
 - No new global caches, clients, or wrappers. Search first.
 - Zustand: select fields, do not subscribe to the whole store in hot views.
+- Heavy disk/CPU work (skills, agents, fonts, token estimates, future jobs): `runJob` in `src/lib/jobs.ts`. Add a `JobName` and a `handleJob` case. Tauri IPC stays on the UI thread; the worker asks for it with `kind: "invoke"`.
 
 ## Checks
 

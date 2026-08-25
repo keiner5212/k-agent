@@ -17,6 +17,9 @@ pub enum SkillContextKind {
 pub struct SkillInfo {
     pub id: String,
     pub path: String,
+    pub name: String,
+    pub description: String,
+    pub estimated_tokens: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,13 +164,40 @@ pub(crate) fn list_skills_in(root: &Path) -> Result<Vec<SkillInfo>, SkillError> 
         if !has_skill_manifest(&path) {
             continue;
         }
-        skills.push(SkillInfo {
-            id: name.to_string(),
-            path: path.display().to_string(),
-        });
+        skills.push(skill_info_from_dir(&path, name));
     }
     skills.sort_by(|left, right| left.id.cmp(&right.id));
     Ok(skills)
+}
+
+fn estimate_tokens(content: &str) -> u32 {
+    let chars = content.chars().count();
+    u32::try_from((chars + 3) / 4).unwrap_or(u32::MAX)
+}
+
+fn skill_info_from_dir(path: &Path, id: &str) -> SkillInfo {
+    let content = read_skill_raw(path).unwrap_or_default();
+    let (name, description) = parse_frontmatter(&content);
+    SkillInfo {
+        id: id.to_string(),
+        path: path.display().to_string(),
+        name: if name.is_empty() {
+            id.to_string()
+        } else {
+            name
+        },
+        description,
+        estimated_tokens: estimate_tokens(&content),
+    }
+}
+
+fn read_skill_raw(path: &Path) -> Result<String, SkillError> {
+    let skill_md = if path.join("SKILL.md").is_file() {
+        path.join("SKILL.md")
+    } else {
+        path.join("skill.md")
+    };
+    fs::read_to_string(&skill_md).map_err(|error| SkillError::Io(error.to_string()))
 }
 
 fn validate_skill_name(name: &str) -> Result<String, SkillError> {
@@ -215,14 +245,8 @@ fn ensure_inside(child: &Path, root: &Path) -> Result<(), SkillError> {
 }
 
 fn read_skill_md(path: &Path) -> Result<(String, String), SkillError> {
-    let skill_md = if path.join("SKILL.md").is_file() {
-        path.join("SKILL.md")
-    } else {
-        path.join("skill.md")
-    };
-    let raw = fs::read_to_string(&skill_md).map_err(|error| SkillError::Io(error.to_string()))?;
-    let (name, description) = parse_frontmatter(&raw);
-    Ok((name, description))
+    let raw = read_skill_raw(path)?;
+    Ok(parse_frontmatter(&raw))
 }
 
 fn parse_frontmatter(raw: &str) -> (String, String) {
@@ -235,15 +259,25 @@ fn parse_frontmatter(raw: &str) -> (String, String) {
         return (String::new(), String::new());
     };
     let block = &after_first[..end];
+    let lines: Vec<&str> = block.lines().collect();
     let mut name = String::new();
     let mut description = String::new();
-    for line in block.lines() {
-        let line = line.trim_end();
-        if let Some(value) = line.strip_prefix("name:") {
-            name = value.trim().trim_matches('"').to_string();
-        } else if let Some(value) = line.strip_prefix("description:") {
-            description = value.trim().trim_matches('"').to_string();
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i].trim_end();
+        if let Some(rest) = line.strip_prefix("name:") {
+            let (value, next) = parse_yaml_scalar(rest, &lines, i + 1);
+            name = value;
+            i = next;
+            continue;
         }
+        if let Some(rest) = line.strip_prefix("description:") {
+            let (value, next) = parse_yaml_scalar(rest, &lines, i + 1);
+            description = value;
+            i = next;
+            continue;
+        }
+        i += 1;
     }
     (name, description)
 }
@@ -274,8 +308,121 @@ fn yaml_quote(value: &str) -> String {
     }
 }
 
+fn unquote_yaml(value: &str) -> String {
+    let trimmed = value.trim();
+    let bytes = trimmed.as_bytes();
+    if bytes.len() >= 2
+        && ((bytes[0] == b'"' && *bytes.last().unwrap() == b'"')
+            || (bytes[0] == b'\'' && *bytes.last().unwrap() == b'\''))
+    {
+        return trimmed[1..trimmed.len() - 1].replace("\\\"", "\"");
+    }
+    trimmed.to_string()
+}
+
+enum YamlBlockKind {
+    Fold,
+    Literal,
+}
+
+fn yaml_block_kind(value: &str) -> Option<(YamlBlockKind, bool)> {
+    match value {
+        ">" | ">+" => Some((YamlBlockKind::Fold, false)),
+        ">-" => Some((YamlBlockKind::Fold, true)),
+        "|" | "|+" => Some((YamlBlockKind::Literal, false)),
+        "|-" => Some((YamlBlockKind::Literal, true)),
+        _ => None,
+    }
+}
+
+fn fold_yaml_lines(parts: &[String]) -> String {
+    let mut out = String::new();
+    let mut gap = false;
+    for part in parts {
+        if part.is_empty() {
+            gap = true;
+            continue;
+        }
+        if !out.is_empty() {
+            out.push(if gap { '\n' } else { ' ' });
+        }
+        gap = false;
+        out.push_str(part);
+    }
+    out
+}
+
+fn read_yaml_block(
+    lines: &[&str],
+    start: usize,
+    kind: YamlBlockKind,
+    clip: bool,
+) -> (String, usize) {
+    let mut i = start;
+    let mut indent: Option<usize> = None;
+    let mut parts: Vec<String> = Vec::new();
+    while i < lines.len() {
+        let line = lines[i];
+        let spaces = line.chars().take_while(|ch| *ch == ' ').count();
+        if line.trim().is_empty() {
+            if indent.is_some() {
+                parts.push(String::new());
+            }
+            i += 1;
+            continue;
+        }
+        if indent.is_none() {
+            if spaces == 0 {
+                break;
+            }
+            indent = Some(spaces);
+        }
+        let min = indent.unwrap_or(spaces);
+        if spaces < min {
+            break;
+        }
+        let content = if line.len() >= min { &line[min..] } else { "" };
+        parts.push(content.trim_end().to_string());
+        i += 1;
+    }
+    if clip {
+        while parts.last().is_some_and(|part| part.is_empty()) {
+            parts.pop();
+        }
+    }
+    let value = match kind {
+        YamlBlockKind::Fold => fold_yaml_lines(&parts),
+        YamlBlockKind::Literal => {
+            let mut joined = parts.join("\n");
+            if !clip && !joined.is_empty() {
+                joined.push('\n');
+            }
+            joined
+        }
+    };
+    (value, i)
+}
+
+pub(crate) fn parse_yaml_scalar(
+    after_colon: &str,
+    lines: &[&str],
+    next_index: usize,
+) -> (String, usize) {
+    let trimmed = after_colon.trim();
+    match yaml_block_kind(trimmed) {
+        Some((kind, clip)) => read_yaml_block(lines, next_index, kind, clip),
+        None => (unquote_yaml(trimmed), next_index),
+    }
+}
+
 #[tauri::command]
 pub async fn list_skills(app: AppHandle) -> Result<Vec<SkillContext>, SkillError> {
+    tokio::task::spawn_blocking(move || collect_skill_contexts(&app))
+        .await
+        .map_err(|error| SkillError::Io(error.to_string()))?
+}
+
+fn collect_skill_contexts(app: &AppHandle) -> Result<Vec<SkillContext>, SkillError> {
     let home = app
         .path()
         .home_dir()
@@ -287,7 +434,7 @@ pub async fn list_skills(app: AppHandle) -> Result<Vec<SkillContext>, SkillError
         skills: list_skills_in(&global_root)?,
     };
     let mut contexts = vec![global];
-    if let Some(workspace) = resolve_workspace(&app) {
+    if let Some(workspace) = resolve_workspace(app) {
         let local_root = local_skills_root(&workspace);
         contexts.push(SkillContext {
             kind: SkillContextKind::Local,
@@ -367,11 +514,15 @@ pub async fn create_skill(input: CreateSkillInput) -> Result<SkillInfo, SkillErr
     ensure_inside(&skill_path, &root)?;
     fs::create_dir_all(&skill_path).map_err(|error| SkillError::Io(error.to_string()))?;
     let content = build_skill_md(&validated, &input.description);
-    fs::write(skill_path.join("SKILL.md"), content)
+    let estimated_tokens = estimate_tokens(&content);
+    fs::write(skill_path.join("SKILL.md"), &content)
         .map_err(|error| SkillError::Io(error.to_string()))?;
     Ok(SkillInfo {
-        id: validated,
+        id: validated.clone(),
         path: skill_path.display().to_string(),
+        name: validated,
+        description: input.description,
+        estimated_tokens,
     })
 }
 
@@ -402,11 +553,15 @@ pub async fn update_skill(input: UpdateSkillInput) -> Result<SkillInfo, SkillErr
         fs::rename(&skill_path, &new_path).map_err(|error| SkillError::Io(error.to_string()))?;
     }
     let content = build_skill_md(&validated, &input.description);
-    fs::write(new_path.join("SKILL.md"), content)
+    let estimated_tokens = estimate_tokens(&content);
+    fs::write(new_path.join("SKILL.md"), &content)
         .map_err(|error| SkillError::Io(error.to_string()))?;
     Ok(SkillInfo {
-        id: validated,
+        id: validated.clone(),
         path: new_path.display().to_string(),
+        name: validated,
+        description: input.description,
+        estimated_tokens,
     })
 }
 
