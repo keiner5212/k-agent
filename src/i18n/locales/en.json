@@ -26,6 +26,7 @@
       "general": "General",
       "providers": "Providers",
       "skills": "Skills",
+      "agents": "Agents",
       "keybindings": "Keybindings",
       "debug": "Debug"
     },
@@ -266,6 +267,82 @@
       "deleting": "Deleting"
     }
   },
+  "agents": {
+    "title": "Agents",
+    "description": "An agent is a folder that contains AGENT.md. Global agents live in ~/.k-agent/agents. Local agents live in .agents/agents under the workspace.",
+    "context": {
+      "global": "Global",
+      "local": "Workspace"
+    },
+    "empty": "No agents in this folder yet.",
+    "emptyTab": "Launch the app with a workspace path to see local agents.",
+    "actions": {
+      "refresh": "Refresh agents",
+      "create": "New agent",
+      "edit": "Edit agent",
+      "delete": "Delete agent"
+    },
+    "form": {
+      "createTitle": "New agent",
+      "editTitle": "Edit agent",
+      "name": "Name",
+      "namePlaceholder": "my-agent",
+      "nameHint": "Lowercase letters, numbers, dashes, and underscores.",
+      "description": "Description",
+      "descriptionPlaceholder": "Shown in the agent selector.",
+      "descriptionHint": "UI only. Not sent to the model.",
+      "skills": "Skills",
+      "skillsCount": "{{count}} / {{max}}",
+      "skillsHintGlobal": "Global agents can only load global skills. Up to 10.",
+      "skillsHintLocal": "Workspace agents can load global and workspace skills. Up to 10.",
+      "skillsEmpty": "No skills available for this location.",
+      "tools": "Tools",
+      "toolsHint": "Example tool permissions. Real tools come later.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving",
+      "errors": {
+        "nameRequired": "Name is required."
+      }
+    },
+    "tools": {
+      "read_file": {
+        "label": "Read files",
+        "description": "Read file contents from the workspace."
+      },
+      "write_file": {
+        "label": "Write files",
+        "description": "Create new files."
+      },
+      "edit_file": {
+        "label": "Edit files",
+        "description": "Patch existing files."
+      },
+      "delete_file": {
+        "label": "Delete files",
+        "description": "Remove files from the workspace."
+      },
+      "run_command": {
+        "label": "Run commands",
+        "description": "Execute shell commands."
+      },
+      "search_code": {
+        "label": "Search code",
+        "description": "Search the workspace by text or pattern."
+      },
+      "web_fetch": {
+        "label": "Fetch URLs",
+        "description": "Download content from the network."
+      }
+    },
+    "delete": {
+      "title": "Delete agent",
+      "body": "Delete \"{{name}}\"? The folder and all its contents will be removed.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting"
+    }
+  },
   "chat": {
     "modelSelector": {
       "label": "Model",
@@ -289,10 +366,7 @@
     },
     "agent": {
       "label": "Agent",
-      "options": {
-        "plan": "Plan",
-        "build": "Build"
-      }
+      "empty": "No agents"
     },
     "usage": {
       "label": "Context {{percent}}%, cost {{cost}}",

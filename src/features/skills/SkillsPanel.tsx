@@ -5,6 +5,7 @@ import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { highlightMatch } from "@/lib/highlight";
 import { useSkillsStore } from "@/lib/skills";
+import { useAgentsStore } from "@/lib/agents";
 import type { SkillContext as SkillContextType } from "@/types/skills";
 import { CreateSkillDialog } from "./CreateSkillDialog";
 import { DeleteSkillDialog } from "./DeleteSkillDialog";
@@ -143,6 +144,7 @@ export const SkillsPanel = ({ query }: SkillsPanelProps): ReactNode => {
           const result = await deleteSkill(active.path, deleteTarget.id);
           if (result.error) return result.error;
           await refresh();
+          await useAgentsStore.getState().refresh();
           return undefined;
         }}
       />

@@ -28,6 +28,11 @@ permissions = [
   "allow-update-skill",
   "allow-update-skill-content",
   "allow-delete-skill",
+  "allow-list-agents",
+  "allow-read-agent-meta",
+  "allow-create-agent",
+  "allow-update-agent",
+  "allow-delete-agent",
   "allow-get-workspace-path",
   "allow-set-workspace-path",
   "allow-get-repo-info",
@@ -167,6 +172,31 @@ commands.allow = ["update_skill_content"]
 identifier = "allow-delete-skill"
 description = "Delete a skill folder and its contents."
 commands.allow = ["delete_skill"]
+
+[[permission]]
+identifier = "allow-list-agents"
+description = "List global and workspace agents."
+commands.allow = ["list_agents"]
+
+[[permission]]
+identifier = "allow-read-agent-meta"
+description = "Read an agent's metadata from its AGENT.md frontmatter."
+commands.allow = ["read_agent_meta"]
+
+[[permission]]
+identifier = "allow-create-agent"
+description = "Create a new agent folder with an AGENT.md manifest."
+commands.allow = ["create_agent"]
+
+[[permission]]
+identifier = "allow-update-agent"
+description = "Rename an agent folder and rewrite its AGENT.md frontmatter."
+commands.allow = ["update_agent"]
+
+[[permission]]
+identifier = "allow-delete-agent"
+description = "Delete an agent folder and its contents."
+commands.allow = ["delete_agent"]
 
 [[permission]]
 identifier = "allow-get-workspace-path"

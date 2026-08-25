@@ -144,7 +144,7 @@ button.change-bar__stat:focus-visible {
 }
 
 .agent-selector .select {
-  min-width: 7rem;
+  min-width: 10rem;
 }
 
 .app-titlebar__sidebar {

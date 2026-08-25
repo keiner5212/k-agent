@@ -26,6 +26,7 @@
       "general": "General",
       "providers": "Proveedores",
       "skills": "Habilidades",
+      "agents": "Agentes",
       "keybindings": "Atajos de teclado",
       "debug": "Depuracion"
     },
@@ -267,6 +268,82 @@
       "deleting": "Eliminando"
     }
   },
+  "agents": {
+    "title": "Agentes",
+    "description": "Un agente es una carpeta que contiene AGENT.md. Los globales viven en ~/.k-agent/agents. Los locales viven en .agents/agents del workspace.",
+    "context": {
+      "global": "Global",
+      "local": "Workspace"
+    },
+    "empty": "Aun no hay agentes en esta carpeta.",
+    "emptyTab": "Inicia la app con una ruta de workspace para ver agentes locales.",
+    "actions": {
+      "refresh": "Actualizar agentes",
+      "create": "Nuevo agente",
+      "edit": "Editar agente",
+      "delete": "Eliminar agente"
+    },
+    "form": {
+      "createTitle": "Nuevo agente",
+      "editTitle": "Editar agente",
+      "name": "Nombre",
+      "namePlaceholder": "mi-agente",
+      "nameHint": "Letras minusculas, numeros, guiones y guiones bajos.",
+      "description": "Descripcion",
+      "descriptionPlaceholder": "Se muestra en el selector de agentes.",
+      "descriptionHint": "Solo para la UI. No se envia al modelo.",
+      "skills": "Habilidades",
+      "skillsCount": "{{count}} / {{max}}",
+      "skillsHintGlobal": "Un agente global solo puede cargar habilidades globales. Maximo 10.",
+      "skillsHintLocal": "Un agente de workspace puede cargar habilidades globales y locales. Maximo 10.",
+      "skillsEmpty": "No hay habilidades disponibles para esta ubicacion.",
+      "tools": "Herramientas",
+      "toolsHint": "Permisos de ejemplo. Las herramientas reales vendran despues.",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "saving": "Guardando",
+      "errors": {
+        "nameRequired": "El nombre es obligatorio."
+      }
+    },
+    "tools": {
+      "read_file": {
+        "label": "Leer archivos",
+        "description": "Leer contenido de archivos del workspace."
+      },
+      "write_file": {
+        "label": "Crear archivos",
+        "description": "Crear archivos nuevos."
+      },
+      "edit_file": {
+        "label": "Editar archivos",
+        "description": "Modificar archivos existentes."
+      },
+      "delete_file": {
+        "label": "Eliminar archivos",
+        "description": "Borrar archivos del workspace."
+      },
+      "run_command": {
+        "label": "Ejecutar comandos",
+        "description": "Correr comandos de shell."
+      },
+      "search_code": {
+        "label": "Buscar codigo",
+        "description": "Buscar texto o patrones en el workspace."
+      },
+      "web_fetch": {
+        "label": "Pedir URLs",
+        "description": "Descargar contenido de la red."
+      }
+    },
+    "delete": {
+      "title": "Eliminar agente",
+      "body": "Eliminar \"{{name}}\"? Se borrara la carpeta y todo su contenido.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar",
+      "deleting": "Eliminando"
+    }
+  },
   "chat": {
     "modelSelector": {
       "label": "Modelo",
@@ -290,10 +367,7 @@
     },
     "agent": {
       "label": "Agente",
-      "options": {
-        "plan": "Plan",
-        "build": "Build"
-      }
+      "empty": "Sin agentes"
     },
     "usage": {
       "label": "Contexto {{percent}}%, costo {{cost}}",

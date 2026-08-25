@@ -1,21 +1,17 @@
 import { create } from "zustand";
-import { DEFAULT_AGENT_MODE, isAgentMode, type AgentMode } from "@/types/chat";
 
 type ComposerStore = {
   value: string;
-  agentMode: AgentMode;
+  selectedAgent: string;
   setValue: (next: string) => void;
-  setAgentMode: (next: string) => void;
+  setSelectedAgent: (next: string) => void;
   clear: () => void;
 };
 
 export const useComposerStore = create<ComposerStore>((set) => ({
   value: "",
-  agentMode: DEFAULT_AGENT_MODE,
+  selectedAgent: "",
   setValue: (next) => set({ value: next }),
-  setAgentMode: (next) => {
-    if (!isAgentMode(next)) return;
-    set({ agentMode: next });
-  },
+  setSelectedAgent: (next) => set({ selectedAgent: next }),
   clear: () => set({ value: "" }),
 }));

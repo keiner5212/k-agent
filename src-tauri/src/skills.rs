@@ -110,11 +110,11 @@ fn absolute_root(expanded: PathBuf) -> Result<PathBuf, SkillError> {
         .join(expanded))
 }
 
-fn global_skills_root(home: &Path) -> PathBuf {
+pub(crate) fn global_skills_root(home: &Path) -> PathBuf {
     home.join(crate::APP_CONFIG_DIR).join("skills")
 }
 
-fn local_skills_root(workspace: &Path) -> PathBuf {
+pub(crate) fn local_skills_root(workspace: &Path) -> PathBuf {
     workspace.join(crate::WORKSPACE_AGENTS_DIR).join("skills")
 }
 
@@ -128,11 +128,11 @@ fn resolve_workspace(app: &AppHandle) -> Option<PathBuf> {
     state.path.lock().ok().and_then(|guard| guard.clone())
 }
 
-fn has_skill_manifest(dir: &Path) -> bool {
+pub(crate) fn has_skill_manifest(dir: &Path) -> bool {
     dir.join("SKILL.md").is_file() || dir.join("skill.md").is_file()
 }
 
-fn list_skills_in(root: &Path) -> Result<Vec<SkillInfo>, SkillError> {
+pub(crate) fn list_skills_in(root: &Path) -> Result<Vec<SkillInfo>, SkillError> {
     let entries = match fs::read_dir(root) {
         Ok(entries) => entries,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -411,7 +411,7 @@ pub async fn update_skill(input: UpdateSkillInput) -> Result<SkillInfo, SkillErr
 }
 
 #[tauri::command]
-pub async fn delete_skill(input: SkillPathInput) -> Result<(), SkillError> {
+pub async fn delete_skill(app: AppHandle, input: SkillPathInput) -> Result<(), SkillError> {
     let root = resolve_root_path(&input.root_path)?;
     let validated = validate_skill_name(&input.name)?;
     let skill_path = root.join(&validated);
@@ -419,6 +419,22 @@ pub async fn delete_skill(input: SkillPathInput) -> Result<(), SkillError> {
         return Err(SkillError::NotFound(validated));
     }
     ensure_inside(&skill_path, &root)?;
+    let kind = skill_context_kind(&app, &root);
     fs::remove_dir_all(&skill_path).map_err(|error| SkillError::Io(error.to_string()))?;
+    if let Some(kind) = kind {
+        let _ = crate::agents::drop_skill_ref(&app, kind, &validated);
+    }
     Ok(())
+}
+
+fn skill_context_kind(app: &AppHandle, root: &Path) -> Option<crate::agents::AgentContextKind> {
+    let home = app.path().home_dir().ok()?;
+    let root_canon = canonicalize_safe(root).ok()?;
+    if canonicalize_safe(&global_skills_root(&home))
+        .ok()
+        .is_some_and(|global| global == root_canon)
+    {
+        return Some(crate::agents::AgentContextKind::Global);
+    }
+    Some(crate::agents::AgentContextKind::Local)
 }

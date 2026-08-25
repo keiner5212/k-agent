@@ -35,6 +35,11 @@
     "allow-update-skill",
     "allow-update-skill-content",
     "allow-delete-skill",
+    "allow-list-agents",
+    "allow-read-agent-meta",
+    "allow-create-agent",
+    "allow-update-agent",
+    "allow-delete-agent",
     "allow-get-workspace-path",
     "allow-set-workspace-path",
     "allow-get-repo-info"

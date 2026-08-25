@@ -25,6 +25,7 @@ type SelectProps = {
   id?: string;
   disabled?: boolean;
   placement?: SelectPlacement;
+  menuMinWidth?: number;
 };
 
 type MenuPos = {
@@ -41,8 +42,12 @@ const MENU_MIN_HEIGHT = 48;
 const MENU_GAP = 4;
 const VIEW_PAD = 8;
 
-const menuPosFromRect = (rect: DOMRect, placement: SelectPlacement): MenuPos => {
-  const width = rect.width;
+const menuPosFromRect = (
+  rect: DOMRect,
+  placement: SelectPlacement,
+  menuMinWidth: number,
+): MenuPos => {
+  const width = Math.max(rect.width, menuMinWidth);
   const left = Math.min(rect.left, Math.max(VIEW_PAD, window.innerWidth - width - VIEW_PAD));
   const spaceBelow = window.innerHeight - rect.bottom - VIEW_PAD;
   const spaceAbove = rect.top - VIEW_PAD;
@@ -77,6 +82,7 @@ export const Select = ({
   id,
   disabled,
   placement = "auto",
+  menuMinWidth = 0,
 }: SelectProps): ReactNode => {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -102,7 +108,7 @@ export const Select = ({
     if (disabled) return;
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setMenuPos(menuPosFromRect(rect, placement));
+    setMenuPos(menuPosFromRect(rect, placement, menuMinWidth));
     setActiveIndex(
       Math.max(
         0,
@@ -126,7 +132,7 @@ export const Select = ({
     const onReposition = (): void => {
       const rect = triggerRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setMenuPos(menuPosFromRect(rect, placement));
+      setMenuPos(menuPosFromRect(rect, placement, menuMinWidth));
     };
 
     const onKey = (event: globalThis.KeyboardEvent): void => {
@@ -147,7 +153,7 @@ export const Select = ({
       window.removeEventListener("resize", onReposition);
       window.removeEventListener("scroll", onReposition, true);
     };
-  }, [open, listId, placement]);
+  }, [open, listId, placement, menuMinWidth]);
 
   useEffect(() => {
     if (!open) return;

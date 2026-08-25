@@ -1,3 +1,4 @@
+mod agents;
 mod catalog;
 mod providers;
 mod repo;
@@ -358,6 +359,11 @@ pub fn run() {
             skills::update_skill,
             skills::update_skill_content,
             skills::delete_skill,
+            agents::list_agents,
+            agents::read_agent_meta,
+            agents::create_agent,
+            agents::update_agent,
+            agents::delete_agent,
         ])
         .setup(|app| {
             if let Ok(home) = app.path().home_dir() {
