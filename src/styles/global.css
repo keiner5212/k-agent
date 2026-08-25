@@ -499,7 +499,7 @@
 }
 
 .select-root {
-  width: 100%;
+  width: 50%;
 }
 
 .select-menu {
@@ -1574,7 +1574,10 @@
 }
 
 .setting-card__control {
+  display: flex;
   margin-top: var(--space-1);
+  justify-content: end;
+  margin-right: 2vw;
 }
 
 .model-list {
