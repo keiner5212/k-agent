@@ -38,6 +38,8 @@ permissions = [
   "allow-delete-agent",
   "allow-get-workspace-path",
   "allow-set-workspace-path",
+  "allow-list-workspace-files",
+  "allow-webview-log",
   "allow-get-repo-info",
   "allow-list-language-servers",
   "allow-install-language-server",
@@ -230,6 +232,16 @@ commands.allow = ["get_workspace_path"]
 identifier = "allow-set-workspace-path"
 description = "Change the current workspace path for this session."
 commands.allow = ["set_workspace_path"]
+
+[[permission]]
+identifier = "allow-list-workspace-files"
+description = "List files and folders in the current workspace for chat mentions."
+commands.allow = ["list_workspace_files"]
+
+[[permission]]
+identifier = "allow-webview-log"
+description = "Forward webview console output to the Rust process log."
+commands.allow = ["webview_log"]
 
 [[permission]]
 identifier = "allow-get-repo-info"

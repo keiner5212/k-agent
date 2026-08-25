@@ -580,6 +580,12 @@
       "attach": "Adjuntar",
       "disabledHint": "Elige un modelo para enviar."
     },
+    "fileMentions": {
+      "label": "Archivos del workspace",
+      "empty": "Sin archivos coincidentes",
+      "loading": "Indexando workspace...",
+      "tooMany": "Demasiadas coincidencias. Sigue escribiendo para acotar la lista."
+    },
     "effort": {
       "label": "Esfuerzo"
     },

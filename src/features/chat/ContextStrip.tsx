@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Folder, GitBranch } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useSkillsStore } from "@/lib/skills";
+import { useWorkspaceFilesStore } from "@/lib/workspace-files";
 import { ChangeBar } from "./ChangeBar";
 import { useRepoInfo } from "./use-repo-info";
 
@@ -18,12 +19,15 @@ export const ContextStrip = (): ReactNode => {
   const loadSkills = useSkillsStore((state) => state.load);
   const setWorkspacePath = useSkillsStore((state) => state.setWorkspacePath);
   const workspacePath = useSkillsStore((state) => state.workspacePath);
+  const invalidateWorkspaceFiles = useWorkspaceFilesStore((state) => state.invalidate);
+  const ensureRootLoaded = useWorkspaceFilesStore((state) => state.ensureRootLoaded);
 
   const repo = useRepoInfo(workspacePath);
 
   useEffect(() => {
     void loadSkills();
-  }, [loadSkills]);
+    void ensureRootLoaded();
+  }, [loadSkills, ensureRootLoaded]);
 
   const handlePickWorkspace = (event: MouseEvent<HTMLButtonElement>): void => {
     event.preventDefault();
@@ -34,7 +38,9 @@ export const ContextStrip = (): ReactNode => {
         title: t("workspace.pickFolder"),
       });
       if (typeof picked !== "string") return;
+      invalidateWorkspaceFiles();
       await setWorkspacePath(picked);
+      await ensureRootLoaded();
     })();
   };
 

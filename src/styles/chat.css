@@ -801,6 +801,49 @@ button.change-bar__stat:focus-visible {
   position: relative;
 }
 
+.chat-composer__input-stack {
+  position: relative;
+  width: 100%;
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.chat-composer__input-stack:focus-within {
+  border-color: var(--border-strong);
+}
+
+.chat-composer__input-backdrop,
+.chat-composer__input--mentions {
+  font-size: var(--text-sm);
+  font-family: inherit;
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.chat-composer__input-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  padding: var(--space-2) var(--space-3);
+  padding-right: 4.75rem;
+  padding-bottom: 2.5rem;
+  color: var(--text-primary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.chat-composer__mention {
+  color: var(--accent);
+  background-color: color-mix(in oklch, var(--accent) 14%, transparent);
+  border-radius: 2px;
+  padding: 0;
+}
+
 .chat-composer__input {
   display: block;
   width: 100%;
@@ -813,20 +856,102 @@ button.change-bar__stat:focus-visible {
   font-size: var(--text-sm);
   font-family: inherit;
   color: var(--text-primary);
-  background-color: var(--surface-elevated);
-  border: 1px solid var(--border);
+  background-color: transparent;
+  border: none;
   border-radius: var(--radius-sm);
   outline: none;
-  transition: border-color var(--duration-fast) var(--ease-out);
 }
 
 .chat-composer__input:focus {
-  border-color: var(--border-strong);
+  border-color: transparent;
 }
 
 .chat-composer__input:disabled {
   color: var(--text-muted);
   cursor: not-allowed;
+}
+
+.chat-composer__input--mentions {
+  position: relative;
+  z-index: 1;
+  background-color: transparent;
+  color: transparent;
+  caret-color: var(--text-primary);
+}
+
+.chat-composer__input--mentions::selection {
+  background-color: color-mix(in oklch, var(--accent) 30%, transparent);
+  color: transparent;
+}
+
+.file-mention-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: var(--space-2);
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px color-mix(in oklch, var(--background) 60%, transparent);
+  z-index: 30;
+}
+
+.file-mention-menu__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.file-mention-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.file-mention-menu__item:hover,
+.file-mention-menu__item[data-active="true"] {
+  background-color: var(--background);
+  border-color: var(--border);
+}
+
+.file-mention-menu__item[data-active="true"] {
+  border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
+}
+
+.file-mention-menu__icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.file-mention-menu__path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-mention-menu__empty {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
 }
 
 .chat-composer__actions {
@@ -862,10 +987,24 @@ button.change-bar__stat:focus-visible {
 :root[data-translucent="true"] .sessions-sidebar,
 :root[data-translucent="true"] .chat-thread,
 :root[data-translucent="true"] .model-selector__pill,
-:root[data-translucent="true"] .chat-composer__input,
 :root[data-translucent="true"] .context-strip__chip,
 :root[data-translucent="true"] .change-bar__stat,
 :root[data-translucent="true"] .context-usage,
 :root[data-translucent="true"] .model-selector__popover {
   background-color: var(--frost-fill-muted);
+}
+
+:root[data-translucent="true"] .chat-composer__input-stack {
+  background-color: color-mix(in oklch, var(--surface-elevated) 92%, transparent);
+  border-color: var(--frost-border);
+  -webkit-backdrop-filter: var(--frost-filter);
+  backdrop-filter: var(--frost-filter);
+}
+
+:root[data-translucent="true"] .file-mention-menu {
+  background-color: color-mix(in oklch, var(--surface-elevated) 96%, transparent);
+  border-color: var(--frost-border);
+  box-shadow: var(--shadow-md), var(--frost-highlight);
+  -webkit-backdrop-filter: var(--frost-filter-strong);
+  backdrop-filter: var(--frost-filter-strong);
 }

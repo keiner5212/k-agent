@@ -8,6 +8,7 @@ mod providers;
 mod repo;
 mod secret;
 mod skills;
+mod workspace_files;
 
 pub const APP_CONFIG_DIR: &str = ".k-agent";
 pub const WORKSPACE_AGENTS_DIR: &str = ".agents";
@@ -86,6 +87,16 @@ fn window_is_maximized(window: tauri::WebviewWindow) -> bool {
 #[tauri::command]
 fn window_close(window: tauri::WebviewWindow) -> Result<(), String> {
     window.close().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn webview_log(level: String, message: String) {
+    match level.as_str() {
+        "error" => eprintln!("[webview] ERROR {message}"),
+        "warn" => eprintln!("[webview] WARN {message}"),
+        "debug" => println!("[webview] DEBUG {message}"),
+        _ => println!("[webview] {message}"),
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -475,6 +486,8 @@ pub fn run() {
             lsp_client::uninstall_language_server,
             lsp::resolve_language_server,
             lsp_client::lsp_request,
+            workspace_files::list_workspace_files,
+            webview_log,
         ])
         .setup(|app| {
             if let Ok(home) = app.path().home_dir() {

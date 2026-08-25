@@ -9,6 +9,7 @@ import { useSettingsStore } from "@/lib/settings";
 import { useUndoRedoKeydown } from "@/lib/use-undo-redo-keydown";
 import { useUndoableText } from "@/lib/undoable-text";
 import { AgentSelector } from "./AgentSelector";
+import { ComposerTextarea } from "./ComposerTextarea";
 import { ContextUsage } from "./ContextUsage";
 import { EffortSelector } from "./EffortSelector";
 import { ModelSelector } from "./ModelSelector";
@@ -34,15 +35,7 @@ export const ChatComposer = (): ReactNode => {
         <ContextUsage />
       </div>
       <div className="chat-composer__field">
-        <textarea
-          ref={textareaRef}
-          className="chat-composer__input"
-          placeholder={t("chat.composer.placeholder")}
-          value={value}
-          onChange={(event) => pushChange(event.target.value)}
-          rows={3}
-          aria-label={t("chat.composer.placeholder")}
-        />
+        <ComposerTextarea value={value} onChange={pushChange} textareaRef={textareaRef} />
         <div className="chat-composer__actions">
           <IconButton
             label={t("chat.composer.attach")}

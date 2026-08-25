@@ -15,6 +15,9 @@ import "./styles/agents.css";
 import "./styles/theme.css";
 import "./styles/chat.css";
 import { App } from "./App";
+import { attachWebviewLogging } from "@/lib/webview-log";
+
+attachWebviewLogging();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element missing");

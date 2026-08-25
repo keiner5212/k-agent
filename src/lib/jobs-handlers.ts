@@ -1,4 +1,6 @@
 /** Add a JobName + handleJob case for new heavy work. Do not run it on the UI thread. */
+import type { WorkspaceEntry } from "@/types/workspace-files";
+
 export type JobName =
   | "listSkills"
   | "listAgents"
@@ -9,7 +11,8 @@ export type JobName =
   | "installLanguageServer"
   | "uninstallLanguageServer"
   | "resolveLanguageServer"
-  | "lspRequest";
+  | "lspRequest"
+  | "listWorkspaceFiles";
 
 export type ListBundle<T> = {
   contexts: T[];
@@ -32,6 +35,10 @@ export type LspRequestPayload = {
   path: string;
   method: string;
   params?: unknown;
+};
+
+export type ListWorkspaceFilesPayload = {
+  relativeDir: string;
 };
 
 export type Host = {
@@ -124,6 +131,13 @@ export const handleJob = async (name: JobName, payload: unknown, host: Host): Pr
         method: String(body.method ?? ""),
         params: body.params ?? null,
       });
+    }
+    case "listWorkspaceFiles": {
+      const relativeDir =
+        payload && typeof payload === "object" && "relativeDir" in payload
+          ? String((payload as ListWorkspaceFilesPayload).relativeDir)
+          : "";
+      return host.invoke<WorkspaceEntry[]>("list_workspace_files", { relativeDir });
     }
     default: {
       const exhaustive: never = name;

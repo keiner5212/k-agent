@@ -5,6 +5,7 @@ import type { AgentContext } from "@/types/agents";
 import type { AgentsMdFile } from "@/types/agents-md";
 import type { LanguageServerRow, ResolvedLanguageServer } from "@/types/language-servers";
 import type { SkillContext } from "@/types/skills";
+import type { WorkspaceEntry } from "@/types/workspace-files";
 
 type JobResultMessage = {
   kind: "jobResult";
@@ -135,3 +136,9 @@ export const runLspRequestJob = (
   method: string,
   params?: unknown,
 ): Promise<unknown> => runJob("lspRequest", { path, method, params });
+
+export const runListWorkspaceDirJob = (relativeDir = ""): Promise<WorkspaceEntry[]> =>
+  runJob("listWorkspaceFiles", { relativeDir });
+
+/** @deprecated Use runListWorkspaceDirJob */
+export const runListWorkspaceFilesJob = runListWorkspaceDirJob;

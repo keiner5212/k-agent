@@ -45,6 +45,8 @@
     "allow-delete-agent",
     "allow-get-workspace-path",
     "allow-set-workspace-path",
+    "allow-list-workspace-files",
+    "allow-webview-log",
     "allow-get-repo-info",
     "allow-list-language-servers",
     "allow-install-language-server",

@@ -40,6 +40,7 @@ import {
 } from "@/types/settings";
 import type { SelectedModel } from "@/types/chat";
 import { isTauri } from "@/lib/platform";
+import { syncWorkerCoreConfig } from "@/lib/worker-cores";
 
 const STORE_FILE = "settings.json";
 const STORE_KEY = "settings";
@@ -356,6 +357,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   hydrate: async () => {
     if (!isTauri()) {
       applyChrome(DEFAULT_SETTINGS);
+      syncWorkerCoreConfig(DEFAULT_SETTINGS.maxWorkerCores);
       set({ hydrated: true });
       return;
     }
@@ -364,10 +366,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       const next = sanitizeSettings(raw);
       applyChrome(next);
       void syncMinimizeToTray(next.minimizeToTray);
+      syncWorkerCoreConfig(next.maxWorkerCores);
       set({ ...next, hydrated: true });
     } catch (error) {
       console.warn("settings hydrate failed", error);
       applyChrome(DEFAULT_SETTINGS);
+      syncWorkerCoreConfig(DEFAULT_SETTINGS.maxWorkerCores);
       set({ hydrated: true });
     }
   },
@@ -437,7 +441,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   },
 
   setMaxWorkerCores: (cores) => {
-    set({ maxWorkerCores: sanitizeMaxWorkerCores(cores) });
+    const maxWorkerCores = sanitizeMaxWorkerCores(cores);
+    syncWorkerCoreConfig(maxWorkerCores);
+    set({ maxWorkerCores });
     void persist(snapshot(get()));
   },
 
