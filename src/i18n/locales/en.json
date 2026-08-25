@@ -385,7 +385,7 @@
   },
   "agentsMd": {
     "title": "AGENTS.md",
-    "description": "Instruction files for the coding agent. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md at the workspace root. Detection only; this app does not create them.",
+    "description": "Instruction files for the coding agent. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md at the workspace root.",
     "context": {
       "global": "Global",
       "local": "Workspace"
@@ -396,7 +396,27 @@
     "missing": "Not detected",
     "tokens": "~{{value}}",
     "actions": {
-      "refresh": "Refresh AGENTS.md"
+      "refresh": "Refresh AGENTS.md",
+      "create": "New AGENTS.md",
+      "edit": "Edit AGENTS.md",
+      "delete": "Delete AGENTS.md"
+    },
+    "editor": {
+      "createTitle": "New AGENTS.md",
+      "editTitle": "Edit AGENTS.md",
+      "revert": "Revert",
+      "save": "Save",
+      "saving": "Saving",
+      "done": "Done",
+      "clean": "Saved",
+      "dirty": "Unsaved changes"
+    },
+    "delete": {
+      "title": "Delete AGENTS.md",
+      "body": "Delete \"{{path}}\"? This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting"
     }
   },
   "chat": {

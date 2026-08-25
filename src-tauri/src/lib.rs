@@ -366,6 +366,8 @@ pub fn run() {
             agents::update_agent,
             agents::delete_agent,
             agents_md::list_agents_md,
+            agents_md::write_agents_md,
+            agents_md::delete_agents_md,
         ])
         .setup(|app| {
             if let Ok(home) = app.path().home_dir() {

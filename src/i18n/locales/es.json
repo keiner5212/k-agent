@@ -386,7 +386,7 @@
   },
   "agentsMd": {
     "title": "AGENTS.md",
-    "description": "Archivos de instrucciones del agente de codigo. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md en la raiz del workspace. Solo deteccion; esta app no los crea.",
+    "description": "Archivos de instrucciones del agente de codigo. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md en la raiz del workspace.",
     "context": {
       "global": "Global",
       "local": "Workspace"
@@ -397,7 +397,27 @@
     "missing": "No detectado",
     "tokens": "~{{value}}",
     "actions": {
-      "refresh": "Actualizar AGENTS.md"
+      "refresh": "Actualizar AGENTS.md",
+      "create": "Nuevo AGENTS.md",
+      "edit": "Editar AGENTS.md",
+      "delete": "Eliminar AGENTS.md"
+    },
+    "editor": {
+      "createTitle": "Nuevo AGENTS.md",
+      "editTitle": "Editar AGENTS.md",
+      "revert": "Revertir",
+      "save": "Guardar",
+      "saving": "Guardando",
+      "done": "Listo",
+      "clean": "Guardado",
+      "dirty": "Cambios sin guardar"
+    },
+    "delete": {
+      "title": "Eliminar AGENTS.md",
+      "body": "Eliminar \"{{path}}\"? Esto no se puede deshacer.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar",
+      "deleting": "Eliminando"
     }
   },
   "chat": {

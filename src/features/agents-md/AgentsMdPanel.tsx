@@ -1,11 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { RefreshCw } from "lucide-react";
+import { Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { highlightMatch } from "@/lib/highlight";
 import { useAgentsMdStore } from "@/lib/agents-md";
 import { formatContextWindow } from "@/types/providers";
 import type { AgentsMdFile, AgentsMdKind } from "@/types/agents-md";
+import { AgentsMdEditorDialog } from "./AgentsMdEditorDialog";
+import { DeleteAgentsMdDialog } from "./DeleteAgentsMdDialog";
 
 type Tab = AgentsMdKind;
 
@@ -21,8 +24,12 @@ export const AgentsMdPanel = ({ query }: AgentsMdPanelProps): ReactNode => {
   const error = useAgentsMdStore((state) => state.error);
   const load = useAgentsMdStore((state) => state.load);
   const refresh = useAgentsMdStore((state) => state.refresh);
+  const writeFile = useAgentsMdStore((state) => state.write);
+  const deleteFile = useAgentsMdStore((state) => state.remove);
 
   const [tab, setTab] = useState<Tab>("global");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     void load();
@@ -69,7 +76,11 @@ export const AgentsMdPanel = ({ query }: AgentsMdPanelProps): ReactNode => {
               disabled={!entry.available}
               className="skills-panel__tab"
               data-active={isActive ? "true" : "false"}
-              onClick={() => setTab(entry.id)}
+              onClick={() => {
+                setTab(entry.id);
+                setEditorOpen(false);
+                setDeleteOpen(false);
+              }}
             >
               <span className="skills-panel__tab-label">{t(labelKey)}</span>
               <span className="skills-panel__tab-count">{entry.count}</span>
@@ -80,16 +91,52 @@ export const AgentsMdPanel = ({ query }: AgentsMdPanelProps): ReactNode => {
 
       <div id="agents-md-panel-tab-panel" role="tabpanel" className="skills-panel__panel" key={tab}>
         {active ? (
-          <AgentsMdFileView file={active} />
+          <AgentsMdFileView
+            file={active}
+            onCreate={() => setEditorOpen(true)}
+            onEdit={() => setEditorOpen(true)}
+            onDelete={() => setDeleteOpen(true)}
+          />
         ) : (
           <p className="skills-panel__empty">{t("agentsMd.emptyTab")}</p>
         )}
       </div>
+
+      <AgentsMdEditorDialog
+        open={editorOpen}
+        file={active ?? null}
+        onOpenChange={setEditorOpen}
+        onSave={async (content) => {
+          if (!active) return t("agentsMd.emptyTab");
+          const result = await writeFile(active.kind, content);
+          return result.error;
+        }}
+      />
+      <DeleteAgentsMdDialog
+        open={deleteOpen}
+        path={active?.path ?? ""}
+        onOpenChange={setDeleteOpen}
+        onConfirm={async () => {
+          if (!active) return t("agentsMd.emptyTab");
+          const result = await deleteFile(active.kind);
+          return result.error;
+        }}
+      />
     </section>
   );
 };
 
-const AgentsMdFileView = ({ file }: { file: AgentsMdFile }): ReactNode => {
+const AgentsMdFileView = ({
+  file,
+  onCreate,
+  onEdit,
+  onDelete,
+}: {
+  file: AgentsMdFile;
+  onCreate: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}): ReactNode => {
   const { t } = useTranslation();
 
   return (
@@ -106,6 +153,26 @@ const AgentsMdFileView = ({ file }: { file: AgentsMdFile }): ReactNode => {
             {t("agentsMd.tokens", { value: formatContextWindow(file.estimatedTokens) })}
           </span>
         ) : null}
+        {file.exists ? (
+          <>
+            <IconButton label={t("agentsMd.actions.edit")} onClick={onEdit}>
+              <Pencil size={12} strokeWidth={1.5} />
+            </IconButton>
+            <IconButton label={t("agentsMd.actions.delete")} onClick={onDelete}>
+              <Trash2 size={12} strokeWidth={1.5} />
+            </IconButton>
+          </>
+        ) : (
+          <GlassButton
+            variant="ghost"
+            className="skill-context__new"
+            onClick={onCreate}
+            aria-label={t("agentsMd.actions.create")}
+          >
+            <Plus strokeWidth={1.5} />
+            {t("agentsMd.actions.create")}
+          </GlassButton>
+        )}
       </div>
       {file.exists ? (
         <pre className="agents-md__body">{file.content}</pre>

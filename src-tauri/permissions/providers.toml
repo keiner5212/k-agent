@@ -30,6 +30,8 @@ permissions = [
   "allow-delete-skill",
   "allow-list-agents",
   "allow-list-agents-md",
+  "allow-write-agents-md",
+  "allow-delete-agents-md",
   "allow-read-agent-meta",
   "allow-create-agent",
   "allow-update-agent",
@@ -183,6 +185,16 @@ commands.allow = ["list_agents"]
 identifier = "allow-list-agents-md"
 description = "Detect and read global and workspace AGENTS.md files."
 commands.allow = ["list_agents_md"]
+
+[[permission]]
+identifier = "allow-write-agents-md"
+description = "Create or overwrite a global or workspace AGENTS.md file."
+commands.allow = ["write_agents_md"]
+
+[[permission]]
+identifier = "allow-delete-agents-md"
+description = "Delete a global or workspace AGENTS.md file."
+commands.allow = ["delete_agents_md"]
 
 [[permission]]
 identifier = "allow-read-agent-meta"
