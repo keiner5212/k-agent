@@ -463,12 +463,22 @@ fn read_parsed_agent(dir: &Path) -> Result<ParsedAgent, AgentError> {
     Ok(parse_agent_md(&raw))
 }
 
+fn is_same_file(left: &Path, right: &Path) -> bool {
+    if left == right {
+        return true;
+    }
+    match (fs::canonicalize(left), fs::canonicalize(right)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
+}
+
 fn write_agent_md(dir: &Path, content: &str) -> Result<(), AgentError> {
-    fs::write(agent_manifest_path(dir), content)
-        .map_err(|error| AgentError::Io(error.to_string()))?;
+    let target = agent_manifest_path(dir);
+    fs::write(&target, content).map_err(|error| AgentError::Io(error.to_string()))?;
     for name in LEGACY_MANIFESTS {
         let leftover = dir.join(name);
-        if leftover.is_file() {
+        if leftover.is_file() && !is_same_file(&target, &leftover) {
             let _ = fs::remove_file(leftover);
         }
     }
