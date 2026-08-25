@@ -172,6 +172,9 @@
         "chat": {
           "clear": "Limpiar entrada del chat"
         },
+        "search": {
+          "focus": "Enfocar campo de busqueda"
+        },
         "editor": {
           "save": "Guardar editor",
           "undo": "Deshacer en editor",
@@ -264,8 +267,24 @@
     "noModels": "No se han detectado modelos. Prueba a refrescar.",
     "modelsCount": "{{count}} modelo",
     "modelsCount_plural": "{{count}} modelos",
+    "table": {
+      "name": "Nombre",
+      "kind": "Tipo",
+      "url": "URL",
+      "models": "Modelos",
+      "actions": "Acciones"
+    },
+    "modelsDialog": {
+      "title": "Modelos",
+      "provider": "Proveedor: {{name}}",
+      "search": "Buscar modelos",
+      "noMatches": "Ningun modelo coincide con esta busqueda.",
+      "close": "Cerrar",
+      "open": "Ver {{count}} modelos de {{name}}"
+    },
     "actions": {
       "refresh": "Refrescar modelos",
+      "refreshList": "Actualizar lista",
       "refreshModel": "Refrescar este modelo",
       "edit": "Editar",
       "delete": "Eliminar",

@@ -180,6 +180,7 @@ const SkillContextView = ({
         id: "description",
         header: t("skills.table.description"),
         className: "data-table__desc",
+        wrap: true,
         cellProps: (skill) => ({
           "data-empty": skill.description.trim() ? undefined : "true",
         }),
@@ -242,6 +243,7 @@ const SkillContextView = ({
           layout="fixed"
           stickyHeader
           scrollable
+          cellAlign="top"
         />
       )}
     </article>

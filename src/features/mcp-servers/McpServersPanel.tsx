@@ -104,6 +104,7 @@ export const McpServersPanel = ({ query }: McpServersPanelProps): ReactNode => {
         id: "name",
         header: t("mcpServers.table.name"),
         className: "data-table__name",
+        cellProps: (server) => ({ title: server.name }),
         render: (server) => highlightMatch(server.name, query),
       },
       {
@@ -116,13 +117,16 @@ export const McpServersPanel = ({ query }: McpServersPanelProps): ReactNode => {
         id: "target",
         header: t("mcpServers.table.target"),
         className: "data-table__desc",
+        cellProps: (server) => ({ title: targetLabel(server) }),
         render: (server) => highlightMatch(targetLabel(server), query),
       },
       {
         id: "tools",
         header: t("mcpServers.table.tools"),
         className: "data-table__tools",
+        wrap: true,
         cellProps: (server) => ({
+          title: formatToolsCell(server, t),
           "data-empty": (server.tools?.length ?? 0) === 0 ? "true" : undefined,
         }),
         render: (server) => (

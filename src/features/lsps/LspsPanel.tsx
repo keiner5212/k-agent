@@ -128,6 +128,12 @@ export const LspsPanel = ({ items, query }: LspsPanelProps): ReactNode => {
         id: "server",
         header: t("lsps.table.server"),
         className: "data-table__server",
+        wrap: true,
+        cellProps: (row) => {
+          const args = row.args ?? [];
+          const command = args.length > 0 ? `${row.command} ${args.join(" ")}` : row.command;
+          return { title: `${row.name} ${command}` };
+        },
         render: (row) => {
           const args = row.args ?? [];
           return (
@@ -145,18 +151,21 @@ export const LspsPanel = ({ items, query }: LspsPanelProps): ReactNode => {
         id: "languages",
         header: t("lsps.table.languages"),
         className: "data-table__langs",
+        wrap: true,
         render: (row) => (row.languageIds ?? []).join(", "),
       },
       {
         id: "requires",
         header: t("lsps.table.requires"),
         className: "data-table__requires",
+        wrap: true,
         render: (row) => (row.requires ?? []).join(", "),
       },
       {
         id: "status",
         header: t("lsps.table.status"),
         className: "data-table__status",
+        wrap: true,
         cellProps: (row) => {
           const missing = row.missingRequires ?? [];
           const needsTools = missing.length > 0;

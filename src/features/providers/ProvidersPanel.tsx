@@ -1,289 +1,54 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2, Pencil, Plug, Plus, RefreshCw, Star, Trash2 } from "lucide-react";
+import { Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
+import { Table, type TableColumn } from "@/components/Table";
 import { highlightMatch } from "@/lib/highlight";
 import { useProvidersStore } from "@/lib/providers";
-import { formatContextWindow, type ModelInfo, type Provider } from "@/types/providers";
+import type { ModelInfo, Provider } from "@/types/providers";
 import { DeleteProviderDialog } from "./DeleteProviderDialog";
 import { ModelFormDialog } from "./ModelFormDialog";
 import { ProviderFormDialog } from "./ProviderFormDialog";
+import { ProviderModelsDialog } from "./ProviderModelsDialog";
 
 type ProvidersPanelProps = {
   query: string;
 };
 
-export const ProvidersPanel = ({ query }: ProvidersPanelProps): ReactNode => {
-  const { t } = useTranslation();
-  const load = useProvidersStore((state) => state.load);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  return (
-    <section className="section">
-      <header>
-        <h2 className="section__heading">{highlightMatch(t("providers.title"), query)}</h2>
-        <p className="section__description">{highlightMatch(t("providers.description"), query)}</p>
-      </header>
-      <ProvidersList />
-    </section>
-  );
-};
-
-const sortModels = (models: ModelInfo[]): ModelInfo[] =>
-  [...models].sort(
-    (left, right) => Number(Boolean(right.favorite)) - Number(Boolean(left.favorite)),
-  );
-
-const MODALITY_KEY: Record<string, string> = {
-  text: "providers.model.modalities.text",
-  image: "providers.model.modalities.image",
-  audio: "providers.model.modalities.audio",
-  video: "providers.model.modalities.video",
-  pdf: "providers.model.modalities.pdf",
-};
-
-const uniqueModalities = (values: string[] | undefined): string[] => {
-  if (!values) return [];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const value of values) {
-    const key = value.trim().toLowerCase();
-    if (!MODALITY_KEY[key] || seen.has(key)) continue;
-    seen.add(key);
-    out.push(key);
-  }
-  return out;
-};
-
-const ModelRow = ({
-  model,
-  onEdit,
-  onToggleFavorite,
-}: {
-  model: ModelInfo;
-  onEdit: () => void;
-  onToggleFavorite: () => Promise<void>;
-}): ReactNode => {
-  const { t } = useTranslation();
-
-  const context = formatContextWindow(model.contextWindow);
-  const hasContext = model.contextWindow !== undefined;
-  const hasOutput = model.maxOutputTokens !== undefined;
-  const display = model.displayName ?? model.id;
-
-  const inputModalities = uniqueModalities(model.input);
-  const outputModalities = uniqueModalities(model.output).filter(
-    (modality) => !inputModalities.includes(modality),
-  );
-
-  return (
-    <li className="model-row">
-      <div className="model-row__head">
-        <span className="model-row__id">{model.id}</span>
-        {inputModalities.map((modality) => (
-          <span
-            key={`in-${modality}`}
-            className="model-row__chip"
-            title={`${t("providers.model.input")}: ${t(MODALITY_KEY[modality])}`}
-          >
-            {t(MODALITY_KEY[modality])}
-          </span>
-        ))}
-        {outputModalities.map((modality) => (
-          <span
-            key={`out-${modality}`}
-            className="model-row__chip model-row__chip--muted"
-            title={`${t("providers.model.outputModalities")}: ${t(MODALITY_KEY[modality])}`}
-          >
-            {t(MODALITY_KEY[modality])}
-          </span>
-        ))}
-        {model.reasoning ? (
-          <span className="model-row__chip" title={t("providers.model.capability.reasoning")}>
-            {t("providers.model.capability.reasoning")}
-          </span>
-        ) : null}
-        {model.toolCall ? (
-          <span className="model-row__chip" title={t("providers.model.capability.toolCall")}>
-            {t("providers.model.capability.toolCall")}
-          </span>
-        ) : null}
-        {model.structuredOutput ? (
-          <span
-            className="model-row__chip"
-            title={t("providers.model.capability.structuredOutput")}
-          >
-            {t("providers.model.capability.structuredOutput")}
-          </span>
-        ) : null}
-        {model.attachment ? (
-          <span className="model-row__chip" title={t("providers.model.capability.attachment")}>
-            {t("providers.model.capability.attachment")}
-          </span>
-        ) : null}
-        {model.source === "custom" ? (
-          <span className="model-row__chip">{t("providers.model.custom")}</span>
-        ) : null}
-        {model.userEdited && model.source !== "custom" ? (
-          <span className="model-row__chip">{t("providers.model.edited")}</span>
-        ) : null}
-        {model.favorite ? (
-          <span className="model-row__chip">{t("providers.model.favorite")}</span>
-        ) : null}
-      </div>
-      {display !== model.id ? <div className="model-row__name">{display}</div> : null}
-      <div className="model-row__meta">
-        <span>
-          <span className="model-row__meta-label">{t("providers.model.context")}</span>
-          <span className="model-row__meta-value">{hasContext ? context : "-"}</span>
-        </span>
-        <span>
-          <span className="model-row__meta-label">{t("providers.model.output")}</span>
-          <span className="model-row__meta-value">
-            {hasOutput ? formatContextWindow(model.maxOutputTokens) : "-"}
-          </span>
-        </span>
-        <IconButton
-          className="model-row__refresh"
-          label={
-            model.favorite ? t("providers.actions.unfavorite") : t("providers.actions.favorite")
-          }
-          onClick={() => void onToggleFavorite()}
-        >
-          <Star
-            size={12}
-            strokeWidth={1.5}
-            fill={model.favorite ? "currentColor" : "none"}
-            className={model.favorite ? "model-row__star model-row__star--on" : "model-row__star"}
-          />
-        </IconButton>
-        <IconButton label={t("providers.actions.edit")} onClick={onEdit}>
-          <Pencil size={12} strokeWidth={1.5} />
-        </IconButton>
-      </div>
-    </li>
-  );
-};
-
 type ModelEditorState = {
   providerId: string;
   model?: ModelInfo;
-  familyPreset?: string;
 };
 
-const ProviderCard = ({
+const ModelsCell = ({
   provider,
-  locale,
-  onEdit,
-  onRefresh,
-  onDelete,
-  onEditModel,
+  t,
+  onOpen,
 }: {
   provider: Provider;
-  locale: string;
-  onEdit: () => void;
-  onRefresh: () => Promise<void>;
-  onDelete: () => void;
-  onEditModel: (state: ModelEditorState) => void;
+  t: (key: string, options?: Record<string, unknown>) => string;
+  onOpen: (provider: Provider) => void;
 }): ReactNode => {
-  const { t } = useTranslation();
-  const setFavorite = useProvidersStore((state) => state.setFavorite);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const handleRefresh = async (): Promise<void> => {
-    setRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const formatSyncedAt = (timestamp: number | undefined): string => {
-    if (!timestamp) return "";
-    try {
-      return new Intl.DateTimeFormat(locale, {
-        dateStyle: "short",
-        timeStyle: "short",
-      }).format(new Date(timestamp * 1000));
-    } catch {
-      return "";
-    }
-  };
-
-  const synced = formatSyncedAt(provider.lastSyncedAt);
-
+  const count = provider.models.length;
+  const label = t("providers.modelsCount", { count });
   return (
-    <li className="provider-card">
-      <div className="provider-card__header">
-        <div className="provider-card__title">
-          <span className="provider-card__name">{provider.name}</span>
-          <span className="provider-card__badge">{t(`providers.kinds.${provider.kind}`)}</span>
-        </div>
-        <div className="provider-card__actions">
-          <IconButton
-            label={t("providers.actions.refresh")}
-            onClick={() => void handleRefresh()}
-            disabled={refreshing}
-          >
-            {refreshing ? (
-              <Loader2 size={14} strokeWidth={1.5} className="spin" />
-            ) : (
-              <RefreshCw size={14} strokeWidth={1.5} />
-            )}
-          </IconButton>
-          <IconButton label={t("providers.actions.edit")} onClick={onEdit}>
-            <Pencil size={14} strokeWidth={1.5} />
-          </IconButton>
-          <IconButton label={t("providers.actions.delete")} onClick={onDelete}>
-            <Trash2 size={14} strokeWidth={1.5} />
-          </IconButton>
-        </div>
-      </div>
-      <div className="provider-card__url">{provider.baseUrl}</div>
-      <div className="provider-card__meta">
-        <span>{t("providers.modelsCount", { count: provider.models.length })}</span>
-        {synced ? <span className="provider-card__synced">{synced}</span> : null}
-      </div>
-      <details className="provider-card__models">
-        <summary>{t("providers.viewModels")}</summary>
-        <div className="model-list-actions">
-          <GlassButton variant="primary" onClick={() => onEditModel({ providerId: provider.id })}>
-            <Plus strokeWidth={1.5} />
-            {t("providers.actions.addModel")}
-          </GlassButton>
-        </div>
-        {provider.models.length > 0 ? (
-          <ul className="model-list">
-            {sortModels(provider.models).map((model) => (
-              <ModelRow
-                key={model.id}
-                model={model}
-                onEdit={() => onEditModel({ providerId: provider.id, model })}
-                onToggleFavorite={async () => {
-                  await setFavorite(provider.id, model.id, !model.favorite);
-                }}
-              />
-            ))}
-          </ul>
-        ) : (
-          <div className="provider-card__meta">
-            <span className="provider-card__muted">{t("providers.noModels")}</span>
-          </div>
-        )}
-      </details>
-    </li>
+    <button
+      type="button"
+      className="data-table__tools-link"
+      aria-label={t("providers.modelsDialog.open", { name: provider.name, count })}
+      onClick={() => onOpen(provider)}
+    >
+      {label}
+    </button>
   );
 };
 
-const ProvidersList = (): ReactNode => {
-  const { t, i18n } = useTranslation();
+export const ProvidersPanel = ({ query }: ProvidersPanelProps): ReactNode => {
+  const { t } = useTranslation();
   const providers = useProvidersStore((state) => state.providers);
   const loading = useProvidersStore((state) => state.loading);
+  const error = useProvidersStore((state) => state.error);
   const load = useProvidersStore((state) => state.load);
   const remove = useProvidersStore((state) => state.remove);
   const refresh = useProvidersStore((state) => state.refresh);
@@ -292,49 +57,149 @@ const ProvidersList = (): ReactNode => {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Provider | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Provider | null>(null);
+  const [modelsTargetId, setModelsTargetId] = useState<string | null>(null);
   const [modelEditor, setModelEditor] = useState<ModelEditorState | null>(null);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const visible = useMemo(() => {
+    if (query.length === 0) return providers;
+    const needle = query.toLowerCase();
+    return providers.filter((provider) => {
+      const haystack = [
+        provider.name,
+        provider.kind,
+        t(`providers.kinds.${provider.kind}`),
+        provider.baseUrl,
+        ...provider.models.flatMap((model) => [model.id, model.displayName ?? ""]),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [providers, query, t]);
+
+  const modelsProvider = modelsTargetId
+    ? (providers.find((provider) => provider.id === modelsTargetId) ?? null)
+    : null;
 
   const editingProvider = modelEditor
     ? providers.find((provider) => provider.id === modelEditor.providerId)
     : undefined;
 
-  return (
-    <>
-      {providers.length === 0 ? (
-        <div className="provider-empty">
-          <Plug size={18} strokeWidth={1.5} />
-          <p>{t("providers.empty")}</p>
-        </div>
-      ) : (
-        <ul className="provider-list">
-          {providers.map((provider) => (
-            <ProviderCard
-              key={provider.id}
-              provider={provider}
-              locale={i18n.language}
-              onEdit={() => setEditTarget(provider)}
-              onRefresh={async () => {
-                await refresh(provider.id);
+  const columns = useMemo(
+    (): TableColumn<Provider>[] => [
+      {
+        id: "name",
+        header: t("providers.table.name"),
+        className: "data-table__name",
+        cellProps: (provider) => ({ title: provider.name }),
+        render: (provider) => highlightMatch(provider.name, query),
+      },
+      {
+        id: "kind",
+        header: t("providers.table.kind"),
+        className: "data-table__kind",
+        render: (provider) => t(`providers.kinds.${provider.kind}`),
+      },
+      {
+        id: "url",
+        header: t("providers.table.url"),
+        className: "data-table__desc",
+        cellProps: (provider) => ({ title: provider.baseUrl }),
+        render: (provider) => highlightMatch(provider.baseUrl, query),
+      },
+      {
+        id: "models",
+        header: t("providers.table.models"),
+        className: "data-table__models",
+        cellProps: (provider) => ({
+          "data-empty": provider.models.length === 0 ? "true" : undefined,
+        }),
+        render: (provider) => (
+          <ModelsCell provider={provider} t={t} onOpen={(next) => setModelsTargetId(next.id)} />
+        ),
+      },
+      {
+        id: "actions",
+        header: <span className="visually-hidden">{t("providers.table.actions")}</span>,
+        className: "data-table__actions",
+        render: (provider) => (
+          <>
+            <IconButton
+              label={t("providers.actions.refresh")}
+              onClick={() => {
+                setRefreshingId(provider.id);
+                void refresh(provider.id).finally(() => setRefreshingId(null));
               }}
-              onDelete={() => setDeleteTarget(provider)}
-              onEditModel={setModelEditor}
-            />
-          ))}
-        </ul>
-      )}
+              disabled={refreshingId === provider.id}
+            >
+              <RefreshCw
+                size={12}
+                strokeWidth={1.5}
+                className={refreshingId === provider.id ? "spin" : undefined}
+              />
+            </IconButton>
+            <IconButton label={t("providers.actions.edit")} onClick={() => setEditTarget(provider)}>
+              <Pencil size={12} strokeWidth={1.5} />
+            </IconButton>
+            <IconButton
+              label={t("providers.actions.delete")}
+              onClick={() => setDeleteTarget(provider)}
+            >
+              <Trash2 size={12} strokeWidth={1.5} />
+            </IconButton>
+          </>
+        ),
+      },
+    ],
+    [query, refresh, refreshingId, t],
+  );
 
-      {loading ? (
-        <div className="provider-loading">
-          <Loader2 size={14} strokeWidth={1.5} className="spin" />
-          <span>{t("providers.loading")}</span>
+  return (
+    <section className="skills-panel">
+      <header className="skills-panel__head">
+        <h2 className="section__heading">{highlightMatch(t("providers.title"), query)}</h2>
+        <p className="section__description">{highlightMatch(t("providers.description"), query)}</p>
+        <IconButton
+          className="skills-panel__refresh"
+          label={t("providers.actions.refreshList")}
+          onClick={() => void load()}
+          disabled={loading}
+        >
+          <RefreshCw size={14} strokeWidth={1.5} className={loading ? "spin" : undefined} />
+        </IconButton>
+      </header>
+
+      {error ? <p className="form-error">{error}</p> : null}
+
+      <div className="skill-context">
+        <div className="skill-context__header">
+          <GlassButton
+            variant="primary"
+            className="skill-context__new"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus strokeWidth={1.5} />
+            {t("providers.add")}
+          </GlassButton>
         </div>
-      ) : null}
-
-      <div className="provider-actions">
-        <GlassButton variant="primary" onClick={() => setCreateOpen(true)} disabled={loading}>
-          <Plus strokeWidth={1.5} />
-          {t("providers.add")}
-        </GlassButton>
+        {visible.length === 0 && !loading ? (
+          <p className="skill-context__empty">{t("providers.empty")}</p>
+        ) : (
+          <Table
+            columns={columns}
+            rows={visible}
+            rowKey={(provider) => provider.id}
+            layout="fixed"
+            stickyHeader
+            scrollable
+            cellAlign="top"
+          />
+        )}
       </div>
 
       <ProviderFormDialog
@@ -367,10 +232,25 @@ const ProvidersList = (): ReactNode => {
         }}
       />
 
+      <ProviderModelsDialog
+        open={modelsProvider !== null}
+        provider={modelsProvider}
+        onOpenChange={(open) => {
+          if (!open) setModelsTargetId(null);
+        }}
+        onAddModel={() => {
+          if (!modelsTargetId) return;
+          setModelEditor({ providerId: modelsTargetId });
+        }}
+        onEditModel={(model) => {
+          if (!modelsTargetId) return;
+          setModelEditor({ providerId: modelsTargetId, model });
+        }}
+      />
+
       <ModelFormDialog
         open={modelEditor !== null}
         model={modelEditor?.model}
-        familyPreset={modelEditor?.familyPreset}
         onOpenChange={(open) => {
           if (!open) setModelEditor(null);
         }}
@@ -392,6 +272,6 @@ const ProvidersList = (): ReactNode => {
             : undefined
         }
       />
-    </>
+    </section>
   );
 };

@@ -115,7 +115,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
     resolvedTab === "agents" ||
     resolvedTab === "agentsMd" ||
     resolvedTab === "lsps" ||
-    resolvedTab === "mcpServers";
+    resolvedTab === "mcpServers" ||
+    resolvedTab === "providers";
 
   return (
     <Dialog
@@ -218,6 +219,8 @@ const KeybindingsPanel = ({
         id: "action",
         header: t("settings.keybindings.action"),
         className: "data-table__desc",
+        wrap: true,
+        cellProps: (item) => ({ title: t(item.titleKey) }),
         render: (item) => highlightMatch(t(item.titleKey), query),
       },
       {

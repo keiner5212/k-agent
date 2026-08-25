@@ -13,6 +13,29 @@ const isEditableTarget = (target: EventTarget | null): boolean =>
 const isKeybindingCaptureActive = (): boolean =>
   Boolean(document.querySelector(".kbd-capture[data-recording='true']"));
 
+const isVisible = (el: HTMLElement): boolean =>
+  el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+
+const topVisibleSearchInput = (): HTMLInputElement | null => {
+  const dialogs = document.querySelectorAll(".dialog-root");
+  const topDialog = dialogs.length > 0 ? dialogs[dialogs.length - 1] : null;
+  const scope: ParentNode = topDialog ?? document;
+  const inputs = [...scope.querySelectorAll<HTMLInputElement>('input[type="search"]')];
+  for (let index = inputs.length - 1; index >= 0; index -= 1) {
+    const input = inputs[index];
+    if (input && !input.disabled && isVisible(input)) return input;
+  }
+  return null;
+};
+
+const focusVisibleSearch = (): boolean => {
+  const search = topVisibleSearchInput();
+  if (!search) return false;
+  search.focus();
+  search.select();
+  return true;
+};
+
 export const useGlobalKeybindings = (onAction: (action: KeybindingAction) => void): void => {
   const keybindings = useSettingsStore((state) => state.keybindings);
 
@@ -43,6 +66,12 @@ export const useGlobalKeybindings = (onAction: (action: KeybindingAction) => voi
 
       for (const [action, chord] of Object.entries(keybindings)) {
         if (!matchesChordString(event, chord)) continue;
+        if (action === "search.focus") {
+          if (!focusVisibleSearch()) continue;
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
         const inUndoableText =
           event.target instanceof HTMLTextAreaElement &&
           (event.target.closest(".line-editor") !== null ||

@@ -24,6 +24,9 @@
   vertical-align: middle;
   line-height: var(--leading-normal);
   border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .data-table--top th,
@@ -50,20 +53,37 @@
   background-color: color-mix(in oklch, var(--accent) 8%, transparent);
 }
 
+.data-table__cell--wrap,
+.data-table td.data-table__cell--wrap,
+.data-table th.data-table__cell--wrap {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: unset;
+}
+
+.data-table__cell--wrap .data-table__tools-link {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: unset;
+}
+
 .data-table__name {
   width: 22%;
   font-family: var(--font-mono);
   font-weight: var(--weight-medium);
   color: var(--text-primary);
-  word-break: break-all;
 }
 
 .data-table__desc {
   width: auto;
   color: var(--text-secondary);
-  white-space: normal;
-  overflow-wrap: anywhere;
-  line-height: var(--leading-normal);
+}
+
+.data-table__kind {
+  width: 20%;
+  color: var(--text-secondary);
 }
 
 .data-table__tools {
@@ -71,9 +91,13 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
-  white-space: normal;
-  overflow-wrap: anywhere;
-  line-height: var(--leading-normal);
+}
+
+.data-table__models {
+  width: 6.5rem;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--text-secondary);
 }
 
 .data-table__tools[data-empty="true"] {
@@ -83,7 +107,7 @@
 }
 
 .data-table__tools-link {
-  display: inline;
+  display: block;
   margin: 0;
   padding: 0;
   border: 0;
@@ -92,6 +116,9 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-decoration: underline;
   text-decoration-color: color-mix(in oklch, currentColor 35%, transparent);
   text-underline-offset: 2px;
@@ -117,12 +144,12 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-muted);
-  white-space: nowrap;
 }
 
 .data-table__toggle {
   width: 3.5rem;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: unset;
 }
 
 .data-table__toggle .toggle-row {
@@ -136,7 +163,8 @@
 .data-table__actions {
   width: 8.5rem;
   text-align: right;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: unset;
   vertical-align: middle;
 }
 
@@ -157,7 +185,6 @@
 .data-table__langs {
   width: 22%;
   color: var(--text-secondary);
-  overflow-wrap: anywhere;
 }
 
 .data-table__requires {
@@ -185,7 +212,8 @@
 .data-table__lsp-actions {
   width: 14%;
   text-align: right;
-  white-space: nowrap;
+  overflow: visible;
+  text-overflow: unset;
 }
 
 :root[data-translucent="true"] .data-table th,

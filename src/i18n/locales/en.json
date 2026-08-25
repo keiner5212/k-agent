@@ -172,6 +172,9 @@
         "chat": {
           "clear": "Clear chat input"
         },
+        "search": {
+          "focus": "Focus search field"
+        },
         "editor": {
           "save": "Save editor",
           "undo": "Undo in editor",
@@ -264,8 +267,24 @@
     "noModels": "No models detected yet. Try refreshing.",
     "modelsCount": "{{count}} model",
     "modelsCount_plural": "{{count}} models",
+    "table": {
+      "name": "Name",
+      "kind": "Type",
+      "url": "URL",
+      "models": "Models",
+      "actions": "Actions"
+    },
+    "modelsDialog": {
+      "title": "Models",
+      "provider": "Provider: {{name}}",
+      "search": "Search models",
+      "noMatches": "No models match this search.",
+      "close": "Close",
+      "open": "View {{count}} models for {{name}}"
+    },
     "actions": {
       "refresh": "Refresh models",
+      "refreshList": "Refresh list",
       "refreshModel": "Refresh this model",
       "edit": "Edit",
       "delete": "Delete",

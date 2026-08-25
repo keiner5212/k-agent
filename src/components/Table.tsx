@@ -5,6 +5,7 @@ export type TableColumn<TRow> = {
   header: ReactNode;
   className?: string;
   headerClassName?: string;
+  wrap?: boolean;
   cellProps?: (row: TRow) => Record<string, string | undefined>;
   render: (row: TRow) => ReactNode;
 };
@@ -25,6 +26,15 @@ export type TableProps<TRow> = {
 
 const join = (...parts: Array<string | false | undefined>): string =>
   parts.filter(Boolean).join(" ");
+
+const columnClass = <TRow,>(
+  column: TableColumn<TRow>,
+  role: "header" | "cell",
+): string | undefined =>
+  join(
+    role === "header" ? (column.headerClassName ?? column.className) : column.className,
+    column.wrap && "data-table__cell--wrap",
+  );
 
 export const Table = <TRow,>({
   columns,
@@ -52,7 +62,7 @@ export const Table = <TRow,>({
       <thead>
         <tr>
           {columns.map((column) => (
-            <th key={column.id} className={column.headerClassName ?? column.className}>
+            <th key={column.id} className={columnClass(column, "header")}>
               {column.header}
             </th>
           ))}
@@ -64,10 +74,19 @@ export const Table = <TRow,>({
           return (
             <tr key={key} title={rowTitle?.(row)}>
               {columns.map((column) => {
+                const content = column.render(row);
                 const cellProps = column.cellProps?.(row);
+                const title = column.wrap
+                  ? cellProps?.title
+                  : (cellProps?.title ?? (typeof content === "string" ? content : undefined));
                 return (
-                  <td key={column.id} className={column.className} {...cellProps}>
-                    {column.render(row)}
+                  <td
+                    key={column.id}
+                    className={columnClass(column, "cell")}
+                    {...cellProps}
+                    title={title}
+                  >
+                    {content}
                   </td>
                 );
               })}

@@ -268,6 +268,7 @@ const AgentContextView = ({
         id: "description",
         header: t("agents.table.description"),
         className: "data-table__desc",
+        wrap: true,
         cellProps: (agent) => ({
           "data-empty": agent.description.trim() ? undefined : "true",
         }),
@@ -352,6 +353,7 @@ const AgentContextView = ({
           layout="fixed"
           stickyHeader
           scrollable
+          cellAlign="top"
         />
       )}
     </article>
