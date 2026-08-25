@@ -30,6 +30,7 @@
     "searchEmpty": "Ningún ajuste coincide con la búsqueda.",
     "sections": {
       "general": "General",
+      "chat": "Chat",
       "providers": "Proveedores",
       "skills": "Habilidades",
       "agents": "Agentes",
@@ -66,6 +67,22 @@
       "description": "Límite de núcleos de CPU para trabajo interno. Auto usa todos los núcleos disponibles.",
       "options": {
         "auto": "Auto (todos los núcleos)"
+      }
+    },
+    "reminderInterval": {
+      "label": "Intervalo de recordatorio",
+      "description": "Inyecta un mensaje de recordatorio cada N mensajes del usuario para no perder informacion importante."
+    },
+    "forceResponseLanguage": {
+      "label": "Forzar idioma de respuesta",
+      "description": "Responder siempre en el idioma seleccionado, sin importar el de entrada."
+    },
+    "responseLanguage": {
+      "label": "Idioma de respuesta",
+      "description": "Idioma usado al forzar las respuestas.",
+      "options": {
+        "en": "Inglés",
+        "es": "Español"
       }
     },
     "translucency": {

@@ -30,6 +30,7 @@
     "searchEmpty": "No settings match your search.",
     "sections": {
       "general": "General",
+      "chat": "Chat",
       "providers": "Providers",
       "skills": "Skills",
       "agents": "Agents",
@@ -66,6 +67,22 @@
       "description": "Upper limit on CPU cores for internal work. Auto uses every available core.",
       "options": {
         "auto": "Auto (all cores)"
+      }
+    },
+    "reminderInterval": {
+      "label": "Reminder interval",
+      "description": "Inject one reminder message every N user messages to keep important info in mind."
+    },
+    "forceResponseLanguage": {
+      "label": "Force response language",
+      "description": "Always reply in the selected language regardless of the input."
+    },
+    "responseLanguage": {
+      "label": "Response language",
+      "description": "Language used when forcing responses.",
+      "options": {
+        "en": "English",
+        "es": "Spanish"
       }
     },
     "translucency": {

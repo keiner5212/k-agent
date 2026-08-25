@@ -88,6 +88,48 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         descriptionKey: "settings.windowSize.description",
         keywords: ["resize", "window", "size", "persist", "tamano", "ventana"],
       },
+    ],
+  },
+  {
+    id: "chat",
+    titleKey: "settings.sections.chat",
+    keywords: [
+      "chat",
+      "reminder",
+      "recurring",
+      "context",
+      "workers",
+      "cores",
+      "language",
+      "idioma",
+      "recordatorio",
+    ],
+    items: [
+      {
+        id: "reminderInterval",
+        type: "select",
+        titleKey: "settings.reminderInterval.label",
+        descriptionKey: "settings.reminderInterval.description",
+        keywords: ["reminder", "interval", "memory", "context", "messages", "recordatorio"],
+      },
+      {
+        id: "forceResponseLanguage",
+        type: "toggle",
+        titleKey: "settings.forceResponseLanguage.label",
+        descriptionKey: "settings.forceResponseLanguage.description",
+        keywords: ["language", "force", "idioma", "respuesta", "response"],
+      },
+      {
+        id: "responseLanguage",
+        type: "select",
+        titleKey: "settings.responseLanguage.label",
+        descriptionKey: "settings.responseLanguage.description",
+        options: [
+          { value: "en", labelKey: "settings.responseLanguage.options.en" },
+          { value: "es", labelKey: "settings.responseLanguage.options.es" },
+        ],
+        keywords: ["language", "idioma", "respuesta", "response"],
+      },
       {
         id: "maxWorkerCores",
         type: "select",

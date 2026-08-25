@@ -10,6 +10,7 @@ import { useSettingsStore } from "@/lib/settings";
 import { listSystemFonts } from "@/lib/system-fonts";
 import {
   FONT_FAMILY_OPTIONS,
+  REMINDER_INTERVAL_OPTIONS,
   SUPPORTED_LANGUAGES,
   hardwareThreadCount,
   type AppFontFamily,
@@ -37,11 +38,17 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const minimizeToTray = useSettingsStore((state) => state.minimizeToTray);
   const rememberWindowSize = useSettingsStore((state) => state.rememberWindowSize);
   const maxWorkerCores = useSettingsStore((state) => state.maxWorkerCores);
+  const reminderInterval = useSettingsStore((state) => state.reminderInterval);
+  const forceResponseLanguage = useSettingsStore((state) => state.forceResponseLanguage);
+  const responseLanguage = useSettingsStore((state) => state.responseLanguage);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const setTextScale = useSettingsStore((state) => state.setTextScale);
   const setFontFamily = useSettingsStore((state) => state.setFontFamily);
   const setMaxWorkerCores = useSettingsStore((state) => state.setMaxWorkerCores);
+  const setReminderInterval = useSettingsStore((state) => state.setReminderInterval);
+  const setForceResponseLanguage = useSettingsStore((state) => state.setForceResponseLanguage);
+  const setResponseLanguage = useSettingsStore((state) => state.setResponseLanguage);
   const setTranslucencyEnabled = useSettingsStore((state) => state.setTranslucencyEnabled);
   const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
   const setMinimizeToTray = useSettingsStore((state) => state.setMinimizeToTray);
@@ -78,6 +85,8 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               textScale,
               fontFamily,
               maxWorkerCores,
+              reminderInterval,
+              responseLanguage,
             })}
             onChange={(next) =>
               onSelectChange(item.id, next, {
@@ -86,6 +95,8 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setTextScale,
                 setFontFamily,
                 setMaxWorkerCores,
+                setReminderInterval,
+                setResponseLanguage,
               })
             }
             options={selectOptions(item, t, { systemFonts, fontFamily })}
@@ -100,6 +111,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               animationsEnabled,
               minimizeToTray,
               rememberWindowSize,
+              forceResponseLanguage,
             })}
             onChange={(next) =>
               onToggleChange(item.id, next, {
@@ -107,6 +119,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setAnimationsEnabled,
                 setMinimizeToTray,
                 setRememberWindowSize,
+                setForceResponseLanguage,
               })
             }
             label={titleText}
@@ -133,6 +146,8 @@ type ThemeState = { theme: AppTheme };
 type ScaleState = { textScale: TextScale };
 type FontState = { fontFamily: AppFontFamily };
 type CoresState = { maxWorkerCores: number };
+type ReminderState = { reminderInterval: number };
+type ResponseLangState = { responseLanguage: AppLanguage };
 
 const selectOptions = (
   item: SettingItemDef,
@@ -146,6 +161,12 @@ const selectOptions = (
       options.push({ value: String(n), label: String(n) });
     }
     return options;
+  }
+  if (item.id === "reminderInterval") {
+    return REMINDER_INTERVAL_OPTIONS.map((value) => ({
+      value: String(value),
+      label: String(value),
+    }));
   }
   if (item.id === "fontFamily") {
     return fontFamilyOptions(t, extras.systemFonts, extras.fontFamily);
@@ -187,6 +208,7 @@ type ToggleState = {
   animationsEnabled: boolean;
   minimizeToTray: boolean;
   rememberWindowSize: boolean;
+  forceResponseLanguage: boolean;
 };
 
 const runSettingAction = (id: string): void => {
@@ -202,7 +224,13 @@ const runSettingAction = (id: string): void => {
 
 const selectValue = (
   id: string,
-  state: LangState & ThemeState & ScaleState & FontState & CoresState,
+  state: LangState &
+    ThemeState &
+    ScaleState &
+    FontState &
+    CoresState &
+    ReminderState &
+    ResponseLangState,
 ): string => {
   switch (id) {
     case "language":
@@ -215,6 +243,10 @@ const selectValue = (
       return state.fontFamily;
     case "maxWorkerCores":
       return String(state.maxWorkerCores);
+    case "reminderInterval":
+      return String(state.reminderInterval);
+    case "responseLanguage":
+      return state.responseLanguage;
     default:
       return "";
   }
@@ -229,6 +261,8 @@ const onSelectChange = (
     setTextScale: (s: TextScale) => void;
     setFontFamily: (f: AppFontFamily) => void;
     setMaxWorkerCores: (n: number) => void;
+    setReminderInterval: (n: number) => void;
+    setResponseLanguage: (l: AppLanguage) => void;
   },
 ): void => {
   switch (id) {
@@ -249,6 +283,14 @@ const onSelectChange = (
     case "maxWorkerCores":
       setters.setMaxWorkerCores(Number(next));
       return;
+    case "reminderInterval":
+      setters.setReminderInterval(Number(next));
+      return;
+    case "responseLanguage":
+      if ((SUPPORTED_LANGUAGES as readonly string[]).includes(next)) {
+        setters.setResponseLanguage(next as AppLanguage);
+      }
+      return;
   }
 };
 
@@ -262,6 +304,8 @@ const toggleChecked = (id: string, state: ToggleState): boolean => {
       return state.minimizeToTray;
     case "rememberWindowSize":
       return state.rememberWindowSize;
+    case "forceResponseLanguage":
+      return state.forceResponseLanguage;
     default:
       return false;
   }
@@ -275,6 +319,7 @@ const onToggleChange = (
     setAnimationsEnabled: (v: boolean) => void;
     setMinimizeToTray: (v: boolean) => void;
     setRememberWindowSize: (v: boolean) => void;
+    setForceResponseLanguage: (v: boolean) => void;
   },
 ): void => {
   switch (id) {
@@ -289,6 +334,9 @@ const onToggleChange = (
       return;
     case "rememberWindowSize":
       setters.setRememberWindowSize(next);
+      return;
+    case "forceResponseLanguage":
+      setters.setForceResponseLanguage(next);
       return;
   }
 };

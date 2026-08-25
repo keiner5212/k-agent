@@ -4,13 +4,18 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   DEFAULT_ANIMATIONS_ENABLED,
   DEFAULT_FONT_FAMILY,
+  DEFAULT_FORCE_RESPONSE_LANGUAGE,
   DEFAULT_MAX_WORKER_CORES,
+  DEFAULT_REMINDER_INTERVAL,
+  DEFAULT_RESPONSE_LANGUAGE,
   DEFAULT_SETTINGS,
   DEFAULT_TEXT_SCALE,
   DEFAULT_TRANSLUCENCY_ENABLED,
   DEFAULT_WINDOW_BOUNDS,
   FONT_FAMILY_OPTIONS,
+  MAX_REMINDER_INTERVAL,
   MAX_WORKER_CORES_AUTO,
+  MIN_REMINDER_INTERVAL,
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
   SUPPORTED_LANGUAGES,
@@ -97,6 +102,13 @@ const sanitizeMaxWorkerCores = (value: unknown): number => {
   return Math.min(max, Math.max(1, rounded));
 };
 
+const sanitizeReminderInterval = (value: unknown): number => {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(n)) return DEFAULT_REMINDER_INTERVAL;
+  const rounded = Math.round(n);
+  return Math.min(MAX_REMINDER_INTERVAL, Math.max(MIN_REMINDER_INTERVAL, rounded));
+};
+
 const sanitizeSettings = (raw: unknown): Settings => {
   if (!raw || typeof raw !== "object") return DEFAULT_SETTINGS;
   const obj = raw as Record<string, unknown>;
@@ -114,6 +126,12 @@ const sanitizeSettings = (raw: unknown): Settings => {
     textScale: sanitizeTextScale(obj.textScale),
     fontFamily: sanitizeFontFamily(obj.fontFamily),
     maxWorkerCores: sanitizeMaxWorkerCores(obj.maxWorkerCores),
+    reminderInterval: sanitizeReminderInterval(obj.reminderInterval),
+    forceResponseLanguage: sanitizeBoolean(
+      obj.forceResponseLanguage,
+      DEFAULT_FORCE_RESPONSE_LANGUAGE,
+    ),
+    responseLanguage: sanitizeLanguage(obj.responseLanguage ?? DEFAULT_RESPONSE_LANGUAGE),
     keybindings: sanitizeKeybindings(obj.keybindings),
     sessionSidebarOpen: sanitizeBoolean(
       obj.sessionSidebarOpen,
@@ -135,6 +153,9 @@ type SettingsStore = Settings & {
   setTextScale: (scale: TextScale) => void;
   setFontFamily: (family: AppFontFamily) => void;
   setMaxWorkerCores: (cores: number) => void;
+  setReminderInterval: (interval: number) => void;
+  setForceResponseLanguage: (enabled: boolean) => void;
+  setResponseLanguage: (language: AppLanguage) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
   setSessionSidebarOpen: (open: boolean) => void;
   resetKeybindings: () => void;
@@ -225,6 +246,9 @@ const snapshot = (state: SettingsStore): Settings => ({
   textScale: state.textScale,
   fontFamily: state.fontFamily,
   maxWorkerCores: state.maxWorkerCores,
+  reminderInterval: state.reminderInterval,
+  forceResponseLanguage: state.forceResponseLanguage,
+  responseLanguage: state.responseLanguage,
   keybindings: state.keybindings,
   sessionSidebarOpen: state.sessionSidebarOpen,
 });
@@ -318,6 +342,21 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setMaxWorkerCores: (cores) => {
     set({ maxWorkerCores: sanitizeMaxWorkerCores(cores) });
+    void persist(snapshot(get()));
+  },
+
+  setReminderInterval: (interval) => {
+    set({ reminderInterval: sanitizeReminderInterval(interval) });
+    void persist(snapshot(get()));
+  },
+
+  setForceResponseLanguage: (enabled) => {
+    set({ forceResponseLanguage: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setResponseLanguage: (language) => {
+    set({ responseLanguage: sanitizeLanguage(language) });
     void persist(snapshot(get()));
   },
 

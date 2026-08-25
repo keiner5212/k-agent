@@ -32,6 +32,15 @@ export const MAX_WORKER_CORES_AUTO = 0;
 export const DEFAULT_MAX_WORKER_CORES = MAX_WORKER_CORES_AUTO;
 export const MAX_WORKER_CORES_CAP = 256;
 
+export const DEFAULT_REMINDER_INTERVAL = 8;
+export const MIN_REMINDER_INTERVAL = 1;
+export const MAX_REMINDER_INTERVAL = 500;
+
+export const REMINDER_INTERVAL_OPTIONS = [4, 6, 8, 10, 12, 16, 20, 30, 50] as const;
+
+export const DEFAULT_FORCE_RESPONSE_LANGUAGE = false;
+export const DEFAULT_RESPONSE_LANGUAGE: AppLanguage = DEFAULT_LANGUAGE;
+
 export const DEFAULT_SESSION_SIDEBAR_OPEN = true;
 
 export const hardwareThreadCount = (): number => {
@@ -77,6 +86,9 @@ export type Settings = {
   textScale: TextScale;
   fontFamily: AppFontFamily;
   maxWorkerCores: number;
+  reminderInterval: number;
+  forceResponseLanguage: boolean;
+  responseLanguage: AppLanguage;
   keybindings: Keybindings;
   sessionSidebarOpen: boolean;
 };
@@ -92,6 +104,9 @@ export const DEFAULT_SETTINGS: Settings = {
   textScale: DEFAULT_TEXT_SCALE,
   fontFamily: DEFAULT_FONT_FAMILY,
   maxWorkerCores: DEFAULT_MAX_WORKER_CORES,
+  reminderInterval: DEFAULT_REMINDER_INTERVAL,
+  forceResponseLanguage: DEFAULT_FORCE_RESPONSE_LANGUAGE,
+  responseLanguage: DEFAULT_RESPONSE_LANGUAGE,
   keybindings: DEFAULT_KEYBINDINGS,
   sessionSidebarOpen: DEFAULT_SESSION_SIDEBAR_OPEN,
 };

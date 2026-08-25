@@ -15,7 +15,7 @@ export type SettingItem = {
 };
 
 export type SettingsSectionDef = {
-  id: "general" | "providers" | "skills" | "agents" | "agentsMd" | "keybindings" | "debug";
+  id: "general" | "chat" | "providers" | "skills" | "agents" | "agentsMd" | "keybindings" | "debug";
   titleKey: string;
   descriptionKey?: string;
   keywords?: string[];

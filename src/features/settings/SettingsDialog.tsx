@@ -1,6 +1,15 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Bug, Bot, Keyboard, Plug, ScrollText, Sliders, Sparkles } from "lucide-react";
+import {
+  Bug,
+  Bot,
+  Keyboard,
+  MessageSquare,
+  Plug,
+  ScrollText,
+  Sliders,
+  Sparkles,
+} from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { highlightMatch } from "@/lib/highlight";
@@ -24,6 +33,7 @@ type TabMeta = {
 
 const SECTION_ICONS: Record<SettingsSectionDef["id"], typeof Sliders> = {
   general: Sliders,
+  chat: MessageSquare,
   providers: Plug,
   skills: Sparkles,
   agents: Bot,
