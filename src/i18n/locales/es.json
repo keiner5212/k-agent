@@ -768,6 +768,7 @@
       "attach": "Adjuntar",
       "disabledHint": "Elige un modelo para enviar.",
       "disabledHintShell": "Escribe un comando para ejecutar.",
+      "queue": "Encolar",
       "mode": {
         "prompt": "Prompt",
         "shell": "Shell",
@@ -789,6 +790,10 @@
     },
     "interruptedByUser": "interrumpido por el usuario",
     "interruptHint": "Pulsa Esc otra vez para interrumpir",
+    "queue": {
+      "sendNow": "Interrumpir y enviar ahora",
+      "remove": "Quitar de la cola"
+    },
     "fileMentions": {
       "label": "Archivos del workspace",
       "empty": "Sin archivos coincidentes",

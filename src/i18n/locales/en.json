@@ -768,6 +768,7 @@
       "attach": "Attach",
       "disabledHint": "Pick a model to send.",
       "disabledHintShell": "Type a command to run.",
+      "queue": "Queue",
       "mode": {
         "prompt": "Prompt",
         "shell": "Shell",
@@ -789,6 +790,10 @@
     },
     "interruptedByUser": "interrupted by user",
     "interruptHint": "Press Esc again to interrupt",
+    "queue": {
+      "sendNow": "Interrupt and send now",
+      "remove": "Remove from queue"
+    },
     "fileMentions": {
       "label": "Workspace files",
       "empty": "No matching files",

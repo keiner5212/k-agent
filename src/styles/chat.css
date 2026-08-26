@@ -1389,6 +1389,71 @@ button.change-bar__stat:focus-visible {
   gap: var(--space-2);
 }
 
+.composer-queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.composer-queue__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 7.5rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.composer-queue__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-elevated);
+}
+
+.composer-queue__mode {
+  flex-shrink: 0;
+  color: #5fd99e;
+  font-family: var(--font-mono);
+  font-weight: var(--weight-semibold);
+}
+
+.composer-queue__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.composer-queue__now {
+  flex-shrink: 0;
+  height: var(--control-height);
+  padding: 0 var(--space-2);
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.composer-queue__remove {
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  color: var(--text-muted);
+}
+
+.composer-queue__remove:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
 .chat-composer__field {
   position: relative;
 }

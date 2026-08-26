@@ -3,7 +3,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { useAgentsStore } from "@/lib/agents";
 import { resolveAgentPersonality } from "@/lib/builtin-agents";
-import { useComposerStore } from "@/lib/composer";
+import { useComposerStore, type ComposerMode } from "@/lib/composer";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
 import { useProvidersStore } from "@/lib/providers";
 import { resolveOutgoingMentions } from "@/lib/resolve-outgoing-mentions";
@@ -27,6 +27,13 @@ import {
 } from "@/types/sessions";
 
 export const INTERRUPT_ARM_MS = 2000;
+
+export type QueuedMessage = {
+  id: string;
+  sessionId: string;
+  text: string;
+  mode: ComposerMode;
+};
 
 const toChatTurns = (messages: ChatMessage[]): ChatTurn[] =>
   messages
@@ -164,13 +171,18 @@ type SessionsStore = {
   sending: boolean;
   shellRunning: boolean;
   interruptArmedAt: number | null;
+  queued: QueuedMessage[];
   error?: string;
   hydrate: () => Promise<void>;
   create: () => void;
   select: (id: string) => void;
   remove: (id: string) => void;
-  send: (text: string) => Promise<void>;
-  runShell: (text: string) => Promise<void>;
+  send: (text: string, sessionId?: string) => Promise<boolean>;
+  runShell: (text: string, sessionId?: string) => Promise<boolean>;
+  enqueue: (text: string, mode: ComposerMode) => void;
+  removeQueued: (id: string) => void;
+  flushQueued: () => void;
+  sendQueuedNow: (id?: string) => Promise<void>;
   interruptActiveTask: () => Promise<boolean>;
   armInterrupt: () => void;
   disarmInterrupt: () => void;
@@ -187,6 +199,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   sending: false,
   shellRunning: false,
   interruptArmedAt: null,
+  queued: [],
 
   hydrate: async () => {
     if (get().hydrated) return;
@@ -253,10 +266,12 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         sessions: seeded,
         activeSessionId: session.id,
         error: undefined,
+        queued: get().queued.filter((item) => item.sessionId !== id),
         ...(stopSending ? { sending: false, sendingSessionId: null } : {}),
         ...(stopShell ? { shellRunning: false, shellRunningSessionId: null } : {}),
       });
       void persistSnapshot(snapshotFromState(seeded, session.id));
+      if (stopSending || stopShell) get().flushQueued();
       return;
     }
     const sorted = sortSessions(nextSessions);
@@ -272,33 +287,68 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       sessions: sorted,
       activeSessionId: nextActiveId,
       error: undefined,
+      queued: get().queued.filter((item) => item.sessionId !== id),
       ...(stopSending ? { sending: false, sendingSessionId: null } : {}),
       ...(stopShell ? { shellRunning: false, shellRunningSessionId: null } : {}),
     });
     void persistSnapshot(snapshotFromState(sorted, nextActiveId));
+    if (stopSending || stopShell) get().flushQueued();
   },
 
-  send: async (text) => {
+  send: async (text, targetSessionId) => {
     const trimmed = text.trim();
-    if (!trimmed || get().sending || get().shellRunning) return;
-    if (!get().hydrated) return;
+    if (!trimmed || get().sending || get().shellRunning) return false;
+    if (!get().hydrated) return false;
 
     const selection = useSelectionStore.getState().selection;
-    if (!selection || !isTauri()) return;
+    if (!selection || !isTauri()) return false;
 
-    const ensured = ensureSession(get().sessions, get().activeSessionId);
-    if (ensured.activeSessionId !== get().activeSessionId) {
-      set({ sessions: ensured.sessions, activeSessionId: ensured.activeSessionId });
-      void persistSnapshot(snapshotFromState(ensured.sessions, ensured.activeSessionId));
+    let sessions = get().sessions;
+    let sessionId = targetSessionId ?? get().activeSessionId;
+    if (targetSessionId) {
+      if (!sessions.some((session) => session.id === targetSessionId)) return false;
+    } else {
+      const ensured = ensureSession(sessions, sessionId);
+      if (ensured.activeSessionId !== get().activeSessionId) {
+        set({ sessions: ensured.sessions, activeSessionId: ensured.activeSessionId });
+        void persistSnapshot(snapshotFromState(ensured.sessions, ensured.activeSessionId));
+      }
+      sessions = ensured.sessions;
+      sessionId = ensured.activeSessionId;
     }
+    if (!sessionId) return false;
+    const activeSession = sessions.find((session) => session.id === sessionId);
+    if (!activeSession) return false;
 
-    const sessionId = ensured.activeSessionId;
-    const activeSession = ensured.sessions.find((session) => session.id === sessionId);
-    if (!activeSession) return;
+    const stickActive = get().activeSessionId === sessionId || get().activeSessionId === null;
+    set({
+      sending: true,
+      sendingSessionId: sessionId,
+      error: undefined,
+      ...(stickActive ? { activeSessionId: sessionId } : {}),
+    });
 
     const isFirstMessage = activeSession.messages.length === 0;
     const effort = resolveSendEffort(selection);
-    const content = await resolveUserMessageContent(trimmed);
+    let content: string;
+    try {
+      content = await resolveUserMessageContent(trimmed);
+    } catch (error) {
+      set({
+        sending: false,
+        sendingSessionId: null,
+        error: ipcErrorMessage(error),
+      });
+      get().flushQueued();
+      return true;
+    }
+    if (get().sendingSessionId !== sessionId) return true;
+    const latest = get().sessions.find((session) => session.id === sessionId);
+    if (!latest) {
+      set({ sending: false, sendingSessionId: null });
+      get().flushQueued();
+      return true;
+    }
     const userMessage: ChatMessage = {
       id: nextId(),
       role: "user",
@@ -307,7 +357,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     const now = Date.now();
 
     const withUser = sortSessions(
-      patchActiveSession(ensured.sessions, sessionId, (session) => ({
+      patchActiveSession(get().sessions, sessionId, (session) => ({
         ...session,
         preview: content,
         updatedAt: now,
@@ -316,12 +366,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     );
     set({
       sessions: withUser,
-      activeSessionId: sessionId,
-      sending: true,
-      sendingSessionId: sessionId,
-      error: undefined,
+      ...(stickActive ? { activeSessionId: sessionId } : {}),
     });
-    void persistSnapshot(snapshotFromState(withUser, sessionId));
+    void persistSnapshot(snapshotFromState(withUser, get().activeSessionId ?? sessionId));
 
     const applyTitle = (title: string): void => {
       const nextSessions = sortSessions(
@@ -457,6 +504,8 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       });
       const active = get().activeSessionId ?? sessionId;
       void persistSnapshot(snapshotFromState(withAssistant, active));
+      if (stillSending) get().flushQueued();
+      return true;
     } catch (error) {
       if (get().sendingSessionId === sessionId) {
         const cancelled = ipcErrorMessage(error).toLowerCase().includes("interrupted by user");
@@ -479,8 +528,64 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           error: cancelled ? undefined : ipcErrorMessage(error),
         });
         void persistSnapshot(snapshotFromState(nextSessions, sessionId));
+        get().flushQueued();
       }
+      return true;
     }
+  },
+
+  enqueue: (text, mode) => {
+    const trimmed = text.trim();
+    if (!trimmed || !get().hydrated) return;
+    const ensured = ensureSession(get().sessions, get().activeSessionId);
+    if (ensured.activeSessionId !== get().activeSessionId) {
+      set({ sessions: ensured.sessions, activeSessionId: ensured.activeSessionId });
+      void persistSnapshot(snapshotFromState(ensured.sessions, ensured.activeSessionId));
+    }
+    const sessionId = ensured.activeSessionId;
+    if (!sessionId) return;
+    set({
+      queued: [...get().queued, { id: nextId(), sessionId, text: trimmed, mode }],
+    });
+    get().flushQueued();
+  },
+
+  removeQueued: (id) => {
+    set({ queued: get().queued.filter((item) => item.id !== id) });
+  },
+
+  flushQueued: () => {
+    if (get().sending || get().shellRunning) return;
+    const next = get().queued[0];
+    if (!next) return;
+    set({ queued: get().queued.slice(1) });
+    const started =
+      next.mode === "shell"
+        ? get().runShell(next.text, next.sessionId)
+        : get().send(next.text, next.sessionId);
+    void started.then(
+      (ok) => {
+        if (!ok) get().flushQueued();
+      },
+      (error: unknown) => {
+        console.warn("queued task failed", error);
+        if (!get().sending && !get().shellRunning) get().flushQueued();
+      },
+    );
+  },
+
+  sendQueuedNow: async (id) => {
+    if (get().queued.length === 0) return;
+    if (id) {
+      const current = get().queued;
+      const item = current.find((entry) => entry.id === id);
+      if (!item) return;
+      set({ queued: [item, ...current.filter((entry) => entry.id !== id)] });
+    }
+    if (get().sending || get().shellRunning) {
+      await get().interruptActiveTask();
+    }
+    get().flushQueued();
   },
 
   interruptActiveTask: async () => {
@@ -542,30 +647,69 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     void persistSnapshot(snapshotFromState(nextSessions, sessionId));
   },
 
-  runShell: async (text) => {
+  runShell: async (text, targetSessionId) => {
     const trimmed = text.trim();
-    if (!trimmed || get().shellRunning || get().sending) return;
-    if (!get().hydrated) return;
+    if (!trimmed || get().shellRunning || get().sending) return false;
+    if (!get().hydrated) return false;
 
-    const ensured = ensureSession(get().sessions, get().activeSessionId);
-    if (ensured.activeSessionId !== get().activeSessionId) {
-      set({ sessions: ensured.sessions, activeSessionId: ensured.activeSessionId });
-      void persistSnapshot(snapshotFromState(ensured.sessions, ensured.activeSessionId));
+    let sessions = get().sessions;
+    let sessionId = targetSessionId ?? get().activeSessionId;
+    if (targetSessionId) {
+      if (!sessions.some((session) => session.id === targetSessionId)) return false;
+    } else {
+      const ensured = ensureSession(sessions, sessionId);
+      if (ensured.activeSessionId !== get().activeSessionId) {
+        set({ sessions: ensured.sessions, activeSessionId: ensured.activeSessionId });
+        void persistSnapshot(snapshotFromState(ensured.sessions, ensured.activeSessionId));
+      }
+      sessions = ensured.sessions;
+      sessionId = ensured.activeSessionId;
     }
-    const sessionId = ensured.activeSessionId;
-    if (!sessionId) return;
+    if (!sessionId) return false;
+    if (!sessions.some((session) => session.id === sessionId)) return false;
+
+    const stickActive = get().activeSessionId === sessionId || get().activeSessionId === null;
+    set({
+      shellRunning: true,
+      shellRunningSessionId: sessionId,
+      error: undefined,
+      ...(stickActive ? { activeSessionId: sessionId } : {}),
+    });
 
     const workspaceRoot = await invoke<string | null>("get_workspace_path").catch(() => null);
     if (!workspaceRoot) {
-      set({ error: i18n.t("chat.shell.needsWorkspace") });
-      return;
+      set({
+        shellRunning: false,
+        shellRunningSessionId: null,
+        error: i18n.t("chat.shell.needsWorkspace"),
+      });
+      get().flushQueued();
+      return true;
     }
 
-    const resolvedCommand = await resolveOutgoingMentions(trimmed, workspaceRoot, "shell");
+    if (get().shellRunningSessionId !== sessionId) return true;
+    let resolvedCommand: string;
+    try {
+      resolvedCommand = await resolveOutgoingMentions(trimmed, workspaceRoot, "shell");
+    } catch (error) {
+      set({
+        shellRunning: false,
+        shellRunningSessionId: null,
+        error: ipcErrorMessage(error),
+      });
+      get().flushQueued();
+      return true;
+    }
+    if (get().shellRunningSessionId !== sessionId) return true;
+    const latest = get().sessions.find((session) => session.id === sessionId);
+    if (!latest) {
+      set({ shellRunning: false, shellRunningSessionId: null });
+      get().flushQueued();
+      return true;
+    }
 
     const now = Date.now();
-    const activeSession = ensured.sessions.find((session) => session.id === sessionId);
-    const isFirstMessage = (activeSession?.messages.length ?? 0) === 0;
+    const isFirstMessage = latest.messages.length === 0;
     const userMessageId = nextId();
     const userMessage: ChatMessage = {
       id: userMessageId,
@@ -574,7 +718,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       content: formatShellMessage(resolvedCommand, i18n.t("chat.shell.running")),
     };
     const withUser = sortSessions(
-      patchActiveSession(ensured.sessions, sessionId, (session) => ({
+      patchActiveSession(get().sessions, sessionId, (session) => ({
         ...session,
         preview: resolvedCommand,
         updatedAt: now,
@@ -583,14 +727,11 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     );
     set({
       sessions: withUser,
-      activeSessionId: sessionId,
-      shellRunning: true,
-      shellRunningSessionId: sessionId,
-      error: undefined,
+      ...(stickActive ? { activeSessionId: sessionId } : {}),
     });
-    void persistSnapshot(snapshotFromState(withUser, sessionId));
+    void persistSnapshot(snapshotFromState(withUser, get().activeSessionId ?? sessionId));
 
-    if (isFirstMessage && !activeSession?.title) {
+    if (isFirstMessage && !latest.title) {
       void generateSessionTitle(trimmed).then((title) => {
         const nextSessions = sortSessions(
           patchActiveSession(get().sessions, sessionId, (session) => ({
@@ -677,6 +818,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       });
       const active = get().activeSessionId ?? sessionId;
       void persistSnapshot(snapshotFromState(nextSessions, active));
+      if (stillRunning) get().flushQueued();
     };
 
     const onChunk = new Channel<ShellChunk>();
@@ -707,6 +849,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       const failed = i18n.t("chat.shell.failed", { error: errorMessage });
       applyShellMessage(formatShellMessage(resolvedCommand, failed), failed, errorMessage);
     }
+    return true;
   },
 
   rewindLastUserMessage: () => {
