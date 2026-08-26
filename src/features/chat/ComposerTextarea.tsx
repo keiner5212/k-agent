@@ -167,22 +167,25 @@ export const ComposerTextarea = ({
         </span>
       ) : null}
       <div ref={backdropRef} className="chat-composer__input-backdrop" aria-hidden="true">
-        {segments.length === 1 && !segments[0]?.mention
-          ? segments[0]?.text
-          : segments.map((segment, index) =>
-              segment.mention ? (
-                <mark key={index} className="chat-composer__mention">
-                  {segment.text}
-                </mark>
-              ) : (
-                <span key={index}>{segment.text}</span>
-              ),
-            )}
+        {value.length === 0 ? (
+          <span className="chat-composer__input-placeholder">{placeholder}</span>
+        ) : segments.length === 1 && !segments[0]?.mention ? (
+          segments[0]?.text
+        ) : (
+          segments.map((segment, index) =>
+            segment.mention ? (
+              <mark key={index} className="chat-composer__mention">
+                {segment.text}
+              </mark>
+            ) : (
+              <span key={index}>{segment.text}</span>
+            ),
+          )
+        )}
       </div>
       <textarea
         ref={textareaRef}
         className="chat-composer__input chat-composer__input--mentions"
-        placeholder={placeholder}
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}

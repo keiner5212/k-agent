@@ -1329,7 +1329,16 @@ button.change-bar__stat:focus-visible {
   z-index: 1;
   background-color: transparent;
   color: transparent;
+  -webkit-text-fill-color: transparent;
   caret-color: var(--text-primary);
+}
+
+.chat-composer__input--mentions::placeholder {
+  color: transparent;
+}
+
+.chat-composer__input-placeholder {
+  color: var(--text-muted);
 }
 
 .chat-composer__input--mentions::selection {

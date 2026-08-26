@@ -266,23 +266,17 @@ fn normalize_turns(input: &[ChatTurn]) -> Vec<Turn> {
     turns
 }
 
-fn openai_messages(system: Option<&str>, turns: &[Turn], include_reasoning: bool) -> serde_json::Value {
+fn openai_messages(system: Option<&str>, turns: &[Turn]) -> serde_json::Value {
     let mut messages = Vec::with_capacity(turns.len() + 1);
     if let Some(system) = nonempty_text(system) {
         messages.push(json!({ "role": "system", "content": system }));
     }
     for turn in turns {
         if turn.assistant {
-            let mut message = json!({
+            messages.push(json!({
                 "role": "assistant",
                 "content": turn.content,
-            });
-            if include_reasoning {
-                if let Some(reasoning) = nonempty_text(Some(&turn.reasoning)) {
-                    message["reasoning_content"] = json!(reasoning);
-                }
-            }
-            messages.push(message);
+            }));
             continue;
         }
         messages.push(json!({ "role": "user", "content": turn.content }));
@@ -290,27 +284,17 @@ fn openai_messages(system: Option<&str>, turns: &[Turn], include_reasoning: bool
     json!(messages)
 }
 
-fn anthropic_messages(turns: &[Turn], echo_thinking: bool) -> serde_json::Value {
+fn anthropic_messages(turns: &[Turn]) -> serde_json::Value {
     let mut messages = Vec::with_capacity(turns.len());
     for turn in turns {
         if !turn.assistant {
             messages.push(json!({ "role": "user", "content": turn.content }));
             continue;
         }
-        let mut content = Vec::new();
-        if echo_thinking {
-            let thinking = nonempty_text(Some(&turn.reasoning));
-            let signature = nonempty_text(Some(&turn.reasoning_signature));
-            if let (Some(thinking), Some(signature)) = (thinking, signature) {
-                content.push(json!({
-                    "type": "thinking",
-                    "thinking": thinking,
-                    "signature": signature,
-                }));
-            }
-        }
-        content.push(json!({ "type": "text", "text": turn.content }));
-        messages.push(json!({ "role": "assistant", "content": content }));
+        messages.push(json!({
+            "role": "assistant",
+            "content": [{ "type": "text", "text": turn.content }],
+        }));
     }
     json!(messages)
 }
@@ -318,18 +302,14 @@ fn anthropic_messages(turns: &[Turn], echo_thinking: bool) -> serde_json::Value 
 fn gemini_contents(turns: &[Turn]) -> serde_json::Value {
     let mut contents = Vec::with_capacity(turns.len());
     for turn in turns {
-        let mut parts = Vec::new();
         if turn.assistant {
-            if let Some(reasoning) = nonempty_text(Some(&turn.reasoning)) {
-                parts.push(json!({ "text": reasoning, "thought": true }));
-            }
-            if !turn.content.is_empty() {
-                parts.push(json!({ "text": turn.content }));
-            }
-            if parts.is_empty() {
+            if turn.content.is_empty() {
                 continue;
             }
-            contents.push(json!({ "role": "model", "parts": parts }));
+            contents.push(json!({
+                "role": "model",
+                "parts": [{ "text": turn.content }],
+            }));
             continue;
         }
         contents.push(json!({
@@ -842,11 +822,7 @@ async fn send_openai_like(
     let url = format!("{base}/chat/completions");
     let mut body = json!({
         "model": call.model.id,
-        "messages": openai_messages(
-            call.system,
-            call.turns,
-            openai_compat_skips_effort(call.model),
-        ),
+        "messages": openai_messages(call.system, call.turns),
         "n": 1,
         "temperature": DEFAULT_TEMPERATURE,
     });
@@ -906,7 +882,7 @@ async fn send_anthropic_like(
         "model": call.model.id,
         "max_tokens": call.max_output,
         "temperature": DEFAULT_TEMPERATURE,
-        "messages": anthropic_messages(call.turns, is_claude_host(provider)),
+        "messages": anthropic_messages(call.turns),
     });
     if let Some(system) = nonempty_text(call.system) {
         body["system"] = json!(system);
