@@ -1,16 +1,41 @@
 import { create } from "zustand";
 import { Channel, invoke } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
+import { useAgentsStore } from "@/lib/agents";
+import { resolveAgentPersonality } from "@/lib/builtin-agents";
+import { useComposerStore } from "@/lib/composer";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
 import { useProvidersStore } from "@/lib/providers";
 import { selectEffort, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
-import type { ChatMessage, SelectedModel, SendChatResult } from "@/types/chat";
+import type { ChatChunk, ChatMessage, ChatTurn, SelectedModel, SendChatResult } from "@/types/chat";
 import {
   sortSessions,
   titleFromFirstMessage,
   type SessionRecord,
   type SessionsSnapshot,
 } from "@/types/sessions";
+
+const toChatTurns = (messages: ChatMessage[]): ChatTurn[] =>
+  messages
+    .filter((message) => !message.streaming)
+    .filter(
+      (message) => message.content.trim().length > 0 || (message.reasoning ?? "").trim().length > 0,
+    )
+    .map((message) => ({
+      role: message.role,
+      content: message.content,
+      reasoning: message.reasoning ?? null,
+      reasoningSignature: message.reasoningSignature ?? null,
+    }));
+
+const thinkingDurationMs = (
+  startedAt: number | undefined,
+  endedAt: number | undefined,
+): number | undefined => {
+  if (startedAt === undefined) return undefined;
+  return Math.max(0, (endedAt ?? Date.now()) - startedAt);
+};
 
 const nextId = (): string =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -273,42 +298,73 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
 
     try {
       const assistantId = nextId();
-      const onChunk = new Channel<string>();
+      const chatTurns = toChatTurns(
+        withUser.find((session) => session.id === sessionId)?.messages ?? [],
+      );
+      let thinkingStartedAt: number | undefined;
+      let thinkingEndedAt: number | undefined;
+      const onChunk = new Channel<ChatChunk>();
       onChunk.onmessage = (chunk) => {
-        if (!chunk || get().sendingSessionId !== sessionId) return;
+        if (!chunk.text || get().sendingSessionId !== sessionId) return;
+        const isReasoning = chunk.kind === "reasoning";
+        if (isReasoning) {
+          thinkingStartedAt ??= Date.now();
+        } else if (thinkingStartedAt !== undefined && thinkingEndedAt === undefined) {
+          thinkingEndedAt = Date.now();
+        }
         const nextSessions = get().sessions.map((session) => {
           if (session.id !== sessionId) return session;
           const index = session.messages.findIndex((message) => message.id === assistantId);
           if (index < 0) {
             return {
               ...session,
-              preview: chunk,
+              preview: isReasoning ? session.preview : chunk.text,
               messages: [
                 ...session.messages,
-                { id: assistantId, role: "assistant" as const, content: chunk, streaming: true },
+                {
+                  id: assistantId,
+                  role: "assistant" as const,
+                  content: isReasoning ? "" : chunk.text,
+                  reasoning: isReasoning ? chunk.text : undefined,
+                  streaming: true,
+                },
               ],
             };
           }
           const messages = session.messages.slice();
           const current = messages[index];
           if (!current) return session;
-          const content = `${current.content}${chunk}`;
-          messages[index] = { ...current, content, streaming: true };
-          return { ...session, preview: content, messages };
+          const content = isReasoning ? current.content : `${current.content}${chunk.text}`;
+          const reasoning = isReasoning
+            ? `${current.reasoning ?? ""}${chunk.text}`
+            : current.reasoning;
+          messages[index] = { ...current, content, reasoning, streaming: true };
+          return {
+            ...session,
+            preview: isReasoning ? session.preview : content,
+            messages,
+          };
         });
         set({ sessions: nextSessions });
       };
 
+      const system = resolveAgentPersonality(
+        useComposerStore.getState().selectedAgent,
+        useAgentsStore.getState().contexts,
+        i18n.t.bind(i18n),
+      );
       const result = await invoke<SendChatResult>("send_chat_message", {
         input: {
           providerId: selection.providerId,
           modelId: selection.modelId,
-          message: trimmed,
+          messages: chatTurns,
+          system: system.length > 0 ? system : null,
           effort: effort ?? null,
         },
         onChunk,
       });
       const replyAt = Date.now();
+      const duration = thinkingDurationMs(thinkingStartedAt, thinkingEndedAt ?? replyAt);
       const withAssistant = get().sessions.map((session) => {
         if (session.id !== sessionId) return session;
         const index = session.messages.findIndex((message) => message.id === assistantId);
@@ -319,7 +375,14 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
             updatedAt: replyAt,
             messages: [
               ...session.messages,
-              { id: assistantId, role: "assistant" as const, content: result.content },
+              {
+                id: assistantId,
+                role: "assistant" as const,
+                content: result.content,
+                reasoning: result.reasoning,
+                reasoningSignature: result.reasoningSignature,
+                thinkingMs: duration,
+              },
             ],
           };
         }
@@ -329,6 +392,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         messages[index] = {
           ...current,
           content: result.content || current.content,
+          reasoning: result.reasoning || current.reasoning,
+          reasoningSignature: result.reasoningSignature || current.reasoningSignature,
+          thinkingMs: duration ?? current.thinkingMs,
           streaming: false,
         };
         return {

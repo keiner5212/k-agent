@@ -89,6 +89,7 @@ export type KeybindingAction =
   | "sidebar.toggle"
   | "chat.clear"
   | "chat.modeToggle"
+  | "chat.agentCycle"
   | "search.focus"
   | "editor.save"
   | "editor.undo"
@@ -102,6 +103,7 @@ export const DEFAULT_KEYBINDINGS: Keybindings = {
   "sidebar.toggle": "Ctrl+B",
   "chat.clear": "Alt+C",
   "chat.modeToggle": "Shift+!",
+  "chat.agentCycle": "Tab",
   "search.focus": "Ctrl+F",
   "editor.save": "Ctrl+S",
   "editor.undo": "Ctrl+Z",

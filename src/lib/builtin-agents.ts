@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
-import { AGENT_TOOL_IDS, type AgentContext, type AgentMeta } from "@/types/agents";
+import { AGENT_TOOL_IDS, parseAgentKey, type AgentContext, type AgentMeta } from "@/types/agents";
 
 export const BUILTIN_AGENT_IDS = ["build", "plan"] as const;
 
@@ -104,4 +104,22 @@ export const listEnabledBuiltinAgents = (
   if (enabled.build) out.push(builtinAgentMeta("build", t));
   if (enabled.plan) out.push(builtinAgentMeta("plan", t));
   return out;
+};
+
+export const resolveAgentPersonality = (
+  key: string,
+  contexts: AgentContext[],
+  t: TFunction,
+): string => {
+  if (key.length === 0) return "";
+  const builtin = parseBuiltinAgentKey(key);
+  if (builtin) return builtinAgentMeta(builtin, t).personality.trim();
+  const parsed = parseAgentKey(key);
+  if (!parsed) return "";
+  for (const context of contexts) {
+    if (context.kind !== parsed.kind) continue;
+    const agent = context.agents.find((item) => item.id === parsed.id);
+    if (agent) return agent.personality.trim();
+  }
+  return "";
 };

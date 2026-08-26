@@ -6,6 +6,7 @@ import {
   listEnabledBuiltinAgents,
   type BuiltinAgentId,
 } from "@/lib/builtin-agents";
+import { listComposerAgentKeys } from "@/lib/composer-agents";
 import { useAgentsStore } from "@/lib/agents";
 import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { useComposerStore } from "@/lib/composer";
@@ -53,8 +54,11 @@ export const AgentSelector = (): ReactNode => {
     ),
   }));
 
+  const optionValues = listComposerAgentKeys(t, contexts, {
+    build: buildAgentEnabled,
+    plan: planAgentEnabled,
+  }).join("|");
   const options = [...builtinOptions, ...userOptions];
-  const optionValues = options.map((option) => option.value).join("|");
 
   useEffect(() => {
     const values = optionValues.length === 0 ? [] : optionValues.split("|");

@@ -384,6 +384,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         keywords: ["shortcut", "hotkey", "shell", "prompt", "composer", "mode"],
       },
       {
+        id: "chat.agentCycle",
+        type: "keybinding",
+        titleKey: "settings.keybindings.actions.chat.agentCycle",
+        descriptionKey: "settings.keybindings.description",
+        keywords: ["shortcut", "hotkey", "agent", "composer", "tab"],
+      },
+      {
         id: "search.focus",
         type: "keybinding",
         titleKey: "settings.keybindings.actions.search.focus",

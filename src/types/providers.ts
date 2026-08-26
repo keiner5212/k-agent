@@ -73,12 +73,25 @@ export const DEFAULT_BASE_URLS: Record<ProviderKind, string> = {
   "gemini-like": "https://generativelanguage.googleapis.com",
 };
 
+export const formatTokenCount = (tokens: number): string => {
+  const count = Math.max(0, Math.round(tokens));
+  if (count >= 1_000_000) {
+    return `${formatScaled(count / 1_000_000)}M`;
+  }
+  if (count >= 1_000) {
+    return `${formatScaled(count / 1_000)}k`;
+  }
+  return String(count);
+};
+
+const formatScaled = (value: number): string => {
+  if (value >= 100 || Number.isInteger(value)) return String(Math.round(value));
+  return value.toFixed(1).replace(/\.0$/, "");
+};
+
 export const formatContextWindow = (tokens: number | undefined): string => {
   if (tokens === undefined) return "-";
-  if (tokens >= 1_000_000)
-    return `${(tokens / 1_000_000).toFixed(tokens % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(0)}k`;
-  return String(tokens);
+  return formatTokenCount(tokens);
 };
 
 export const parseTokenAmount = (raw: string): number | undefined => {

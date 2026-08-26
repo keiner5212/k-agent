@@ -171,7 +171,8 @@
         },
         "chat": {
           "clear": "Clear chat input",
-          "modeToggle": "Toggle shell / prompt mode"
+          "modeToggle": "Toggle shell / prompt mode",
+          "agentCycle": "Cycle to next agent"
         },
         "search": {
           "focus": "Focus search field"
@@ -664,6 +665,11 @@
     "thread": {
       "emptyTitle": "Start a conversation",
       "emptyDescription": "Pick a model and type a message below."
+    },
+    "thinking": {
+      "label": "Thinking",
+      "duration_one": "Thought for {{count}} second",
+      "duration_other": "Thought for {{count}} seconds"
     },
     "waiting": {
       "phrases": [

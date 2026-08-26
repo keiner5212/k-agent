@@ -1,6 +1,6 @@
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import type { ChatMessage, SelectedModel } from "@/types/chat";
-import type { ModelCost, ModelInfo, Provider } from "@/types/providers";
+import { formatTokenCount, type ModelCost, type ModelInfo, type Provider } from "@/types/providers";
 
 export const CONTEXT_CATEGORY_IDS = [
   "systemPrompt",
@@ -41,7 +41,11 @@ export const resolveSelectedModel = (
 };
 
 export const conversationTokens = (messages: ChatMessage[]): number =>
-  messages.reduce((sum, message) => sum + estimateTokensFromText(message.content), 0);
+  messages.reduce((sum, message) => {
+    const content = estimateTokensFromText(message.content);
+    const reasoning = estimateTokensFromText(message.reasoning ?? "");
+    return sum + content + reasoning;
+  }, 0);
 
 export const estimateMessageCostUsd = (
   messages: ChatMessage[],
@@ -52,8 +56,9 @@ export const estimateMessageCostUsd = (
   let outputTokens = 0;
   for (const message of messages) {
     const tokens = estimateTokensFromText(message.content);
+    const reasoning = estimateTokensFromText(message.reasoning ?? "");
     if (message.role === "user") inputTokens += tokens;
-    else outputTokens += tokens;
+    else outputTokens += tokens + reasoning;
   }
   return (inputTokens / 1_000_000) * cost.input + (outputTokens / 1_000_000) * cost.output;
 };
@@ -98,9 +103,4 @@ export const formatUsageCost = (usd: number): string => {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(usd);
 };
 
-export const formatUsageTokens = (tokens: number): string => {
-  if (tokens < 1_000) return String(tokens);
-  const k = tokens / 1_000;
-  const digits = Number.isInteger(k) && k >= 100 ? 0 : 1;
-  return `${k.toFixed(digits)}K`;
-};
+export const formatUsageTokens = (tokens: number): string => formatTokenCount(tokens);

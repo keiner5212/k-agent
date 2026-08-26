@@ -171,7 +171,8 @@
         },
         "chat": {
           "clear": "Limpiar entrada del chat",
-          "modeToggle": "Alternar modo shell / prompt"
+          "modeToggle": "Alternar modo shell / prompt",
+          "agentCycle": "Siguiente agente"
         },
         "search": {
           "focus": "Enfocar campo de busqueda"
@@ -665,6 +666,11 @@
     "thread": {
       "emptyTitle": "Inicia una conversacion",
       "emptyDescription": "Elige un modelo y escribe un mensaje abajo."
+    },
+    "thinking": {
+      "label": "Pensamiento",
+      "duration_one": "Penso {{count}} segundo",
+      "duration_other": "Penso {{count}} segundos"
     },
     "waiting": {
       "phrases": [

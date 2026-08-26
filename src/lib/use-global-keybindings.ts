@@ -66,7 +66,7 @@ export const useGlobalKeybindings = (onAction: (action: KeybindingAction) => voi
           event.stopPropagation();
           return;
         }
-        if (action === "chat.modeToggle") continue;
+        if (action === "chat.modeToggle" || action === "chat.agentCycle") continue;
         const inUndoableText =
           event.target instanceof HTMLTextAreaElement &&
           (event.target.closest(".line-editor") !== null ||

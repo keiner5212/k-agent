@@ -303,6 +303,23 @@ button.change-bar__stat:focus-visible {
   text-overflow: ellipsis;
 }
 
+.sessions-sidebar__item-title--reveal {
+  animation: session-title-reveal var(--duration-enter) var(--ease-out) both;
+}
+
+@keyframes session-title-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.45;
+    transform: translateX(-0.4rem);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .sessions-sidebar__item-preview {
   min-width: 0;
   font-size: var(--text-xs);
@@ -839,6 +856,9 @@ button.change-bar__stat:focus-visible {
 .chat-thread--active {
   align-items: stretch;
   justify-content: flex-start;
+  flex-direction: column-reverse;
+  overflow-anchor: none;
+  padding-bottom: var(--space-10);
 }
 
 .chat-thread__messages {
@@ -868,6 +888,53 @@ button.change-bar__stat:focus-visible {
 .chat-message--assistant {
   align-self: flex-start;
   animation-name: chat-message-in-start;
+}
+
+.chat-thinking {
+  margin: 0 0 var(--space-3);
+}
+
+.chat-thinking__summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.chat-thinking__summary::-webkit-details-marker {
+  display: none;
+}
+
+.chat-thinking__summary::before {
+  content: "";
+  display: inline-block;
+  width: 0.35em;
+  height: 0.35em;
+  margin-right: 0.45em;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(-45deg);
+  vertical-align: 0.15em;
+}
+
+.chat-thinking[open] > .chat-thinking__summary::before {
+  transform: rotate(45deg);
+  vertical-align: 0.25em;
+}
+
+.chat-thinking__body {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-muted);
+  opacity: 0.72;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .chat-message--streaming .chat-message__content::after {
@@ -1048,6 +1115,102 @@ button.change-bar__stat:focus-visible {
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-break: break-word;
+}
+
+.chat-message__markdown {
+  white-space: normal;
+}
+
+.chat-message__markdown > :first-child {
+  margin-top: 0;
+}
+
+.chat-message__markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-message__markdown p,
+.chat-message__markdown ul,
+.chat-message__markdown ol,
+.chat-message__markdown pre,
+.chat-message__markdown blockquote,
+.chat-message__markdown table {
+  margin: 0 0 var(--space-3);
+}
+
+.chat-message__markdown h1,
+.chat-message__markdown h2,
+.chat-message__markdown h3,
+.chat-message__markdown h4 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+.chat-message__markdown ul,
+.chat-message__markdown ol {
+  padding-left: 1.25rem;
+}
+
+.chat-message__markdown li + li {
+  margin-top: var(--space-1);
+}
+
+.chat-message__markdown a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+.chat-message__markdown blockquote {
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.chat-message__markdown code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  background-color: color-mix(in oklch, var(--surface) 70%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.05em 0.3em;
+}
+
+.chat-message__markdown pre {
+  overflow-x: auto;
+  padding: var(--space-3);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.chat-message__markdown pre code {
+  padding: 0;
+  background: none;
+  border: 0;
+  font-size: var(--text-xs);
+}
+
+.chat-message__markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-xs);
+}
+
+.chat-message__markdown th,
+.chat-message__markdown td {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.chat-message__markdown hr {
+  margin: var(--space-3) 0;
+  border: 0;
+  border-top: 1px solid var(--border);
 }
 
 .chat-thread__error {

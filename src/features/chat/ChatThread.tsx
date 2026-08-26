@@ -1,8 +1,62 @@
-import { type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Sparkles } from "lucide-react";
+import { renderMarkdown } from "@/lib/markdown";
 import { selectActiveMessages, useSessionsStore } from "@/lib/sessions";
+import type { ChatMessage } from "@/types/chat";
 import { ChatWaitingLine } from "./ChatWaitingLine";
+
+const AssistantMarkdown = ({ content }: { content: string }): ReactNode => {
+  const html = useMemo(() => renderMarkdown(content), [content]);
+  if (content.length === 0) return null;
+  return (
+    <div
+      className="chat-message__content chat-message__markdown"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+};
+
+const ThinkingBlock = ({
+  reasoning,
+  streaming,
+  thinkingMs,
+}: {
+  reasoning: string;
+  streaming?: boolean;
+  thinkingMs?: number;
+}): ReactNode => {
+  const { t } = useTranslation();
+  if (reasoning.length === 0) return null;
+  const seconds =
+    !streaming && thinkingMs !== undefined ? Math.max(1, Math.floor(thinkingMs / 1000)) : undefined;
+  const label =
+    seconds === undefined
+      ? t("chat.thinking.label")
+      : t("chat.thinking.duration", { count: seconds });
+  return (
+    <details className="chat-thinking" open={Boolean(streaming)}>
+      <summary className="chat-thinking__summary">{label}</summary>
+      <pre className="chat-thinking__body">{reasoning}</pre>
+    </details>
+  );
+};
+
+const MessageBody = ({ message }: { message: ChatMessage }): ReactNode => {
+  if (message.role === "assistant") {
+    return (
+      <>
+        <ThinkingBlock
+          reasoning={message.reasoning ?? ""}
+          streaming={message.streaming}
+          thinkingMs={message.thinkingMs}
+        />
+        <AssistantMarkdown content={message.content} />
+      </>
+    );
+  }
+  return <p className="chat-message__content">{message.content}</p>;
+};
 
 export const ChatThread = (): ReactNode => {
   const { t } = useTranslation();
@@ -37,7 +91,7 @@ export const ChatThread = (): ReactNode => {
             className={`chat-message chat-message--${message.role}${message.streaming ? " chat-message--streaming" : ""}`}
             data-role={message.role}
           >
-            <p className="chat-message__content">{message.content}</p>
+            <MessageBody message={message} />
           </article>
         ))}
         {waiting ? <ChatWaitingLine /> : null}

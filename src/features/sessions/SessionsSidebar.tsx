@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { MessageSquarePlus, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
@@ -36,7 +36,8 @@ export const SessionsSidebar = (): ReactNode => {
           {sortedSessions.map((session) => (
             <SessionItem
               key={session.id}
-              title={session.title || t("sessions.untitled")}
+              title={session.title}
+              untitled={t("sessions.untitled")}
               preview={session.preview}
               active={session.id === activeSessionId}
               onSelect={() => select(session.id)}
@@ -51,6 +52,7 @@ export const SessionsSidebar = (): ReactNode => {
 
 type SessionItemProps = {
   title: string;
+  untitled: string;
   preview: string;
   active: boolean;
   onSelect: () => void;
@@ -59,19 +61,40 @@ type SessionItemProps = {
 
 const SessionItem = ({
   title,
+  untitled,
   preview,
   active,
   onSelect,
   onDelete,
 }: SessionItemProps): ReactNode => {
   const { t } = useTranslation();
+  const [reveal, setReveal] = useState(false);
+  const prevTitleRef = useRef(title);
   const previewText =
     preview.trim().length > 0 ? titleFromFirstMessage(preview) : t("sessions.noPreview");
+  const display = title.trim().length > 0 ? title : untitled;
+
+  useLayoutEffect(() => {
+    const wasEmpty = prevTitleRef.current.trim().length === 0;
+    prevTitleRef.current = title;
+    if (wasEmpty && title.trim().length > 0) {
+      setReveal(true);
+    }
+  }, [title]);
 
   return (
     <li className="sessions-sidebar__item-wrap" data-active={active ? "true" : "false"}>
       <button type="button" className="sessions-sidebar__item" onClick={onSelect}>
-        <span className="sessions-sidebar__item-title">{title}</span>
+        <span
+          className={
+            reveal
+              ? "sessions-sidebar__item-title sessions-sidebar__item-title--reveal"
+              : "sessions-sidebar__item-title"
+          }
+          onAnimationEnd={() => setReveal(false)}
+        >
+          {display}
+        </span>
         <span className="sessions-sidebar__item-preview">{previewText}</span>
       </button>
       <IconButton

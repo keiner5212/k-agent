@@ -1,12 +1,16 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/Dialog";
+import { useAgentsStore } from "@/lib/agents";
+import { resolveAgentPersonality } from "@/lib/builtin-agents";
+import { useComposerStore } from "@/lib/composer";
 import {
   buildContextUsage,
   formatUsageCost,
   formatUsageTokens,
   resolveSelectedModel,
 } from "@/lib/context-usage";
+import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import { useProvidersStore } from "@/lib/providers";
 import { selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import { useSelectionStore } from "@/lib/selected-model";
@@ -24,15 +28,22 @@ export const ContextUsage = (): ReactNode => {
   const selection = useSelectionStore((state) => state.selection);
   const providers = useProvidersStore((state) => state.providers);
   const messages = useSessionsStore(selectActiveMessages);
+  const selectedAgent = useComposerStore((state) => state.selectedAgent);
+  const agentContexts = useAgentsStore((state) => state.contexts);
   const model = useMemo(() => resolveSelectedModel(providers, selection), [providers, selection]);
+  const systemPromptTokens = useMemo(
+    () => estimateTokensFromText(resolveAgentPersonality(selectedAgent, agentContexts, t)),
+    [agentContexts, selectedAgent, t],
+  );
   const usage = useMemo(
     () =>
       buildContextUsage({
         windowTokens: model?.contextWindow,
+        extras: { systemPrompt: systemPromptTokens },
         cost: model?.cost,
         messages,
       }),
-    [messages, model],
+    [messages, model, systemPromptTokens],
   );
   const visibleBuckets = usage.buckets.filter((item) => item.tokens > 0);
   const listBuckets =

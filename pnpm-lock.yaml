@@ -16,12 +16,18 @@ importers:
       "@tauri-apps/plugin-store":
         specifier: 2.4.4
         version: 2.4.4
+      dompurify:
+        specifier: ^3.4.14
+        version: 3.4.14
       i18next:
         specifier: 26.4.0
         version: 26.4.0(typescript@5.9.3)
       lucide-react:
         specifier: 1.33.0
         version: 1.33.0(react@19.2.8)
+      marked:
+        specifier: ^18.0.11
+        version: 18.0.11
       react:
         specifier: 19.2.8
         version: 19.2.8
@@ -648,6 +654,12 @@ packages:
         integrity: sha512-tBFxBp9Nfyy5rsmefN+WXc1JeW/j2BpBHFdLZbEVfs9wn3E3NRFxwV0pJg8M1qQAexFpvz73hJXFofV0ZAu92A==,
       }
 
+  "@types/trusted-types@2.0.7":
+    resolution:
+      {
+        integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==,
+      }
+
   "@typescript-eslint/eslint-plugin@8.67.0":
     resolution:
       {
@@ -857,6 +869,12 @@ packages:
         integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==,
       }
     engines: { node: ">=8" }
+
+  dompurify@3.4.14:
+    resolution:
+      {
+        integrity: sha512-dVoH9z+MY+C9IilgGCk3YfFqjLi3fChm2OiKJMzh6axrJ5qwxqWaZamgmHrpv22CN/KdbZJuGEGgfQoL00LTdg==,
+      }
 
   electron-to-chromium@1.5.412:
     resolution:
@@ -1295,6 +1313,14 @@ packages:
       }
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  marked@18.0.11:
+    resolution:
+      {
+        integrity: sha512-HnslJfsZkRPBDJRHvVtAaWlZHEpSu7u8LgQuJCELjRKuWR+hpq4A7sLq3p8HaI9ypVoXDXxV34CsQJEe1+J5Aw==,
+      }
+    engines: { node: ">= 20" }
+    hasBin: true
 
   minimatch@10.2.6:
     resolution:
@@ -1967,6 +1993,9 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
+  "@types/trusted-types@2.0.7":
+    optional: true
+
   "@typescript-eslint/eslint-plugin@8.67.0(@typescript-eslint/parser@8.67.0(eslint@10.9.0)(typescript@5.9.3))(eslint@10.9.0)(typescript@5.9.3)":
     dependencies:
       "@eslint-community/regexpp": 4.12.2
@@ -2111,6 +2140,10 @@ snapshots:
   deep-is@0.1.4: {}
 
   detect-libc@2.1.2: {}
+
+  dompurify@3.4.14:
+    optionalDependencies:
+      "@types/trusted-types": 2.0.7
 
   electron-to-chromium@1.5.412: {}
 
@@ -2337,6 +2370,8 @@ snapshots:
   lucide-react@1.33.0(react@19.2.8):
     dependencies:
       react: 19.2.8
+
+  marked@18.0.11: {}
 
   minimatch@10.2.6:
     dependencies:
