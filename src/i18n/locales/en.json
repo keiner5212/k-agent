@@ -331,7 +331,9 @@
         "image": "Image",
         "audio": "Audio",
         "video": "Video",
-        "pdf": "PDF"
+        "pdf": "PDF",
+        "document": "Word",
+        "textFile": "TXT"
       },
       "input": "Input",
       "outputModalities": "Output",
@@ -766,6 +768,17 @@
       "run": "Run",
       "running": "Running...",
       "attach": "Attach",
+      "attachDisabled": "This model does not accept files.",
+      "attachFilter": "Allowed files",
+      "removeAttachment": "Remove attachment",
+      "attachTooMany": "Too many attachments.",
+      "attachError": {
+        "unsupported": "{{name}} is not allowed for this model.",
+        "tooLarge": "{{name}} is too large.",
+        "unreadable": "Could not read {{name}}.",
+        "extractFailed": "Could not read {{name}}.",
+        "tooMany": "Too many attachments."
+      },
       "disabledHint": "Pick a model to send.",
       "disabledHintShell": "Type a command to run.",
       "queue": "Queue",

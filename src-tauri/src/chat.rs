@@ -3,6 +3,7 @@ use serde_json::json;
 use tauri::AppHandle;
 use thiserror::Error;
 
+use crate::attachments::ChatAttachment;
 use crate::providers::{attach_auth, load_all, ModelInfo, Provider, ProviderError, ProviderKind};
 
 const CHAT_HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
@@ -21,6 +22,8 @@ pub struct ChatTurn {
     pub reasoning: Option<String>,
     #[serde(default)]
     pub reasoning_signature: Option<String>,
+    #[serde(default)]
+    pub attachments: Vec<ChatAttachment>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,6 +70,7 @@ struct Turn {
     content: String,
     reasoning: String,
     reasoning_signature: String,
+    attachments: Vec<ChatAttachment>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -219,12 +223,19 @@ fn last_user_text(turns: &[Turn]) -> &str {
         .unwrap_or("")
 }
 
+fn last_user_has_input(turns: &[Turn]) -> bool {
+    turns.iter().rev().any(|turn| {
+        !turn.assistant && (!turn.content.trim().is_empty() || !turn.attachments.is_empty())
+    })
+}
+
 fn user_turn(content: String) -> Turn {
     Turn {
         assistant: false,
         content,
         reasoning: String::new(),
         reasoning_signature: String::new(),
+        attachments: Vec::new(),
     }
 }
 
@@ -238,7 +249,8 @@ fn normalize_turns(input: &[ChatTurn]) -> Vec<Turn> {
         let content = item.content.clone();
         let reasoning = item.reasoning.clone().unwrap_or_default();
         let reasoning_signature = item.reasoning_signature.clone().unwrap_or_default();
-        if content.trim().is_empty() && reasoning.trim().is_empty() {
+        let attachments = item.attachments.clone();
+        if content.trim().is_empty() && reasoning.trim().is_empty() && attachments.is_empty() {
             continue;
         }
         if let Some(last) = turns.last_mut() {
@@ -247,6 +259,7 @@ fn normalize_turns(input: &[ChatTurn]) -> Vec<Turn> {
                     last.content.push_str("\n\n");
                 }
                 last.content.push_str(&content);
+                last.attachments.extend(attachments);
                 if assistant && !reasoning.trim().is_empty() {
                     last.reasoning = reasoning;
                     last.reasoning_signature = reasoning_signature;
@@ -259,6 +272,7 @@ fn normalize_turns(input: &[ChatTurn]) -> Vec<Turn> {
             content,
             reasoning,
             reasoning_signature,
+            attachments,
         });
     }
     while turns.first().is_some_and(|turn| turn.assistant) {
@@ -268,6 +282,122 @@ fn normalize_turns(input: &[ChatTurn]) -> Vec<Turn> {
         turns.pop();
     }
     turns
+}
+
+fn turn_text(turn: &Turn) -> String {
+    let mut text = turn.content.clone();
+    for item in &turn.attachments {
+        if item.kind != "text" && item.kind != "document" {
+            continue;
+        }
+        let Some(extracted) = item
+            .text
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        if !text.is_empty() {
+            text.push_str("\n\n");
+        }
+        text.push_str("[");
+        text.push_str(&item.name);
+        text.push_str("]\n");
+        text.push_str(extracted);
+    }
+    text
+}
+
+fn media_attachments(turn: &Turn) -> impl Iterator<Item = &ChatAttachment> {
+    turn.attachments.iter().filter(|item| {
+        matches!(item.kind.as_str(), "image" | "pdf" | "video" | "audio") && !item.data.is_empty()
+    })
+}
+
+fn openai_user_content(turn: &Turn) -> serde_json::Value {
+    let text = turn_text(turn);
+    let media: Vec<&ChatAttachment> = media_attachments(turn).collect();
+    if media.is_empty() {
+        return json!(text);
+    }
+    let mut parts = Vec::new();
+    if !text.trim().is_empty() {
+        parts.push(json!({ "type": "text", "text": text }));
+    }
+    for item in media {
+        if item.kind == "image" {
+            parts.push(json!({
+                "type": "image_url",
+                "image_url": {
+                    "url": format!("data:{};base64,{}", item.mime, item.data),
+                },
+            }));
+            continue;
+        }
+        parts.push(json!({
+            "type": "file",
+            "file": {
+                "filename": item.name,
+                "file_data": format!("data:{};base64,{}", item.mime, item.data),
+            },
+        }));
+    }
+    json!(parts)
+}
+
+fn anthropic_user_content(turn: &Turn) -> serde_json::Value {
+    let text = turn_text(turn);
+    let media: Vec<&ChatAttachment> = media_attachments(turn).collect();
+    if media.is_empty() {
+        return json!(text);
+    }
+    let mut parts = Vec::new();
+    for item in media {
+        if item.kind == "image" {
+            parts.push(json!({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": item.mime,
+                    "data": item.data,
+                },
+            }));
+            continue;
+        }
+        parts.push(json!({
+            "type": "document",
+            "source": {
+                "type": "base64",
+                "media_type": item.mime,
+                "data": item.data,
+            },
+        }));
+    }
+    if !text.trim().is_empty() {
+        parts.push(json!({ "type": "text", "text": text }));
+    }
+    json!(parts)
+}
+
+fn gemini_user_parts(turn: &Turn) -> Vec<serde_json::Value> {
+    let text = turn_text(turn);
+    let mut parts = Vec::new();
+    for item in media_attachments(turn) {
+        parts.push(json!({
+            "inlineData": {
+                "mimeType": item.mime,
+                "data": item.data,
+            },
+        }));
+    }
+    if !text.trim().is_empty() {
+        parts.push(json!({ "text": text }));
+    }
+    if parts.is_empty() {
+        parts.push(json!({ "text": "" }));
+    }
+    parts
 }
 
 fn openai_messages(system: Option<&str>, turns: &[Turn]) -> serde_json::Value {
@@ -283,7 +413,7 @@ fn openai_messages(system: Option<&str>, turns: &[Turn]) -> serde_json::Value {
             }));
             continue;
         }
-        messages.push(json!({ "role": "user", "content": turn.content }));
+        messages.push(json!({ "role": "user", "content": openai_user_content(turn) }));
     }
     json!(messages)
 }
@@ -292,7 +422,7 @@ fn anthropic_messages(turns: &[Turn]) -> serde_json::Value {
     let mut messages = Vec::with_capacity(turns.len());
     for turn in turns {
         if !turn.assistant {
-            messages.push(json!({ "role": "user", "content": turn.content }));
+            messages.push(json!({ "role": "user", "content": anthropic_user_content(turn) }));
             continue;
         }
         messages.push(json!({
@@ -318,7 +448,7 @@ fn gemini_contents(turns: &[Turn]) -> serde_json::Value {
         }
         contents.push(json!({
             "role": "user",
-            "parts": [{ "text": turn.content }],
+            "parts": gemini_user_parts(turn),
         }));
     }
     json!(contents)
@@ -1065,7 +1195,7 @@ async fn send_message(
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
 ) -> Result<ChatOutput, ChatError> {
-    if last_user_text(call.turns).trim().is_empty() {
+    if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
     }
     match provider.kind {
@@ -1284,7 +1414,7 @@ pub async fn send_chat_message(
     };
     let (provider, model) = load_provider_model(&app, &input.provider_id, &input.model_id).await?;
     let turns = normalize_turns(&input.messages);
-    if last_user_text(&turns).trim().is_empty() {
+    if !last_user_has_input(&turns) {
         return Err(ChatError::EmptyMessage);
     }
     let effort = resolve_effort(&model, input.effort.as_deref());

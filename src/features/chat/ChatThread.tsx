@@ -1,9 +1,10 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Sparkles } from "lucide-react";
+import { FileText, Film, Sparkles } from "lucide-react";
+import { attachmentPreviewUrl } from "@/lib/attachments";
 import { renderMarkdown } from "@/lib/markdown";
 import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
-import type { ChatMessage } from "@/types/chat";
+import type { ChatAttachment, ChatMessage } from "@/types/chat";
 import { ChatWaitingLine } from "./ChatWaitingLine";
 import { MessageActions } from "./MessageActions";
 
@@ -49,6 +50,33 @@ const InterruptedFooter = ({ interrupted }: { interrupted: boolean }): ReactNode
   return <p className="chat-message__interrupted">{t("chat.interruptedByUser")}</p>;
 };
 
+const MessageAttachments = ({ items }: { items: ChatAttachment[] }): ReactNode => {
+  if (items.length === 0) return null;
+  return (
+    <ul className="chat-message__attachments">
+      {items.map((item) => {
+        const preview = attachmentPreviewUrl(item);
+        return (
+          <li key={item.id} className="chat-message__attachment">
+            {preview ? (
+              <img src={preview} alt={item.name} className="chat-message__attachment-image" />
+            ) : (
+              <span className="chat-message__attachment-file">
+                {item.kind === "video" ? (
+                  <Film size={14} strokeWidth={1.5} />
+                ) : (
+                  <FileText size={14} strokeWidth={1.5} />
+                )}
+                <span>{item.name}</span>
+              </span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+};
+
 const MessageBody = ({ message }: { message: ChatMessage }): ReactNode => {
   if (message.kind === "shell") {
     return (
@@ -71,7 +99,12 @@ const MessageBody = ({ message }: { message: ChatMessage }): ReactNode => {
       </>
     );
   }
-  return <p className="chat-message__content">{message.content}</p>;
+  return (
+    <>
+      <MessageAttachments items={message.attachments ?? []} />
+      {message.content ? <p className="chat-message__content">{message.content}</p> : null}
+    </>
+  );
 };
 
 const InterruptHint = (): ReactNode => {

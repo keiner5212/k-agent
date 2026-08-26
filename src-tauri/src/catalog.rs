@@ -6,7 +6,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crate::providers::{ModelCost, ModelInfo};
+use crate::providers::{derive_attachment_types, ModelCost, ModelInfo};
 use crate::APP_CONFIG_DIR;
 
 const CACHE_FILE: &str = "models-dev-cache.json";
@@ -41,6 +41,8 @@ pub struct CatalogEntry {
     pub structured_output: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub attachment: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachment_types: Vec<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub multimodal: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -143,6 +145,9 @@ struct ModelsDevProvider {
 
 impl Catalog {
     fn insert(&mut self, mut entry: CatalogEntry) {
+        if entry.attachment_types.is_empty() {
+            entry.attachment_types = derive_attachment_types(&entry.input, entry.attachment);
+        }
         let mut keys = Vec::with_capacity(1 + entry.aliases.len());
         keys.push(normalize_id(&entry.id));
         for alias in &entry.aliases {
@@ -186,11 +191,18 @@ impl Catalog {
 
     pub fn apply(&self, model: &mut ModelInfo) {
         if model.user_edited {
+            if model.attachment_types.is_empty() {
+                model.attachment_types = derive_attachment_types(&model.input, model.attachment);
+            }
+            model.sync_multimodal();
             return;
         }
         let Some(entry) = self.lookup(&model.id) else {
             if model.family.is_none() {
                 model.family = Some(id_family(&model.id));
+            }
+            if model.attachment_types.is_empty() {
+                model.attachment_types = derive_attachment_types(&model.input, model.attachment);
             }
             model.sync_multimodal();
             return;
@@ -227,6 +239,12 @@ impl Catalog {
         model.structured_output |= entry.structured_output;
         model.attachment |= entry.attachment;
         model.multimodal |= entry.multimodal;
+        if !entry.attachment_types.is_empty() {
+            model.attachment_types = entry.attachment_types.clone();
+        }
+        if model.attachment_types.is_empty() {
+            model.attachment_types = derive_attachment_types(&model.input, model.attachment);
+        }
         model.sync_multimodal();
     }
 }
@@ -362,6 +380,7 @@ fn catalog_from_models_dev(key: String, model: ModelsDevModel) -> CatalogEntry {
         tool_call: model.tool_call,
         structured_output: model.structured_output,
         attachment: model.attachment,
+        attachment_types: derive_attachment_types(&input, model.attachment),
         effort_levels,
         input,
         output,

@@ -1,5 +1,6 @@
 mod agents;
 mod agents_md;
+mod attachments;
 mod catalog;
 mod chat;
 mod lsp;
@@ -39,6 +40,7 @@ use tauri::{
 };
 use tokio::sync::oneshot;
 
+use attachments::prepare_chat_attachments;
 use chat::{generate_session_title, send_chat_message};
 use providers::{
     delete_provider, delete_provider_model, list_providers, refresh_provider_models,
@@ -695,6 +697,7 @@ pub fn run() {
             send_chat_message,
             generate_session_title,
             run_shell_command,
+            prepare_chat_attachments,
             webview_log,
             cancel_running_task,
         ])

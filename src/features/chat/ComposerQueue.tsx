@@ -24,8 +24,11 @@ export const ComposerQueue = (): ReactNode => {
                 $
               </span>
             ) : null}
-            <span className="composer-queue__text" title={item.text}>
-              {item.text}
+            <span
+              className="composer-queue__text"
+              title={item.text || item.attachments?.map((file) => file.name).join(", ")}
+            >
+              {item.text || item.attachments?.map((file) => file.name).join(", ")}
             </span>
             <GlassButton
               variant="secondary"

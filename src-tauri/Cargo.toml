@@ -34,6 +34,7 @@ zeroize = "1.8.1"
 fontdb = "0.23"
 futures-util = "0.3.34"
 dunce = "1.0.5"
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

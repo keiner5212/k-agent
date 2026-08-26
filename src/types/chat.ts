@@ -5,6 +5,17 @@ export type SelectedModel = {
 
 export type ChatRole = "user" | "assistant";
 
+export type AttachmentKind = "image" | "pdf" | "video" | "audio" | "text" | "document";
+
+export type ChatAttachment = {
+  id: string;
+  name: string;
+  mime: string;
+  kind: AttachmentKind;
+  data?: string;
+  text?: string;
+};
+
 export type ChatChunkKind = "content" | "reasoning";
 
 export type ChatChunk = {
@@ -23,6 +34,7 @@ export type ChatMessage = {
   kind?: "shell";
   shellAiSummary?: string;
   interrupted?: boolean;
+  attachments?: ChatAttachment[];
 };
 
 export type ChatTurn = {
@@ -30,6 +42,7 @@ export type ChatTurn = {
   content: string;
   reasoning?: string | null;
   reasoningSignature?: string | null;
+  attachments?: ChatAttachment[];
 };
 
 export type SendChatResult = {

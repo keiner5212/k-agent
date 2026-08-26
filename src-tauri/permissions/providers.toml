@@ -50,6 +50,7 @@ permissions = [
   "allow-save-mcp-server",
   "allow-delete-mcp-server",
   "allow-send-chat-message",
+  "allow-prepare-chat-attachments",
   "allow-load-sessions",
   "allow-save-sessions",
   "allow-generate-session-title",
@@ -325,6 +326,11 @@ commands.allow = ["set_mcp_server_enabled"]
 identifier = "allow-send-chat-message"
 description = "Send a simple chat message to the selected model."
 commands.allow = ["send_chat_message"]
+
+[[permission]]
+identifier = "allow-prepare-chat-attachments"
+description = "Read and prepare files attached to a chat message."
+commands.allow = ["prepare_chat_attachments"]
 
 [[permission]]
 identifier = "allow-load-sessions"

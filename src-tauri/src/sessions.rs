@@ -23,6 +23,8 @@ pub struct SessionMessage {
     pub kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shell_ai_summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<crate::attachments::ChatAttachment>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

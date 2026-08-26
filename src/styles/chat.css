@@ -1161,6 +1161,38 @@ button.change-bar__stat:focus-visible {
   word-break: break-word;
 }
 
+.chat-message__attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.chat-message__attachment {
+  max-width: 16rem;
+}
+
+.chat-message__attachment-image {
+  display: block;
+  max-width: 16rem;
+  max-height: 12rem;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.chat-message__attachment-file {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
 .chat-message__shell {
   max-height: 24rem;
   overflow: auto;
@@ -1663,6 +1695,66 @@ button.change-bar__stat:focus-visible {
   color: var(--text-primary);
   background-color: transparent;
   border-color: transparent;
+}
+
+.chat-composer__attach:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chat-composer__attach-error {
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--danger);
+}
+
+.composer-attach-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.composer-attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 14rem;
+  padding: 2px var(--space-1) 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background-color: var(--surface-elevated);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.composer-attach-chip__thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.composer-attach-chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-attach-chip__remove {
+  width: 20px;
+  height: 20px;
+  color: var(--text-muted);
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.composer-attach-chip__remove:hover {
+  color: var(--text-primary);
 }
 
 .chat-composer__send {

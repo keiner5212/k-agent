@@ -29,6 +29,7 @@ export type ModelInfo = {
   toolCall?: boolean;
   structuredOutput?: boolean;
   attachment?: boolean;
+  attachmentTypes?: string[];
   multimodal?: boolean;
   effortLevels?: string[];
   cost?: ModelCost;

@@ -331,7 +331,9 @@
         "image": "Imagen",
         "audio": "Audio",
         "video": "Video",
-        "pdf": "PDF"
+        "pdf": "PDF",
+        "document": "Word",
+        "textFile": "TXT"
       },
       "input": "Entrada",
       "outputModalities": "Salida",
@@ -766,6 +768,17 @@
       "run": "Ejecutar",
       "running": "Ejecutando...",
       "attach": "Adjuntar",
+      "attachDisabled": "Este modelo no acepta archivos.",
+      "attachFilter": "Archivos permitidos",
+      "removeAttachment": "Quitar adjunto",
+      "attachTooMany": "Demasiados adjuntos.",
+      "attachError": {
+        "unsupported": "{{name}} no esta permitido para este modelo.",
+        "tooLarge": "{{name}} es demasiado grande.",
+        "unreadable": "No se pudo leer {{name}}.",
+        "extractFailed": "No se pudo leer {{name}}.",
+        "tooMany": "Demasiados adjuntos."
+      },
       "disabledHint": "Elige un modelo para enviar.",
       "disabledHintShell": "Escribe un comando para ejecutar.",
       "queue": "Encolar",

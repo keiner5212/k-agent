@@ -18,7 +18,14 @@ import {
   summarizeShellResultForAi,
   type ShellChunk,
 } from "@/lib/shell";
-import type { ChatChunk, ChatMessage, ChatTurn, SelectedModel, SendChatResult } from "@/types/chat";
+import type {
+  ChatAttachment,
+  ChatChunk,
+  ChatMessage,
+  ChatTurn,
+  SelectedModel,
+  SendChatResult,
+} from "@/types/chat";
 import {
   sortSessions,
   titleFromFirstMessage,
@@ -33,19 +40,24 @@ export type QueuedMessage = {
   sessionId: string;
   text: string;
   mode: ComposerMode;
+  attachments?: ChatAttachment[];
 };
 
 const toChatTurns = (messages: ChatMessage[]): ChatTurn[] =>
   messages
     .filter((message) => !message.streaming)
     .filter(
-      (message) => message.content.trim().length > 0 || (message.reasoning ?? "").trim().length > 0,
+      (message) =>
+        message.content.trim().length > 0 ||
+        (message.reasoning ?? "").trim().length > 0 ||
+        (message.attachments?.length ?? 0) > 0,
     )
     .map((message) => ({
       role: message.role,
       content: message.shellAiSummary ?? message.content,
       reasoning: message.reasoning ?? null,
       reasoningSignature: message.reasoningSignature ?? null,
+      attachments: message.attachments,
     }));
 
 const previewFromMessages = (messages: ChatMessage[]): string => {
@@ -177,9 +189,9 @@ type SessionsStore = {
   create: () => void;
   select: (id: string) => void;
   remove: (id: string) => void;
-  send: (text: string, sessionId?: string) => Promise<boolean>;
+  send: (text: string, sessionId?: string, attachments?: ChatAttachment[]) => Promise<boolean>;
   runShell: (text: string, sessionId?: string) => Promise<boolean>;
-  enqueue: (text: string, mode: ComposerMode) => void;
+  enqueue: (text: string, mode: ComposerMode, attachments?: ChatAttachment[]) => void;
   removeQueued: (id: string) => void;
   flushQueued: () => void;
   sendQueuedNow: (id?: string) => Promise<void>;
@@ -295,9 +307,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     if (stopSending || stopShell) get().flushQueued();
   },
 
-  send: async (text, targetSessionId) => {
+  send: async (text, targetSessionId, attachments) => {
     const trimmed = text.trim();
-    if (!trimmed || get().sending || get().shellRunning) return false;
+    const pending = attachments ?? [];
+    if ((!trimmed && pending.length === 0) || get().sending || get().shellRunning) return false;
     if (!get().hydrated) return false;
 
     const selection = useSelectionStore.getState().selection;
@@ -353,13 +366,13 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       id: nextId(),
       role: "user",
       content,
+      ...(pending.length > 0 ? { attachments: pending } : {}),
     };
     const now = Date.now();
-
     const withUser = sortSessions(
       patchActiveSession(get().sessions, sessionId, (session) => ({
         ...session,
-        preview: content,
+        preview: content.trim() || pending[0]?.name || content,
         updatedAt: now,
         messages: [...session.messages, userMessage],
       })),
@@ -383,7 +396,11 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     };
 
     if (isFirstMessage && !activeSession.title) {
-      void generateSessionTitle(trimmed).then(applyTitle);
+      if (trimmed) {
+        void generateSessionTitle(trimmed).then(applyTitle);
+      } else if (pending[0]?.name) {
+        applyTitle(pending[0].name);
+      }
     }
 
     try {
@@ -534,9 +551,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     }
   },
 
-  enqueue: (text, mode) => {
+  enqueue: (text, mode, attachments) => {
     const trimmed = text.trim();
-    if (!trimmed || !get().hydrated) return;
+    const pending = attachments ?? [];
+    if ((!trimmed && (mode === "shell" || pending.length === 0)) || !get().hydrated) return;
     const ensured = ensureSession(get().sessions, get().activeSessionId);
     if (ensured.activeSessionId !== get().activeSessionId) {
       set({ sessions: ensured.sessions, activeSessionId: ensured.activeSessionId });
@@ -545,7 +563,16 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     const sessionId = ensured.activeSessionId;
     if (!sessionId) return;
     set({
-      queued: [...get().queued, { id: nextId(), sessionId, text: trimmed, mode }],
+      queued: [
+        ...get().queued,
+        {
+          id: nextId(),
+          sessionId,
+          text: trimmed,
+          mode,
+          ...(pending.length > 0 ? { attachments: pending } : {}),
+        },
+      ],
     });
     get().flushQueued();
   },
@@ -562,7 +589,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     const started =
       next.mode === "shell"
         ? get().runShell(next.text, next.sessionId)
-        : get().send(next.text, next.sessionId);
+        : get().send(next.text, next.sessionId, next.attachments);
     void started.then(
       (ok) => {
         if (!ok) get().flushQueued();

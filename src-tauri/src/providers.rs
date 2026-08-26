@@ -72,6 +72,8 @@ pub struct ModelInfo {
     pub structured_output: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub attachment: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachment_types: Vec<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub multimodal: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -101,6 +103,7 @@ impl ModelInfo {
             tool_call: false,
             structured_output: false,
             attachment: false,
+            attachment_types: Vec::new(),
             multimodal: false,
             effort_levels: Vec::new(),
             cost: None,
@@ -118,6 +121,28 @@ impl ModelInfo {
             )
         });
     }
+}
+
+pub(crate) fn derive_attachment_types(input: &[String], attachment: bool) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    let mut push = |value: &str| {
+        let key = value.to_ascii_lowercase();
+        if seen.insert(key.clone()) {
+            out.push(key);
+        }
+    };
+    for item in input {
+        match item.to_ascii_lowercase().as_str() {
+            "image" | "pdf" | "video" | "audio" => push(item),
+            _ => {}
+        }
+    }
+    if attachment {
+        push("text");
+        push("document");
+    }
+    out
 }
 
 fn keep_local(model: &ModelInfo) -> bool {
@@ -928,6 +953,9 @@ pub async fn upsert_provider_model(
     next.tool_call |= input.tool_call;
     next.structured_output |= input.structured_output;
     next.attachment |= input.attachment;
+    if next.attachment_types.is_empty() {
+        next.attachment_types = derive_attachment_types(&next.input, next.attachment);
+    }
     next.sync_multimodal();
 
     if let Some(existing) = provider
