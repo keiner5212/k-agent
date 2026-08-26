@@ -382,7 +382,10 @@
       "detected": "Detected {{count}} model.",
       "detected_plural": "Detected {{count}} models.",
       "errors": {
-        "required": "Name and base URL are required."
+        "required": "Name and base URL are required.",
+        "fetchFailed": "Failed to fetch models from this provider. Check the URL and API key.",
+        "noModels": "No models found for this provider.",
+        "unknown": "Unknown error."
       }
     },
     "delete": {

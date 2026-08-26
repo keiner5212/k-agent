@@ -86,12 +86,19 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
     });
     setSubmitting(false);
     if (result.error) {
-      setError(result.error);
+      console.error("Uy pa, cule error bien socromático, pilla: ", result.error);
+      setError(t("providers.form.errors.fetchFailed"));
       return;
     }
-    if (result.provider) {
-      setDetectedCount(result.provider.models.length);
+    if (!result.provider) {
+      setError(t("providers.form.errors.unknown"));
+      return;
     }
+    if (!isEditing && result.provider?.models.length === 0) {
+      setError(t("providers.form.errors.noModels"));
+      return;
+    }
+    setDetectedCount(result.provider.models.length);
     onSaved();
     onOpenChange(false);
   };
