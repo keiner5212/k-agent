@@ -12,6 +12,7 @@ import { selectEffort, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
 import {
   buildShellResultContent,
+  formatShellMessage,
   runShellCommand,
   summarizeShellResultForAi,
 } from "@/lib/shell";
@@ -529,27 +530,19 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     const now = Date.now();
     const activeSession = ensured.sessions.find((session) => session.id === sessionId);
     const isFirstMessage = (activeSession?.messages.length ?? 0) === 0;
+    const userMessageId = nextId();
     const userMessage: ChatMessage = {
-      id: nextId(),
+      id: userMessageId,
       role: "user",
-      content: resolvedCommand,
+      kind: "shell",
+      content: formatShellMessage(resolvedCommand, i18n.t("chat.shell.running")),
     };
-    const placeholderAssistantId = nextId();
     const withUser = sortSessions(
       patchActiveSession(ensured.sessions, sessionId, (session) => ({
         ...session,
         preview: resolvedCommand,
         updatedAt: now,
-        messages: [
-          ...session.messages,
-          userMessage,
-          {
-            id: placeholderAssistantId,
-            role: "assistant" as const,
-            kind: "shell",
-            content: i18n.t("chat.shell.running"),
-          },
-        ],
+        messages: [...session.messages, userMessage],
       })),
     );
     set({
@@ -575,16 +568,23 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       });
     }
 
-    const applyAssistant = (finalAssistant: ChatMessage, error?: string): void => {
+    const applyShellMessage = (content: string, shellAiSummary?: string, error?: string): void => {
       const nextSessions = sortSessions(
         patchActiveSession(get().sessions, sessionId, (session) => {
           const messages = session.messages.slice();
-          const idx = messages.findIndex((message) => message.id === placeholderAssistantId);
-          if (idx >= 0) messages[idx] = finalAssistant;
-          else messages.push(finalAssistant);
+          const idx = messages.findIndex((message) => message.id === userMessageId);
+          if (idx >= 0) {
+            const current = messages[idx];
+            if (!current) return session;
+            messages[idx] = {
+              ...current,
+              content,
+              shellAiSummary,
+            };
+          }
           return {
             ...session,
-            preview: resolvedCommand,
+            preview: content,
             updatedAt: Date.now(),
             messages,
           };
@@ -602,27 +602,17 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
 
     try {
       const result = await runShellCommand({ command: resolvedCommand });
-      const display = buildShellResultContent(result);
-      const aiSummary = summarizeShellResultForAi(result);
-      applyAssistant({
-        id: placeholderAssistantId,
-        role: "assistant",
-        kind: "shell",
-        content: display,
-        shellAiSummary: aiSummary !== display ? aiSummary : undefined,
-      });
+      const output = buildShellResultContent(result);
+      const aiOutput = summarizeShellResultForAi(result);
+      const content = formatShellMessage(resolvedCommand, output);
+      applyShellMessage(
+        content,
+        aiOutput !== output ? formatShellMessage(resolvedCommand, aiOutput) : undefined,
+      );
     } catch (error) {
       const errorMessage = ipcErrorMessage(error);
-      applyAssistant(
-        {
-          id: placeholderAssistantId,
-          role: "assistant",
-          kind: "shell",
-          content: i18n.t("chat.shell.failed", { error: errorMessage }),
-          shellAiSummary: i18n.t("chat.shell.failed", { error: errorMessage }),
-        },
-        errorMessage,
-      );
+      const failed = i18n.t("chat.shell.failed", { error: errorMessage });
+      applyShellMessage(formatShellMessage(resolvedCommand, failed), failed, errorMessage);
     }
   },
 

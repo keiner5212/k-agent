@@ -97,3 +97,6 @@ export const summarizeShellResultForAi = (result: RunShellResponse): string => {
 
 export const buildShellResultContent = (result: RunShellResponse): string =>
   buildShellDisplay(result);
+
+export const formatShellMessage = (command: string, output: string): string =>
+  output.length === 0 ? command : `${command}\n\n${output}`;

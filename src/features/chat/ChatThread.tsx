@@ -92,7 +92,7 @@ export const ChatThread = (): ReactNode => {
         {messages.map((message) => (
           <article
             key={message.id}
-            className={`chat-message chat-message--${message.role}${message.streaming ? " chat-message--streaming" : ""}`}
+            className={`chat-message chat-message--${message.role}${message.kind === "shell" ? " chat-message--shell" : ""}${message.streaming ? " chat-message--streaming" : ""}`}
             data-role={message.role}
           >
             <MessageBody message={message} />
