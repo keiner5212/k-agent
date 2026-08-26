@@ -27,6 +27,7 @@ type ComposerTextareaProps = {
   onChange: (next: string) => void;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   onKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onPaste?: (event: React.ClipboardEvent<HTMLTextAreaElement>) => void;
 };
 
 export const ComposerTextarea = ({
@@ -35,6 +36,7 @@ export const ComposerTextarea = ({
   onChange,
   textareaRef,
   onKeyDown,
+  onPaste,
 }: ComposerTextareaProps): ReactNode => {
   const { t } = useTranslation();
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -185,6 +187,7 @@ export const ComposerTextarea = ({
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onPaste={onPaste}
         onClick={syncCursor}
         onSelect={syncCursor}
         onScroll={syncScroll}

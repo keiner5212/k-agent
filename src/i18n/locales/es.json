@@ -788,6 +788,15 @@
         "hint": "Shift+! cambia de modo cuando el input esta vacio"
       }
     },
+    "preview": {
+      "title": "Adjunto",
+      "open": "Ver adjunto",
+      "play": "Reproducir",
+      "pause": "Pausar",
+      "mute": "Silenciar",
+      "unmute": "Activar sonido",
+      "seek": "Posicion"
+    },
     "shell": {
       "running": "Ejecutando comando de shell...",
       "failed": "Shell falló: {{error}}",

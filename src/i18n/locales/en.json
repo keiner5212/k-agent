@@ -788,6 +788,15 @@
         "hint": "Shift+! toggles mode when input is empty"
       }
     },
+    "preview": {
+      "title": "Attachment",
+      "open": "Preview attachment",
+      "play": "Play",
+      "pause": "Pause",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "seek": "Seek"
+    },
     "shell": {
       "running": "Running shell command...",
       "failed": "Shell failed: {{error}}",

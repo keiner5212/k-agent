@@ -14,11 +14,13 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import {
-  clipboardHasFiles,
+  clipboardLooksLikeAttachment,
+  collectClipboardFiles,
   dialogFiltersFor,
   MAX_CHAT_ATTACHMENTS,
   pickerAttachmentTypes,
-  prepareClipboardAttachments,
+  prepareClipboardImageAttachments,
+  prepareFileAttachments,
   preparePathAttachments,
 } from "@/lib/attachments";
 import { useChatStore } from "@/lib/chat";
@@ -131,9 +133,16 @@ export const ChatComposer = (): ReactNode => {
 
   const handlePaste = useCallback(
     (event: ClipboardEvent<HTMLElement>) => {
-      if (shellMode || !canAttach || !clipboardHasFiles(event.nativeEvent)) return;
+      if (event.defaultPrevented || shellMode || !canAttach) return;
+      const files = collectClipboardFiles(event.nativeEvent);
+      if (files.length > 0) {
+        event.preventDefault();
+        void ingestPrepared(() => prepareFileAttachments(files, allowedTypes));
+        return;
+      }
+      if (!clipboardLooksLikeAttachment(event.nativeEvent)) return;
       event.preventDefault();
-      void ingestPrepared(() => prepareClipboardAttachments(event.nativeEvent, allowedTypes));
+      void ingestPrepared(() => prepareClipboardImageAttachments(allowedTypes));
     },
     [allowedTypes, canAttach, ingestPrepared, shellMode],
   );
@@ -237,6 +246,7 @@ export const ChatComposer = (): ReactNode => {
           onChange={pushChange}
           textareaRef={textareaRef}
           onKeyDown={handleComposerKeyDown}
+          onPaste={handlePaste}
         />
         <div className="chat-composer__actions">
           {!shellMode ? (

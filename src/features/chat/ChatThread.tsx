@@ -1,10 +1,11 @@
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FileText, Film, Sparkles } from "lucide-react";
 import { attachmentPreviewUrl } from "@/lib/attachments";
 import { renderMarkdown } from "@/lib/markdown";
 import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import type { ChatAttachment, ChatMessage } from "@/types/chat";
+import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
 import { ChatWaitingLine } from "./ChatWaitingLine";
 import { MessageActions } from "./MessageActions";
 
@@ -51,29 +52,40 @@ const InterruptedFooter = ({ interrupted }: { interrupted: boolean }): ReactNode
 };
 
 const MessageAttachments = ({ items }: { items: ChatAttachment[] }): ReactNode => {
+  const [preview, setPreview] = useState<ChatAttachment | null>(null);
   if (items.length === 0) return null;
   return (
-    <ul className="chat-message__attachments">
-      {items.map((item) => {
-        const preview = attachmentPreviewUrl(item);
-        return (
-          <li key={item.id} className="chat-message__attachment">
-            {preview ? (
-              <img src={preview} alt={item.name} className="chat-message__attachment-image" />
-            ) : (
-              <span className="chat-message__attachment-file">
-                {item.kind === "video" ? (
-                  <Film size={14} strokeWidth={1.5} />
+    <>
+      <ul className="chat-message__attachments">
+        {items.map((item) => {
+          const thumb = attachmentPreviewUrl(item);
+          return (
+            <li key={item.id} className="chat-message__attachment">
+              <button
+                type="button"
+                className="chat-message__attachment-open"
+                title={item.name}
+                onClick={() => setPreview(item)}
+              >
+                {thumb ? (
+                  <img src={thumb} alt={item.name} className="chat-message__attachment-image" />
                 ) : (
-                  <FileText size={14} strokeWidth={1.5} />
+                  <span className="chat-message__attachment-file">
+                    {item.kind === "video" ? (
+                      <Film size={14} strokeWidth={1.5} />
+                    ) : (
+                      <FileText size={14} strokeWidth={1.5} />
+                    )}
+                    <span>{item.name}</span>
+                  </span>
                 )}
-                <span>{item.name}</span>
-              </span>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <AttachmentPreviewDialog item={preview} onClose={() => setPreview(null)} />
+    </>
   );
 };
 
