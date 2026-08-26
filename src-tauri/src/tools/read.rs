@@ -313,25 +313,26 @@ fn read_windowed(path: &Path, offset: usize, limit: usize) -> std::io::Result<Re
             break;
         }
         total_lines += 1;
+        if total_lines <= start {
+            continue;
+        }
+        if raw.len() >= limit {
+            more = true;
+            continue;
+        }
         let mut line = buffer.trim_end_matches(['\n', '\r']).to_string();
         if line.len() > MAX_LINE_LENGTH {
             line.truncate(MAX_LINE_LENGTH);
             line.push_str(MAX_LINE_SUFFIX);
         }
-        if total_lines > start && raw.len() < limit {
-            let line_bytes = line.len() + if raw.is_empty() { 0 } else { 1 };
-            if bytes_used + line_bytes > MAX_BYTES {
-                capped = true;
-                more = true;
-                break;
-            }
-            raw.push(line);
-            bytes_used += line_bytes;
-            if raw.len() >= limit {
-                more = true;
-                break;
-            }
+        let line_bytes = line.len() + if raw.is_empty() { 0 } else { 1 };
+        if bytes_used + line_bytes > MAX_BYTES {
+            capped = true;
+            more = true;
+            continue;
         }
+        raw.push(line);
+        bytes_used += line_bytes;
     }
     Ok(ReadResult {
         raw,
@@ -344,6 +345,7 @@ fn read_windowed(path: &Path, offset: usize, limit: usize) -> std::io::Result<Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn reads_windowed_lines() {
@@ -370,6 +372,15 @@ mod tests {
         let result = read_windowed(&path, 1, 1).unwrap();
         assert_eq!(result.raw.len(), 1);
         assert!(result.raw[0].ends_with(MAX_LINE_SUFFIX));
+    }
+
+    #[test]
+    fn execute_requires_file_path() {
+        let dir = tempdir();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = ReadTool.execute(&json!({}), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        let _ = fs::remove_dir_all(&dir);
     }
 
     fn tempdir() -> PathBuf {

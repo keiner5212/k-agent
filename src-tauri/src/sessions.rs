@@ -43,7 +43,7 @@ pub struct SessionRecord {
     pub title: String,
     pub preview: String,
     pub updated_at: i64,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub messages: Vec<SessionMessage>,
 }
 

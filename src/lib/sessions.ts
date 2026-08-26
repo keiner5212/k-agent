@@ -23,6 +23,8 @@ import {
   type ShellChunk,
 } from "@/lib/shell";
 import { loadedSkillNamesFromMessages } from "@/lib/context-usage";
+import { sanitizeSessionsSnapshot, sessionMessages, toChatTurns } from "@/lib/session-turns";
+import { getWorkerCoreSnapshot } from "@/lib/worker-cores";
 import {
   parseToolChunkText,
   type AskUserQuestion,
@@ -30,7 +32,6 @@ import {
   type ChatAttachment,
   type ChatChunk,
   type ChatMessage,
-  type ChatTurn,
   type SelectedModel,
   type SendChatResult,
 } from "@/types/chat";
@@ -51,75 +52,6 @@ export type QueuedMessage = {
   text: string;
   mode: ComposerMode;
   attachments?: ChatAttachment[];
-};
-
-const toChatTurns = (messages: ChatMessage[]): ChatTurn[] => {
-  const turns: ChatTurn[] = [];
-  for (const message of messages) {
-    if (message.streaming) continue;
-    if (message.role === "assistant") {
-      const rounds = message.toolRounds ?? [];
-      const splitReasoning = rounds.length > 0;
-      for (const round of rounds) {
-        const calls = round.calls ?? [];
-        turns.push({
-          role: "assistant",
-          content: round.content ?? "",
-          reasoning: round.reasoning || null,
-          reasoningSignature: round.reasoningSignature ?? null,
-          attachments: message.attachments,
-          toolCalls: calls.map((call) => ({
-            id: call.id,
-            name: call.name,
-            argument: call.argument,
-            arguments: call.arguments,
-            thoughtSignature: call.thoughtSignature,
-          })),
-        });
-        for (const call of calls) {
-          turns.push({
-            role: "user",
-            content: "",
-            toolResult: {
-              callId: call.id,
-              name: call.name,
-              content: call.output,
-            },
-          });
-        }
-      }
-      const body = message.shellAiSummary ?? message.content;
-      if (
-        body.trim().length > 0 ||
-        (message.attachments?.length ?? 0) > 0 ||
-        (!splitReasoning && rounds.length === 0 && (message.reasoning ?? "").trim().length > 0)
-      ) {
-        turns.push({
-          role: "assistant",
-          content: body,
-          reasoning: splitReasoning || rounds.length === 0 ? (message.reasoning ?? null) : null,
-          reasoningSignature:
-            splitReasoning || rounds.length === 0 ? (message.reasoningSignature ?? null) : null,
-          attachments: message.attachments,
-        });
-      }
-      continue;
-    }
-    if (
-      message.content.trim().length > 0 ||
-      (message.reasoning ?? "").trim().length > 0 ||
-      (message.attachments?.length ?? 0) > 0
-    ) {
-      turns.push({
-        role: message.role,
-        content: message.shellAiSummary ?? message.content,
-        reasoning: message.reasoning ?? null,
-        reasoningSignature: message.reasoningSignature ?? null,
-        attachments: message.attachments,
-      });
-    }
-  }
-  return turns;
 };
 
 const previewFromMessages = (messages: ChatMessage[]): string => {
@@ -214,7 +146,7 @@ const persistableSnapshot = (snapshot: SessionsSnapshot): SessionsSnapshot => ({
   ...snapshot,
   sessions: snapshot.sessions.map((session) => ({
     ...session,
-    messages: session.messages
+    messages: sessionMessages(session)
       .filter((message) => !message.streaming)
       .map((message) => {
         const { toolCalls: _toolCalls, streaming: _streaming, ...rest } = message;
@@ -295,7 +227,7 @@ const patchActiveSession = (
   sessions.map((session) => (session.id === activeSessionId ? patch(session) : session));
 
 const isBlankSession = (session: SessionRecord): boolean =>
-  session.messages.length === 0 && session.title.trim().length === 0;
+  sessionMessages(session).length === 0 && session.title.trim().length === 0;
 
 const ensureSession = (
   sessions: SessionRecord[],
@@ -361,9 +293,8 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       return;
     }
     try {
-      const snapshot = await invokeWithTimeout<SessionsSnapshot>(
-        "load_sessions",
-        HYDRATE_TIMEOUT_MS,
+      const snapshot = sanitizeSessionsSnapshot(
+        await invokeWithTimeout<SessionsSnapshot>("load_sessions", HYDRATE_TIMEOUT_MS),
       );
       if (get().hydrated) return;
       const ensured = ensureSession(snapshot.sessions, snapshot.activeSessionId);
@@ -480,7 +411,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       ...(stickActive ? { activeSessionId: sessionId } : {}),
     });
 
-    const isFirstMessage = activeSession.messages.length === 0;
+    const isFirstMessage = sessionMessages(activeSession).length === 0;
     const effort = resolveSendEffort(selection);
     let content: string;
     try {
@@ -513,7 +444,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         ...session,
         preview: content.trim() || pending[0]?.name || content,
         updatedAt: now,
-        messages: [...session.messages, userMessage],
+        messages: [...sessionMessages(session), userMessage],
       })),
     );
     set({
@@ -545,7 +476,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     try {
       const assistantId = nextId();
       const chatTurns = toChatTurns(
-        withUser.find((session) => session.id === sessionId)?.messages ?? [],
+        sessionMessages(withUser.find((session) => session.id === sessionId)),
       );
       let thinkingStartedAt: number | undefined;
       let thinkingEndedAt: number | undefined;
@@ -609,7 +540,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       const skillContexts = useSkillsStore.getState().contexts;
       const t = i18n.t.bind(i18n);
       const agent = resolveAgentMeta(selectedAgent, agentContexts, t);
-      const historyMessages = withUser.find((session) => session.id === sessionId)?.messages ?? [];
+      const historyMessages = sessionMessages(withUser.find((session) => session.id === sessionId));
       const loadedSkills = loadedSkillNamesFromMessages(historyMessages);
       const baseSystem = composeAgentSystem(agent, skillContexts, loadedSkills);
       const rules = buildAgentsMdRules(useAgentsMdStore.getState().files);
@@ -629,6 +560,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           effort: effort ?? null,
           sessionId: sessionId,
           toolNames,
+          workerCores: getWorkerCoreSnapshot().limit,
         },
         onChunk,
       });
@@ -835,9 +767,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     }
     const session = sessions.find((item) => item.id === sessionId);
     if (!session) return;
-    const index = session.messages.findIndex((message) => message.id === messageId);
+    const messages = sessionMessages(session);
+    const index = messages.findIndex((message) => message.id === messageId);
     if (index < 0) return;
-    const removed = session.messages.length - index;
+    const removed = messages.length - index;
 
     // TODO: rewind file edits and shell changes made by the assistant
     // messages between `index` and the previous end. Track per-write snapshots
@@ -846,7 +779,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     // For now we only roll back the chat history.
     console.warn(`[sessions] rewind to ${messageId}: trimmed ${removed} message(s), kept ${index}`);
 
-    const kept = session.messages.slice(0, index);
+    const kept = messages.slice(0, index);
     const nextSessions = sortSessions(
       patchActiveSession(sessions, sessionId, (item) => ({
         ...item,
@@ -921,7 +854,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     }
 
     const now = Date.now();
-    const isFirstMessage = latest.messages.length === 0;
+    const isFirstMessage = sessionMessages(latest).length === 0;
     const userMessageId = nextId();
     const userMessage: ChatMessage = {
       id: userMessageId,
@@ -934,7 +867,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         ...session,
         preview: resolvedCommand,
         updatedAt: now,
-        messages: [...session.messages, userMessage],
+        messages: [...sessionMessages(session), userMessage],
       })),
     );
     set({
@@ -1078,8 +1011,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     const session = sessions.find((item) => item.id === sessionId);
     if (!session) return;
     let lastUserId: string | null = null;
-    for (let i = session.messages.length - 1; i >= 0; i -= 1) {
-      const message = session.messages[i];
+    const messages = sessionMessages(session);
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i];
       if (message?.role === "user") {
         lastUserId = message.id;
         break;
@@ -1098,5 +1032,7 @@ export const selectActiveSession = (state: SessionsStore): SessionRecord | null 
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
-export const selectActiveMessages = (state: SessionsStore): ChatMessage[] =>
-  selectActiveSession(state)?.messages ?? EMPTY_MESSAGES;
+export const selectActiveMessages = (state: SessionsStore): ChatMessage[] => {
+  const messages = sessionMessages(selectActiveSession(state));
+  return messages.length > 0 ? messages : EMPTY_MESSAGES;
+};

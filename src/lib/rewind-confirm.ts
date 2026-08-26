@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { sessionMessages } from "@/lib/session-turns";
 import { useSessionsStore } from "@/lib/sessions";
 
 type RewindConfirmState = {
@@ -13,8 +14,9 @@ const lastUserMessageId = (): string | null => {
   if (!sessionId) return null;
   const session = useSessionsStore.getState().sessions.find((item) => item.id === sessionId);
   if (!session) return null;
-  for (let i = session.messages.length - 1; i >= 0; i -= 1) {
-    const message = session.messages[i];
+  const messages = sessionMessages(session);
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
     if (message?.role === "user") return message.id;
   }
   return null;

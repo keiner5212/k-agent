@@ -99,3 +99,44 @@ impl Tool for WriteTool {
 fn resolve_path(ctx: &ToolContext<'_>, raw: &str) -> Result<PathBuf, String> {
     crate::pathutil::resolve_tool_path(raw, ctx.workspace_path().as_deref())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn tempdir() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "k-agent-write-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn writes_file_in_workspace() {
+        let dir = tempdir();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = WriteTool.execute(
+            &json!({"filePath": "hello.txt", "content": "hi"}),
+            &ctx,
+        );
+        assert_eq!(outcome.display.status.as_deref(), Some("ok"));
+        assert_eq!(fs::read_to_string(dir.join("hello.txt")).unwrap(), "hi");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_missing_path() {
+        let dir = tempdir();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = WriteTool.execute(&json!({"content": "hi"}), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+}

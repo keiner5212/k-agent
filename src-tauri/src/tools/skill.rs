@@ -35,7 +35,10 @@ impl Tool for SkillTool {
         if name.is_empty() {
             return super::context_error(None, "skill name is empty.");
         }
-        match crate::skills::find_skill_by_name(ctx.app, name) {
+        let Some(app) = ctx.app else {
+            return super::context_error(None, "skill tool requires the app handle.");
+        };
+        match crate::skills::find_skill_by_name(app, name) {
             Ok(Some(skill)) => {
                 let body = skill.body.trim();
                 ToolOutcome {
@@ -69,4 +72,28 @@ impl Tool for SkillTool {
 fn with_skill_name(mut outcome: ToolOutcome, name: &str) -> ToolOutcome {
     outcome.display.skill_name = Some(name.to_string());
     outcome
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn rejects_empty_name() {
+        let dir = std::env::temp_dir();
+        let ctx = crate::tools::ToolContext::for_test(dir, 1);
+        let outcome = SkillTool.execute(&json!({"name": "  "}), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        assert!(outcome.text.contains("empty"));
+    }
+
+    #[test]
+    fn rejects_missing_app_handle() {
+        let dir = std::env::temp_dir();
+        let ctx = crate::tools::ToolContext::for_test(dir, 1);
+        let outcome = SkillTool.execute(&json!({"name": "demo"}), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        assert!(outcome.text.contains("app handle"));
+    }
 }

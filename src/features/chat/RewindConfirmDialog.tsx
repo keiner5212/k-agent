@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { useRewindConfirmStore } from "@/lib/rewind-confirm";
+import { sessionMessages } from "@/lib/session-turns";
 import { useSessionsStore } from "@/lib/sessions";
 
 export const RewindConfirmDialog = (): ReactNode => {
@@ -18,9 +19,10 @@ export const RewindConfirmDialog = (): ReactNode => {
     if (!sessionId) return 0;
     const session = useSessionsStore.getState().sessions.find((item) => item.id === sessionId);
     if (!session) return 0;
-    const index = session.messages.findIndex((m) => m.id === targetMessageId);
+    const messages = sessionMessages(session);
+    const index = messages.findIndex((m) => m.id === targetMessageId);
     if (index < 0) return 0;
-    return session.messages.length - index;
+    return messages.length - index;
   }, [targetMessageId, open]);
 
   const handleConfirm = (): void => {

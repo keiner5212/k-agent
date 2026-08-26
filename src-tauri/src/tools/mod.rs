@@ -26,6 +26,7 @@ pub const LIST_DIRECTORY_TOOL_NAME: &str = list_directory::NAME;
 pub const ASK_USER_TOOL_NAME: &str = ask_user::NAME;
 pub const CREATE_FOLDER_TOOL_NAME: &str = create_folder::NAME;
 pub const DELETE_TOOL_NAME: &str = delete::NAME;
+pub const LIST_DIRECTORY_MAX_PARALLELISM: usize = list_directory::MAX_PARALLELISM;
 
 pub const TOOL_KIND_CONTEXT: &str = "context";
 pub const TOOL_KIND_ACTION: &str = "action";
@@ -50,18 +51,36 @@ pub struct ModelToolCall {
 }
 
 pub struct ToolContext<'a> {
-    pub app: &'a AppHandle,
+    pub app: Option<&'a AppHandle>,
     pub call_id: String,
     pub on_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
+    pub workspace: Option<std::path::PathBuf>,
+    pub parallelism: usize,
 }
 
 impl ToolContext<'_> {
     pub fn workspace_path(&self) -> Option<std::path::PathBuf> {
-        crate::pathutil::workspace_from_app(self.app)
+        if let Some(path) = &self.workspace {
+            return Some(path.clone());
+        }
+        self.app.and_then(crate::pathutil::workspace_from_app)
     }
 
     pub fn relative_path(&self, path: &std::path::Path) -> String {
         crate::pathutil::relative_to_workspace(path, self.workspace_path().as_deref())
+    }
+}
+
+#[cfg(test)]
+impl ToolContext<'static> {
+    pub fn for_test(workspace: std::path::PathBuf, parallelism: usize) -> Self {
+        Self {
+            app: None,
+            call_id: "test".into(),
+            on_chunk: None,
+            workspace: Some(workspace),
+            parallelism,
+        }
     }
 }
 

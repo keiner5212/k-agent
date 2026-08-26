@@ -160,15 +160,18 @@ Also:
 
 ## Checks
 
-Run before commit. CI runs the same three. All must exit zero.
+Run before commit. CI runs the same four. All must exit zero.
 
 ```
 pnpm typecheck
+pnpm test
 pnpm lint
 pnpm format:check
 ```
 
-Order: typecheck, then lint, then format. Fix in that order; lint errors after a type fix are usually follow-ons.
+Order: typecheck, then test, then lint, then format. Fix in that order; lint errors after a type fix are usually follow-ons.
+
+Rust tool tests: `cd src-tauri && cargo test --lib`. Not part of the four; run when touching `src-tauri/src/tools/`.
 
 `pnpm format` (prettier --write) is the only acceptable way to resolve format failures. Do not hand-edit whitespace to satisfy prettier.
 
@@ -179,5 +182,5 @@ Order: typecheck, then lint, then format. Fix in that order; lint errors after a
 - Add a second Dialog/Select/Toggle/store/platform helper.
 - Comment what the code already says. Comment only a non-obvious why.
 - Expand scope past the asked change.
-- Ship code with `pnpm format:check`, `pnpm lint`, or `pnpm typecheck` failing.
+- Ship code with `pnpm format:check`, `pnpm lint`, `pnpm test`, or `pnpm typecheck` failing.
 - Start dev servers, watchers, daemons, or any long-running foreground process. They block the shell and stay alive between turns. Prohibited.

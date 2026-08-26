@@ -105,3 +105,43 @@ impl Tool for CreateFolderTool {
 fn resolve_path(ctx: &ToolContext<'_>, raw: &str) -> Result<PathBuf, String> {
     crate::pathutil::resolve_tool_path(raw, ctx.workspace_path().as_deref())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn tempdir() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "k-agent-mkdir-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn creates_nested_folder() {
+        let dir = tempdir();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = CreateFolderTool.execute(&json!({"dirPath": "a/b"}), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("ok"));
+        assert!(dir.join("a/b").is_dir());
+        let again = CreateFolderTool.execute(&json!({"dirPath": "a/b"}), &ctx);
+        assert_eq!(again.display.status.as_deref(), Some("ok"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_empty_path() {
+        let dir = tempdir();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = CreateFolderTool.execute(&json!({"dirPath": "  "}), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+}

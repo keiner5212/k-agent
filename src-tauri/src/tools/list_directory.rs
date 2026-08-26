@@ -19,7 +19,7 @@ const MAX_ENTRIES_PER_DIR: usize = 2_000;
 const MAX_OUTPUT_LINES: usize = 5_000;
 const MAX_DEPTH_DEFAULT: usize = 3;
 const CACHE_TTL: Duration = Duration::from_millis(1000);
-const HARD_PARALLELISM_CAP: usize = 16;
+pub const MAX_PARALLELISM: usize = 16;
 
 const SKIP_DIR_NAMES: &[&str] = &[
     "node_modules",
@@ -157,7 +157,7 @@ impl Tool for ListDirectoryTool {
             );
         }
 
-        render_tree(&resolved, &rel, recursive, max_depth)
+        render_tree(&resolved, &rel, recursive, max_depth, ctx.parallelism)
     }
 }
 
@@ -215,11 +215,11 @@ fn write_cached(dir: &Path, entries: &[DirEntry]) {
     }
 }
 
-fn resolve_parallel_cap() -> usize {
+pub(crate) fn resolve_parallel_cap(configured: usize) -> usize {
     let hardware = thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(4);
-    hardware.min(HARD_PARALLELISM_CAP).max(1)
+    hardware.min(MAX_PARALLELISM).min(configured.max(1)).max(1)
 }
 
 fn collect_entries(dir: &Path, limit: usize) -> std::io::Result<Vec<DirEntry>> {
@@ -262,9 +262,19 @@ fn should_skip(name: &str) -> bool {
         .any(|item| name.eq_ignore_ascii_case(item))
 }
 
-fn render_tree(root: &Path, rel: &str, recursive: bool, max_depth: usize) -> ToolOutcome {
+fn render_tree(
+    root: &Path,
+    rel: &str,
+    recursive: bool,
+    max_depth: usize,
+    configured_parallelism: usize,
+) -> ToolOutcome {
     let mut lines: Vec<String> = Vec::new();
-    let parallelism = if recursive { resolve_parallel_cap() } else { 1 };
+    let parallelism = if recursive {
+        resolve_parallel_cap(configured_parallelism)
+    } else {
+        1
+    };
     let budget = Arc::new(Mutex::new(MAX_OUTPUT_LINES));
     if recursive {
         walk_recursive(root, 0, max_depth, parallelism, &budget, &mut lines);
@@ -449,5 +459,32 @@ mod tests {
         assert_eq!(parse_depth(&json!({"maxDepth": 0})).unwrap(), 1);
         assert_eq!(parse_depth(&json!({"maxDepth": 99})).unwrap(), 10);
         assert_eq!(parse_depth(&json!({"maxDepth": 5})).unwrap(), 5);
+    }
+
+    #[test]
+    fn parallel_cap_respects_configured_limit() {
+        assert_eq!(resolve_parallel_cap(1), 1);
+        let capped = resolve_parallel_cap(10_000);
+        assert!(capped <= MAX_PARALLELISM);
+        assert!(capped >= 1);
+        assert!(resolve_parallel_cap(2) <= 2);
+    }
+
+    #[test]
+    fn lists_workspace_files() {
+        let dir = std::env::temp_dir().join(format!(
+            "k-agent-list-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("alpha.txt"), "a").unwrap();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = ListDirectoryTool.execute(&json!({"dirPath": "."}), &ctx);
+        assert!(outcome.text.contains("alpha.txt"));
+        let _ = fs::remove_dir_all(&dir);
     }
 }

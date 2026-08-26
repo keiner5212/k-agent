@@ -290,3 +290,23 @@ pub fn submit_ask_user_answer(
 pub fn cancel_ask_user_answer(call_id: String) -> Result<bool, String> {
     Ok(ask_user_registry().cancel(&call_id))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn missing_questions_errors() {
+        let dir = std::env::temp_dir();
+        let ctx = crate::tools::ToolContext::for_test(dir, 1);
+        let outcome = execute_async("{}", &ctx).await;
+        assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        assert!(outcome.text.contains("questions"));
+    }
+
+    #[test]
+    fn submit_without_pending_errors() {
+        let err = submit_ask_user_answer("missing".into(), Vec::new()).unwrap_err();
+        assert!(err.contains("not pending"));
+    }
+}

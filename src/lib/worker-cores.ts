@@ -65,6 +65,11 @@ export const syncWorkerCoreConfig = (maxWorkerCores: number): void => {
   notify();
 };
 
+export const resetWorkerCoreState = (): void => {
+  leases.clear();
+  configuredCores = MAX_WORKER_CORES_AUTO;
+};
+
 export const subscribeWorkerCores = (listener: Listener): (() => void) => {
   listeners.add(listener);
   listener(getWorkerCoreSnapshot());

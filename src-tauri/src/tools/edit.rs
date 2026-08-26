@@ -715,6 +715,7 @@ fn is_disproportionate(candidate: &str, find: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn simple_exact_match() {
@@ -773,5 +774,18 @@ mod tests {
     fn not_found_message_for_missing_substring() {
         let err = replace("hello world", "xyz", "abc", false).unwrap_err();
         assert!(err.contains("Could not find"));
+    }
+
+    #[test]
+    fn execute_requires_file_path() {
+        let dir = std::env::temp_dir().join(format!(
+            "k-agent-edit-test-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = EditTool.execute(&json!({}), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

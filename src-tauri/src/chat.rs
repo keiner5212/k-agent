@@ -73,6 +73,8 @@ pub struct SendChatInput {
     pub session_id: Option<String>,
     #[serde(default)]
     pub tool_names: Vec<String>,
+    #[serde(default)]
+    pub worker_cores: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -176,6 +178,13 @@ struct ChatCall<'a> {
     enable_reasoning: bool,
     tool_names: &'a [String],
     mcp_tools: &'a [crate::mcp_client::BoundMcpTool],
+    parallelism: usize,
+}
+
+fn tool_parallelism(worker_cores: Option<u32>) -> usize {
+    worker_cores
+        .unwrap_or(1)
+        .clamp(1, tools::LIST_DIRECTORY_MAX_PARALLELISM as u32) as usize
 }
 
 fn tools_enabled(call: &ChatCall<'_>) -> bool {
@@ -1990,6 +1999,7 @@ async fn send_message(
             enable_reasoning: call.enable_reasoning,
             tool_names: call.tool_names,
             mcp_tools: call.mcp_tools,
+            parallelism: call.parallelism,
         };
         let output = dispatch_provider(provider, &round_call, on_chunk).await?;
         if on_chunk.is_none() && !output.reasoning.is_empty() {
@@ -2070,9 +2080,11 @@ async fn send_message(
                     )
                 } else if call.tool_names.iter().any(|name| name == &tc.name) {
                     let tool_ctx = ToolContext {
-                        app,
+                        app: Some(app),
                         call_id: tc.id.clone(),
                         on_chunk,
+                        workspace: None,
+                        parallelism: call.parallelism,
                     };
                     let outcome = tools::execute(&tc.name, &tc.arguments, &tool_ctx).await;
                     if let Some(snapshot) = outcome.snapshot {
@@ -2193,6 +2205,7 @@ pub async fn generate_session_title(
         enable_reasoning: false,
         tool_names: &[],
         mcp_tools: &[],
+        parallelism: 1,
     };
     let title =
         normalize_generated_title(&send_message(&app, &provider, &call, None, None).await?.content);
@@ -2321,6 +2334,7 @@ pub async fn generate_app_content(
         enable_reasoning: false,
         tool_names: &[],
         mcp_tools: &[],
+        parallelism: 1,
     };
     let text = normalize_generated_text(&send_message(&app, &provider, &call, None, None).await?.content);
     if text.is_empty() {
@@ -2567,6 +2581,7 @@ pub async fn send_chat_message(
         enable_reasoning,
         tool_names: &tool_names,
         mcp_tools: &mcp_tools,
+        parallelism: tool_parallelism(input.worker_cores),
     };
     log_chat_config(&provider, &input, &call);
     let send_fut = send_message(
@@ -2596,4 +2611,55 @@ pub async fn send_chat_message(
         reasoning_signature: output.reasoning_signature,
         tool_rounds: output.tool_rounds,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tool_parallelism_defaults_and_clamps() {
+        assert_eq!(tool_parallelism(None), 1);
+        assert_eq!(tool_parallelism(Some(0)), 1);
+        assert_eq!(tool_parallelism(Some(4)), 4);
+        assert_eq!(
+            tool_parallelism(Some(10_000)),
+            tools::LIST_DIRECTORY_MAX_PARALLELISM
+        );
+    }
+
+    #[test]
+    fn last_user_has_input_requires_user_content() {
+        assert!(!last_user_has_input(&[]));
+        assert!(!last_user_has_input(&[user_turn(String::new())]));
+        assert!(last_user_has_input(&[user_turn("hi".into())]));
+    }
+
+    #[test]
+    fn normalize_turns_keeps_user_and_drops_unknown_roles() {
+        let turns = normalize_turns(&[
+            ChatTurn {
+                role: "system".into(),
+                content: "nope".into(),
+                reasoning: None,
+                reasoning_signature: None,
+                attachments: Vec::new(),
+                tool_calls: Vec::new(),
+                tool_result: None,
+            },
+            ChatTurn {
+                role: "user".into(),
+                content: "hello".into(),
+                reasoning: None,
+                reasoning_signature: None,
+                attachments: Vec::new(),
+                tool_calls: Vec::new(),
+                tool_result: None,
+            },
+        ]);
+        assert_eq!(turns.len(), 1);
+        assert!(!turns[0].assistant);
+        assert_eq!(turns[0].content, "hello");
+        assert!(last_user_has_input(&turns));
+    }
 }

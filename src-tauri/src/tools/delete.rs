@@ -204,3 +204,43 @@ async fn confirm_destructive(ctx: &ToolContext<'_>, resolved: &Path, rel: &str) 
         None => false,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn tempdir() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "k-agent-delete-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[tokio::test]
+    async fn deletes_workspace_file() {
+        let dir = tempdir();
+        let file = dir.join("gone.txt");
+        fs::write(&file, "x").unwrap();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = execute_async(r#"{"path":"gone.txt"}"#, &ctx).await;
+        assert_eq!(outcome.display.status.as_deref(), Some("ok"));
+        assert!(!file.exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_missing_path() {
+        let dir = tempdir();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = DeleteTool.execute(&json!({}), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+}
