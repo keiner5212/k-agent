@@ -198,7 +198,6 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const blockedCommands = useSettingsStore((state) => state.blockedCommands);
   const allowedCommands = useSettingsStore((state) => state.allowedCommands);
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
-  const taskCompleteSoundEnabled = useSettingsStore((state) => state.taskCompleteSoundEnabled);
   const workspaceMemoryEnabled = useSettingsStore((state) => state.workspaceMemoryEnabled);
   const buildAgentEnabled = useSettingsStore((state) => state.buildAgentEnabled);
   const planAgentEnabled = useSettingsStore((state) => state.planAgentEnabled);
@@ -217,9 +216,6 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setBlockedCommands = useSettingsStore((state) => state.setBlockedCommands);
   const setAllowedCommands = useSettingsStore((state) => state.setAllowedCommands);
   const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
-  const setTaskCompleteSoundEnabled = useSettingsStore(
-    (state) => state.setTaskCompleteSoundEnabled,
-  );
   const setWorkspaceMemoryEnabled = useSettingsStore((state) => state.setWorkspaceMemoryEnabled);
   const setBuildAgentEnabled = useSettingsStore((state) => state.setBuildAgentEnabled);
   const setPlanAgentEnabled = useSettingsStore((state) => state.setPlanAgentEnabled);
@@ -315,7 +311,6 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               rememberWindowSize,
               forceResponseLanguage,
               notificationsEnabled,
-              taskCompleteSoundEnabled,
               workspaceMemoryEnabled,
               buildAgentEnabled,
               planAgentEnabled,
@@ -330,7 +325,6 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setRememberWindowSize,
                 setForceResponseLanguage,
                 setNotificationsEnabled,
-                setTaskCompleteSoundEnabled,
                 setWorkspaceMemoryEnabled,
                 setBuildAgentEnabled,
                 setPlanAgentEnabled,
@@ -443,7 +437,6 @@ type ToggleState = {
   rememberWindowSize: boolean;
   forceResponseLanguage: boolean;
   notificationsEnabled: boolean;
-  taskCompleteSoundEnabled: boolean;
   workspaceMemoryEnabled: boolean;
   buildAgentEnabled: boolean;
   planAgentEnabled: boolean;
@@ -548,8 +541,6 @@ const toggleChecked = (id: string, state: ToggleState): boolean => {
       return state.forceResponseLanguage;
     case "notificationsEnabled":
       return state.notificationsEnabled;
-    case "taskCompleteSoundEnabled":
-      return state.taskCompleteSoundEnabled;
     case "workspaceMemoryEnabled":
       return state.workspaceMemoryEnabled;
     case "buildAgentEnabled":
@@ -575,7 +566,6 @@ const onToggleChange = (
     setRememberWindowSize: (v: boolean) => void;
     setForceResponseLanguage: (v: boolean) => void;
     setNotificationsEnabled: (v: boolean) => void;
-    setTaskCompleteSoundEnabled: (v: boolean) => void;
     setWorkspaceMemoryEnabled: (v: boolean) => void;
     setBuildAgentEnabled: (v: boolean) => void;
     setPlanAgentEnabled: (v: boolean) => void;
@@ -601,9 +591,6 @@ const onToggleChange = (
       return;
     case "notificationsEnabled":
       setters.setNotificationsEnabled(next);
-      return;
-    case "taskCompleteSoundEnabled":
-      setters.setTaskCompleteSoundEnabled(next);
       return;
     case "workspaceMemoryEnabled":
       setters.setWorkspaceMemoryEnabled(next);

@@ -18,7 +18,6 @@ import {
   DEFAULT_REMINDER_INTERVAL,
   DEFAULT_RESPONSE_LANGUAGE,
   DEFAULT_SETTINGS,
-  DEFAULT_TASK_COMPLETE_SOUND_ENABLED,
   DEFAULT_TEXT_SCALE,
   DEFAULT_TITLE_USE_FIRST_MESSAGE,
   DEFAULT_TRANSLUCENCY_ENABLED,
@@ -207,10 +206,6 @@ const sanitizeSettings = (raw: unknown): Settings => {
     blockedCommands: sanitizeCommandList(obj.blockedCommands),
     allowedCommands: sanitizeCommandList(obj.allowedCommands),
     notificationsEnabled: sanitizeBoolean(obj.notificationsEnabled, DEFAULT_NOTIFICATIONS_ENABLED),
-    taskCompleteSoundEnabled: sanitizeBoolean(
-      obj.taskCompleteSoundEnabled,
-      DEFAULT_TASK_COMPLETE_SOUND_ENABLED,
-    ),
     workspaceMemoryEnabled: sanitizeBoolean(
       obj.workspaceMemoryEnabled,
       DEFAULT_WORKSPACE_MEMORY_ENABLED,
@@ -255,7 +250,6 @@ export type SettingsStore = Settings & {
   setBlockedCommands: (commands: string[]) => void;
   setAllowedCommands: (commands: string[]) => void;
   setNotificationsEnabled: (enabled: boolean) => void;
-  setTaskCompleteSoundEnabled: (enabled: boolean) => void;
   setWorkspaceMemoryEnabled: (enabled: boolean) => void;
   setTitleGenerationModel: (model: SelectedModel | null) => void;
   setTitleUseFirstMessage: (enabled: boolean) => void;
@@ -374,7 +368,6 @@ const snapshot = (state: SettingsStore): Settings => ({
   blockedCommands: state.blockedCommands,
   allowedCommands: state.allowedCommands,
   notificationsEnabled: state.notificationsEnabled,
-  taskCompleteSoundEnabled: state.taskCompleteSoundEnabled,
   workspaceMemoryEnabled: state.workspaceMemoryEnabled,
   titleGenerationModel: state.titleGenerationModel,
   titleUseFirstMessage: state.titleUseFirstMessage,
@@ -537,11 +530,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setNotificationsEnabled: (enabled) => {
     set({ notificationsEnabled: enabled });
-    void persist(snapshot(get()));
-  },
-
-  setTaskCompleteSoundEnabled: (enabled) => {
-    set({ taskCompleteSoundEnabled: enabled });
     void persist(snapshot(get()));
   },
 

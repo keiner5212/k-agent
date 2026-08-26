@@ -17,17 +17,6 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         keywords: ["locale", "idioma", "lang"],
       },
       {
-        id: "theme",
-        type: "select",
-        titleKey: "settings.theme.label",
-        descriptionKey: "settings.theme.description",
-        options: [
-          { value: "dark", labelKey: "settings.theme.options.dark" },
-          { value: "light", labelKey: "settings.theme.options.light" },
-        ],
-        keywords: ["dark", "light", "color", "color scheme", "tema"],
-      },
-      {
         id: "textScale",
         type: "select",
         titleKey: "settings.textScale.label",
@@ -240,13 +229,6 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         titleKey: "settings.notificationsEnabled.label",
         descriptionKey: "settings.notificationsEnabled.description",
         keywords: ["notifications", "desktop", "alerts", "notificaciones", "alertas"],
-      },
-      {
-        id: "taskCompleteSoundEnabled",
-        type: "toggle",
-        titleKey: "settings.taskCompleteSoundEnabled.label",
-        descriptionKey: "settings.taskCompleteSoundEnabled.description",
-        keywords: ["sound", "audio", "notification", "task", "complete", "sonido"],
       },
       {
         id: "workspaceMemoryEnabled",

@@ -50,7 +50,6 @@ export const DEFAULT_BLOCKED_COMMANDS: string[] = [];
 export const DEFAULT_ALLOWED_COMMANDS: string[] = [];
 
 export const DEFAULT_NOTIFICATIONS_ENABLED = true;
-export const DEFAULT_TASK_COMPLETE_SOUND_ENABLED = false;
 export const DEFAULT_WORKSPACE_MEMORY_ENABLED = false;
 
 export const DEFAULT_TITLE_GENERATION_MODEL: SelectedModel | null = null;
@@ -132,7 +131,6 @@ export type Settings = {
   blockedCommands: string[];
   allowedCommands: string[];
   notificationsEnabled: boolean;
-  taskCompleteSoundEnabled: boolean;
   workspaceMemoryEnabled: boolean;
   titleGenerationModel: SelectedModel | null;
   titleUseFirstMessage: boolean;
@@ -163,7 +161,6 @@ export const DEFAULT_SETTINGS: Settings = {
   blockedCommands: DEFAULT_BLOCKED_COMMANDS,
   allowedCommands: DEFAULT_ALLOWED_COMMANDS,
   notificationsEnabled: DEFAULT_NOTIFICATIONS_ENABLED,
-  taskCompleteSoundEnabled: DEFAULT_TASK_COMPLETE_SOUND_ENABLED,
   workspaceMemoryEnabled: DEFAULT_WORKSPACE_MEMORY_ENABLED,
   titleGenerationModel: DEFAULT_TITLE_GENERATION_MODEL,
   titleUseFirstMessage: DEFAULT_TITLE_USE_FIRST_MESSAGE,
