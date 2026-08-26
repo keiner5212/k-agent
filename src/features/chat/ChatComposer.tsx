@@ -5,6 +5,7 @@ import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { useChatStore } from "@/lib/chat";
 import { useComposerStore } from "@/lib/composer";
+import { useRewindConfirmStore } from "@/lib/rewind-confirm";
 import { matchActionSlashCommand } from "@/lib/slash-commands";
 import { useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
@@ -27,25 +28,37 @@ export const ChatComposer = (): ReactNode => {
   const clearComposer = useComposerStore((state) => state.clear);
   const selection = useSelectionStore((state) => state.selection);
   const sending = useChatStore((state) => state.sending);
+  const shellRunning = useSessionsStore((state) => state.shellRunning);
   const hydrated = useChatStore((state) => state.hydrated);
   const sendMessage = useChatStore((state) => state.send);
-  const rewindLastUserMessage = useSessionsStore((state) => state.rewindLastUserMessage);
+  const runShell = useSessionsStore((state) => state.runShell);
+  const requestRewind = useRewindConfirmStore((state) => state.requestRewind);
   const keybindings = useSettingsStore((state) => state.keybindings);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { pushChange, undo, redo } = useUndoableText(value, setValue);
   const shellMode = mode === "shell";
-  const canSend = Boolean(selection) && hydrated && value.trim().length > 0 && !sending;
+  const canSend =
+    Boolean(selection) && hydrated && value.trim().length > 0 && !sending && !shellRunning;
+  const canRunShell = hydrated && value.trim().length > 0 && !shellRunning && !sending;
 
   const runSlashAction = useCallback(
     (commandId: string): void => {
       if (commandId === "undo") {
-        rewindLastUserMessage();
+        requestRewind();
       }
     },
-    [rewindLastUserMessage],
+    [requestRewind],
   );
 
   const handleSend = useCallback(async () => {
+    if (shellMode) {
+      if (!canRunShell) return;
+      const text = value;
+      clearComposer();
+      await runShell(text);
+      textareaRef.current?.focus();
+      return;
+    }
     if (!canSend) return;
     const text = value;
     const action = matchActionSlashCommand(text);
@@ -58,17 +71,31 @@ export const ChatComposer = (): ReactNode => {
     clearComposer();
     await sendMessage(text);
     textareaRef.current?.focus();
-  }, [canSend, clearComposer, runSlashAction, sendMessage, value]);
+  }, [
+    canRunShell,
+    canSend,
+    clearComposer,
+    runShell,
+    runSlashAction,
+    sendMessage,
+    shellMode,
+    value,
+  ]);
 
   const handleComposerKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (shellMode) return;
       if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+      if (shellMode) {
+        if (!canRunShell) return;
+        event.preventDefault();
+        void handleSend();
+        return;
+      }
       if (!canSend) return;
       event.preventDefault();
       void handleSend();
     },
-    [canSend, handleSend, shellMode],
+    [canRunShell, canSend, handleSend, shellMode],
   );
 
   useUndoRedoKeydown(textareaRef, keybindings, undo, redo);
@@ -106,26 +133,34 @@ export const ChatComposer = (): ReactNode => {
             className={`chat-composer__send${shellMode ? " chat-composer__send--shell" : ""}`}
             aria-label={
               shellMode
-                ? canSend
+                ? canRunShell
                   ? t("chat.composer.run")
-                  : t("chat.composer.disabledHintShell")
+                  : shellRunning || sending
+                    ? t("chat.composer.running")
+                    : t("chat.composer.disabledHintShell")
                 : canSend
                   ? t("chat.composer.send")
-                  : t("chat.composer.disabledHint")
+                  : sending || shellRunning
+                    ? t("chat.composer.running")
+                    : t("chat.composer.disabledHint")
             }
             title={
               shellMode
-                ? canSend
+                ? canRunShell
                   ? t("chat.composer.run")
-                  : t("chat.composer.disabledHintShell")
+                  : shellRunning || sending
+                    ? t("chat.composer.running")
+                    : t("chat.composer.disabledHintShell")
                 : canSend
                   ? t("chat.composer.send")
-                  : t("chat.composer.disabledHint")
+                  : sending || shellRunning
+                    ? t("chat.composer.running")
+                    : t("chat.composer.disabledHint")
             }
             onClick={() => {
               void handleSend();
             }}
-            disabled={!canSend}
+            disabled={shellMode ? !canRunShell : !canSend}
           >
             {shellMode ? <Play size={16} strokeWidth={2} /> : <ArrowUp strokeWidth={2} />}
           </GlassButton>

@@ -35,6 +35,9 @@ fontdb = "0.23"
 futures-util = "0.3.34"
 dunce = "1.0.5"
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 # Linux tray icon needs GLib + a system-tray indicator; macOS/Windows use native APIs.
 [target.'cfg(target_os = "linux")'.dependencies]
 glib = "0.18.5"

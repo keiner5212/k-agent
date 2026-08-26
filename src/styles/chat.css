@@ -1122,6 +1122,14 @@ button.change-bar__stat:focus-visible {
   word-break: break-word;
 }
 
+.chat-message__shell {
+  max-height: 24rem;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
 .chat-message__actions {
   display: flex;
   align-items: center;

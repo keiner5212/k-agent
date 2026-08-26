@@ -19,6 +19,10 @@ pub struct SessionMessage {
     pub reasoning_signature: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thinking_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shell_ai_summary: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

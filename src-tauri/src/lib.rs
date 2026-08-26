@@ -11,6 +11,7 @@ mod providers;
 mod repo;
 mod secret;
 mod sessions;
+mod shell;
 mod skills;
 mod workspace_files;
 
@@ -41,6 +42,7 @@ use providers::{
     refresh_single_model, save_provider, set_model_favorite, upsert_provider_model,
 };
 use chat::{generate_session_title, send_chat_message};
+use shell::run_shell_command;
 use sessions::{load_sessions, save_sessions};
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
@@ -56,8 +58,14 @@ fn require_easter_egg() {
 }
 
 #[derive(Default)]
-struct LocalWorkspace {
+pub(crate) struct LocalWorkspace {
     path: Mutex<Option<PathBuf>>,
+}
+
+impl LocalWorkspace {
+    pub(crate) fn cloned_path(&self) -> Option<PathBuf> {
+        self.path.lock().ok().and_then(|guard| guard.clone())
+    }
 }
 
 #[tauri::command]
@@ -502,6 +510,7 @@ pub fn run() {
             save_sessions,
             send_chat_message,
             generate_session_title,
+            run_shell_command,
             webview_log,
         ])
         .setup(|app| {

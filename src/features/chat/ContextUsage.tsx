@@ -11,6 +11,7 @@ import {
   resolveSelectedModel,
 } from "@/lib/context-usage";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
+import { appContextDirective } from "@/lib/app-context";
 import { useProvidersStore } from "@/lib/providers";
 import { responseLanguageDirective } from "@/lib/response-language";
 import { selectActiveMessages, useSessionsStore } from "@/lib/sessions";
@@ -46,15 +47,23 @@ export const ContextUsage = (): ReactNode => {
         : 0,
     [forceResponseLanguage, responseLanguage],
   );
+  const rulesTokens = useMemo(
+    () => estimateTokensFromText(appContextDirective(responseLanguage)),
+    [responseLanguage],
+  );
   const usage = useMemo(
     () =>
       buildContextUsage({
         windowTokens: model?.contextWindow,
-        extras: { systemPrompt: systemPromptTokens, languageDirective: languageDirectiveTokens },
+        extras: {
+          systemPrompt: systemPromptTokens,
+          languageDirective: languageDirectiveTokens,
+          rules: rulesTokens,
+        },
         cost: model?.cost,
         messages,
       }),
-    [languageDirectiveTokens, messages, model, systemPromptTokens],
+    [languageDirectiveTokens, messages, model, rulesTokens, systemPromptTokens],
   );
   const visibleBuckets = usage.buckets.filter((item) => item.tokens > 0);
   const listBuckets =

@@ -53,6 +53,7 @@ permissions = [
   "allow-load-sessions",
   "allow-save-sessions",
   "allow-generate-session-title",
+  "allow-run-shell-command",
 ]
 
 [[permission]]
@@ -324,3 +325,8 @@ commands.allow = ["save_sessions"]
 identifier = "allow-generate-session-title"
 description = "Generate a session title from the first message."
 commands.allow = ["generate_session_title"]
+
+[[permission]]
+identifier = "allow-run-shell-command"
+description = "Run a shell command inside the current workspace."
+commands.allow = ["run_shell_command"]

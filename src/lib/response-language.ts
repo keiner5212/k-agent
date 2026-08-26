@@ -1,4 +1,5 @@
 import type { AppLanguage } from "@/types/settings";
+import { appContextDirective } from "@/lib/app-context";
 
 const DIRECTIVE: Record<AppLanguage, string> = {
   en: [
@@ -24,8 +25,11 @@ export const composeSystemWithLanguage = (
   force: boolean,
   language: AppLanguage,
 ): string => {
-  if (!force) return base;
-  const trimmed = base.length === 0 ? "" : base.replace(/\n+$/, "");
-  const directive = DIRECTIVE[language];
-  return trimmed.length === 0 ? directive : `${trimmed}\n\n${directive}`;
+  const parts: string[] = [];
+  const trimmed = base.replace(/\n+$/, "");
+  if (trimmed.length > 0) parts.push(trimmed);
+  if (force) parts.push(DIRECTIVE[language]);
+  const context = appContextDirective(language);
+  if (context.length > 0) parts.push(context);
+  return parts.join("\n\n");
 };

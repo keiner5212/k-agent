@@ -44,6 +44,9 @@ const ThinkingBlock = ({
 };
 
 const MessageBody = ({ message }: { message: ChatMessage }): ReactNode => {
+  if (message.kind === "shell") {
+    return <pre className="chat-message__content chat-message__shell">{message.content}</pre>;
+  }
   if (message.role === "assistant") {
     return (
       <>

@@ -11,6 +11,7 @@ import { SessionsSidebar } from "@/features/sessions/SessionsSidebar";
 import { ChatComposer } from "@/features/chat/ChatComposer";
 import { ChatThread } from "@/features/chat/ChatThread";
 import { ContextStrip } from "@/features/chat/ContextStrip";
+import { RewindConfirmDialog } from "@/features/chat/RewindConfirmDialog";
 import { EDITOR_SAVE_EVENT } from "@/lib/keybindings";
 import { closeTopDialog } from "@/lib/dialog-stack";
 import { useGlobalKeybindings } from "@/lib/use-global-keybindings";
@@ -132,6 +133,7 @@ export const App = (): ReactNode => {
       </div>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+      <RewindConfirmDialog />
     </div>
   );
 };

@@ -20,6 +20,8 @@ export type ChatMessage = {
   reasoningSignature?: string;
   thinkingMs?: number;
   streaming?: boolean;
+  kind?: "shell";
+  shellAiSummary?: string;
 };
 
 export type ChatTurn = {

@@ -61,6 +61,7 @@
     "allow-send-chat-message",
     "allow-load-sessions",
     "allow-save-sessions",
-    "allow-generate-session-title"
+    "allow-generate-session-title",
+    "allow-run-shell-command"
   ]
 }

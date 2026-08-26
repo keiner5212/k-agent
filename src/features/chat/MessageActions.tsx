@@ -2,6 +2,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Copy, RotateCcw } from "lucide-react";
 import { IconButton } from "@/components/IconButton";
+import { useRewindConfirmStore } from "@/lib/rewind-confirm";
 import { useSessionsStore } from "@/lib/sessions";
 import type { ChatMessage } from "@/types/chat";
 
@@ -23,7 +24,7 @@ const copyText = async (text: string): Promise<boolean> => {
 
 export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
   const { t } = useTranslation();
-  const rewindTo = useSessionsStore((state) => state.rewindTo);
+  const requestRewind = useRewindConfirmStore((state) => state.requestRewind);
   const sending = useSessionsStore((state) => state.sending);
   const sendingSessionId = useSessionsStore((state) => state.sendingSessionId);
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
@@ -46,8 +47,8 @@ export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
 
   const handleRewind = useCallback(() => {
     if (!canRewind) return;
-    rewindTo(message.id);
-  }, [canRewind, message.id, rewindTo]);
+    requestRewind(message.id);
+  }, [canRewind, message.id, requestRewind]);
 
   return (
     <div className="chat-message__actions" data-role={message.role}>

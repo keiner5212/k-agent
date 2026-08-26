@@ -671,6 +671,13 @@
       "copied": "Copied",
       "rewind": "Rewind history up to this message"
     },
+    "rewind": {
+      "title": "Rewind history?",
+      "body_one": "This will remove the selected message and 1 that follow it from the chat history.",
+      "body_other": "This will remove the selected message and {{count}} that follow it from the chat history.",
+      "cancel": "Cancel",
+      "confirm": "Rewind"
+    },
     "thinking": {
       "label": "Thinking",
       "duration_one": "Thought for {{count}} second",
@@ -734,6 +741,7 @@
       "placeholderShell": "run a shell command...",
       "send": "Send",
       "run": "Run",
+      "running": "Running...",
       "attach": "Attach",
       "disabledHint": "Pick a model to send.",
       "disabledHintShell": "Type a command to run.",
@@ -742,6 +750,11 @@
         "shell": "Shell",
         "hint": "Shift+! toggles mode when input is empty"
       }
+    },
+    "shell": {
+      "running": "Running shell command...",
+      "failed": "Shell failed: {{error}}",
+      "needsWorkspace": "Shell needs a workspace folder."
     },
     "fileMentions": {
       "label": "Workspace files",

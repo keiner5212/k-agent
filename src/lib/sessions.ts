@@ -6,9 +6,15 @@ import { resolveAgentPersonality } from "@/lib/builtin-agents";
 import { useComposerStore } from "@/lib/composer";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
 import { useProvidersStore } from "@/lib/providers";
+import { resolveOutgoingMentions } from "@/lib/resolve-outgoing-mentions";
 import { composeSystemWithLanguage } from "@/lib/response-language";
 import { selectEffort, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
+import {
+  buildShellResultContent,
+  runShellCommand,
+  summarizeShellResultForAi,
+} from "@/lib/shell";
 import type { ChatChunk, ChatMessage, ChatTurn, SelectedModel, SendChatResult } from "@/types/chat";
 import {
   sortSessions,
@@ -25,7 +31,7 @@ const toChatTurns = (messages: ChatMessage[]): ChatTurn[] =>
     )
     .map((message) => ({
       role: message.role,
-      content: message.content,
+      content: message.shellAiSummary ?? message.content,
       reasoning: message.reasoning ?? null,
       reasoningSignature: message.reasoningSignature ?? null,
     }));
@@ -44,6 +50,13 @@ const thinkingDurationMs = (
 ): number | undefined => {
   if (startedAt === undefined) return undefined;
   return Math.max(0, (endedAt ?? Date.now()) - startedAt);
+};
+
+const resolveUserMessageContent = async (text: string): Promise<string> => {
+  if (!text.includes("@") || !isTauri()) return text;
+  const workspaceRoot = await invoke<string | null>("get_workspace_path").catch(() => null);
+  if (!workspaceRoot) return text;
+  return resolveOutgoingMentions(text, workspaceRoot, "plain");
 };
 
 const nextId = (): string =>
@@ -141,14 +154,17 @@ type SessionsStore = {
   sessions: SessionRecord[];
   activeSessionId: string | null;
   sendingSessionId: string | null;
+  shellRunningSessionId: string | null;
   hydrated: boolean;
   sending: boolean;
+  shellRunning: boolean;
   error?: string;
   hydrate: () => Promise<void>;
   create: () => void;
   select: (id: string) => void;
   remove: (id: string) => void;
   send: (text: string) => Promise<void>;
+  runShell: (text: string) => Promise<void>;
   rewindTo: (messageId: string) => void;
   rewindLastUserMessage: () => void;
 };
@@ -157,8 +173,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   sessions: [],
   activeSessionId: null,
   sendingSessionId: null,
+  shellRunningSessionId: null,
   hydrated: false,
   sending: false,
+  shellRunning: false,
 
   hydrate: async () => {
     if (get().hydrated) return;
@@ -214,9 +232,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   },
 
   remove: (id) => {
-    const { sessions, activeSessionId, sendingSessionId } = get();
+    const { sessions, activeSessionId, sendingSessionId, shellRunningSessionId } = get();
     const nextSessions = sessions.filter((session) => session.id !== id);
     const stopSending = sendingSessionId === id;
+    const stopShell = shellRunningSessionId === id;
     if (nextSessions.length === 0) {
       const session = emptySession();
       const seeded = [session];
@@ -225,6 +244,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         activeSessionId: session.id,
         error: undefined,
         ...(stopSending ? { sending: false, sendingSessionId: null } : {}),
+        ...(stopShell ? { shellRunning: false, shellRunningSessionId: null } : {}),
       });
       void persistSnapshot(snapshotFromState(seeded, session.id));
       return;
@@ -243,13 +263,14 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       activeSessionId: nextActiveId,
       error: undefined,
       ...(stopSending ? { sending: false, sendingSessionId: null } : {}),
+      ...(stopShell ? { shellRunning: false, shellRunningSessionId: null } : {}),
     });
     void persistSnapshot(snapshotFromState(sorted, nextActiveId));
   },
 
   send: async (text) => {
     const trimmed = text.trim();
-    if (!trimmed || get().sending) return;
+    if (!trimmed || get().sending || get().shellRunning) return;
     if (!get().hydrated) return;
 
     const selection = useSelectionStore.getState().selection;
@@ -267,17 +288,18 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
 
     const isFirstMessage = activeSession.messages.length === 0;
     const effort = resolveSendEffort(selection);
+    const content = await resolveUserMessageContent(trimmed);
     const userMessage: ChatMessage = {
       id: nextId(),
       role: "user",
-      content: trimmed,
+      content,
     };
     const now = Date.now();
 
     const withUser = sortSessions(
       patchActiveSession(ensured.sessions, sessionId, (session) => ({
         ...session,
-        preview: trimmed,
+        preview: content,
         updatedAt: now,
         messages: [...session.messages, userMessage],
       })),
@@ -446,11 +468,15 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   },
 
   rewindTo: (messageId) => {
-    const { sessions, activeSessionId, sendingSessionId } = get();
+    const { sessions, activeSessionId, sendingSessionId, shellRunningSessionId } = get();
     const sessionId = activeSessionId;
     if (!sessionId) return;
     if (sendingSessionId === sessionId) {
       console.warn("[sessions] rewind blocked: send in progress");
+      return;
+    }
+    if (shellRunningSessionId === sessionId) {
+      console.warn("[sessions] rewind blocked: shell in progress");
       return;
     }
     const session = sessions.find((item) => item.id === sessionId);
@@ -459,7 +485,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     if (index < 0) return;
     const removed = session.messages.length - index;
 
-    // TODO(future): rewind file edits and shell changes made by the assistant
+    // TODO: rewind file edits and shell changes made by the assistant
     // messages between `index` and the previous end. Track per-write snapshots
     // when the assistant calls edit tools (write_file, edit_file, run_shell)
     // and replay restoration here, in reverse order, after the chat trim.
@@ -477,6 +503,127 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     );
     set({ sessions: nextSessions, error: undefined });
     void persistSnapshot(snapshotFromState(nextSessions, sessionId));
+  },
+
+  runShell: async (text) => {
+    const trimmed = text.trim();
+    if (!trimmed || get().shellRunning || get().sending) return;
+    if (!get().hydrated) return;
+
+    const ensured = ensureSession(get().sessions, get().activeSessionId);
+    if (ensured.activeSessionId !== get().activeSessionId) {
+      set({ sessions: ensured.sessions, activeSessionId: ensured.activeSessionId });
+      void persistSnapshot(snapshotFromState(ensured.sessions, ensured.activeSessionId));
+    }
+    const sessionId = ensured.activeSessionId;
+    if (!sessionId) return;
+
+    const workspaceRoot = await invoke<string | null>("get_workspace_path").catch(() => null);
+    if (!workspaceRoot) {
+      set({ error: i18n.t("chat.shell.needsWorkspace") });
+      return;
+    }
+
+    const resolvedCommand = await resolveOutgoingMentions(trimmed, workspaceRoot, "shell");
+
+    const now = Date.now();
+    const activeSession = ensured.sessions.find((session) => session.id === sessionId);
+    const isFirstMessage = (activeSession?.messages.length ?? 0) === 0;
+    const userMessage: ChatMessage = {
+      id: nextId(),
+      role: "user",
+      content: resolvedCommand,
+    };
+    const placeholderAssistantId = nextId();
+    const withUser = sortSessions(
+      patchActiveSession(ensured.sessions, sessionId, (session) => ({
+        ...session,
+        preview: resolvedCommand,
+        updatedAt: now,
+        messages: [
+          ...session.messages,
+          userMessage,
+          {
+            id: placeholderAssistantId,
+            role: "assistant" as const,
+            kind: "shell",
+            content: i18n.t("chat.shell.running"),
+          },
+        ],
+      })),
+    );
+    set({
+      sessions: withUser,
+      activeSessionId: sessionId,
+      shellRunning: true,
+      shellRunningSessionId: sessionId,
+      error: undefined,
+    });
+    void persistSnapshot(snapshotFromState(withUser, sessionId));
+
+    if (isFirstMessage && !activeSession?.title) {
+      void generateSessionTitle(trimmed).then((title) => {
+        const nextSessions = sortSessions(
+          patchActiveSession(get().sessions, sessionId, (session) => ({
+            ...session,
+            title,
+          })),
+        );
+        set({ sessions: nextSessions });
+        const active = get().activeSessionId ?? sessionId;
+        void persistSnapshot(snapshotFromState(nextSessions, active));
+      });
+    }
+
+    const applyAssistant = (finalAssistant: ChatMessage, error?: string): void => {
+      const nextSessions = sortSessions(
+        patchActiveSession(get().sessions, sessionId, (session) => {
+          const messages = session.messages.slice();
+          const idx = messages.findIndex((message) => message.id === placeholderAssistantId);
+          if (idx >= 0) messages[idx] = finalAssistant;
+          else messages.push(finalAssistant);
+          return {
+            ...session,
+            preview: resolvedCommand,
+            updatedAt: Date.now(),
+            messages,
+          };
+        }),
+      );
+      const stillRunning = get().shellRunningSessionId === sessionId;
+      set({
+        sessions: nextSessions,
+        ...(stillRunning ? { shellRunning: false, shellRunningSessionId: null } : {}),
+        error,
+      });
+      const active = get().activeSessionId ?? sessionId;
+      void persistSnapshot(snapshotFromState(nextSessions, active));
+    };
+
+    try {
+      const result = await runShellCommand({ command: resolvedCommand });
+      const display = buildShellResultContent(result);
+      const aiSummary = summarizeShellResultForAi(result);
+      applyAssistant({
+        id: placeholderAssistantId,
+        role: "assistant",
+        kind: "shell",
+        content: display,
+        shellAiSummary: aiSummary !== display ? aiSummary : undefined,
+      });
+    } catch (error) {
+      const errorMessage = ipcErrorMessage(error);
+      applyAssistant(
+        {
+          id: placeholderAssistantId,
+          role: "assistant",
+          kind: "shell",
+          content: i18n.t("chat.shell.failed", { error: errorMessage }),
+          shellAiSummary: i18n.t("chat.shell.failed", { error: errorMessage }),
+        },
+        errorMessage,
+      );
+    }
   },
 
   rewindLastUserMessage: () => {

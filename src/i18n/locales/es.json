@@ -671,6 +671,13 @@
       "copied": "Copiado",
       "rewind": "Retroceder el historial hasta este mensaje"
     },
+    "rewind": {
+      "title": "Retroceder el historial?",
+      "body_one": "Esto eliminara el mensaje seleccionado y 1 posterior del historial del chat.",
+      "body_other": "Esto eliminara el mensaje seleccionado y los {{count}} posteriores del historial del chat.",
+      "cancel": "Cancelar",
+      "confirm": "Retroceder"
+    },
     "thinking": {
       "label": "Pensamiento",
       "duration_one": "Pensó {{count}} segundo",
@@ -734,14 +741,20 @@
       "placeholderShell": "ejecuta un comando shell...",
       "send": "Enviar",
       "run": "Ejecutar",
+      "running": "Ejecutando...",
       "attach": "Adjuntar",
       "disabledHint": "Elige un modelo para enviar.",
       "disabledHintShell": "Escribe un comando para ejecutar.",
       "mode": {
         "prompt": "Prompt",
         "shell": "Shell",
-        "hint": "Shift+! alterna modo con input vacio"
+        "hint": "Shift+! cambia de modo cuando el input esta vacio"
       }
+    },
+    "shell": {
+      "running": "Ejecutando comando shell...",
+      "failed": "Shell fallo: {{error}}",
+      "needsWorkspace": "El shell necesita una carpeta de workspace."
     },
     "fileMentions": {
       "label": "Archivos del workspace",

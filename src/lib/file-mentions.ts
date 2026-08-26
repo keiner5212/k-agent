@@ -135,6 +135,29 @@ export const isExactMentionPath = (paths: ReadonlySet<string>, rawPath: string):
   return paths.has(normalized) || paths.has(normalized.toLowerCase());
 };
 
+export const joinWorkspacePath = (root: string, rel: string): string => {
+  const trimmedRoot = root.replace(/[\\/]+$/, "");
+  const relNorm = rel.replace(/^\/+|\/+$/g, "");
+  const sep = root.includes("\\") && !root.includes("/") ? "\\" : "/";
+  return relNorm.length > 0 ? `${trimmedRoot}${sep}${relNorm}` : trimmedRoot;
+};
+
+export const expandWorkspaceMentions = (
+  text: string,
+  entries: readonly WorkspaceEntry[],
+  workspaceRoot: string,
+  renderAbsolute: (absolute: string) => string,
+): string => {
+  if (!text.includes("@")) return text;
+  const paths = buildMentionPathSet(entries);
+  return text.replace(MENTION_PATH_RE, (match, raw: string) => {
+    const stripped = raw.replace(/[\\/]+$/, "");
+    const normalized = normalizeMentionPath(stripped);
+    if (!isExactMentionPath(paths, normalized)) return match;
+    return renderAbsolute(joinWorkspacePath(workspaceRoot, normalized));
+  });
+};
+
 export const segmentMentionHighlights = (
   text: string,
   paths: ReadonlySet<string>,
