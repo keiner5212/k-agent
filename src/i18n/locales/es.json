@@ -30,6 +30,7 @@
     "searchEmpty": "Ningún ajuste coincide con la búsqueda.",
     "sections": {
       "general": "General",
+      "appearance": "Apariencia",
       "chat": "Chat",
       "modelChoices": "Modelos",
       "lsps": "LSPs",
@@ -40,6 +41,9 @@
       "agentsMd": "AGENTS.md",
       "keybindings": "Atajos de teclado",
       "debug": "Depuración"
+    },
+    "appearance": {
+      "description": "Aspecto visual de la aplicacion: tema, imagen de fondo del chat y su transparencia."
     },
     "language": {
       "description": "Elige el idioma de la interfaz.",
@@ -158,6 +162,25 @@
         "125": "125%",
         "140": "140%"
       }
+    },
+    "chatBackgroundImage": {
+      "label": "Imagen de fondo del chat",
+      "description": "Elige una imagen para mostrar detras del chat. PNG, JPG o WebP, hasta 5 MB.",
+      "pick": "Elegir imagen",
+      "clear": "Quitar",
+      "none": "Sin fondo",
+      "filter": "Imagenes",
+      "desktopOnly": "Disponible en el shell de escritorio.",
+      "status": {
+        "updated": "Imagen de fondo del chat actualizada.",
+        "removed": "Imagen de fondo del chat eliminada.",
+        "error": "No se pudo cargar la imagen: {{reason}}"
+      }
+    },
+    "chatBackgroundOpacity": {
+      "label": "Opacidad del fondo del chat",
+      "description": "Intensidad con la que se ve la imagen de fondo. Valores bajos mantienen legible el texto del chat.",
+      "disabled": "Elige un fondo primero"
     },
     "keybindings": {
       "description": "Haz clic en un atajo y pulsa la nueva combinación. Pulsa Escape para cancelar.",
@@ -752,17 +775,20 @@
       }
     },
     "shell": {
-      "running": "Ejecutando comando shell...",
+      "running": "Ejecutando comando de shell...",
       "failed": "Shell falló: {{error}}",
-      "needsWorkspace": "El shell necesita una carpeta de workspace.",
-      "expand": "Abrir salida en consola",
+      "needsWorkspace": "El shell necesita una carpeta de espacio de trabajo.",
+      "interrupted": "interrumpido por el usuario",
+      "expand": "Abrir salida en la consola",
       "console": {
         "title": "Salida del shell",
         "copy": "Copiar salida",
         "copied": "Copiado",
-        "empty": "Sin salida todavía."
+        "empty": "Aún no hay salida."
       }
     },
+    "interruptedByUser": "interrumpido por el usuario",
+    "interruptHint": "Pulsa Esc otra vez para interrumpir",
     "fileMentions": {
       "label": "Archivos del workspace",
       "empty": "Sin archivos coincidentes",

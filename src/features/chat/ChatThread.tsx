@@ -1,8 +1,8 @@
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Sparkles } from "lucide-react";
 import { renderMarkdown } from "@/lib/markdown";
-import { selectActiveMessages, useSessionsStore } from "@/lib/sessions";
+import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import type { ChatMessage } from "@/types/chat";
 import { ChatWaitingLine } from "./ChatWaitingLine";
 import { MessageActions } from "./MessageActions";
@@ -43,9 +43,20 @@ const ThinkingBlock = ({
   );
 };
 
+const InterruptedFooter = ({ interrupted }: { interrupted: boolean }): ReactNode => {
+  const { t } = useTranslation();
+  if (!interrupted) return null;
+  return <p className="chat-message__interrupted">{t("chat.interruptedByUser")}</p>;
+};
+
 const MessageBody = ({ message }: { message: ChatMessage }): ReactNode => {
   if (message.kind === "shell") {
-    return <pre className="chat-message__content chat-message__shell">{message.content}</pre>;
+    return (
+      <>
+        <pre className="chat-message__content chat-message__shell">{message.content}</pre>
+        <InterruptedFooter interrupted={message.interrupted ?? false} />
+      </>
+    );
   }
   if (message.role === "assistant") {
     return (
@@ -56,10 +67,39 @@ const MessageBody = ({ message }: { message: ChatMessage }): ReactNode => {
           thinkingMs={message.thinkingMs}
         />
         <AssistantMarkdown content={message.content} />
+        <InterruptedFooter interrupted={message.interrupted ?? false} />
       </>
     );
   }
   return <p className="chat-message__content">{message.content}</p>;
+};
+
+const InterruptHint = (): ReactNode => {
+  const { t } = useTranslation();
+  const armed = useSessionsStore((state) => state.interruptArmedAt);
+  const sending = useSessionsStore((state) => state.sending);
+  const shellRunning = useSessionsStore((state) => state.shellRunning);
+
+  useEffect(() => {
+    if (armed === null) return;
+    const remain = INTERRUPT_ARM_MS - (Date.now() - armed);
+    if (remain <= 0) {
+      useSessionsStore.getState().disarmInterrupt();
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      useSessionsStore.getState().disarmInterrupt();
+    }, remain);
+    return () => window.clearTimeout(timer);
+  }, [armed]);
+
+  if (armed === null || (!sending && !shellRunning)) return null;
+  return (
+    <div className="chat-interrupt-hint" role="status" aria-live="polite">
+      <span className="chat-interrupt-hint__dot" aria-hidden="true" />
+      <span>{t("chat.interruptHint")}</span>
+    </div>
+  );
 };
 
 export const ChatThread = (): ReactNode => {
@@ -92,7 +132,7 @@ export const ChatThread = (): ReactNode => {
         {messages.map((message) => (
           <article
             key={message.id}
-            className={`chat-message chat-message--${message.role}${message.kind === "shell" ? " chat-message--shell" : ""}${message.streaming ? " chat-message--streaming" : ""}`}
+            className={`chat-message chat-message--${message.role}${message.kind === "shell" ? " chat-message--shell" : ""}${message.streaming ? " chat-message--streaming" : ""}${message.interrupted ? " chat-message--interrupted" : ""}`}
             data-role={message.role}
           >
             <MessageBody message={message} />
@@ -100,6 +140,7 @@ export const ChatThread = (): ReactNode => {
           </article>
         ))}
         {waiting ? <ChatWaitingLine /> : null}
+        <InterruptHint />
         {error ? <p className="chat-thread__error">{error}</p> : null}
       </div>
     </section>

@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import { GlassButton } from "@/components/GlassButton";
@@ -26,9 +27,158 @@ import type { SettingItem as SettingItemDef } from "./registry";
 import { KeybindingField } from "./KeybindingField";
 import { ListEditor } from "./ListEditor";
 
+type ChatBackgroundUpdate = {
+  filename: string;
+  url: string;
+};
+
 type SettingItemProps = {
   item: SettingItemDef;
   query: string;
+};
+
+const ChatBackgroundPicker = (): ReactNode => {
+  const { t } = useTranslation();
+  const chatBackgroundImage = useSettingsStore((state) => state.chatBackgroundImage);
+  const chatBackgroundUrl = useSettingsStore((state) => state.chatBackgroundUrl);
+  const chatBackgroundLoading = useSettingsStore((state) => state.chatBackgroundLoading);
+  const setChatBackgroundImage = useSettingsStore((state) => state.setChatBackgroundImage);
+  const [picking, setPicking] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageStatus, setImageStatus] = useState<string | null>(null);
+
+  const handlePick = async (): Promise<void> => {
+    if (picking || !isTauri()) return;
+    setPicking(true);
+    setImageError(null);
+    try {
+      const picked = await openDialog({
+        directory: false,
+        multiple: false,
+        title: t("settings.chatBackgroundImage.pick"),
+        filters: [
+          {
+            name: t("settings.chatBackgroundImage.filter"),
+            extensions: ["png", "jpg", "jpeg", "webp"],
+          },
+        ],
+      });
+      if (typeof picked !== "string") {
+        setPicking(false);
+        return;
+      }
+      const update = await invoke<ChatBackgroundUpdate>("set_chat_background_image", {
+        sourcePath: picked,
+      });
+      setChatBackgroundImage(update.filename, update.url);
+      setImageStatus(t("settings.chatBackgroundImage.status.updated"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setImageError(message);
+      setImageStatus(t("settings.chatBackgroundImage.status.error", { reason: message }));
+    } finally {
+      setPicking(false);
+    }
+  };
+
+  const handleClear = async (): Promise<void> => {
+    if (!isTauri()) return;
+    setImageError(null);
+    try {
+      await invoke("clear_chat_background_image");
+      setChatBackgroundImage(null, null);
+      setImageStatus(t("settings.chatBackgroundImage.status.removed"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setImageError(message);
+      setImageStatus(t("settings.chatBackgroundImage.status.error", { reason: message }));
+    }
+  };
+
+  return (
+    <div className="appearance-image-picker">
+      <GlassButton
+        variant="primary"
+        onClick={() => void handlePick()}
+        disabled={!isTauri() || picking || chatBackgroundLoading}
+        aria-label={t("settings.chatBackgroundImage.pick")}
+      >
+        {t("settings.chatBackgroundImage.pick")}
+      </GlassButton>
+      {chatBackgroundUrl ? (
+        <span className="appearance-image-picker__preview">
+          <img className="appearance-image-picker__thumb" src={chatBackgroundUrl} alt="" />
+        </span>
+      ) : (
+        <span className="appearance-image-picker__empty">
+          {t("settings.chatBackgroundImage.none")}
+        </span>
+      )}
+      {chatBackgroundImage ? (
+        <span className="appearance-image-picker__name" title={chatBackgroundImage}>
+          {chatBackgroundImage}
+        </span>
+      ) : null}
+      {chatBackgroundImage ? (
+        <GlassButton
+          variant="secondary"
+          onClick={() => void handleClear()}
+          aria-label={t("settings.chatBackgroundImage.clear")}
+        >
+          {t("settings.chatBackgroundImage.clear")}
+        </GlassButton>
+      ) : null}
+      {!isTauri() ? (
+        <p className="appearance-image-picker__error">
+          {t("settings.chatBackgroundImage.desktopOnly")}
+        </p>
+      ) : null}
+      {imageError ? (
+        <p className="appearance-image-picker__error" role="alert">
+          {imageError}
+        </p>
+      ) : null}
+      <span role="status" aria-live="polite" className="visually-hidden">
+        {imageStatus ?? ""}
+      </span>
+    </div>
+  );
+};
+
+const ChatBackgroundOpacitySlider = (): ReactNode => {
+  const { t } = useTranslation();
+  const chatBackgroundImage = useSettingsStore((state) => state.chatBackgroundImage);
+  const chatBackgroundOpacity = useSettingsStore((state) => state.chatBackgroundOpacity);
+  const setChatBackgroundOpacity = useSettingsStore((state) => state.setChatBackgroundOpacity);
+  const opacityPercent = Math.round(Math.min(1, Math.max(0, chatBackgroundOpacity)) * 100);
+
+  return (
+    <div className="appearance-slider" data-disabled={!chatBackgroundImage || undefined}>
+      <input
+        id="setting-chatBackgroundOpacity"
+        className="appearance-slider__input"
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={opacityPercent}
+        onChange={(event) => {
+          const clamped = Math.min(100, Math.max(0, Math.round(Number(event.target.value))));
+          setChatBackgroundOpacity(clamped / 100);
+        }}
+        aria-valuetext={`${opacityPercent} percent`}
+        disabled={!chatBackgroundImage}
+        style={{ "--value": `${opacityPercent}%` } as CSSProperties}
+      />
+      <span
+        className="appearance-slider__value"
+        data-disabled={!chatBackgroundImage || undefined}
+        aria-hidden="true"
+      >
+        {chatBackgroundImage ? `${opacityPercent}%` : t("settings.chatBackgroundOpacity.disabled")}
+      </span>
+    </div>
+  );
 };
 
 export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
@@ -216,6 +366,9 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
             removeLabel={t(`${listKeys(item.id)}.remove`)}
           />
         ) : null}
+
+        {item.type === "imagePicker" ? <ChatBackgroundPicker /> : null}
+        {item.type === "slider" ? <ChatBackgroundOpacitySlider /> : null}
       </div>
     </div>
   );

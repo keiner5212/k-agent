@@ -34,6 +34,8 @@ pub struct SendChatInput {
     pub system: Option<String>,
     #[serde(default)]
     pub effort: Option<String>,
+    #[serde(default)]
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -109,6 +111,8 @@ pub enum ChatError {
     ApiStatus { status: u16, body: String },
     #[error("empty model response")]
     EmptyResponse,
+    #[error("interrupted by user")]
+    Cancelled,
 }
 
 impl Serialize for ChatError {
@@ -1267,9 +1271,17 @@ struct GeminiPart {
 #[tauri::command]
 pub async fn send_chat_message(
     app: AppHandle,
+    cancel: tauri::State<'_, crate::CancelRegistry>,
     input: SendChatInput,
     on_chunk: tauri::ipc::Channel<ChatChunk>,
 ) -> Result<SendChatResult, ChatError> {
+    let (_cancel_guard, cancel_rx) = match input.session_id.clone() {
+        Some(id) => {
+            let (guard, rx) = crate::CancelHandle::new(cancel.inner(), id);
+            (Some(guard), Some(rx))
+        }
+        None => (None, None),
+    };
     let (provider, model) = load_provider_model(&app, &input.provider_id, &input.model_id).await?;
     let turns = normalize_turns(&input.messages);
     if last_user_text(&turns).trim().is_empty() {
@@ -1293,7 +1305,21 @@ pub async fn send_chat_message(
         enable_reasoning,
     };
     log_chat_config(&provider, &input, &call);
-    let output = send_message(&provider, &call, Some(&on_chunk)).await?;
+    let send_fut = send_message(&provider, &call, Some(&on_chunk));
+    tokio::pin!(send_fut);
+    let output = match cancel_rx {
+        Some(rx) => {
+            tokio::select! {
+                biased;
+                result = rx => match result {
+                    Ok(()) => return Err(ChatError::Cancelled),
+                    Err(_) => send_fut.await?,
+                },
+                output = &mut send_fut => output?,
+            }
+        }
+        None => send_fut.await?,
+    };
     Ok(SendChatResult {
         content: output.content,
         reasoning: output.reasoning,

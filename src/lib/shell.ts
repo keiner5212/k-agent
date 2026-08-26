@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Channel } from "@tauri-apps/api/core";
+import i18n from "@/i18n";
 import { expandWorkspaceMentions } from "@/lib/file-mentions";
 import { DESKTOP_REQUIRED, isTauri, platform } from "@/lib/platform";
 import type { WorkspaceEntry } from "@/types/workspace-files";
@@ -14,6 +15,7 @@ export type ShellChunk = {
 export type RunShellRequest = {
   command: string;
   cwd?: string;
+  sessionId?: string;
   timeoutMs?: number;
   maxOutputBytes?: number;
 };
@@ -25,6 +27,7 @@ export type RunShellResponse = {
   stderr: string;
   exitCode: number | null;
   timedOut: boolean;
+  cancelled?: boolean;
   stdoutTruncated: boolean;
   stderrTruncated: boolean;
   durationMs: number;
@@ -68,6 +71,7 @@ export const runShellCommand = (
     input: {
       command: request.command,
       cwd: request.cwd ?? null,
+      sessionId: request.sessionId ?? null,
       timeoutMs: request.timeoutMs ?? null,
       maxOutputBytes: request.maxOutputBytes ?? null,
     },
@@ -117,4 +121,10 @@ export const parseShellMessage = (content: string): { command: string; output: s
   const idx = content.indexOf("\n\n");
   if (idx < 0) return { command: content, output: "" };
   return { command: content.slice(0, idx), output: content.slice(idx + 2) };
+};
+
+export const appendInterruptedFooter = (output: string): string => {
+  const note = i18n.t("chat.shell.interrupted");
+  const trimmed = output.replace(/\n+$/, "");
+  return trimmed.length > 0 ? `${trimmed}\n\n${note}` : note;
 };

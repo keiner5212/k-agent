@@ -7,6 +7,7 @@ import {
   Code2,
   Keyboard,
   MessageSquare,
+  Palette,
   Plug,
   Radio,
   ScrollText,
@@ -39,6 +40,7 @@ type TabMeta = {
 
 const SECTION_ICONS: Record<SettingsSectionDef["id"], typeof Sliders> = {
   general: Sliders,
+  appearance: Palette,
   chat: MessageSquare,
   modelChoices: Brain,
   lsps: Code2,

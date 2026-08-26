@@ -30,6 +30,7 @@
     "searchEmpty": "No settings match your search.",
     "sections": {
       "general": "General",
+      "appearance": "Appearance",
       "chat": "Chat",
       "modelChoices": "Model choices",
       "lsps": "LSPs",
@@ -40,6 +41,9 @@
       "agentsMd": "AGENTS.md",
       "keybindings": "Keybindings",
       "debug": "Debug"
+    },
+    "appearance": {
+      "description": "Visual look of the app, including theme, chat background image and its transparency."
     },
     "language": {
       "description": "Choose the interface language.",
@@ -158,6 +162,25 @@
         "125": "125%",
         "140": "140%"
       }
+    },
+    "chatBackgroundImage": {
+      "label": "Chat background image",
+      "description": "Pick an image to show behind the chat. PNG, JPG or WebP, up to 5 MB.",
+      "pick": "Pick image",
+      "clear": "Clear",
+      "none": "No background",
+      "filter": "Images",
+      "desktopOnly": "Available in the desktop shell.",
+      "status": {
+        "updated": "Chat background image updated.",
+        "removed": "Chat background image removed.",
+        "error": "Could not load image: {{reason}}"
+      }
+    },
+    "chatBackgroundOpacity": {
+      "label": "Chat background opacity",
+      "description": "How strong the chat background image shows through. Lower values keep chat text readable.",
+      "disabled": "Pick a background first"
     },
     "keybindings": {
       "description": "Click a shortcut and press the new combination. Press Escape to cancel.",
@@ -755,6 +778,7 @@
       "running": "Running shell command...",
       "failed": "Shell failed: {{error}}",
       "needsWorkspace": "Shell needs a workspace folder.",
+      "interrupted": "interrupted by user",
       "expand": "Open output in console",
       "console": {
         "title": "Shell output",
@@ -763,6 +787,8 @@
         "empty": "No output yet."
       }
     },
+    "interruptedByUser": "interrupted by user",
+    "interruptHint": "Press Esc again to interrupt",
     "fileMentions": {
       "label": "Workspace files",
       "empty": "No matching files",

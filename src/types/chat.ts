@@ -22,6 +22,7 @@ export type ChatMessage = {
   streaming?: boolean;
   kind?: "shell";
   shellAiSummary?: string;
+  interrupted?: boolean;
 };
 
 export type ChatTurn = {

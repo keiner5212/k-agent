@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { MessageSquarePlus, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
+import { APP_VERSION } from "@/lib/app-meta";
 import { useSessionsStore } from "@/lib/sessions";
 import { sortSessions, titleFromFirstMessage } from "@/types/sessions";
 
@@ -46,6 +47,7 @@ export const SessionsSidebar = (): ReactNode => {
           ))}
         </ul>
       )}
+      <p className="sessions-sidebar__foot">{t("about.version", { version: APP_VERSION })}</p>
     </aside>
   );
 };

@@ -11,6 +11,7 @@ import { composeSystemWithLanguage } from "@/lib/response-language";
 import { selectEffort, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
 import {
+  appendInterruptedFooter,
   buildShellResultContent,
   formatShellMessage,
   runShellCommand,
@@ -24,6 +25,8 @@ import {
   type SessionRecord,
   type SessionsSnapshot,
 } from "@/types/sessions";
+
+export const INTERRUPT_ARM_MS = 2000;
 
 const toChatTurns = (messages: ChatMessage[]): ChatTurn[] =>
   messages
@@ -160,6 +163,7 @@ type SessionsStore = {
   hydrated: boolean;
   sending: boolean;
   shellRunning: boolean;
+  interruptArmedAt: number | null;
   error?: string;
   hydrate: () => Promise<void>;
   create: () => void;
@@ -167,6 +171,9 @@ type SessionsStore = {
   remove: (id: string) => void;
   send: (text: string) => Promise<void>;
   runShell: (text: string) => Promise<void>;
+  interruptActiveTask: () => Promise<boolean>;
+  armInterrupt: () => void;
+  disarmInterrupt: () => void;
   rewindTo: (messageId: string) => void;
   rewindLastUserMessage: () => void;
 };
@@ -179,6 +186,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   hydrated: false,
   sending: false,
   shellRunning: false,
+  interruptArmedAt: null,
 
   hydrate: async () => {
     if (get().hydrated) return;
@@ -397,6 +405,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           messages: chatTurns,
           system: system.length > 0 ? system : null,
           effort: effort ?? null,
+          sessionId: sessionId,
         },
         onChunk,
       });
@@ -450,12 +459,15 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       void persistSnapshot(snapshotFromState(withAssistant, active));
     } catch (error) {
       if (get().sendingSessionId === sessionId) {
+        const cancelled = ipcErrorMessage(error).toLowerCase().includes("interrupted by user");
         const nextSessions = get().sessions.map((session) => {
           if (session.id !== sessionId) return session;
           return {
             ...session,
             messages: session.messages.map((message) =>
-              message.streaming ? { ...message, streaming: false } : message,
+              message.streaming
+                ? { ...message, streaming: false, interrupted: cancelled || message.interrupted }
+                : message,
             ),
           };
         });
@@ -463,10 +475,33 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           sessions: nextSessions,
           sending: false,
           sendingSessionId: null,
-          error: ipcErrorMessage(error),
+          interruptArmedAt: null,
+          error: cancelled ? undefined : ipcErrorMessage(error),
         });
+        void persistSnapshot(snapshotFromState(nextSessions, sessionId));
       }
     }
+  },
+
+  interruptActiveTask: async () => {
+    const state = get();
+    const sessionId = state.sendingSessionId ?? state.shellRunningSessionId;
+    if (!sessionId) return false;
+    try {
+      await invoke<boolean>("cancel_running_task", { sessionId });
+    } catch (error) {
+      console.warn("cancel_running_task failed", error);
+    }
+    set({ interruptArmedAt: null });
+    return true;
+  },
+
+  armInterrupt: () => {
+    set({ interruptArmedAt: Date.now() });
+  },
+
+  disarmInterrupt: () => {
+    if (get().interruptArmedAt !== null) set({ interruptArmedAt: null });
   },
 
   rewindTo: (messageId) => {
@@ -637,6 +672,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       set({
         sessions: nextSessions,
         ...(stillRunning ? { shellRunning: false, shellRunningSessionId: null } : {}),
+        ...(stillRunning ? { interruptArmedAt: null } : {}),
         error,
       });
       const active = get().activeSessionId ?? sessionId;
@@ -652,14 +688,18 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     };
 
     try {
-      const result = await runShellCommand({ command: resolvedCommand }, onChunk);
+      const result = await runShellCommand({ command: resolvedCommand, sessionId }, onChunk);
       cancelStreamFrame();
       const output = buildShellResultContent(result);
       const aiOutput = summarizeShellResultForAi(result);
-      const content = formatShellMessage(resolvedCommand, output);
+      const finalOutput = result.cancelled ? appendInterruptedFooter(output) : output;
+      const finalAiOutput = result.cancelled ? appendInterruptedFooter(aiOutput) : aiOutput;
+      const content = formatShellMessage(resolvedCommand, finalOutput);
       applyShellMessage(
         content,
-        aiOutput !== output ? formatShellMessage(resolvedCommand, aiOutput) : undefined,
+        finalAiOutput !== finalOutput
+          ? formatShellMessage(resolvedCommand, finalAiOutput)
+          : undefined,
       );
     } catch (error) {
       cancelStreamFrame();

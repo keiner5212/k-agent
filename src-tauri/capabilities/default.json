@@ -28,6 +28,9 @@
     "allow-window-start-drag",
     "allow-window-open-devtools",
     "allow-list-system-fonts",
+    "allow-set-chat-background-image",
+    "allow-clear-chat-background-image",
+    "allow-get-chat-background-data-url",
     "allow-list-skills",
     "allow-read-skill-meta",
     "allow-read-skill-file",
@@ -62,6 +65,7 @@
     "allow-load-sessions",
     "allow-save-sessions",
     "allow-generate-session-title",
-    "allow-run-shell-command"
+    "allow-run-shell-command",
+    "allow-cancel-running-task"
   ]
 }

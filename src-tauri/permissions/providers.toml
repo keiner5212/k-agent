@@ -157,6 +157,21 @@ description = "List font families installed on this system."
 commands.allow = ["list_system_fonts"]
 
 [[permission]]
+identifier = "allow-set-chat-background-image"
+description = "Copy a user-picked image into app data and return its data URL."
+commands.allow = ["set_chat_background_image"]
+
+[[permission]]
+identifier = "allow-clear-chat-background-image"
+description = "Delete the stored chat background image."
+commands.allow = ["clear_chat_background_image"]
+
+[[permission]]
+identifier = "allow-get-chat-background-data-url"
+description = "Return the stored chat background image as a data URL."
+commands.allow = ["get_chat_background_data_url"]
+
+[[permission]]
 identifier = "allow-list-skills"
 description = "List global and workspace skills."
 commands.allow = ["list_skills"]
@@ -328,5 +343,10 @@ commands.allow = ["generate_session_title"]
 
 [[permission]]
 identifier = "allow-run-shell-command"
-description = "Run a shell command inside the current workspace."
+description = "Run a shell command inside the workspace."
 commands.allow = ["run_shell_command"]
+
+[[permission]]
+identifier = "allow-cancel-running-task"
+description = "Signal the active chat or shell task to stop early."
+commands.allow = ["cancel_running_task"]

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { closeAllDialogs, closeTopDialog, hasOpenDialogs } from "./dialog-stack";
 import { isEditableTarget, matchesChordString } from "./keybindings";
+import { INTERRUPT_ARM_MS, useSessionsStore } from "./sessions";
 import { useSettingsStore } from "./settings";
 import type { KeybindingAction } from "@/types/settings";
 
@@ -51,6 +52,21 @@ export const useGlobalKeybindings = (onAction: (action: KeybindingAction) => voi
           event.preventDefault();
           event.stopPropagation();
           closeTopDialog();
+          return;
+        }
+        const sessions = useSessionsStore.getState();
+        if (sessions.sending || sessions.shellRunning) {
+          event.preventDefault();
+          event.stopPropagation();
+          const now = Date.now();
+          const armed =
+            sessions.interruptArmedAt !== null &&
+            now - sessions.interruptArmedAt < INTERRUPT_ARM_MS;
+          if (armed) {
+            void sessions.interruptActiveTask();
+          } else {
+            sessions.armInterrupt();
+          }
           return;
         }
       }

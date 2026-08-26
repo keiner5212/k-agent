@@ -26,16 +26,18 @@ where
     serializer.serialize_str(&error.to_string())
 }
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     LogicalSize, Manager, Size, State, WindowEvent,
 };
+use tokio::sync::oneshot;
 
 use chat::{generate_session_title, send_chat_message};
 use providers::{
@@ -66,6 +68,60 @@ impl LocalWorkspace {
     pub(crate) fn cloned_path(&self) -> Option<PathBuf> {
         self.path.lock().ok().and_then(|guard| guard.clone())
     }
+}
+
+#[derive(Default)]
+pub(crate) struct CancelRegistry {
+    handles: Mutex<std::collections::HashMap<String, oneshot::Sender<()>>>,
+}
+
+impl CancelRegistry {
+    pub(crate) fn register(&self, id: String) -> oneshot::Receiver<()> {
+        let (tx, rx) = oneshot::channel();
+        let mut handles = self.handles.lock().expect("cancel lock poisoned");
+        if let Some(previous) = handles.insert(id, tx) {
+            let _ = previous.send(());
+        }
+        rx
+    }
+
+    pub(crate) fn cancel(&self, id: &str) -> bool {
+        let mut handles = self.handles.lock().expect("cancel lock poisoned");
+        if let Some(tx) = handles.remove(id) {
+            let _ = tx.send(());
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn clear(&self, id: &str) {
+        let mut handles = self.handles.lock().expect("cancel lock poisoned");
+        handles.remove(id);
+    }
+}
+
+pub(crate) struct CancelHandle<'a> {
+    registry: &'a CancelRegistry,
+    id: String,
+}
+
+impl<'a> CancelHandle<'a> {
+    pub(crate) fn new(registry: &'a CancelRegistry, id: String) -> (Self, oneshot::Receiver<()>) {
+        let rx = registry.register(id.clone());
+        (Self { registry, id }, rx)
+    }
+}
+
+impl Drop for CancelHandle<'_> {
+    fn drop(&mut self) {
+        self.registry.clear(&self.id);
+    }
+}
+
+#[tauri::command]
+fn cancel_running_task(state: State<'_, CancelRegistry>, session_id: String) -> bool {
+    state.cancel(&session_id)
 }
 
 #[tauri::command]
@@ -287,6 +343,130 @@ async fn list_system_fonts() -> Result<Vec<String>, String> {
     .map_err(|error| error.to_string())
 }
 
+const CHAT_BACKGROUND_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp"];
+const CHAT_BACKGROUND_MAX_BYTES: u64 = 5 * 1024 * 1024;
+
+fn chat_background_extension(path: &Path) -> Option<&'static str> {
+    let ext = path.extension()?.to_str()?.to_lowercase();
+    match ext.as_str() {
+        "png" => Some("png"),
+        "jpg" | "jpeg" => Some("jpg"),
+        "webp" => Some("webp"),
+        _ => None,
+    }
+}
+
+fn chat_background_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    Ok(dir)
+}
+
+fn remove_all_chat_backgrounds(dir: &Path) -> Result<(), String> {
+    for ext in CHAT_BACKGROUND_EXTENSIONS {
+        let candidate = dir.join(format!("chat-background.{ext}"));
+        if candidate.exists() {
+            std::fs::remove_file(&candidate).map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+fn chat_background_mime(extension: &str) -> Option<&'static str> {
+    match extension {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "webp" => Some("image/webp"),
+        _ => None,
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ChatBackgroundUpdate {
+    filename: String,
+    url: String,
+}
+
+#[tauri::command]
+async fn set_chat_background_image(
+    app: tauri::AppHandle,
+    source_path: String,
+) -> Result<ChatBackgroundUpdate, String> {
+    tauri::async_runtime::spawn_blocking(move || set_chat_background_image_sync(app, source_path))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn set_chat_background_image_sync(
+    app: tauri::AppHandle,
+    source_path: String,
+) -> Result<ChatBackgroundUpdate, String> {
+    let source = PathBuf::from(source_path.trim());
+    if source.as_os_str().is_empty() {
+        return Err("empty path".into());
+    }
+    let extension =
+        chat_background_extension(&source).ok_or_else(|| "unsupported image format".to_string())?;
+    let metadata = std::fs::metadata(&source).map_err(|error| error.to_string())?;
+    if metadata.len() > CHAT_BACKGROUND_MAX_BYTES {
+        return Err(format!(
+            "image too large (max {} MB)",
+            CHAT_BACKGROUND_MAX_BYTES / 1024 / 1024
+        ));
+    }
+    let bytes = std::fs::read(&source).map_err(|error| error.to_string())?;
+    let dir = chat_background_dir(&app)?;
+    remove_all_chat_backgrounds(&dir)?;
+    let filename = format!("chat-background.{extension}");
+    let dest = dir.join(&filename);
+    std::fs::write(&dest, &bytes).map_err(|error| error.to_string())?;
+    let mime = chat_background_mime(extension).ok_or_else(|| "invalid extension".to_string())?;
+    let encoded = BASE64_STANDARD.encode(&bytes);
+    Ok(ChatBackgroundUpdate {
+        filename,
+        url: format!("data:{};base64,{}", mime, encoded),
+    })
+}
+
+#[tauri::command]
+async fn clear_chat_background_image(app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let dir = chat_background_dir(&app)?;
+        remove_all_chat_backgrounds(&dir)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+async fn get_chat_background_data_url(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || get_chat_background_data_url_sync(app))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn get_chat_background_data_url_sync(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let dir = chat_background_dir(&app)?;
+    for extension in CHAT_BACKGROUND_EXTENSIONS {
+        let candidate = dir.join(format!("chat-background.{extension}"));
+        if !candidate.exists() {
+            continue;
+        }
+        let bytes = std::fs::read(&candidate).map_err(|error| error.to_string())?;
+        let mime = match chat_background_mime(extension) {
+            Some(value) => value,
+            None => continue,
+        };
+        let encoded = BASE64_STANDARD.encode(&bytes);
+        return Ok(Some(format!("data:{};base64,{}", mime, encoded)));
+    }
+    Ok(None)
+}
+
 fn toggle_window_visibility(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         match window.is_visible() {
@@ -456,6 +636,7 @@ pub fn run() {
             })),
         })
         .manage(lsp_client::LspHub::new())
+        .manage(CancelRegistry::default())
         .invoke_handler(tauri::generate_handler![
             set_minimize_to_tray,
             get_minimize_to_tray,
@@ -469,6 +650,9 @@ pub fn run() {
             window_start_drag,
             window_open_devtools,
             list_system_fonts,
+            set_chat_background_image,
+            clear_chat_background_image,
+            get_chat_background_data_url,
             get_workspace_path,
             set_workspace_path,
             repo::get_repo_info,
@@ -512,6 +696,7 @@ pub fn run() {
             generate_session_title,
             run_shell_command,
             webview_log,
+            cancel_running_task,
         ])
         .setup(|app| {
             if let Ok(home) = app.path().home_dir() {

@@ -11,7 +11,7 @@ use tokio::process::Command;
 use tokio::task::JoinHandle;
 use tokio::time::timeout;
 
-use crate::LocalWorkspace;
+use crate::{CancelHandle, LocalWorkspace};
 
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const DEFAULT_MAX_OUTPUT_BYTES: usize = 256 * 1024;
@@ -19,7 +19,6 @@ const MAX_TIMEOUT_MS: u64 = 10 * 60_000;
 const MAX_OUTPUT_BYTES_CAP: usize = 8 * 1024 * 1024;
 const PIPE_DRAIN_MS: u64 = 1_500;
 const KILL_WAIT_MS: u64 = 400;
-const STREAM_FLUSH_BYTES: usize = 4096;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,6 +26,8 @@ pub struct RunShellInput {
     pub command: String,
     #[serde(default)]
     pub cwd: Option<String>,
+    #[serde(default)]
+    pub session_id: Option<String>,
     #[serde(default)]
     pub timeout_ms: Option<u64>,
     #[serde(default)]
@@ -42,6 +43,8 @@ pub struct RunShellResult {
     pub stderr: String,
     pub exit_code: Option<i32>,
     pub timed_out: bool,
+    #[serde(default)]
+    pub cancelled: bool,
     pub stdout_truncated: bool,
     pub stderr_truncated: bool,
     pub duration_ms: u64,
@@ -185,25 +188,12 @@ fn finish_utf8(pending: &mut Vec<u8>) -> String {
     out
 }
 
-fn flush_emit(
-    on_chunk: Option<&Channel<ShellChunk>>,
-    kind: ShellChunkKind,
-    emit_buf: &mut String,
-    force: bool,
-) {
-    if emit_buf.is_empty() {
-        return;
-    }
-    if !force && emit_buf.len() < STREAM_FLUSH_BYTES {
+fn send_chunk(on_chunk: Option<&Channel<ShellChunk>>, kind: ShellChunkKind, text: String) {
+    if text.is_empty() {
         return;
     }
     if let Some(channel) = on_chunk {
-        let _ = channel.send(ShellChunk {
-            kind,
-            text: std::mem::take(emit_buf),
-        });
-    } else {
-        emit_buf.clear();
+        let _ = channel.send(ShellChunk { kind, text });
     }
 }
 
@@ -211,34 +201,18 @@ fn push_stream_bytes(
     on_chunk: Option<&Channel<ShellChunk>>,
     kind: ShellChunkKind,
     utf8_pending: &mut Vec<u8>,
-    emit_buf: &mut String,
     bytes: &[u8],
 ) {
-    let Some(channel) = on_chunk else {
-        return;
-    };
     let text = take_utf8(utf8_pending, bytes);
-    if text.is_empty() {
-        return;
-    }
-    emit_buf.push_str(&text);
-    flush_emit(Some(channel), kind, emit_buf, false);
+    send_chunk(on_chunk, kind, text);
 }
 
 fn finish_stream(
     on_chunk: Option<&Channel<ShellChunk>>,
     kind: ShellChunkKind,
     utf8_pending: &mut Vec<u8>,
-    emit_buf: &mut String,
 ) {
-    let Some(channel) = on_chunk else {
-        return;
-    };
-    let rest = finish_utf8(utf8_pending);
-    if !rest.is_empty() {
-        emit_buf.push_str(&rest);
-    }
-    flush_emit(Some(channel), kind, emit_buf, true);
+    send_chunk(on_chunk, kind, finish_utf8(utf8_pending));
 }
 
 async fn read_streaming<R>(
@@ -253,7 +227,6 @@ where
     let mut buf = Vec::with_capacity(cap.min(8192));
     let mut chunk = [0u8; 4096];
     let mut utf8_pending = Vec::new();
-    let mut emit_buf = String::new();
     let mut truncated = false;
     loop {
         match reader.read(&mut chunk).await {
@@ -272,13 +245,7 @@ where
                     continue;
                 }
                 buf.extend_from_slice(&chunk[..take]);
-                push_stream_bytes(
-                    on_chunk.as_ref(),
-                    kind,
-                    &mut utf8_pending,
-                    &mut emit_buf,
-                    &chunk[..take],
-                );
+                push_stream_bytes(on_chunk.as_ref(), kind, &mut utf8_pending, &chunk[..take]);
             }
             Err(_) => {
                 if !truncated {
@@ -288,7 +255,7 @@ where
             }
         }
     }
-    finish_stream(on_chunk.as_ref(), kind, &mut utf8_pending, &mut emit_buf);
+    finish_stream(on_chunk.as_ref(), kind, &mut utf8_pending);
     let s = String::from_utf8_lossy(&buf).into_owned();
     (s, truncated)
 }
@@ -319,6 +286,7 @@ fn result_from_pipes(
     stderr: (String, bool),
     exit_code: Option<i32>,
     timed_out: bool,
+    cancelled: bool,
     started: Instant,
     started_at_ms: u64,
 ) -> RunShellResult {
@@ -329,6 +297,7 @@ fn result_from_pipes(
         stderr: stderr.0,
         exit_code,
         timed_out,
+        cancelled,
         stdout_truncated: stdout.1,
         stderr_truncated: stderr.1,
         duration_ms: started.elapsed().as_millis() as u64,
@@ -377,6 +346,7 @@ async fn collect_pipes_after_kill(
 #[tauri::command]
 pub async fn run_shell_command(
     state: State<'_, LocalWorkspace>,
+    cancel: State<'_, crate::CancelRegistry>,
     input: RunShellInput,
     on_chunk: Channel<ShellChunk>,
 ) -> Result<RunShellResult, ShellError> {
@@ -396,6 +366,14 @@ pub async fn run_shell_command(
     let cwd = resolve_cwd(input.cwd.as_deref(), &workspace_root)?;
     let timeout_ms = clamp_timeout(input.timeout_ms);
     let cap = clamp_output_cap(input.max_output_bytes);
+
+    let (_cancel_guard, cancel_rx) = match input.session_id.clone() {
+        Some(id) => {
+            let (guard, rx) = CancelHandle::new(cancel.inner(), id);
+            (Some(guard), Some(rx))
+        }
+        None => (None, None),
+    };
 
     let started = Instant::now();
     let started_at_ms = std::time::SystemTime::now()
@@ -459,35 +437,79 @@ pub async fn run_shell_command(
         .await
     });
 
-    let exit_status = match timeout(Duration::from_millis(timeout_ms), child.wait()).await {
-        Ok(result) => result.map_err(|e| ShellError::Io(format!("wait: {e}")))?,
-        Err(_) => {
+    enum WaitOutcome {
+        Done(std::process::ExitStatus),
+        TimedOut,
+        Cancelled,
+    }
+
+    let outcome: WaitOutcome = {
+        let wait_fut = child.wait();
+        tokio::pin!(wait_fut);
+        let timeout_fut = tokio::time::sleep(Duration::from_millis(timeout_ms));
+        tokio::pin!(timeout_fut);
+
+        if let Some(rx) = cancel_rx {
+            let cancel_fut = async move {
+                let _ = rx.await;
+            };
+            tokio::pin!(cancel_fut);
+            tokio::select! {
+                biased;
+                _ = &mut cancel_fut => WaitOutcome::Cancelled,
+                _ = &mut timeout_fut => WaitOutcome::TimedOut,
+                result = &mut wait_fut => match result {
+                    Ok(status) => WaitOutcome::Done(status),
+                    Err(error) => {
+                        return Err(ShellError::Io(format!("wait: {error}")));
+                    }
+                }
+            }
+        } else {
+            tokio::select! {
+                _ = &mut timeout_fut => WaitOutcome::TimedOut,
+                result = &mut wait_fut => match result {
+                    Ok(status) => WaitOutcome::Done(status),
+                    Err(error) => {
+                        return Err(ShellError::Io(format!("wait: {error}")));
+                    }
+                }
+            }
+        }
+    };
+
+    match outcome {
+        WaitOutcome::Done(exit_status) => {
+            let (stdout, stderr) = join_pipes(stdout_task, stderr_task).await;
+            Ok(result_from_pipes(
+                command.to_string(),
+                cwd.to_string_lossy().into_owned(),
+                stdout,
+                stderr,
+                exit_status.code(),
+                false,
+                false,
+                started,
+                started_at_ms,
+            ))
+        }
+        WaitOutcome::TimedOut | WaitOutcome::Cancelled => {
+            let cancelled = matches!(outcome, WaitOutcome::Cancelled);
             kill_tree(&mut child);
             let _ = child.start_kill();
             let _ = timeout(Duration::from_millis(KILL_WAIT_MS), child.wait()).await;
             let (stdout, stderr) = collect_pipes_after_kill(stdout_task, stderr_task).await;
-            return Ok(result_from_pipes(
+            Ok(result_from_pipes(
                 command.to_string(),
                 cwd.to_string_lossy().into_owned(),
                 stdout,
                 stderr,
                 None,
-                true,
+                !cancelled,
+                cancelled,
                 started,
                 started_at_ms,
-            ));
+            ))
         }
-    };
-
-    let (stdout, stderr) = join_pipes(stdout_task, stderr_task).await;
-    Ok(result_from_pipes(
-        command.to_string(),
-        cwd.to_string_lossy().into_owned(),
-        stdout,
-        stderr,
-        exit_status.code(),
-        false,
-        started,
-        started_at_ms,
-    ))
+    }
 }

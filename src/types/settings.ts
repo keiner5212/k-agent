@@ -64,6 +64,11 @@ export const DEFAULT_SESSION_SIDEBAR_OPEN = true;
 export const DEFAULT_BUILD_AGENT_ENABLED = true;
 export const DEFAULT_PLAN_AGENT_ENABLED = true;
 
+export const CHAT_BACKGROUND_FILENAME_PATTERN = /^chat-background\.(png|jpg|jpeg|webp)$/;
+
+export const DEFAULT_CHAT_BACKGROUND_IMAGE: string | null = null;
+export const DEFAULT_CHAT_BACKGROUND_OPACITY = 0.5;
+
 export const hardwareThreadCount = (): number => {
   if (typeof navigator === "undefined") return 8;
   const n = navigator.hardwareConcurrency;
@@ -137,6 +142,8 @@ export type Settings = {
   sessionSidebarOpen: boolean;
   buildAgentEnabled: boolean;
   planAgentEnabled: boolean;
+  chatBackgroundImage: string | null;
+  chatBackgroundOpacity: number;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -166,4 +173,6 @@ export const DEFAULT_SETTINGS: Settings = {
   sessionSidebarOpen: DEFAULT_SESSION_SIDEBAR_OPEN,
   buildAgentEnabled: DEFAULT_BUILD_AGENT_ENABLED,
   planAgentEnabled: DEFAULT_PLAN_AGENT_ENABLED,
+  chatBackgroundImage: DEFAULT_CHAT_BACKGROUND_IMAGE,
+  chatBackgroundOpacity: DEFAULT_CHAT_BACKGROUND_OPACITY,
 };
