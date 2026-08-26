@@ -9,7 +9,8 @@ use thiserror::Error;
 use crate::pathutil;
 use crate::skills::{estimate_tokens, global_skills_root, list_skills_in, parse_yaml_scalar};
 use crate::tools::{
-    EDIT_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME, WRITE_TOOL_NAME,
+    ASK_USER_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, EDIT_TOOL_NAME,
+    LIST_DIRECTORY_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME, WRITE_TOOL_NAME,
 };
 
 pub const MAX_AGENT_SKILLS: usize = 10;
@@ -23,6 +24,9 @@ const AGENT_TOOLS: &[&str] = &[
     WRITE_TOOL_NAME,
     EDIT_TOOL_NAME,
     LIST_DIRECTORY_TOOL_NAME,
+    ASK_USER_TOOL_NAME,
+    CREATE_FOLDER_TOOL_NAME,
+    DELETE_TOOL_NAME,
 ];
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]

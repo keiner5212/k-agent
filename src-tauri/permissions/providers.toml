@@ -374,3 +374,13 @@ commands.allow = ["run_shell_command"]
 identifier = "allow-cancel-running-task"
 description = "Signal the active chat or shell task to stop early."
 commands.allow = ["cancel_running_task"]
+
+[[permission]]
+identifier = "allow-submit-ask-user-answer"
+description = "Submit answers to a pending ask_user tool prompt."
+commands.allow = ["submit_ask_user_answer"]
+
+[[permission]]
+identifier = "allow-cancel-ask-user-answer"
+description = "Cancel a pending ask_user tool prompt."
+commands.allow = ["cancel_ask_user_answer"]

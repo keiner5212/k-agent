@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronsRight, X } from "lucide-react";
+import { ChevronsRight, Pencil, X } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { useSessionsStore } from "@/lib/sessions";
@@ -11,6 +11,7 @@ export const ComposerQueue = (): ReactNode => {
   const queued = useSessionsStore((state) => state.queued);
   const removeQueued = useSessionsStore((state) => state.removeQueued);
   const sendQueuedNow = useSessionsStore((state) => state.sendQueuedNow);
+  const editQueued = useSessionsStore((state) => state.editQueued);
   const items = queued.filter((item) => item.sessionId === activeSessionId);
   if (items.length === 0) return null;
 
@@ -40,6 +41,20 @@ export const ComposerQueue = (): ReactNode => {
               <ChevronsRight size={14} strokeWidth={2} />
               {t("chat.queue.sendNow")}
             </GlassButton>
+            <IconButton
+              label={t("chat.queue.edit")}
+              className="composer-queue__edit"
+              onClick={() => {
+                editQueued(item.id);
+                queueMicrotask(() => {
+                  document
+                    .querySelector<HTMLTextAreaElement>(".chat-composer__field textarea")
+                    ?.focus();
+                });
+              }}
+            >
+              <Pencil size={14} strokeWidth={1.5} />
+            </IconButton>
             <IconButton
               label={t("chat.queue.remove")}
               className="composer-queue__remove"

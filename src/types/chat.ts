@@ -17,11 +17,46 @@ export type ChatAttachment = {
   file?: string;
 };
 
-export type ChatChunkKind = "content" | "reasoning" | "tool";
+export type ChatChunkKind = "content" | "reasoning" | "tool" | "question";
 
 export type ChatChunk = {
   kind: ChatChunkKind;
   text: string;
+};
+
+export type AskUserOption = {
+  label: string;
+  description?: string;
+  preview?: string;
+};
+
+export type AskUserQuestion = {
+  id: string;
+  header: string;
+  question: string;
+  options: AskUserOption[];
+  multiSelect?: boolean;
+  allowFreeText?: boolean;
+};
+
+export type AskUserQuestionChunk = {
+  callId: string;
+  questions: AskUserQuestion[];
+};
+
+export type AskUserAnswerEntry = {
+  questionId: string;
+  selected: string[];
+  freeText: string;
+  skipped?: boolean;
+};
+
+export type PendingQuestionState = {
+  callId: string;
+  messageId: string | null;
+  questions: AskUserQuestion[];
+  answers: AskUserAnswerEntry[];
+  submitted: boolean;
 };
 
 export type ToolDisplay = {
@@ -33,6 +68,7 @@ export type ToolDisplay = {
   removed?: number;
   status?: string;
   skillName?: string;
+  linesRemoved?: number;
 };
 
 export type ChatToolCall = {

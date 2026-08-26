@@ -126,7 +126,9 @@ impl Drop for CancelHandle<'_> {
 
 #[tauri::command]
 fn cancel_running_task(state: State<'_, CancelRegistry>, session_id: String) -> bool {
-    state.cancel(&session_id)
+    let cancelled = state.cancel(&session_id);
+    tools::ask_user::ask_user_registry().drain();
+    cancelled
 }
 
 #[tauri::command]
@@ -709,6 +711,8 @@ pub fn run() {
             prepare_chat_attachments,
             webview_log,
             cancel_running_task,
+            tools::ask_user::submit_ask_user_answer,
+            tools::ask_user::cancel_ask_user_answer,
         ])
         .setup(|app| {
             if let Ok(home) = app.path().home_dir() {

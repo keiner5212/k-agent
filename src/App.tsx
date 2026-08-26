@@ -19,6 +19,7 @@ import { useGlobalKeybindings } from "@/lib/use-global-keybindings";
 import { useSettingsStore } from "@/lib/settings";
 import { useComposerStore } from "@/lib/composer";
 import { useMcpServersStore } from "@/lib/mcp-servers";
+import { useProvidersStore } from "@/lib/providers";
 import { useSessionsStore } from "@/lib/sessions";
 import { useSelectionStore } from "@/lib/selected-model";
 import { isTauri } from "@/lib/platform";
@@ -64,6 +65,11 @@ export const App = (): ReactNode => {
   const hydrateAgent = useComposerStore((state) => state.hydrateAgent);
   const hydrateMcp = useMcpServersStore((state) => state.load);
   const clearComposer = useComposerStore((state) => state.clear);
+  const loadProviders = useProvidersStore((state) => state.load);
+  const providers = useProvidersStore((state) => state.providers);
+  const providersHydrated = useProvidersStore((state) => state.hydrated);
+  const selectionHydrated = useSelectionStore((state) => state.hydrated);
+  const reconcileSelection = useSelectionStore((state) => state.reconcileWithProviders);
 
   useEffect(() => {
     void hydrate();
@@ -84,6 +90,16 @@ export const App = (): ReactNode => {
   useEffect(() => {
     void hydrateSessions();
   }, [hydrateSessions]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    void loadProviders();
+  }, [loadProviders]);
+
+  useEffect(() => {
+    if (!selectionHydrated || !providersHydrated || !isTauri()) return;
+    reconcileSelection(providers);
+  }, [providers, providersHydrated, selectionHydrated, reconcileSelection]);
 
   useEffect(() => {
     if (i18n.language !== language) {

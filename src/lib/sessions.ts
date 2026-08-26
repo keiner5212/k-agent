@@ -25,6 +25,8 @@ import {
 import { loadedSkillNamesFromMessages } from "@/lib/context-usage";
 import {
   parseToolChunkText,
+  type AskUserQuestion,
+  type AskUserQuestionChunk,
   type ChatAttachment,
   type ChatChunk,
   type ChatMessage,
@@ -32,6 +34,8 @@ import {
   type SelectedModel,
   type SendChatResult,
 } from "@/types/chat";
+import { useAskUserStore } from "@/lib/ask-user";
+import { notifyAskUser } from "@/lib/notifications";
 import {
   sortSessions,
   titleFromFirstMessage,
@@ -124,6 +128,50 @@ const previewFromMessages = (messages: ChatMessage[]): string => {
     if (content && content.length > 0) return content;
   }
   return "";
+};
+
+const handleAskUserChunk = (raw: string, messageId: string): void => {
+  try {
+    const parsed = JSON.parse(raw) as Partial<AskUserQuestionChunk>;
+    if (!parsed.callId || !Array.isArray(parsed.questions)) return;
+    const questions = parsed.questions.filter(
+      (question): question is AskUserQuestion =>
+        Boolean(question) &&
+        typeof question.id === "string" &&
+        typeof question.header === "string" &&
+        typeof question.question === "string" &&
+        Array.isArray(question.options),
+    );
+    if (questions.length === 0) return;
+    useAskUserStore.getState().upsert({
+      callId: parsed.callId,
+      messageId,
+      questions,
+      answers: questions.map((question) => ({
+        questionId: question.id,
+        selected: [],
+        freeText: "",
+      })),
+      submitted: false,
+    });
+    const first = questions[0];
+    void notifyAskUser(questions.length, first ? first.question : null);
+  } catch (error) {
+    console.warn("ask_user chunk parse failed", error);
+  }
+};
+
+const pruneSubmittedQuestions = (): void => {
+  const current = useAskUserStore.getState().byCallId;
+  const submittedIds = Object.entries(current)
+    .filter(([, state]) => state.submitted)
+    .map(([callId]) => callId);
+  if (submittedIds.length === 0) return;
+  useAskUserStore.setState((prev) => {
+    const next = { ...prev.byCallId };
+    for (const id of submittedIds) delete next[id];
+    return { byCallId: next };
+  });
 };
 
 const thinkingDurationMs = (
@@ -287,6 +335,7 @@ type SessionsStore = {
   disarmInterrupt: () => void;
   rewindTo: (messageId: string) => void;
   rewindLastUserMessage: () => void;
+  editQueued: (id: string) => void;
 };
 
 export const useSessionsStore = create<SessionsStore>((set, get) => ({
@@ -510,6 +559,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         } else if (thinkingStartedAt !== undefined && thinkingEndedAt === undefined) {
           thinkingEndedAt = Date.now();
         }
+        if (chunk.kind === "question") {
+          handleAskUserChunk(chunk.text, assistantId);
+          return;
+        }
         const toolCall = isTool ? parseToolChunkText(chunk.text) : null;
         const nextSessions = get().sessions.map((session) => {
           if (session.id !== sessionId) return session;
@@ -637,6 +690,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         if (finished && !finished.interrupted) {
           void notifyResponseFinished(finished.content);
         }
+        pruneSubmittedQuestions();
         get().flushQueued();
       }
       return true;
@@ -696,6 +750,20 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
 
   removeQueued: (id) => {
     set({ queued: get().queued.filter((item) => item.id !== id) });
+  },
+
+  editQueued: (id) => {
+    const item = get().queued.find((entry) => entry.id === id);
+    if (!item) return;
+    const composer = useComposerStore.getState();
+    composer.setValue(item.text);
+    if (item.attachments && item.attachments.length > 0) {
+      composer.setAttachments(item.attachments);
+    }
+    if (composer.mode !== item.mode) {
+      composer.setMode(item.mode);
+    }
+    set({ queued: get().queued.filter((entry) => entry.id !== id) });
   },
 
   flushQueued: () => {

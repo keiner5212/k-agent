@@ -2,11 +2,25 @@ export type AgentContextKind = "global" | "builtin";
 
 export type AgentSkillKind = "global";
 
-export const AGENT_TOOL_IDS = ["skill", "read", "write", "edit", "list_directory"] as const;
+export const AGENT_TOOL_IDS = [
+  "skill",
+  "read",
+  "write",
+  "edit",
+  "list_directory",
+  "ask_user",
+  "create_folder",
+  "delete",
+] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
 
-export const PLAN_AGENT_TOOL_IDS: readonly AgentToolId[] = ["skill", "read", "list_directory"];
+export const PLAN_AGENT_TOOL_IDS: readonly AgentToolId[] = [
+  "skill",
+  "read",
+  "list_directory",
+  "ask_user",
+];
 
 export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   skill: "Load a skill by name. Returns SKILL.md body and dir.",
@@ -14,6 +28,11 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   write: "Create or overwrite a file.",
   edit: "Exact string replace in a file. Read first.",
   list_directory: "List directory entries. recursive/maxDepth optional.",
+  ask_user:
+    "Ask the user up to 4 questions and block until they answer. Each question can have multiple selectable options plus an optional free-text input.",
+  create_folder: "Create a directory at an absolute or workspace-relative path. Idempotent.",
+  delete:
+    "Delete a file or empty directory. Out-of-workspace paths require user confirmation; the deleted file's line count is subtracted from the context counter.",
 };
 
 export const MAX_AGENT_SKILLS = 10;

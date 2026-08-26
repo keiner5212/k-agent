@@ -455,6 +455,8 @@ fn tool_call_argument(name: &str, arguments: &str) -> String {
         || name == tools::WRITE_TOOL_NAME
         || name == tools::EDIT_TOOL_NAME
         || name == tools::LIST_DIRECTORY_TOOL_NAME
+        || name == tools::CREATE_FOLDER_TOOL_NAME
+        || name == tools::DELETE_TOOL_NAME
     {
         let file_path = value
             .get(name_for_path_field(name))
@@ -479,8 +481,10 @@ fn tool_call_argument(name: &str, arguments: &str) -> String {
 }
 
 fn name_for_path_field(name: &str) -> &'static str {
-    if name == tools::LIST_DIRECTORY_TOOL_NAME {
+    if name == tools::LIST_DIRECTORY_TOOL_NAME || name == tools::CREATE_FOLDER_TOOL_NAME {
         "dirPath"
+    } else if name == tools::DELETE_TOOL_NAME {
+        "path"
     } else {
         "filePath"
     }
@@ -1974,7 +1978,6 @@ async fn send_message(
     }
 
     let mut turns = call.turns.to_vec();
-    let ctx = ToolContext { app };
     let mut tool_rounds: Vec<ToolRoundTrace> = Vec::new();
 
     for _ in 0..MAX_TOOL_ROUNDS {
@@ -2066,7 +2069,12 @@ async fn send_message(
                         }),
                     )
                 } else if call.tool_names.iter().any(|name| name == &tc.name) {
-                    let outcome = tools::execute(&tc.name, &tc.arguments, &ctx);
+                    let tool_ctx = ToolContext {
+                        app,
+                        call_id: tc.id.clone(),
+                        on_chunk,
+                    };
+                    let outcome = tools::execute(&tc.name, &tc.arguments, &tool_ctx).await;
                     if let Some(snapshot) = outcome.snapshot {
                         if let Some(sid) = session_id {
                             let _ = crate::sessions::write_file_revision(

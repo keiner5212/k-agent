@@ -648,6 +648,18 @@
       "list_directory": {
         "label": "List directories",
         "description": "List the contents of a workspace directory, optionally recursive."
+      },
+      "ask_user": {
+        "label": "Ask the user",
+        "description": "Ask up to four questions and wait for answers before continuing."
+      },
+      "create_folder": {
+        "label": "Create folders",
+        "description": "Create a directory at an absolute or workspace-relative path."
+      },
+      "delete": {
+        "label": "Delete files",
+        "description": "Delete a file or empty directory. Paths outside the workspace ask for confirmation."
       }
     },
     "delete": {
@@ -833,7 +845,17 @@
     "interruptHint": "Press Esc again to interrupt",
     "queue": {
       "sendNow": "Interrupt and send now",
+      "edit": "Edit message",
       "remove": "Remove from queue"
+    },
+    "question": {
+      "title": "Input needed",
+      "freeTextLabel": "Anything else?",
+      "freeTextPlaceholder": "Type a custom answer (optional).",
+      "next": "Next",
+      "back": "Back",
+      "submit": "Submit",
+      "submitting": "Sending..."
     },
     "fileMentions": {
       "label": "Workspace files",
@@ -897,6 +919,8 @@
       "listTitle": "Directory",
       "writeTitle": "File",
       "editTitle": "Diff",
+      "createFolderTitle": "Folder",
+      "deleteTitle": "Delete",
       "outputTitle": "Tool output"
     }
   },
@@ -919,6 +943,11 @@
     "responseFinished": {
       "title": "Response finished",
       "empty": "The model finished responding."
+    },
+    "askUser": {
+      "title": "The agent needs your input",
+      "single": "{{question}}",
+      "multiple": "{{count}} questions waiting"
     }
   }
 }

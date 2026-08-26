@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { LazyStore } from "@tauri-apps/plugin-store";
 import { isTauri } from "@/lib/platform";
 import type { SelectedModel } from "@/types/chat";
+import type { Provider } from "@/types/providers";
 
 const STORE_FILE = "settings.json";
 const KEY_SELECTED_MODEL = "selectedModel";
@@ -23,6 +24,32 @@ type SelectionState = {
   hydrate: () => Promise<void>;
   select: (next: SelectedModel | null) => void;
   setEffort: (effort: string | null) => void;
+  reconcileWithProviders: (providers: readonly Provider[]) => void;
+};
+
+const selectionStillValid = (selection: SelectedModel, providers: readonly Provider[]): boolean =>
+  providers.some(
+    (provider) =>
+      provider.id === selection.providerId &&
+      provider.models.some((model) => model.id === selection.modelId),
+  );
+
+const pickDefaultSelection = (providers: readonly Provider[]): SelectedModel | null => {
+  for (const provider of providers) {
+    const favorite = provider.models.find((model) => model.favorite);
+    if (favorite) return { providerId: provider.id, modelId: favorite.id };
+  }
+  for (const provider of providers) {
+    const first = provider.models[0];
+    if (first) return { providerId: provider.id, modelId: first.id };
+  }
+  return null;
+};
+
+const sameSelection = (left: SelectedModel | null, right: SelectedModel | null): boolean => {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  return left.providerId === right.providerId && left.modelId === right.modelId;
 };
 
 const persistSelection = async (selection: SelectedModel | null): Promise<void> => {
@@ -91,6 +118,15 @@ export const useSelectionStore = create<SelectionState>((set, get) => ({
       return { effortByModel: next };
     });
     if (effort !== null) void persistEffort(selection, effort);
+  },
+
+  reconcileWithProviders: (providers) => {
+    const current = get().selection;
+    if (current && selectionStillValid(current, providers)) return;
+    const next = pickDefaultSelection(providers);
+    if (sameSelection(current, next)) return;
+    set({ selection: next });
+    void persistSelection(next);
   },
 }));
 

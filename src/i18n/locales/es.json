@@ -648,6 +648,18 @@
       "list_directory": {
         "label": "Listar directorios",
         "description": "Listar el contenido de un directorio del workspace, con recursion opcional."
+      },
+      "ask_user": {
+        "label": "Preguntar al usuario",
+        "description": "Hacer hasta cuatro preguntas y esperar respuestas antes de continuar."
+      },
+      "create_folder": {
+        "label": "Crear carpetas",
+        "description": "Crear un directorio en una ruta absoluta o relativa al workspace."
+      },
+      "delete": {
+        "label": "Eliminar archivos",
+        "description": "Eliminar un archivo o un directorio vacio. Las rutas fuera del workspace piden confirmacion."
       }
     },
     "delete": {
@@ -833,7 +845,17 @@
     "interruptHint": "Pulsa Esc otra vez para interrumpir",
     "queue": {
       "sendNow": "Interrumpir y enviar ahora",
+      "edit": "Editar mensaje",
       "remove": "Quitar de la cola"
+    },
+    "question": {
+      "title": "Necesito tu respuesta",
+      "freeTextLabel": "¿Algo más?",
+      "freeTextPlaceholder": "Escribe una respuesta libre (opcional).",
+      "next": "Siguiente",
+      "back": "Atrás",
+      "submit": "Enviar",
+      "submitting": "Enviando..."
     },
     "fileMentions": {
       "label": "Archivos del workspace",
@@ -897,6 +919,8 @@
       "listTitle": "Directorio",
       "writeTitle": "Archivo",
       "editTitle": "Diff",
+      "createFolderTitle": "Carpeta",
+      "deleteTitle": "Eliminar",
       "outputTitle": "Salida de la herramienta"
     }
   },
@@ -919,6 +943,11 @@
     "responseFinished": {
       "title": "Respuesta lista",
       "empty": "El modelo terminó de responder."
+    },
+    "askUser": {
+      "title": "El agente necesita tu respuesta",
+      "single": "{{question}}",
+      "multiple": "{{count}} preguntas esperando"
     }
   }
 }

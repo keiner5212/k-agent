@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FileText, Film, Sparkles } from "lucide-react";
 import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
+import { useAskUserStore } from "@/lib/ask-user";
 import { renderMarkdown } from "@/lib/markdown";
 import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import type { ChatAttachment, ChatMessage } from "@/types/chat";
 import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
 import { ChatWaitingLine } from "./ChatWaitingLine";
 import { MessageActions } from "./MessageActions";
+import { QuestionDialog } from "./QuestionDialog";
 import { ToolCallsBlock } from "./ToolCallsBlock";
 
 const AssistantMarkdown = ({ content }: { content: string }): ReactNode => {
@@ -122,6 +124,17 @@ const MessageAttachments = ({
   );
 };
 
+const PendingQuestionsBlock = ({ messageId }: { messageId: string }): ReactNode => {
+  const questionsByCallId = useAskUserStore((state) => state.byCallId);
+  const pending: ReactNode[] = [];
+  for (const state of Object.values(questionsByCallId)) {
+    if (state.messageId !== messageId) continue;
+    pending.push(<QuestionDialog key={state.callId} state={state} />);
+  }
+  if (pending.length === 0) return null;
+  return <div className="chat-questions">{pending}</div>;
+};
+
 const MessageBody = ({
   message,
   sessionId,
@@ -154,6 +167,7 @@ const MessageBody = ({
           })}
           <ThinkingBlock reasoning={message.reasoning ?? ""} thinkingMs={message.thinkingMs} />
           <AssistantMarkdown content={message.content} />
+          <PendingQuestionsBlock messageId={message.id} />
           <InterruptedFooter interrupted={message.interrupted ?? false} />
         </>
       );
@@ -166,6 +180,7 @@ const MessageBody = ({
           thinkingMs={message.thinkingMs}
         />
         <ToolCallsBlock sessionId={sessionId} calls={message.toolCalls ?? []} />
+        <PendingQuestionsBlock messageId={message.id} />
         <AssistantMarkdown content={message.content} />
         <InterruptedFooter interrupted={message.interrupted ?? false} />
       </>

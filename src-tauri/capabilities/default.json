@@ -76,6 +76,8 @@
     "allow-generate-session-title",
     "allow-generate-app-content",
     "allow-run-shell-command",
-    "allow-cancel-running-task"
+    "allow-cancel-running-task",
+    "allow-submit-ask-user-answer",
+    "allow-cancel-ask-user-answer"
   ]
 }

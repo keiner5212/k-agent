@@ -83,6 +83,7 @@ const runMutation = async (
 type ProvidersStore = {
   providers: Provider[];
   loading: boolean;
+  hydrated: boolean;
   error?: string;
   load: () => Promise<void>;
   save: (draft: ProviderDraft) => Promise<ProviderMutationResult>;
@@ -100,18 +101,19 @@ type ProvidersStore = {
 export const useProvidersStore = create<ProvidersStore>((set) => ({
   providers: [],
   loading: false,
+  hydrated: false,
 
   load: async () => {
     set({ loading: true, error: undefined });
     if (!isTauri()) {
-      set({ providers: [], loading: false });
+      set({ providers: [], loading: false, hydrated: true });
       return;
     }
     try {
       const providers = await invoke<Provider[]>("list_providers");
-      set({ providers, loading: false });
+      set({ providers, loading: false, hydrated: true });
     } catch (error) {
-      set({ loading: false, error: ipcErrorMessage(error) });
+      set({ loading: false, hydrated: true, error: ipcErrorMessage(error) });
     }
   },
 

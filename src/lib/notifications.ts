@@ -26,7 +26,7 @@ const windowIsFocused = (): boolean => {
 
 let permissionRequested = false;
 
-const ensurePermission = async (): Promise<boolean> => {
+export const ensurePermission = async (): Promise<boolean> => {
   if (!isTauri()) return false;
   try {
     if (await isPermissionGranted()) return true;
@@ -50,6 +50,23 @@ export const notifyResponseFinished = async (content: string): Promise<void> => 
       title: i18n.t("notifications.responseFinished.title"),
       body: buildBody(content),
     });
+  } catch (error) {
+    console.warn("notification send failed", error);
+  }
+};
+
+export const notifyAskUser = async (count: number, firstQuestion: string | null): Promise<void> => {
+  if (!useSettingsStore.getState().notificationsEnabled) return;
+  if (windowIsFocused()) return;
+  const allowed = await ensurePermission();
+  if (!allowed) return;
+  const title = i18n.t("notifications.askUser.title");
+  const body =
+    count === 1 && firstQuestion
+      ? i18n.t("notifications.askUser.single", { question: firstQuestion })
+      : i18n.t("notifications.askUser.multiple", { count });
+  try {
+    sendNotification({ title, body });
   } catch (error) {
     console.warn("notification send failed", error);
   }

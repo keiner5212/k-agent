@@ -4,8 +4,13 @@ mod read;
 mod skill;
 mod write;
 
+pub mod ask_user;
+mod create_folder;
+mod delete;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use tauri::ipc::Channel;
 use tauri::AppHandle;
 use uuid::Uuid;
 
@@ -18,6 +23,9 @@ pub const READ_TOOL_NAME: &str = read::NAME;
 pub const WRITE_TOOL_NAME: &str = write::NAME;
 pub const EDIT_TOOL_NAME: &str = edit::NAME;
 pub const LIST_DIRECTORY_TOOL_NAME: &str = list_directory::NAME;
+pub const ASK_USER_TOOL_NAME: &str = ask_user::NAME;
+pub const CREATE_FOLDER_TOOL_NAME: &str = create_folder::NAME;
+pub const DELETE_TOOL_NAME: &str = delete::NAME;
 
 pub const TOOL_KIND_CONTEXT: &str = "context";
 pub const TOOL_KIND_ACTION: &str = "action";
@@ -43,6 +51,8 @@ pub struct ModelToolCall {
 
 pub struct ToolContext<'a> {
     pub app: &'a AppHandle,
+    pub call_id: String,
+    pub on_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
 }
 
 impl ToolContext<'_> {
@@ -74,6 +84,8 @@ pub struct ToolDisplay {
     pub status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub skill_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lines_removed: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -234,6 +246,9 @@ fn all_tools() -> Vec<Box<dyn Tool>> {
         Box::new(write::WriteTool),
         Box::new(edit::EditTool),
         Box::new(list_directory::ListDirectoryTool),
+        Box::new(ask_user::AskUserTool),
+        Box::new(create_folder::CreateFolderTool),
+        Box::new(delete::DeleteTool),
     ]
 }
 
@@ -241,7 +256,13 @@ pub fn specs() -> Vec<ToolSpec> {
     all_tools().iter().map(|tool| tool.spec()).collect()
 }
 
-pub fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
+pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
+    if name == ask_user::NAME {
+        return ask_user::execute_async(arguments, ctx).await;
+    }
+    if name == delete::NAME {
+        return delete::execute_async(arguments, ctx).await;
+    }
     let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
     for tool in all_tools() {
         if tool.spec().name == name {

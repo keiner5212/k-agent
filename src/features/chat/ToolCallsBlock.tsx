@@ -64,6 +64,15 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
   const openPreview = async (call: ChatToolCall): Promise<void> => {
     const display = call.display;
     if (display?.kind === "action" && call.id && sessionId) {
+      if (call.name === "create_folder" || call.name === "delete") {
+        setPreview({
+          titleKey:
+            call.name === "delete" ? "chat.tools.deleteTitle" : "chat.tools.createFolderTitle",
+          value: call.output ?? "",
+          path: display.path,
+        });
+        return;
+      }
       if (display.status !== "ok") {
         setPreview({
           titleKey: call.name === "edit" ? "chat.tools.editTitle" : "chat.tools.writeTitle",

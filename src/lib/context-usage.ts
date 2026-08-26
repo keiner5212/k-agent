@@ -98,12 +98,71 @@ const LIST_DIRECTORY_TOOL_PARAMETERS = {
   },
 } as const;
 
+const ASK_USER_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    questions: {
+      type: "array",
+      description: "1-4 questions. Each has options, optional multiSelect, optional allowFreeText.",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Stable id" },
+          header: { type: "string", description: "Short tab label" },
+          question: { type: "string", description: "Full question text" },
+          options: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string" },
+                description: { type: "string" },
+                preview: { type: "string" },
+              },
+              required: ["label"],
+            },
+          },
+          multiSelect: { type: "boolean" },
+          allowFreeText: { type: "boolean", description: "Show a free-text input (default true)" },
+        },
+        required: ["id", "header", "question", "options"],
+      },
+    },
+  },
+  required: ["questions"],
+} as const;
+
+const CREATE_FOLDER_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    dirPath: {
+      type: "string",
+      description: "Absolute or workspace-relative path",
+    },
+  },
+  required: ["dirPath"],
+} as const;
+
+const DELETE_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    path: {
+      type: "string",
+      description: "Absolute or workspace-relative path to delete",
+    },
+  },
+  required: ["path"],
+} as const;
+
 const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   skill: SKILL_TOOL_PARAMETERS,
   read: READ_TOOL_PARAMETERS,
   write: WRITE_TOOL_PARAMETERS,
   edit: EDIT_TOOL_PARAMETERS,
   list_directory: LIST_DIRECTORY_TOOL_PARAMETERS,
+  ask_user: ASK_USER_TOOL_PARAMETERS,
+  create_folder: CREATE_FOLDER_TOOL_PARAMETERS,
+  delete: DELETE_TOOL_PARAMETERS,
 };
 
 export const CONTEXT_CATEGORY_IDS = [
@@ -227,6 +286,14 @@ const walkMessageTokens = (messages: ChatMessage[]): MessageTokenWalk => {
         walk.input += outputTokens;
         if (call.name === "skill") walk.skillOutputs += outputTokens;
         else walk.conversation += outputTokens;
+        if (call.name === "delete") {
+          const removedLines = call.display?.linesRemoved ?? 0;
+          if (removedLines > 0) {
+            const removedTokens = estimateTokensFromText("\n".repeat(removedLines * 32));
+            if (walk.conversation >= removedTokens) walk.conversation -= removedTokens;
+            else walk.conversation = 0;
+          }
+        }
       }
     }
   }
