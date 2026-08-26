@@ -16,6 +16,9 @@ importers:
       "@tauri-apps/plugin-dialog":
         specifier: 2.7.2
         version: 2.7.2
+      "@tauri-apps/plugin-notification":
+        specifier: 2.3.3
+        version: 2.3.3
       "@tauri-apps/plugin-store":
         specifier: 2.4.4
         version: 2.4.4
@@ -617,6 +620,12 @@ packages:
     resolution:
       {
         integrity: sha512-pX0IGm1I3I6wc+zeKYcq1GSqogK6okCNX5fOdaNU5ab1AjGS6l1E5wFNjEb7meg7ZFSp0JUs+0jQGQNyOvLrsg==,
+      }
+
+  "@tauri-apps/plugin-notification@2.3.3":
+    resolution:
+      {
+        integrity: sha512-Zw+ZH18RJb41G4NrfHgIuofJiymusqN+q8fGUIIV7vyCH+5sSn5coqRv/MWB9qETsUs97vmU045q7OyseCV3Qg==,
       }
 
   "@tauri-apps/plugin-store@2.4.4":
@@ -1981,6 +1990,10 @@ snapshots:
       "@tauri-apps/api": 2.11.1
 
   "@tauri-apps/plugin-dialog@2.7.2":
+    dependencies:
+      "@tauri-apps/api": 2.11.1
+
+  "@tauri-apps/plugin-notification@2.3.3":
     dependencies:
       "@tauri-apps/api": 2.11.1
 

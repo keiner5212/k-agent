@@ -176,3 +176,4 @@ Order: typecheck, then lint, then format. Fix in that order; lint errors after a
 - Comment what the code already says. Comment only a non-obvious why.
 - Expand scope past the asked change.
 - Ship code with `pnpm format:check`, `pnpm lint`, or `pnpm typecheck` failing.
+- Start dev servers, watchers, daemons, or any long-running foreground process. They block the shell and stay alive between turns. Prohibited.

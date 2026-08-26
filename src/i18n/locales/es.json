@@ -879,5 +879,11 @@
     "unset": "El workspace no está disponible.",
     "pickFolder": "Elige la carpeta de workspace",
     "change": "Clic para cambiar de workspace"
+  },
+  "notifications": {
+    "responseFinished": {
+      "title": "Respuesta lista",
+      "empty": "El modelo terminó de responder."
+    }
   }
 }

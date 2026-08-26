@@ -879,5 +879,11 @@
     "unset": "Workspace is unavailable.",
     "pickFolder": "Pick workspace folder",
     "change": "Click to change workspace"
+  },
+  "notifications": {
+    "responseFinished": {
+      "title": "Response finished",
+      "empty": "The model finished responding."
+    }
   }
 }

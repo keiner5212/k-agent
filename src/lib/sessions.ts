@@ -7,6 +7,7 @@ import { useComposerStore, type ComposerMode } from "@/lib/composer";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
 import { useProvidersStore } from "@/lib/providers";
 import { resolveOutgoingMentions } from "@/lib/resolve-outgoing-mentions";
+import { notifyResponseFinished } from "@/lib/notifications";
 import { composeSystemWithLanguage } from "@/lib/response-language";
 import { selectEffort, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
@@ -521,7 +522,15 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       });
       const active = get().activeSessionId ?? sessionId;
       void persistSnapshot(snapshotFromState(withAssistant, active));
-      if (stillSending) get().flushQueued();
+      if (stillSending) {
+        const finished = withAssistant
+          .find((session) => session.id === sessionId)
+          ?.messages.find((message) => message.id === assistantId);
+        if (finished && !finished.interrupted) {
+          void notifyResponseFinished(finished.content);
+        }
+        get().flushQueued();
+      }
       return true;
     } catch (error) {
       if (get().sendingSessionId === sessionId) {
