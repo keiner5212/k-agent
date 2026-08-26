@@ -1122,6 +1122,38 @@ button.change-bar__stat:focus-visible {
   word-break: break-word;
 }
 
+.chat-message__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  opacity: 0;
+  transition: opacity var(--ease-quick, 0.18s) var(--ease-standard, ease);
+}
+
+.chat-message--user .chat-message__actions {
+  justify-content: flex-end;
+}
+
+.chat-message--assistant .chat-message__actions {
+  justify-content: flex-start;
+}
+
+.chat-message:hover .chat-message__actions,
+.chat-message__actions:focus-within {
+  opacity: 1;
+}
+
+.chat-message__action {
+  width: 1.6rem;
+  height: 1.6rem;
+  color: var(--text-muted);
+}
+
+.chat-message__action:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
 .chat-message__markdown {
   white-space: normal;
 }
@@ -1335,6 +1367,8 @@ button.change-bar__stat:focus-visible {
 
 .chat-composer__input--mentions::placeholder {
   color: transparent;
+  -webkit-text-fill-color: transparent;
+  opacity: 0;
 }
 
 .chat-composer__input-placeholder {
@@ -1344,6 +1378,7 @@ button.change-bar__stat:focus-visible {
 .chat-composer__input--mentions::selection {
   background-color: color-mix(in oklch, var(--accent) 30%, transparent);
   color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 .file-mention-menu {
@@ -1558,7 +1593,12 @@ button.change-bar__stat:focus-visible {
 
 .chat-composer__input-stack[data-mode="shell"] .chat-composer__input--mentions {
   color: transparent;
+  -webkit-text-fill-color: transparent;
   caret-color: #5fd99e;
+}
+
+.chat-composer__input-stack[data-mode="shell"] .chat-composer__input-placeholder {
+  color: color-mix(in oklch, #5fd99e 50%, var(--text-muted));
 }
 
 .chat-composer__input-stack[data-mode="shell"] .chat-composer__mention {

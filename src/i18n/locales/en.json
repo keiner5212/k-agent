@@ -666,6 +666,11 @@
       "emptyTitle": "Start a conversation",
       "emptyDescription": "Pick a model and type a message below."
     },
+    "message": {
+      "copy": "Copy message",
+      "copied": "Copied",
+      "rewind": "Rewind history up to this message"
+    },
     "thinking": {
       "label": "Thinking",
       "duration_one": "Thought for {{count}} second",
@@ -751,6 +756,9 @@
       "tooMany": "Too many matches. Keep typing to narrow the list.",
       "review": {
         "description": "Review current changes or last commit"
+      },
+      "undo": {
+        "description": "Rewind history back to (and including) the last user message"
       }
     },
     "effort": {

@@ -5,6 +5,7 @@ import { renderMarkdown } from "@/lib/markdown";
 import { selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import type { ChatMessage } from "@/types/chat";
 import { ChatWaitingLine } from "./ChatWaitingLine";
+import { MessageActions } from "./MessageActions";
 
 const AssistantMarkdown = ({ content }: { content: string }): ReactNode => {
   const html = useMemo(() => renderMarkdown(content), [content]);
@@ -92,6 +93,7 @@ export const ChatThread = (): ReactNode => {
             data-role={message.role}
           >
             <MessageBody message={message} />
+            <MessageActions message={message} />
           </article>
         ))}
         {waiting ? <ChatWaitingLine /> : null}

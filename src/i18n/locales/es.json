@@ -666,6 +666,11 @@
       "emptyTitle": "Inicia una conversación",
       "emptyDescription": "Elige un modelo y escribe un mensaje abajo."
     },
+    "message": {
+      "copy": "Copiar mensaje",
+      "copied": "Copiado",
+      "rewind": "Retroceder el historial hasta este mensaje"
+    },
     "thinking": {
       "label": "Pensamiento",
       "duration_one": "Pensó {{count}} segundo",
@@ -746,11 +751,14 @@
     },
     "slashCommands": {
       "label": "Comandos y skills",
-      "empty": "Sin comandos o skills coincidentes",
+      "empty": "No hay comandos o skills que coincidan",
       "loading": "Cargando comandos y skills...",
-      "tooMany": "Demasiadas coincidencias. Sigue escribiendo para acotar la lista.",
+      "tooMany": "Demasiadas coincidencias. Sigue escribiendo para acotar.",
       "review": {
-        "description": "Revisar cambios actuales o último commit"
+        "description": "Revisa los cambios actuales o el ultimo commit"
+      },
+      "undo": {
+        "description": "Retrocede el historial hasta (e incluyendo) el ultimo mensaje del usuario"
       }
     },
     "effort": {

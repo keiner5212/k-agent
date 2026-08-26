@@ -6,9 +6,12 @@ export type ActiveSlashCommand = {
   query: string;
 };
 
+export type SlashCommandKind = "template" | "action";
+
 export type SlashCommandDef = {
   id: string;
   name: string;
+  kind: SlashCommandKind;
   descriptionKey: string;
   template: string;
   estimatedTokens: number;
@@ -43,13 +46,24 @@ const buildSlashCommand = (
 ): SlashCommandDef => ({
   id,
   name,
+  kind: "template",
   descriptionKey,
   template,
   estimatedTokens: estimateTokensFromText(template),
 });
 
+const buildActionCommand = (id: string, name: string, descriptionKey: string): SlashCommandDef => ({
+  id,
+  name,
+  kind: "action",
+  descriptionKey,
+  template: "",
+  estimatedTokens: 0,
+});
+
 export const SLASH_COMMANDS: SlashCommandDef[] = [
   buildSlashCommand("review", "review", "chat.slashCommands.review.description", REVIEW_TEMPLATE),
+  buildActionCommand("undo", "undo", "chat.slashCommands.undo.description"),
 ];
 
 export const SLASH_COMMAND_RESULT_LIMIT = 20;
@@ -84,3 +98,17 @@ export const filterSlashCommands = (query: string): SlashCommandDef[] => {
 
 export const slashCommandByName = (name: string): SlashCommandDef | undefined =>
   SLASH_COMMANDS.find((command) => command.name === name);
+
+const ACTION_TOKEN_RE = /\s*\((?:~\d+(?:\.\d+)?(?:[KMB])?)\)\s*$/;
+
+export const matchActionSlashCommand = (text: string): SlashCommandDef | null => {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return null;
+  const match = trimmed.match(/^\/([a-zA-Z][\w-]*)/);
+  if (!match) return null;
+  const command = slashCommandByName(match[1] ?? "");
+  if (!command || command.kind !== "action") return null;
+  const rest = trimmed.slice(match[0].length).replace(ACTION_TOKEN_RE, "").trim();
+  if (rest.length > 0) return null;
+  return command;
+};

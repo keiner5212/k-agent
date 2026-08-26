@@ -5,8 +5,10 @@ import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { useChatStore } from "@/lib/chat";
 import { useComposerStore } from "@/lib/composer";
+import { matchActionSlashCommand } from "@/lib/slash-commands";
 import { useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
+import { useSessionsStore } from "@/lib/sessions";
 import { useUndoRedoKeydown } from "@/lib/use-undo-redo-keydown";
 import { useUndoableText } from "@/lib/undoable-text";
 import { AgentSelector } from "./AgentSelector";
@@ -27,19 +29,36 @@ export const ChatComposer = (): ReactNode => {
   const sending = useChatStore((state) => state.sending);
   const hydrated = useChatStore((state) => state.hydrated);
   const sendMessage = useChatStore((state) => state.send);
+  const rewindLastUserMessage = useSessionsStore((state) => state.rewindLastUserMessage);
   const keybindings = useSettingsStore((state) => state.keybindings);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { pushChange, undo, redo } = useUndoableText(value, setValue);
   const shellMode = mode === "shell";
   const canSend = Boolean(selection) && hydrated && value.trim().length > 0 && !sending;
 
+  const runSlashAction = useCallback(
+    (commandId: string): void => {
+      if (commandId === "undo") {
+        rewindLastUserMessage();
+      }
+    },
+    [rewindLastUserMessage],
+  );
+
   const handleSend = useCallback(async () => {
     if (!canSend) return;
     const text = value;
+    const action = matchActionSlashCommand(text);
+    if (action) {
+      clearComposer();
+      runSlashAction(action.id);
+      textareaRef.current?.focus();
+      return;
+    }
     clearComposer();
     await sendMessage(text);
     textareaRef.current?.focus();
-  }, [canSend, clearComposer, sendMessage, value]);
+  }, [canSend, clearComposer, runSlashAction, sendMessage, value]);
 
   const handleComposerKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {

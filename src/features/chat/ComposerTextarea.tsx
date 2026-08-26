@@ -167,7 +167,7 @@ export const ComposerTextarea = ({
         </span>
       ) : null}
       <div ref={backdropRef} className="chat-composer__input-backdrop" aria-hidden="true">
-        {value.length === 0 ? (
+        {!value ? (
           <span className="chat-composer__input-placeholder">{placeholder}</span>
         ) : segments.length === 1 && !segments[0]?.mention ? (
           segments[0]?.text

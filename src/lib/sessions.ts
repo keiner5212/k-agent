@@ -30,6 +30,14 @@ const toChatTurns = (messages: ChatMessage[]): ChatTurn[] =>
       reasoningSignature: message.reasoningSignature ?? null,
     }));
 
+const previewFromMessages = (messages: ChatMessage[]): string => {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const content = messages[i]?.content.trim();
+    if (content && content.length > 0) return content;
+  }
+  return "";
+};
+
 const thinkingDurationMs = (
   startedAt: number | undefined,
   endedAt: number | undefined,
@@ -141,6 +149,8 @@ type SessionsStore = {
   select: (id: string) => void;
   remove: (id: string) => void;
   send: (text: string) => Promise<void>;
+  rewindTo: (messageId: string) => void;
+  rewindLastUserMessage: () => void;
 };
 
 export const useSessionsStore = create<SessionsStore>((set, get) => ({
@@ -433,6 +443,58 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         });
       }
     }
+  },
+
+  rewindTo: (messageId) => {
+    const { sessions, activeSessionId, sendingSessionId } = get();
+    const sessionId = activeSessionId;
+    if (!sessionId) return;
+    if (sendingSessionId === sessionId) {
+      console.warn("[sessions] rewind blocked: send in progress");
+      return;
+    }
+    const session = sessions.find((item) => item.id === sessionId);
+    if (!session) return;
+    const index = session.messages.findIndex((message) => message.id === messageId);
+    if (index < 0) return;
+    const removed = session.messages.length - index;
+
+    // TODO(future): rewind file edits and shell changes made by the assistant
+    // messages between `index` and the previous end. Track per-write snapshots
+    // when the assistant calls edit tools (write_file, edit_file, run_shell)
+    // and replay restoration here, in reverse order, after the chat trim.
+    // For now we only roll back the chat history.
+    console.warn(`[sessions] rewind to ${messageId}: trimmed ${removed} message(s), kept ${index}`);
+
+    const kept = session.messages.slice(0, index);
+    const nextSessions = sortSessions(
+      patchActiveSession(sessions, sessionId, (item) => ({
+        ...item,
+        messages: kept,
+        preview: previewFromMessages(kept),
+        updatedAt: Date.now(),
+      })),
+    );
+    set({ sessions: nextSessions, error: undefined });
+    void persistSnapshot(snapshotFromState(nextSessions, sessionId));
+  },
+
+  rewindLastUserMessage: () => {
+    const { sessions, activeSessionId } = get();
+    const sessionId = activeSessionId;
+    if (!sessionId) return;
+    const session = sessions.find((item) => item.id === sessionId);
+    if (!session) return;
+    let lastUserId: string | null = null;
+    for (let i = session.messages.length - 1; i >= 0; i -= 1) {
+      const message = session.messages[i];
+      if (message?.role === "user") {
+        lastUserId = message.id;
+        break;
+      }
+    }
+    if (!lastUserId) return;
+    get().rewindTo(lastUserId);
   },
 }));
 
