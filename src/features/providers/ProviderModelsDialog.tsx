@@ -22,6 +22,8 @@ const MODALITY_KEY: Record<string, string> = {
   audio: "providers.model.modalities.audio",
   video: "providers.model.modalities.video",
   pdf: "providers.model.modalities.pdf",
+  document: "providers.model.modalities.document",
+  textfile: "providers.model.modalities.textFile",
 };
 
 const uniqueModalities = (values: string[] | undefined): string[] => {
@@ -176,6 +178,9 @@ const ModelRow = ({
   const outputModalities = uniqueModalities(model.output).filter(
     (modality) => !inputModalities.includes(modality),
   );
+  const extraFiles = uniqueModalities(
+    (model.attachmentTypes ?? []).map((kind) => (kind === "text" ? "textfile" : kind)),
+  ).filter((kind) => kind === "document" || kind === "textfile" || !inputModalities.includes(kind));
 
   return (
     <li className="model-row">
@@ -217,7 +222,18 @@ const ModelRow = ({
             {t("providers.model.capability.structuredOutput")}
           </span>
         ) : null}
-        {model.attachment ? (
+        {extraFiles.map((kind) => (
+          <span
+            key={`file-${kind}`}
+            className="model-row__chip"
+            title={t("providers.model.capability.attachment")}
+          >
+            {t(MODALITY_KEY[kind])}
+          </span>
+        ))}
+        {model.attachment &&
+        extraFiles.length === 0 &&
+        (model.attachmentTypes?.length ?? 0) === 0 ? (
           <span className="model-row__chip" title={t("providers.model.capability.attachment")}>
             {t("providers.model.capability.attachment")}
           </span>

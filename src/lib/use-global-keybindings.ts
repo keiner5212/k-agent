@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { closeAllDialogs, closeTopDialog, hasOpenDialogs } from "./dialog-stack";
 import { isEditableTarget, matchesChordString } from "./keybindings";
+import { INTERRUPT_ARM_MS, useSessionsStore } from "./sessions";
 import { useSettingsStore } from "./settings";
 import type { KeybindingAction } from "@/types/settings";
 
@@ -53,6 +54,21 @@ export const useGlobalKeybindings = (onAction: (action: KeybindingAction) => voi
           closeTopDialog();
           return;
         }
+        const sessions = useSessionsStore.getState();
+        if (sessions.sending || sessions.shellRunning) {
+          event.preventDefault();
+          event.stopPropagation();
+          const now = Date.now();
+          const armed =
+            sessions.interruptArmedAt !== null &&
+            now - sessions.interruptArmedAt < INTERRUPT_ARM_MS;
+          if (armed) {
+            void sessions.interruptActiveTask();
+          } else {
+            sessions.armInterrupt();
+          }
+          return;
+        }
       }
 
       const hasModifier = event.ctrlKey || event.metaKey || event.altKey;
@@ -66,7 +82,7 @@ export const useGlobalKeybindings = (onAction: (action: KeybindingAction) => voi
           event.stopPropagation();
           return;
         }
-        if (action === "chat.modeToggle") continue;
+        if (action === "chat.modeToggle" || action === "chat.agentCycle") continue;
         const inUndoableText =
           event.target instanceof HTMLTextAreaElement &&
           (event.target.closest(".line-editor") !== null ||

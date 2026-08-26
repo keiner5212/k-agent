@@ -2,6 +2,23 @@
 
 Desktop app: Tauri 2 + Rust + React 19 + TypeScript. One pattern per category. Reuse existing code. Do not invent a second way.
 
+## Inspiration (OpenCode + Command Code)
+
+Product behavior takes cues from [OpenCode](https://github.com/anomalyco/opencode) and [Command Code](https://commandcode.ai/). Both trees live under `.tmp/` (gitignored). Keep them installed there; do not import them into the app.
+
+Expected paths:
+
+- `.tmp/opencode` - OpenCode source
+- `.tmp/command-code` - Command Code (`npm i -g command-code` is not enough; clone or unpack into `.tmp/command-code`)
+
+When a feature could follow either product:
+
+1. Ask the user first. Do not pick a design, copy a flow, or start coding from those trees until they confirm.
+2. After yes: read both implementations. Compare parse, UI, and data shape.
+3. Propose a k-agent middle path that learns from both, then implement only that. Do not clone either UI or paste their code.
+
+Never vendor `.tmp` into `src/` or `src-tauri/`.
+
 ## Layout
 
 ```
@@ -97,7 +114,7 @@ App data dir:
 - `AGENTS.md` optional global instruction file. List never creates it. Create/edit/delete from Settings.
 
 Workspace `{workspace}/.agents/skills/`: local skills. Created on first local skill create.
-Workspace `{workspace}/.agents/agents/`: local session agents (`persona.md`). Created on first local agent create. Do not scan `.k-agent` inside a workspace.
+Session agents live in `~/.k-agent/agents/` only. Builtin agents are app-defined.
 Workspace `{workspace}/AGENTS.md`: optional workspace instruction file (fallback `agents.md`). List never creates it. Create/edit/delete from Settings. Session agents are not stored as AGENTS.md.
 
 Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then bundled overlay. User-edited / custom models are not overwritten.
@@ -159,3 +176,4 @@ Order: typecheck, then lint, then format. Fix in that order; lint errors after a
 - Comment what the code already says. Comment only a non-obvious why.
 - Expand scope past the asked change.
 - Ship code with `pnpm format:check`, `pnpm lint`, or `pnpm typecheck` failing.
+- Start dev servers, watchers, daemons, or any long-running foreground process. They block the shell and stay alive between turns. Prohibited.

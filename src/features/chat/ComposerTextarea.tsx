@@ -10,8 +10,10 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { segmentComposerHighlights } from "@/lib/composer-highlights";
+import { applyComposerAgentCycle, matchesAgentCycle } from "@/lib/composer-agents";
 import { tryMentionBackspace } from "@/lib/composer-mention-edits";
 import type { ComposerMode } from "@/lib/composer";
+import { useSettingsStore } from "@/lib/settings";
 import { FileMentionMenu } from "./FileMentionMenu";
 import { SlashCommandMenu } from "./SlashCommandMenu";
 import { useFileMentions } from "./use-file-mentions";
@@ -25,6 +27,7 @@ type ComposerTextareaProps = {
   onChange: (next: string) => void;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   onKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onPaste?: (event: React.ClipboardEvent<HTMLTextAreaElement>) => void;
 };
 
 export const ComposerTextarea = ({
@@ -33,6 +36,7 @@ export const ComposerTextarea = ({
   onChange,
   textareaRef,
   onKeyDown,
+  onPaste,
 }: ComposerTextareaProps): ReactNode => {
   const { t } = useTranslation();
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -40,6 +44,7 @@ export const ComposerTextarea = ({
 
   const shellMode = mode === "shell";
   const slashEnabled = !shellMode;
+  const agentCycleBinding = useSettingsStore((state) => state.keybindings["chat.agentCycle"]);
 
   const applyValue = useCallback(
     (next: string, nextCursor: number) => {
@@ -123,6 +128,13 @@ export const ComposerTextarea = ({
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (matchesAgentCycle(event.nativeEvent, agentCycleBinding)) {
+      if (!shellMode && !slashMenuOpen && !atMenuOpen) {
+        applyComposerAgentCycle(1);
+      }
+      event.preventDefault();
+      return;
+    }
     if (event.key === "Backspace" && !event.shiftKey) {
       const field = textareaRef.current;
       const selStart = field?.selectionStart ?? cursor;
@@ -153,29 +165,33 @@ export const ComposerTextarea = ({
         </span>
       ) : null}
       <div ref={backdropRef} className="chat-composer__input-backdrop" aria-hidden="true">
-        {segments.length === 1 && !segments[0]?.mention
-          ? segments[0]?.text
-          : segments.map((segment, index) =>
-              segment.mention ? (
-                <mark key={index} className="chat-composer__mention">
-                  {segment.text}
-                </mark>
-              ) : (
-                <span key={index}>{segment.text}</span>
-              ),
-            )}
+        {!value ? (
+          <span className="chat-composer__input-placeholder">{placeholder}</span>
+        ) : segments.length === 1 && !segments[0]?.mention ? (
+          segments[0]?.text
+        ) : (
+          segments.map((segment, index) =>
+            segment.mention ? (
+              <mark key={index} className="chat-composer__mention">
+                {segment.text}
+              </mark>
+            ) : (
+              <span key={index}>{segment.text}</span>
+            ),
+          )
+        )}
       </div>
       <textarea
         ref={textareaRef}
         className="chat-composer__input chat-composer__input--mentions"
-        placeholder={placeholder}
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        onPaste={onPaste}
         onClick={syncCursor}
         onSelect={syncCursor}
         onScroll={syncScroll}
-        rows={3}
+        rows={2}
         aria-label={placeholder}
         aria-expanded={atMenuOpen || (slashEnabled && slashMenuOpen)}
         spellCheck={false}

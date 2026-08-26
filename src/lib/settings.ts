@@ -2,9 +2,12 @@ import { create } from "zustand";
 import { LazyStore } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  CHAT_BACKGROUND_FILENAME_PATTERN,
   COMMAND_LIST_MAX_ITEMS,
   COMMAND_LIST_MAX_LENGTH,
   DEFAULT_ANIMATIONS_ENABLED,
+  DEFAULT_CHAT_BACKGROUND_IMAGE,
+  DEFAULT_CHAT_BACKGROUND_OPACITY,
   DEFAULT_FONT_FAMILY,
   DEFAULT_FORCE_RESPONSE_LANGUAGE,
   DEFAULT_BUILD_AGENT_ENABLED,
@@ -15,7 +18,6 @@ import {
   DEFAULT_REMINDER_INTERVAL,
   DEFAULT_RESPONSE_LANGUAGE,
   DEFAULT_SETTINGS,
-  DEFAULT_TASK_COMPLETE_SOUND_ENABLED,
   DEFAULT_TEXT_SCALE,
   DEFAULT_TITLE_USE_FIRST_MESSAGE,
   DEFAULT_TRANSLUCENCY_ENABLED,
@@ -89,6 +91,20 @@ const sanitizeWindowBounds = (value: unknown): WindowBounds => {
     height,
     maximized: typeof obj.maximized === "boolean" ? obj.maximized : false,
   };
+};
+
+const sanitizeChatBackgroundImage = (value: unknown): string | null => {
+  if (typeof value !== "string") return DEFAULT_CHAT_BACKGROUND_IMAGE;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return DEFAULT_CHAT_BACKGROUND_IMAGE;
+  if (!CHAT_BACKGROUND_FILENAME_PATTERN.test(trimmed)) return DEFAULT_CHAT_BACKGROUND_IMAGE;
+  return trimmed;
+};
+
+const sanitizeChatBackgroundOpacity = (value: unknown): number => {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(n)) return DEFAULT_CHAT_BACKGROUND_OPACITY;
+  return Math.min(1, Math.max(0, n));
 };
 
 const sanitizeKeybindings = (value: unknown): Keybindings => {
@@ -190,10 +206,6 @@ const sanitizeSettings = (raw: unknown): Settings => {
     blockedCommands: sanitizeCommandList(obj.blockedCommands),
     allowedCommands: sanitizeCommandList(obj.allowedCommands),
     notificationsEnabled: sanitizeBoolean(obj.notificationsEnabled, DEFAULT_NOTIFICATIONS_ENABLED),
-    taskCompleteSoundEnabled: sanitizeBoolean(
-      obj.taskCompleteSoundEnabled,
-      DEFAULT_TASK_COMPLETE_SOUND_ENABLED,
-    ),
     workspaceMemoryEnabled: sanitizeBoolean(
       obj.workspaceMemoryEnabled,
       DEFAULT_WORKSPACE_MEMORY_ENABLED,
@@ -212,11 +224,15 @@ const sanitizeSettings = (raw: unknown): Settings => {
     ),
     buildAgentEnabled: sanitizeBoolean(obj.buildAgentEnabled, DEFAULT_BUILD_AGENT_ENABLED),
     planAgentEnabled: sanitizeBoolean(obj.planAgentEnabled, DEFAULT_PLAN_AGENT_ENABLED),
+    chatBackgroundImage: sanitizeChatBackgroundImage(obj.chatBackgroundImage),
+    chatBackgroundOpacity: sanitizeChatBackgroundOpacity(obj.chatBackgroundOpacity),
   };
 };
 
 export type SettingsStore = Settings & {
   hydrated: boolean;
+  chatBackgroundUrl: string | null;
+  chatBackgroundLoading: boolean;
   hydrate: () => Promise<void>;
   setLanguage: (language: AppLanguage) => void;
   setTheme: (theme: AppTheme) => void;
@@ -234,7 +250,6 @@ export type SettingsStore = Settings & {
   setBlockedCommands: (commands: string[]) => void;
   setAllowedCommands: (commands: string[]) => void;
   setNotificationsEnabled: (enabled: boolean) => void;
-  setTaskCompleteSoundEnabled: (enabled: boolean) => void;
   setWorkspaceMemoryEnabled: (enabled: boolean) => void;
   setTitleGenerationModel: (model: SelectedModel | null) => void;
   setTitleUseFirstMessage: (enabled: boolean) => void;
@@ -244,6 +259,8 @@ export type SettingsStore = Settings & {
   setSessionSidebarOpen: (open: boolean) => void;
   setBuildAgentEnabled: (enabled: boolean) => void;
   setPlanAgentEnabled: (enabled: boolean) => void;
+  setChatBackgroundImage: (filename: string | null, url: string | null) => void;
+  setChatBackgroundOpacity: (opacity: number) => void;
   resetKeybindings: () => void;
   resetAll: () => void;
 };
@@ -304,12 +321,25 @@ const systemPrefersReducedMotion = (): boolean => {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 };
 
-const applyChrome = (settings: Settings): void => {
+const applyChatBackground = (url: string | null, opacity: number): void => {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  root.style.setProperty("--chat-background-image", url ? `url("${url}")` : "none");
+  root.style.setProperty("--chat-background-opacity", String(opacity));
+  if (url) {
+    root.dataset.chatBackground = "set";
+  } else {
+    delete root.dataset.chatBackground;
+  }
+};
+
+const applyChrome = (settings: Settings, chatBackgroundUrl: string | null): void => {
   applyTheme(settings.theme);
   applyTranslucency(settings.translucencyEnabled);
   applyAnimations(settings.animationsEnabled && !systemPrefersReducedMotion());
   applyTextScale(settings.textScale);
   applyFontFamily(settings.fontFamily);
+  applyChatBackground(chatBackgroundUrl, settings.chatBackgroundOpacity);
 };
 
 const syncMinimizeToTray = async (enabled: boolean): Promise<void> => {
@@ -338,7 +368,6 @@ const snapshot = (state: SettingsStore): Settings => ({
   blockedCommands: state.blockedCommands,
   allowedCommands: state.allowedCommands,
   notificationsEnabled: state.notificationsEnabled,
-  taskCompleteSoundEnabled: state.taskCompleteSoundEnabled,
   workspaceMemoryEnabled: state.workspaceMemoryEnabled,
   titleGenerationModel: state.titleGenerationModel,
   titleUseFirstMessage: state.titleUseFirstMessage,
@@ -348,15 +377,19 @@ const snapshot = (state: SettingsStore): Settings => ({
   sessionSidebarOpen: state.sessionSidebarOpen,
   buildAgentEnabled: state.buildAgentEnabled,
   planAgentEnabled: state.planAgentEnabled,
+  chatBackgroundImage: state.chatBackgroundImage,
+  chatBackgroundOpacity: state.chatBackgroundOpacity,
 });
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
   ...DEFAULT_SETTINGS,
   hydrated: false,
+  chatBackgroundUrl: null,
+  chatBackgroundLoading: false,
 
   hydrate: async () => {
     if (!isTauri()) {
-      applyChrome(DEFAULT_SETTINGS);
+      applyChrome(DEFAULT_SETTINGS, null);
       syncWorkerCoreConfig(DEFAULT_SETTINGS.maxWorkerCores);
       set({ hydrated: true });
       return;
@@ -364,13 +397,36 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     try {
       const raw = await getStore().get<Settings>(STORE_KEY);
       const next = sanitizeSettings(raw);
-      applyChrome(next);
+      applyChrome(next, null);
       void syncMinimizeToTray(next.minimizeToTray);
       syncWorkerCoreConfig(next.maxWorkerCores);
       set({ ...next, hydrated: true });
+      if (next.chatBackgroundImage) {
+        set({ chatBackgroundLoading: true });
+        invoke<string | null>("get_chat_background_data_url")
+          .then((url) => {
+            const current = get().chatBackgroundImage;
+            if (current !== next.chatBackgroundImage) return;
+            set({ chatBackgroundUrl: url });
+            applyChrome(get(), url);
+          })
+          .catch((error: unknown) => {
+            console.warn("chat background load failed", error);
+            const current = get().chatBackgroundImage;
+            if (current !== next.chatBackgroundImage) return;
+            set({ chatBackgroundUrl: null });
+            applyChrome(get(), null);
+          })
+          .finally(() => {
+            const current = get().chatBackgroundImage;
+            if (current === next.chatBackgroundImage) {
+              set({ chatBackgroundLoading: false });
+            }
+          });
+      }
     } catch (error) {
       console.warn("settings hydrate failed", error);
-      applyChrome(DEFAULT_SETTINGS);
+      applyChrome(DEFAULT_SETTINGS, null);
       syncWorkerCoreConfig(DEFAULT_SETTINGS.maxWorkerCores);
       set({ hydrated: true });
     }
@@ -477,11 +533,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     void persist(snapshot(get()));
   },
 
-  setTaskCompleteSoundEnabled: (enabled) => {
-    set({ taskCompleteSoundEnabled: enabled });
-    void persist(snapshot(get()));
-  },
-
   setWorkspaceMemoryEnabled: (enabled) => {
     set({ workspaceMemoryEnabled: enabled });
     void persist(snapshot(get()));
@@ -528,15 +579,42 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     void persist(snapshot(get()));
   },
 
+  setChatBackgroundImage: (filename, url) => {
+    set({
+      chatBackgroundImage: filename,
+      chatBackgroundUrl: url,
+      chatBackgroundLoading: false,
+    });
+    applyChrome(get(), url);
+    void persist(snapshot(get()));
+  },
+
+  setChatBackgroundOpacity: (opacity) => {
+    const next = sanitizeChatBackgroundOpacity(opacity);
+    set({ chatBackgroundOpacity: next });
+    applyChrome(get(), get().chatBackgroundUrl);
+    void persist(snapshot(get()));
+  },
+
   resetKeybindings: () => {
     set({ keybindings: DEFAULT_SETTINGS.keybindings });
     void persist(snapshot(get()));
   },
 
   resetAll: () => {
-    applyChrome(DEFAULT_SETTINGS);
+    applyChrome(DEFAULT_SETTINGS, null);
     void syncMinimizeToTray(DEFAULT_SETTINGS.minimizeToTray);
-    set({ ...DEFAULT_SETTINGS, hydrated: true });
+    if (isTauri()) {
+      void invoke("clear_chat_background_image").catch((error: unknown) => {
+        console.warn("chat background clear failed", error);
+      });
+    }
+    set({
+      ...DEFAULT_SETTINGS,
+      hydrated: true,
+      chatBackgroundUrl: null,
+      chatBackgroundLoading: false,
+    });
     void persist(DEFAULT_SETTINGS);
   },
 }));

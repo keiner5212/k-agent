@@ -49,6 +49,12 @@ permissions = [
   "allow-list-mcp-servers",
   "allow-save-mcp-server",
   "allow-delete-mcp-server",
+  "allow-send-chat-message",
+  "allow-prepare-chat-attachments",
+  "allow-load-sessions",
+  "allow-save-sessions",
+  "allow-generate-session-title",
+  "allow-run-shell-command",
 ]
 
 [[permission]]
@@ -150,6 +156,21 @@ commands.allow = ["window_open_devtools"]
 identifier = "allow-list-system-fonts"
 description = "List font families installed on this system."
 commands.allow = ["list_system_fonts"]
+
+[[permission]]
+identifier = "allow-set-chat-background-image"
+description = "Copy a user-picked image into app data and return its data URL."
+commands.allow = ["set_chat_background_image"]
+
+[[permission]]
+identifier = "allow-clear-chat-background-image"
+description = "Delete the stored chat background image."
+commands.allow = ["clear_chat_background_image"]
+
+[[permission]]
+identifier = "allow-get-chat-background-data-url"
+description = "Return the stored chat background image as a data URL."
+commands.allow = ["get_chat_background_data_url"]
 
 [[permission]]
 identifier = "allow-list-skills"
@@ -300,3 +321,38 @@ commands.allow = ["refresh_mcp_server_tools"]
 identifier = "allow-set-mcp-server-enabled"
 description = "Enable or disable an MCP server."
 commands.allow = ["set_mcp_server_enabled"]
+
+[[permission]]
+identifier = "allow-send-chat-message"
+description = "Send a simple chat message to the selected model."
+commands.allow = ["send_chat_message"]
+
+[[permission]]
+identifier = "allow-prepare-chat-attachments"
+description = "Read and prepare files attached to a chat message."
+commands.allow = ["prepare_chat_attachments"]
+
+[[permission]]
+identifier = "allow-load-sessions"
+description = "Load persisted chat sessions."
+commands.allow = ["load_sessions"]
+
+[[permission]]
+identifier = "allow-save-sessions"
+description = "Persist chat sessions."
+commands.allow = ["save_sessions"]
+
+[[permission]]
+identifier = "allow-generate-session-title"
+description = "Generate a session title from the first message."
+commands.allow = ["generate_session_title"]
+
+[[permission]]
+identifier = "allow-run-shell-command"
+description = "Run a shell command inside the workspace."
+commands.allow = ["run_shell_command"]
+
+[[permission]]
+identifier = "allow-cancel-running-task"
+description = "Signal the active chat or shell task to stop early."
+commands.allow = ["cancel_running_task"]

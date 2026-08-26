@@ -12,7 +12,6 @@ import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { formatContextWindow } from "@/types/providers";
 import type {
   AgentContext as AgentContextType,
-  AgentContextKind,
   AgentMeta,
   AgentSkillRef,
 } from "@/types/agents";
@@ -20,7 +19,7 @@ import { AgentFormDialog } from "./AgentFormDialog";
 import { AgentPersonalityDialog } from "./AgentPersonalityDialog";
 import { DeleteAgentDialog } from "./DeleteAgentDialog";
 
-type Tab = "default" | AgentContextKind;
+type Tab = "default" | "global";
 
 type AgentsPanelProps = {
   query: string;
@@ -29,7 +28,6 @@ type AgentsPanelProps = {
 export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
   const { t } = useTranslation();
   const contexts = useAgentsStore((state) => state.contexts);
-  const workspacePath = useAgentsStore((state) => state.workspacePath);
   const loading = useAgentsStore((state) => state.loading);
   const error = useAgentsStore((state) => state.error);
   const refresh = useAgentsStore((state) => state.refresh);
@@ -51,28 +49,18 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
   }, []);
 
   const global = contexts.find((context) => context.kind === "global");
-  const local = contexts.find((context) => context.kind === "local");
-  const showLocal = Boolean(workspacePath) && Boolean(local);
   const builtinContext = builtinAgentContext(t);
   const builtinAgents = builtinContext.agents;
-  const active = tab === "local" && showLocal ? local : tab === "global" ? global : undefined;
-  const formKind: AgentContextKind = tab === "local" && showLocal ? "local" : "global";
+  const active = tab === "global" ? global : undefined;
   const tabs: Array<{ id: Tab; count: number; available: boolean }> = [
     { id: "default", count: builtinAgents.length, available: true },
     { id: "global", count: global?.agents.length ?? 0, available: Boolean(global) },
-    { id: "local", count: local?.agents.length ?? 0, available: showLocal },
   ];
 
   const availableSkills: AgentSkillRef[] = [];
   const globalSkills = skillContexts.find((context) => context.kind === "global");
-  const localSkills = skillContexts.find((context) => context.kind === "local");
   for (const skill of globalSkills?.skills ?? []) {
     availableSkills.push({ kind: "global", id: skill.id });
-  }
-  if (formKind === "local") {
-    for (const skill of localSkills?.skills ?? []) {
-      availableSkills.push({ kind: "local", id: skill.id });
-    }
   }
 
   return (
@@ -95,11 +83,7 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
       <div className="skills-panel__tabs" role="tablist">
         {tabs.map((entry) => {
           const labelKey =
-            entry.id === "default"
-              ? "agents.context.default"
-              : entry.id === "global"
-                ? "agents.context.global"
-                : "agents.context.local";
+            entry.id === "default" ? "agents.context.default" : "agents.context.global";
           const isActive = entry.id === tab;
           return (
             <button
@@ -145,12 +129,12 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
       <AgentFormDialog
         open={createOpen}
         mode="create"
-        kind={formKind}
+        kind="global"
         availableSkills={availableSkills}
         onOpenChange={setCreateOpen}
         onSubmit={async (input) => {
           if (!active) return "no root";
-          const result = await createAgent(active.path, formKind, input);
+          const result = await createAgent(active.path, "global", input);
           if (result.error) return result.error;
           await refresh();
           return undefined;
@@ -160,7 +144,7 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
       <AgentFormDialog
         open={editTarget !== null}
         mode="edit"
-        kind={formKind}
+        kind="global"
         availableSkills={availableSkills}
         initial={editTarget}
         onOpenChange={(open) => {
@@ -168,7 +152,7 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
         }}
         onSubmit={async (input) => {
           if (!editTarget) return "no agent";
-          const result = await updateAgent(editTarget.path, formKind, input);
+          const result = await updateAgent(editTarget.path, "global", input);
           if (result.error) return result.error;
           await refresh();
           return undefined;
@@ -183,7 +167,7 @@ export const AgentsPanel = ({ query }: AgentsPanelProps): ReactNode => {
         }}
         onSave={async (personality) => {
           if (!personalityTarget) return "no agent";
-          const result = await updateAgent(personalityTarget.path, formKind, {
+          const result = await updateAgent(personalityTarget.path, "global", {
             name: personalityTarget.id,
             description: personalityTarget.description,
             personality,

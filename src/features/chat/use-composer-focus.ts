@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from "react";
+import { applyComposerAgentCycle, matchesAgentCycle } from "@/lib/composer-agents";
 import { hasOpenDialogs } from "@/lib/dialog-stack";
 import { isEditableTarget, matchesChordString } from "@/lib/keybindings";
 import { useComposerStore } from "@/lib/composer";
@@ -43,6 +44,9 @@ export const useComposerFocusKeys = (
   const modeToggleBinding = useSettingsStore(
     (state: SettingsStore) => state.keybindings["chat.modeToggle"],
   );
+  const agentCycleBinding = useSettingsStore(
+    (state: SettingsStore) => state.keybindings["chat.agentCycle"],
+  );
 
   useEffect(() => {
     onInsertRef.current = onInsert;
@@ -57,12 +61,30 @@ export const useComposerFocusKeys = (
       const field = textareaRef.current;
       if (!field) return;
 
+      if (event.key === "Tab" && !event.shiftKey) {
+        if (event.target === field) return;
+        if (isEditableTarget(event.target)) return;
+        event.preventDefault();
+        field.focus();
+        return;
+      }
+
       if (matchesChordString(event, modeToggleBinding)) {
         if (isEditableTarget(event.target) && event.target !== field) return;
         event.preventDefault();
         field.focus();
         if (useComposerStore.getState().value.trim().length === 0) {
           useComposerStore.getState().toggleMode();
+        }
+        return;
+      }
+
+      if (matchesAgentCycle(event, agentCycleBinding)) {
+        if (event.target === field) return;
+        if (isEditableTarget(event.target)) return;
+        if (applyComposerAgentCycle(1)) {
+          event.preventDefault();
+          field.focus();
         }
         return;
       }
@@ -87,5 +109,5 @@ export const useComposerFocusKeys = (
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [modeToggleBinding, textareaRef]);
+  }, [agentCycleBinding, modeToggleBinding, textareaRef]);
 };

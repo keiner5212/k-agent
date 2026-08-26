@@ -50,7 +50,6 @@ export const DEFAULT_BLOCKED_COMMANDS: string[] = [];
 export const DEFAULT_ALLOWED_COMMANDS: string[] = [];
 
 export const DEFAULT_NOTIFICATIONS_ENABLED = true;
-export const DEFAULT_TASK_COMPLETE_SOUND_ENABLED = false;
 export const DEFAULT_WORKSPACE_MEMORY_ENABLED = false;
 
 export const DEFAULT_TITLE_GENERATION_MODEL: SelectedModel | null = null;
@@ -63,6 +62,11 @@ export const DEFAULT_SESSION_SIDEBAR_OPEN = true;
 
 export const DEFAULT_BUILD_AGENT_ENABLED = true;
 export const DEFAULT_PLAN_AGENT_ENABLED = true;
+
+export const CHAT_BACKGROUND_FILENAME_PATTERN = /^chat-background\.(png|jpg|jpeg|webp)$/;
+
+export const DEFAULT_CHAT_BACKGROUND_IMAGE: string | null = null;
+export const DEFAULT_CHAT_BACKGROUND_OPACITY = 0.5;
 
 export const hardwareThreadCount = (): number => {
   if (typeof navigator === "undefined") return 8;
@@ -89,6 +93,7 @@ export type KeybindingAction =
   | "sidebar.toggle"
   | "chat.clear"
   | "chat.modeToggle"
+  | "chat.agentCycle"
   | "search.focus"
   | "editor.save"
   | "editor.undo"
@@ -102,6 +107,7 @@ export const DEFAULT_KEYBINDINGS: Keybindings = {
   "sidebar.toggle": "Ctrl+B",
   "chat.clear": "Alt+C",
   "chat.modeToggle": "Shift+!",
+  "chat.agentCycle": "Tab",
   "search.focus": "Ctrl+F",
   "editor.save": "Ctrl+S",
   "editor.undo": "Ctrl+Z",
@@ -125,7 +131,6 @@ export type Settings = {
   blockedCommands: string[];
   allowedCommands: string[];
   notificationsEnabled: boolean;
-  taskCompleteSoundEnabled: boolean;
   workspaceMemoryEnabled: boolean;
   titleGenerationModel: SelectedModel | null;
   titleUseFirstMessage: boolean;
@@ -135,6 +140,8 @@ export type Settings = {
   sessionSidebarOpen: boolean;
   buildAgentEnabled: boolean;
   planAgentEnabled: boolean;
+  chatBackgroundImage: string | null;
+  chatBackgroundOpacity: number;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -154,7 +161,6 @@ export const DEFAULT_SETTINGS: Settings = {
   blockedCommands: DEFAULT_BLOCKED_COMMANDS,
   allowedCommands: DEFAULT_ALLOWED_COMMANDS,
   notificationsEnabled: DEFAULT_NOTIFICATIONS_ENABLED,
-  taskCompleteSoundEnabled: DEFAULT_TASK_COMPLETE_SOUND_ENABLED,
   workspaceMemoryEnabled: DEFAULT_WORKSPACE_MEMORY_ENABLED,
   titleGenerationModel: DEFAULT_TITLE_GENERATION_MODEL,
   titleUseFirstMessage: DEFAULT_TITLE_USE_FIRST_MESSAGE,
@@ -164,4 +170,6 @@ export const DEFAULT_SETTINGS: Settings = {
   sessionSidebarOpen: DEFAULT_SESSION_SIDEBAR_OPEN,
   buildAgentEnabled: DEFAULT_BUILD_AGENT_ENABLED,
   planAgentEnabled: DEFAULT_PLAN_AGENT_ENABLED,
+  chatBackgroundImage: DEFAULT_CHAT_BACKGROUND_IMAGE,
+  chatBackgroundOpacity: DEFAULT_CHAT_BACKGROUND_OPACITY,
 };

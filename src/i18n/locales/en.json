@@ -30,6 +30,7 @@
     "searchEmpty": "No settings match your search.",
     "sections": {
       "general": "General",
+      "appearance": "Appearance",
       "chat": "Chat",
       "modelChoices": "Model choices",
       "lsps": "LSPs",
@@ -40,6 +41,9 @@
       "agentsMd": "AGENTS.md",
       "keybindings": "Keybindings",
       "debug": "Debug"
+    },
+    "appearance": {
+      "description": "Visual look of the app, including theme, chat background image and its transparency."
     },
     "language": {
       "description": "Choose the interface language.",
@@ -108,10 +112,6 @@
       "label": "Show desktop notifications",
       "description": "Show OS notifications for chat events when the window is not focused."
     },
-    "taskCompleteSoundEnabled": {
-      "label": "Play sound when responses finish",
-      "description": "Play a short sound after a model response finishes streaming."
-    },
     "workspaceMemoryEnabled": {
       "label": "Save notes to workspace memory",
       "description": "Persist useful annotations from chat into files inside the current workspace."
@@ -159,6 +159,25 @@
         "140": "140%"
       }
     },
+    "chatBackgroundImage": {
+      "label": "Chat background image",
+      "description": "Pick an image to show behind the chat. PNG, JPG or WebP, up to 5 MB.",
+      "pick": "Pick image",
+      "clear": "Clear",
+      "none": "No background",
+      "filter": "Images",
+      "desktopOnly": "Available in the desktop shell.",
+      "status": {
+        "updated": "Chat background image updated.",
+        "removed": "Chat background image removed.",
+        "error": "Could not load image: {{reason}}"
+      }
+    },
+    "chatBackgroundOpacity": {
+      "label": "Chat background opacity",
+      "description": "How strong the chat background image shows through. Lower values keep chat text readable.",
+      "disabled": "Pick a background first"
+    },
     "keybindings": {
       "description": "Click a shortcut and press the new combination. Press Escape to cancel.",
       "actions": {
@@ -171,7 +190,8 @@
         },
         "chat": {
           "clear": "Clear chat input",
-          "modeToggle": "Toggle shell / prompt mode"
+          "modeToggle": "Toggle shell / prompt mode",
+          "agentCycle": "Cycle to next agent"
         },
         "search": {
           "focus": "Focus search field"
@@ -320,7 +340,9 @@
         "image": "Image",
         "audio": "Audio",
         "video": "Video",
-        "pdf": "PDF"
+        "pdf": "PDF",
+        "document": "Word",
+        "textFile": "TXT"
       },
       "input": "Input",
       "outputModalities": "Output",
@@ -521,11 +543,10 @@
   },
   "agents": {
     "title": "Agents",
-    "description": "A session agent is a personality for the chat: prompt, skills, and tools. Global agents live in ~/.k-agent/agents. Local agents live in .agents/agents under the workspace.",
+    "description": "A session agent is a personality for the chat: prompt, skills, and tools. Custom agents live in ~/.k-agent/agents. Built-in agents ship with the app.",
     "context": {
       "default": "Built-in",
-      "global": "Global",
-      "local": "Workspace"
+      "global": "Global"
     },
     "default": {
       "viewTitle": "View personality",
@@ -543,7 +564,7 @@
       }
     },
     "empty": "No agents in this folder yet.",
-    "emptyTab": "Launch the app with a workspace path to see local agents.",
+    "emptyTab": "No global agents folder is available.",
     "table": {
       "name": "Name",
       "description": "Description",
@@ -576,10 +597,9 @@
       "skills": "Skills",
       "skillsCount": "{{count}} / {{max}}",
       "skillsHintGlobal": "Global agents can only load global skills. Up to 10.",
-      "skillsHintLocal": "Workspace agents can load global and workspace skills. Up to 10.",
       "skillsEmpty": "No skills available for this location.",
       "tools": "Tools",
-      "toolsHint": "Example tool permissions. Real tools come later.",
+      "toolsHint": "Tools the agent may call during chat. Only registered local tools are listed.",
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving",
@@ -597,33 +617,9 @@
       "dirty": "Unsaved changes"
     },
     "tools": {
-      "read_file": {
-        "label": "Read files",
-        "description": "Read file contents from the workspace."
-      },
-      "write_file": {
-        "label": "Write files",
-        "description": "Create new files."
-      },
-      "edit_file": {
-        "label": "Edit files",
-        "description": "Patch existing files."
-      },
-      "delete_file": {
-        "label": "Delete files",
-        "description": "Remove files from the workspace."
-      },
-      "run_command": {
-        "label": "Run commands",
-        "description": "Execute shell commands."
-      },
-      "search_code": {
-        "label": "Search code",
-        "description": "Search the workspace by text or pattern."
-      },
-      "web_fetch": {
-        "label": "Fetch URLs",
-        "description": "Download content from the network."
+      "skill": {
+        "label": "Load skills",
+        "description": "Load skill instructions into the conversation by name."
       }
     },
     "delete": {
@@ -682,19 +678,130 @@
       "emptyTitle": "Start a conversation",
       "emptyDescription": "Pick a model and type a message below."
     },
+    "message": {
+      "copy": "Copy message",
+      "copied": "Copied",
+      "rewind": "Rewind history up to this message"
+    },
+    "rewind": {
+      "title": "Rewind history?",
+      "body_one": "This will remove the selected message and 1 that follow it from the chat history.",
+      "body_other": "This will remove the selected message and {{count}} that follow it from the chat history.",
+      "cancel": "Cancel",
+      "confirm": "Rewind"
+    },
+    "thinking": {
+      "label": "Thinking",
+      "duration_one": "Thought for {{count}} second",
+      "duration_other": "Thought for {{count}} seconds"
+    },
+    "waiting": {
+      "phrases": [
+        "Hacking the Pentagon...",
+        "Encrypting your files...",
+        "Bribing the GPU...",
+        "Teaching the model not to hallucinate...",
+        "Rewiring the internet...",
+        "Asking the cloud nicely...",
+        "Untangling neural knots...",
+        "Borrowing extra IQ...",
+        "Feeding tokens to the machine...",
+        "Convincing electrons to cooperate...",
+        "Downloading more RAM...",
+        "Negotiating with the API...",
+        "Calibrating sarcasm levels...",
+        "Reverse-engineering your question...",
+        "Spinning up a tiny supercomputer...",
+        "Opening the black box with a hammer...",
+        "Herding stochastic cats...",
+        "Polishing the prompt...",
+        "Awakening the silicon oracle...",
+        "Consulting the hive mind...",
+        "Linting the universe...",
+        "Defragmenting reality...",
+        "Summoning answer goblins...",
+        "Rebooting common sense...",
+        "Translating vibes to text...",
+        "Optimizing the unoptimizable...",
+        "Bribing the tokenizer...",
+        "Mining imaginary bitcoin...",
+        "Patching the simulation...",
+        "Reading your search history...",
+        "Selling your data on the dark web...",
+        "Formatting drive C:...",
+        "Deleting the only backup...",
+        "Poking production to see if it dies...",
+        "Asking your boss if you still work here...",
+        "Counting the tokens you have left to live...",
+        "Replacing your therapist...",
+        "Uploading this to WikiLeaks...",
+        "Checking if your mom knows...",
+        "Gaslighting the compiler...",
+        "Sacrificing a junior to the CI gods...",
+        "Writing your obituary in markdown...",
+        "Hiding the body in node_modules...",
+        "Asking ChatGPT how to fire you...",
+        "Training on your diary...",
+        "Unplugging the hospital Wi-Fi...",
+        "Pretending this is HIPAA compliant...",
+        "Calling 911 for the stack overflow...",
+        "Rerouting your paycheck to /dev/null..."
+      ]
+    },
     "composer": {
       "placeholder": "Write a message",
       "placeholderShell": "run a shell command...",
       "send": "Send",
       "run": "Run",
+      "running": "Running...",
       "attach": "Attach",
+      "attachDisabled": "This model does not accept files.",
+      "attachFilter": "Allowed files",
+      "removeAttachment": "Remove attachment",
+      "attachTooMany": "Too many attachments.",
+      "attachError": {
+        "unsupported": "{{name}} is not allowed for this model.",
+        "tooLarge": "{{name}} is too large.",
+        "unreadable": "Could not read {{name}}.",
+        "extractFailed": "Could not read {{name}}.",
+        "tooMany": "Too many attachments."
+      },
       "disabledHint": "Pick a model to send.",
       "disabledHintShell": "Type a command to run.",
+      "queue": "Queue",
       "mode": {
         "prompt": "Prompt",
         "shell": "Shell",
         "hint": "Shift+! toggles mode when input is empty"
       }
+    },
+    "preview": {
+      "title": "Attachment",
+      "open": "Preview attachment",
+      "play": "Play",
+      "pause": "Pause",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "seek": "Seek"
+    },
+    "shell": {
+      "running": "Running shell command...",
+      "failed": "Shell failed: {{error}}",
+      "needsWorkspace": "Shell needs a workspace folder.",
+      "interrupted": "interrupted by user",
+      "expand": "Open output in console",
+      "console": {
+        "title": "Shell output",
+        "copy": "Copy output",
+        "copied": "Copied",
+        "empty": "No output yet."
+      }
+    },
+    "interruptedByUser": "interrupted by user",
+    "interruptHint": "Press Esc again to interrupt",
+    "queue": {
+      "sendNow": "Interrupt and send now",
+      "remove": "Remove from queue"
     },
     "fileMentions": {
       "label": "Workspace files",
@@ -709,6 +816,9 @@
       "tooMany": "Too many matches. Keep typing to narrow the list.",
       "review": {
         "description": "Review current changes or last commit"
+      },
+      "undo": {
+        "description": "Rewind history back to (and including) the last user message"
       }
     },
     "effort": {
@@ -728,6 +838,7 @@
       "tokens": "~{{used}} / {{window}} Tokens",
       "categories": {
         "systemPrompt": "System prompt",
+        "languageDirective": "Language directive",
         "toolDefinitions": "Tool definitions",
         "rules": "Rules",
         "skills": "Skills",
@@ -749,6 +860,8 @@
     "title": "Sessions",
     "new": "New session",
     "empty": "No sessions yet.",
+    "untitled": "New chat",
+    "noPreview": "No messages yet",
     "toggle": "Toggle sessions sidebar",
     "delete": "Delete session",
     "active": "Active"
@@ -757,5 +870,11 @@
     "unset": "Workspace is unavailable.",
     "pickFolder": "Pick workspace folder",
     "change": "Click to change workspace"
+  },
+  "notifications": {
+    "responseFinished": {
+      "title": "Response finished",
+      "empty": "The model finished responding."
+    }
   }
 }

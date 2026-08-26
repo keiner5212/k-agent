@@ -10,6 +10,19 @@ use uuid::Uuid;
 
 use crate::APP_CONFIG_DIR;
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelCost {
+    pub input: f64,
+    pub output: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_read: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_write: Option<f64>,
+}
+
 const PROVIDERS_FILE: &str = "providers.json";
 const PROVIDER_KEYS_FILE: &str = "provider-keys.json";
 const HTTP_TIMEOUT: Duration = Duration::from_secs(20);
@@ -59,10 +72,14 @@ pub struct ModelInfo {
     pub structured_output: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub attachment: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachment_types: Vec<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub multimodal: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub effort_levels: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost: Option<ModelCost>,
     #[serde(default, skip_serializing_if = "is_detected")]
     pub source: ModelSource,
     #[serde(default, skip_serializing_if = "is_false")]
@@ -86,8 +103,10 @@ impl ModelInfo {
             tool_call: false,
             structured_output: false,
             attachment: false,
+            attachment_types: Vec::new(),
             multimodal: false,
             effort_levels: Vec::new(),
+            cost: None,
             source: ModelSource::Detected,
             user_edited: false,
             favorite: false,
@@ -102,6 +121,28 @@ impl ModelInfo {
             )
         });
     }
+}
+
+pub(crate) fn derive_attachment_types(input: &[String], attachment: bool) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    let mut push = |value: &str| {
+        let key = value.to_ascii_lowercase();
+        if seen.insert(key.clone()) {
+            out.push(key);
+        }
+    };
+    for item in input {
+        match item.to_ascii_lowercase().as_str() {
+            "image" | "pdf" | "video" | "audio" => push(item),
+            _ => {}
+        }
+    }
+    if attachment {
+        push("text");
+        push("document");
+    }
+    out
 }
 
 fn keep_local(model: &ModelInfo) -> bool {
@@ -435,7 +476,7 @@ fn redact(mut provider: Provider) -> Provider {
     provider
 }
 
-async fn load_all(app: &AppHandle) -> Result<Vec<Provider>, ProviderError> {
+pub(crate) async fn load_all(app: &AppHandle) -> Result<Vec<Provider>, ProviderError> {
     let path = providers_path(app)?;
     let mut providers = load(&path).await?;
     let dir = secrets_dir(app)?;
@@ -474,7 +515,7 @@ async fn save_all(app: &AppHandle, providers: &[Provider]) -> Result<(), Provide
     save(&path, &stored).await
 }
 
-fn http_client() -> Result<reqwest::Client, ProviderError> {
+pub(crate) fn http_client() -> Result<reqwest::Client, ProviderError> {
     reqwest::Client::builder()
         .timeout(HTTP_TIMEOUT)
         .user_agent(concat!("k-agent/", env!("CARGO_PKG_VERSION")))
@@ -482,7 +523,10 @@ fn http_client() -> Result<reqwest::Client, ProviderError> {
         .map_err(|e| ProviderError::Http(e.to_string()))
 }
 
-fn attach_auth(req: reqwest::RequestBuilder, provider: &Provider) -> reqwest::RequestBuilder {
+pub(crate) fn attach_auth(
+    req: reqwest::RequestBuilder,
+    provider: &Provider,
+) -> reqwest::RequestBuilder {
     match provider.kind {
         ProviderKind::OpenAiLike => {
             if let Some(key) = provider.api_key.as_deref() {
@@ -952,6 +996,9 @@ pub async fn upsert_provider_model(
     next.tool_call |= input.tool_call;
     next.structured_output |= input.structured_output;
     next.attachment |= input.attachment;
+    if next.attachment_types.is_empty() {
+        next.attachment_types = derive_attachment_types(&next.input, next.attachment);
+    }
     next.sync_multimodal();
 
     if let Some(existing) = provider

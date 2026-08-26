@@ -1,5 +1,5 @@
 export type SettingItemType =
-  "select" | "toggle" | "keybinding" | "action" | "list" | "modelChoice";
+  "select" | "toggle" | "keybinding" | "action" | "list" | "modelChoice" | "imagePicker" | "slider";
 
 export type SettingOption = {
   value: string;
@@ -18,6 +18,7 @@ export type SettingItem = {
 export type SettingsSectionDef = {
   id:
     | "general"
+    | "appearance"
     | "chat"
     | "modelChoices"
     | "lsps"

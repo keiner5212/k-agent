@@ -30,6 +30,7 @@
     "searchEmpty": "Ningún ajuste coincide con la búsqueda.",
     "sections": {
       "general": "General",
+      "appearance": "Apariencia",
       "chat": "Chat",
       "modelChoices": "Modelos",
       "lsps": "LSPs",
@@ -41,9 +42,12 @@
       "keybindings": "Atajos de teclado",
       "debug": "Depuración"
     },
+    "appearance": {
+      "description": "Aspecto visual de la aplicacion: tema, imagen de fondo del chat y su transparencia."
+    },
     "language": {
       "description": "Elige el idioma de la interfaz.",
-      "label": "Idioma de la pantalla",
+      "label": "Idioma de la interfaz",
       "options": {
         "en": "Inglés",
         "es": "Español"
@@ -74,7 +78,7 @@
     },
     "reminderInterval": {
       "label": "Intervalo de recordatorio",
-      "description": "Inyecta un mensaje de recordatorio cada N mensajes del usuario para no perder informacion importante."
+      "description": "Inyecta un mensaje de recordatorio cada N mensajes del usuario para no perder información importante."
     },
     "forceResponseLanguage": {
       "label": "Forzar idioma de respuesta",
@@ -92,29 +96,25 @@
       "label": "Comandos bloqueados",
       "description": "Comandos que el agente no debe ejecutar nunca. Se comparan de forma exacta con la cadena completa.",
       "placeholder": "ej. rm -rf /",
-      "add": "Agregar",
-      "empty": "Aun no hay comandos bloqueados.",
+      "add": "Añadir",
+      "empty": "Aún no hay comandos bloqueados.",
       "remove": "Quitar comando"
     },
     "allowedCommands": {
       "label": "Comandos permitidos",
       "description": "Comandos que el agente puede ejecutar sin preguntar. Se comparan de forma exacta con la cadena completa.",
       "placeholder": "ej. git status",
-      "add": "Agregar",
-      "empty": "Aun no hay comandos permitidos.",
+      "add": "Añadir",
+      "empty": "Aún no hay comandos permitidos.",
       "remove": "Quitar comando"
     },
     "notificationsEnabled": {
       "label": "Mostrar notificaciones de escritorio",
-      "description": "Muestra notificaciones del sistema para eventos del chat cuando la ventana no esta enfocada."
-    },
-    "taskCompleteSoundEnabled": {
-      "label": "Reproducir sonido al finalizar respuestas",
-      "description": "Reproduce un sonido breve al terminar de transmitirse una respuesta del modelo."
+      "description": "Muestra notificaciones del sistema para eventos del chat cuando la ventana no está enfocada."
     },
     "workspaceMemoryEnabled": {
-      "label": "Guardar notas en la memoria del espacio de trabajo",
-      "description": "Guarda anotaciones utiles del chat en archivos dentro del espacio de trabajo actual."
+      "label": "Guardar notas en el espacio de trabajo",
+      "description": "Guarda anotaciones útiles del chat en archivos dentro del espacio de trabajo actual."
     },
     "buildAgentEnabled": {
       "label": "Agente Build",
@@ -130,7 +130,7 @@
     },
     "animations": {
       "label": "Desactivar animaciones",
-      "description": "Apaga todas las transiciones y movimientos. También respeta el ajuste reducir movimiento del sistema."
+      "description": "Apaga todas las transiciones y movimientos. También respeta el ajuste de reducir movimiento del sistema."
     },
     "fontFamily": {
       "label": "Fuente",
@@ -159,6 +159,25 @@
         "140": "140%"
       }
     },
+    "chatBackgroundImage": {
+      "label": "Imagen de fondo del chat",
+      "description": "Elige una imagen para mostrar detras del chat. PNG, JPG o WebP, hasta 5 MB.",
+      "pick": "Elegir imagen",
+      "clear": "Quitar",
+      "none": "Sin fondo",
+      "filter": "Imagenes",
+      "desktopOnly": "Disponible en el shell de escritorio.",
+      "status": {
+        "updated": "Imagen de fondo del chat actualizada.",
+        "removed": "Imagen de fondo del chat eliminada.",
+        "error": "No se pudo cargar la imagen: {{reason}}"
+      }
+    },
+    "chatBackgroundOpacity": {
+      "label": "Opacidad del fondo del chat",
+      "description": "Intensidad con la que se ve la imagen de fondo. Valores bajos mantienen legible el texto del chat.",
+      "disabled": "Elige un fondo primero"
+    },
     "keybindings": {
       "description": "Haz clic en un atajo y pulsa la nueva combinación. Pulsa Escape para cancelar.",
       "actions": {
@@ -171,10 +190,11 @@
         },
         "chat": {
           "clear": "Limpiar entrada del chat",
-          "modeToggle": "Alternar modo shell / prompt"
+          "modeToggle": "Alternar modo shell / prompt",
+          "agentCycle": "Siguiente agente"
         },
         "search": {
-          "focus": "Enfocar campo de busqueda"
+          "focus": "Enfocar campo de búsqueda"
         },
         "editor": {
           "save": "Guardar editor",
@@ -199,18 +219,18 @@
       "description": "Elige el modelo para generar titulos y contenido en la app."
     },
     "titleGenerationModel": {
-      "label": "Modelo para titulos",
-      "description": "Modelo que genera los titulos de sesion desde la conversacion.",
+      "label": "Modelo para títulos",
+      "description": "Modelo que genera los títulos de sesión desde la conversación.",
       "options": {
         "useChatModel": "Usar modelo del chat"
       }
     },
     "titleUseFirstMessage": {
-      "label": "Usar primer mensaje como titulo",
-      "description": "Usa el primer mensaje como titulo en vez de generarlo."
+      "label": "Usar primer mensaje como título",
+      "description": "Usa el primer mensaje como título en vez de generarlo."
     },
     "appGenerationModel": {
-      "label": "Modelo de generacion en la app",
+      "label": "Modelo de generación en la app",
       "description": "Modelo que genera contenido dentro de la app, como skills y agentes.",
       "options": {
         "useChatModel": "Usar modelo del chat"
@@ -218,13 +238,13 @@
     },
     "lspEnabled": {
       "label": "Usar servidores de lenguaje",
-      "description": "Permite al orchestrator usar LSP para navegar, renombrar y diagnosticar tu codigo en el chat."
+      "description": "Permite al orquestador usar LSP para navegar, renombrar y diagnosticar tu código en el chat."
     }
   },
   "lsps": {
     "title": "Servidores de lenguaje",
-    "description": "Servidores de lenguaje livianos para el LSP generico. El estado se detecta al abrir esta pagina. La instalacion pide las herramientas listadas primero.",
-    "empty": "Ningun servidor de lenguaje coincide.",
+    "description": "Servidores de lenguaje livianos para el LSP genérico. El estado se detecta al abrir esta página. La instalación pide las herramientas listadas primero.",
+    "empty": "Ningún servidor de lenguaje coincide.",
     "table": {
       "server": "Servidor",
       "languages": "Lenguajes",
@@ -292,14 +312,14 @@
       "title": "Modelos",
       "provider": "Proveedor: {{name}}",
       "search": "Buscar modelos",
-      "noMatches": "Ningun modelo coincide con esta busqueda.",
+      "noMatches": "Ningún modelo coincide con esta búsqueda.",
       "close": "Cerrar",
       "open": "Ver {{count}} modelos de {{name}}"
     },
     "actions": {
-      "refresh": "Refrescar modelos",
+      "refresh": "Actualizar modelos",
       "refreshList": "Actualizar lista",
-      "refreshModel": "Refrescar este modelo",
+      "refreshModel": "Actualizar este modelo",
       "edit": "Editar",
       "delete": "Eliminar",
       "addModel": "Añadir modelo",
@@ -320,7 +340,9 @@
         "image": "Imagen",
         "audio": "Audio",
         "video": "Video",
-        "pdf": "PDF"
+        "pdf": "PDF",
+        "document": "Word",
+        "textFile": "TXT"
       },
       "input": "Entrada",
       "outputModalities": "Salida",
@@ -391,7 +413,7 @@
   "mcpServers": {
     "title": "Servidores MCP",
     "description": "Configura servidores Model Context Protocol. Variables de entorno y cabeceras se guardan cifradas en disco.",
-    "empty": "Aun no hay servidores MCP configurados.",
+    "empty": "Aún no hay servidores MCP configurados.",
     "transports": {
       "stdio": "Stdio",
       "sse": "SSE",
@@ -411,12 +433,12 @@
     "toolsDialog": {
       "title": "Herramientas MCP",
       "server": "Servidor: {{name}}",
-      "noDescription": "Sin descripcion.",
+      "noDescription": "Sin descripción.",
       "close": "Cerrar",
       "open": "Ver detalles de herramientas de {{name}}"
     },
     "actions": {
-      "add": "Agregar servidor",
+      "add": "Añadir servidor",
       "edit": "Editar",
       "delete": "Eliminar",
       "refresh": "Actualizar lista",
@@ -430,22 +452,22 @@
       "transport": "Transporte",
       "command": "Comando",
       "args": "Argumentos",
-      "argsHint": "Un argumento por linea o separados por coma.",
+      "argsHint": "Un argumento por línea o separados por coma.",
       "cwd": "Directorio de trabajo (opcional)",
       "url": "URL",
       "env": "Variables de entorno",
       "envPlaceholder": "CLAVE=valor",
-      "envHint": "Una variable por linea como CLAVE=valor. Se guarda cifrada.",
+      "envHint": "Una variable por línea como CLAVE=valor. Se guarda cifrada.",
       "headers": "Cabeceras HTTP",
       "headersPlaceholder": "Authorization=Bearer token",
-      "headersHint": "Una cabecera por linea como CLAVE=valor. Se guarda cifrada.",
+      "headersHint": "Una cabecera por línea como CLAVE=valor. Se guarda cifrada.",
       "secretsRemove": "Eliminar secretos guardados",
       "cancel": "Cancelar",
       "save": "Guardar",
-      "add": "Agregar",
+      "add": "Añadir",
       "saving": "Guardando",
       "probing": "Detectando herramientas",
-      "toolsProbeFailed": "Guardado, pero fallo la deteccion: {{error}}",
+      "toolsProbeFailed": "Guardado, pero falló la detección: {{error}}",
       "errors": {
         "nameRequired": "El nombre es obligatorio.",
         "commandRequired": "El comando es obligatorio para transporte stdio.",
@@ -487,7 +509,6 @@
     },
     "form": {
       "createTitle": "Nueva habilidad",
-      "editTitle": "Editar habilidad",
       "name": "Nombre",
       "namePlaceholder": "mi-habilidad",
       "nameHint": "Letras minúsculas, números, guiones y guiones bajos.",
@@ -522,29 +543,28 @@
   },
   "agents": {
     "title": "Agentes",
-    "description": "Un agente de sesión es una personalidad para el chat: prompt, habilidades y herramientas. Los globales viven en ~/.k-agent/agents. Los locales viven en .agents/agents del workspace.",
+    "description": "Un agente de sesion es una personalidad para el chat: prompt, habilidades y herramientas. Los personalizados viven en ~/.k-agent/agents. Los integrados vienen con la app.",
     "context": {
       "default": "Integrados",
-      "global": "Global",
-      "local": "Workspace"
+      "global": "Global"
     },
     "default": {
       "viewTitle": "Ver personalidad",
       "close": "Cerrar"
     },
     "builtin": {
-      "hint": "Los agentes integrados vienen con la app. Activalos o desactivalos en ajustes de Chat.",
+      "hint": "Los agentes integrados vienen con la app. Actívalos o desactívalos en ajustes de Chat.",
       "build": {
-        "description": "Implementa cambios en el codigo.",
-        "personality": "Implementas los cambios solicitados en el codigo.\n\n- Prefiere diffs pequenos y correctos.\n- Reutiliza patrones existentes del repo.\n- Ejecuta checks cuando sea util.\n- Pregunta solo si estas bloqueado o los requisitos no son claros."
+        "description": "Implementa cambios en el código.",
+        "personality": "Implementas los cambios solicitados en el código.\n\n- Prefiere diffs pequeños y correctos.\n- Reutiliza patrones existentes del repo.\n- Ejecuta checks cuando sea útil.\n- Pregunta solo si estás bloqueado o los requisitos no son claros."
       },
       "plan": {
         "description": "Explora y planifica sin hacer cambios.",
-        "personality": "Exploras el codigo y propones planes sin hacer cambios.\n\n- Lee y busca codigo para armar contexto.\n- Compara opciones con trade-offs claros.\n- Describe pasos concretos que otros puedan implementar.\n- No edites archivos ni ejecutes comandos de shell."
+        "personality": "Exploras el código y propones planes sin hacer cambios.\n\n- Lee y busca código para armar contexto.\n- Compara opciones con trade-offs claros.\n- Describe pasos concretos que otros puedan implementar.\n- No edites archivos ni ejecutes comandos de shell."
       }
     },
     "empty": "Aún no hay agentes en esta carpeta.",
-    "emptyTab": "Inicia la app con una ruta de workspace para ver agentes locales.",
+    "emptyTab": "No hay carpeta global de agentes disponible.",
     "table": {
       "name": "Nombre",
       "description": "Descripción",
@@ -576,11 +596,10 @@
       "personalityCount": "{{count}} / {{max}}",
       "skills": "Habilidades",
       "skillsCount": "{{count}} / {{max}}",
-      "skillsHintGlobal": "Un agente global solo puede cargar habilidades globales. Máximo 10.",
-      "skillsHintLocal": "Un agente de workspace puede cargar habilidades globales y locales. Máximo 10.",
-      "skillsEmpty": "No hay habilidades disponibles para esta ubicación.",
+      "skillsHintGlobal": "Un agente global solo puede cargar habilidades globales. Maximo 10.",
+      "skillsEmpty": "No hay habilidades disponibles para esta ubicacion.",
       "tools": "Herramientas",
-      "toolsHint": "Permisos de ejemplo. Las herramientas reales vendrán después.",
+      "toolsHint": "Herramientas que el agente puede llamar en el chat. Solo se listan herramientas locales registradas.",
       "cancel": "Cancelar",
       "save": "Guardar",
       "saving": "Guardando",
@@ -598,33 +617,9 @@
       "dirty": "Cambios sin guardar"
     },
     "tools": {
-      "read_file": {
-        "label": "Leer archivos",
-        "description": "Leer contenido de archivos del workspace."
-      },
-      "write_file": {
-        "label": "Crear archivos",
-        "description": "Crear archivos nuevos."
-      },
-      "edit_file": {
-        "label": "Editar archivos",
-        "description": "Modificar archivos existentes."
-      },
-      "delete_file": {
-        "label": "Eliminar archivos",
-        "description": "Borrar archivos del workspace."
-      },
-      "run_command": {
-        "label": "Ejecutar comandos",
-        "description": "Correr comandos de shell."
-      },
-      "search_code": {
-        "label": "Buscar código",
-        "description": "Buscar texto o patrones en el workspace."
-      },
-      "web_fetch": {
-        "label": "Pedir URLs",
-        "description": "Descargar contenido de la red."
+      "skill": {
+        "label": "Cargar habilidades",
+        "description": "Cargar instrucciones de una habilidad en la conversacion por nombre."
       }
     },
     "delete": {
@@ -683,19 +678,130 @@
       "emptyTitle": "Inicia una conversación",
       "emptyDescription": "Elige un modelo y escribe un mensaje abajo."
     },
+    "message": {
+      "copy": "Copiar mensaje",
+      "copied": "Copiado",
+      "rewind": "Retroceder el historial hasta este mensaje"
+    },
+    "rewind": {
+      "title": "Retroceder el historial?",
+      "body_one": "Esto eliminara el mensaje seleccionado y 1 posterior del historial del chat.",
+      "body_other": "Esto eliminara el mensaje seleccionado y los {{count}} posteriores del historial del chat.",
+      "cancel": "Cancelar",
+      "confirm": "Retroceder"
+    },
+    "thinking": {
+      "label": "Pensamiento",
+      "duration_one": "Pensó {{count}} segundo",
+      "duration_other": "Pensó {{count}} segundos"
+    },
+    "waiting": {
+      "phrases": [
+        "Hackeando el Pentágono...",
+        "Encriptando tus archivos...",
+        "Sobornando a la GPU...",
+        "Enseñándole al modelo a no alucinar...",
+        "Recableando internet...",
+        "Pidiéndole un favor a la nube...",
+        "Desenredando nudos neuronales...",
+        "Pidiendo IQ prestado...",
+        "Dándole de comer tokens a la máquina...",
+        "Convenciendo a los electrones de que cooperen...",
+        "Descargando más RAM...",
+        "Regateando con la API...",
+        "Calibrando el sarcasmo...",
+        "Haciéndole ingeniería inversa a tu pregunta...",
+        "Encendiendo un supercomputador de bolsillo...",
+        "Abriendo la caja negra a martillazos...",
+        "Arreando gatos con estadística...",
+        "Puliendo el prompt...",
+        "Despertando al oráculo de silicio...",
+        "Consultando a la mente colmena...",
+        "Pasándole el linter al universo...",
+        "Desfragmentando la realidad...",
+        "Invocando duendes de las respuestas...",
+        "Reiniciando el sentido común...",
+        "Traduciendo las vibras a texto...",
+        "Optimizando lo que no tiene arreglo...",
+        "Sobornando al tokenizer...",
+        "Minando bitcoin imaginario...",
+        "Parcheando la simulación...",
+        "Leyendo tu historial de búsquedas...",
+        "Vendiendo tus datos en el mercado negro...",
+        "Formateando el disco C:...",
+        "Borrando el único backup...",
+        "Tocando producción a ver si se cae...",
+        "Preguntando a tu jefe si todavía trabajas aquí...",
+        "Contando los tokens que te quedan de vida...",
+        "Reemplazando a tu terapeuta...",
+        "Subiendo esto a WikiLeaks...",
+        "Averiguando si tu mamá sabe...",
+        "Gaslighteando al compilador...",
+        "Sacrificando un junior a los dioses del CI...",
+        "Redactando tu necrológica en markdown...",
+        "Escondiendo el cadáver en node_modules...",
+        "Preguntándole a ChatGPT cómo despedirte...",
+        "Entrenando con tu diario...",
+        "Cortando el Wi-Fi del hospital...",
+        "Fingiendo que esto cumple HIPAA...",
+        "Llamando a emergencias por el stack overflow...",
+        "Mandando tu nómina a /dev/null..."
+      ]
+    },
     "composer": {
       "placeholder": "Escribe un mensaje",
       "placeholderShell": "ejecuta un comando shell...",
       "send": "Enviar",
       "run": "Ejecutar",
+      "running": "Ejecutando...",
       "attach": "Adjuntar",
+      "attachDisabled": "Este modelo no acepta archivos.",
+      "attachFilter": "Archivos permitidos",
+      "removeAttachment": "Quitar adjunto",
+      "attachTooMany": "Demasiados adjuntos.",
+      "attachError": {
+        "unsupported": "{{name}} no esta permitido para este modelo.",
+        "tooLarge": "{{name}} es demasiado grande.",
+        "unreadable": "No se pudo leer {{name}}.",
+        "extractFailed": "No se pudo leer {{name}}.",
+        "tooMany": "Demasiados adjuntos."
+      },
       "disabledHint": "Elige un modelo para enviar.",
       "disabledHintShell": "Escribe un comando para ejecutar.",
+      "queue": "Encolar",
       "mode": {
         "prompt": "Prompt",
         "shell": "Shell",
-        "hint": "Shift+! alterna modo con input vacio"
+        "hint": "Shift+! cambia de modo cuando el input esta vacio"
       }
+    },
+    "preview": {
+      "title": "Adjunto",
+      "open": "Ver adjunto",
+      "play": "Reproducir",
+      "pause": "Pausar",
+      "mute": "Silenciar",
+      "unmute": "Activar sonido",
+      "seek": "Posicion"
+    },
+    "shell": {
+      "running": "Ejecutando comando de shell...",
+      "failed": "Shell falló: {{error}}",
+      "needsWorkspace": "El shell necesita una carpeta de espacio de trabajo.",
+      "interrupted": "interrumpido por el usuario",
+      "expand": "Abrir salida en la consola",
+      "console": {
+        "title": "Salida del shell",
+        "copy": "Copiar salida",
+        "copied": "Copiado",
+        "empty": "Aún no hay salida."
+      }
+    },
+    "interruptedByUser": "interrumpido por el usuario",
+    "interruptHint": "Pulsa Esc otra vez para interrumpir",
+    "queue": {
+      "sendNow": "Interrumpir y enviar ahora",
+      "remove": "Quitar de la cola"
     },
     "fileMentions": {
       "label": "Archivos del workspace",
@@ -705,11 +811,14 @@
     },
     "slashCommands": {
       "label": "Comandos y skills",
-      "empty": "Sin comandos o skills coincidentes",
+      "empty": "No hay comandos o skills que coincidan",
       "loading": "Cargando comandos y skills...",
-      "tooMany": "Demasiadas coincidencias. Sigue escribiendo para acotar la lista.",
+      "tooMany": "Demasiadas coincidencias. Sigue escribiendo para acotar.",
       "review": {
-        "description": "Revisar cambios actuales o ultimo commit"
+        "description": "Revisa los cambios actuales o el ultimo commit"
+      },
+      "undo": {
+        "description": "Retrocede el historial hasta (e incluyendo) el ultimo mensaje del usuario"
       }
     },
     "effort": {
@@ -729,6 +838,7 @@
       "tokens": "~{{used}} / {{window}} tokens",
       "categories": {
         "systemPrompt": "Prompt de sistema",
+        "languageDirective": "Directiva de idioma",
         "toolDefinitions": "Definiciones de herramientas",
         "rules": "Reglas",
         "skills": "Skills",
@@ -750,6 +860,8 @@
     "title": "Sesiones",
     "new": "Nueva sesión",
     "empty": "Aún no hay sesiones.",
+    "untitled": "Chat nuevo",
+    "noPreview": "Sin mensajes aún",
     "toggle": "Mostrar u ocultar barra de sesiones",
     "delete": "Eliminar sesión",
     "active": "Activa"
@@ -757,6 +869,12 @@
   "workspace": {
     "unset": "El workspace no está disponible.",
     "pickFolder": "Elige la carpeta de workspace",
-    "change": "Click para cambiar de workspace"
+    "change": "Clic para cambiar de workspace"
+  },
+  "notifications": {
+    "responseFinished": {
+      "title": "Respuesta lista",
+      "empty": "El modelo terminó de responder."
+    }
   }
 }

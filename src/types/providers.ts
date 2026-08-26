@@ -34,6 +34,14 @@ export const PROVIDER_KINDS: readonly ProviderKind[] = [
 
 export type ModelSource = "detected" | "custom";
 
+export type ModelCost = {
+  input: number;
+  output: number;
+  reasoning?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+};
+
 export type ModelInfo = {
   id: string;
   contextWindow?: number;
@@ -47,8 +55,10 @@ export type ModelInfo = {
   toolCall?: boolean;
   structuredOutput?: boolean;
   attachment?: boolean;
+  attachmentTypes?: string[];
   multimodal?: boolean;
   effortLevels?: string[];
+  cost?: ModelCost;
   source?: ModelSource;
   userEdited?: boolean;
   favorite?: boolean;
@@ -90,12 +100,25 @@ export const DEFAULT_BASE_URLS: Record<ProviderKind, string> = {
   "gemini-like": "https://generativelanguage.googleapis.com",
 };
 
+export const formatTokenCount = (tokens: number): string => {
+  const count = Math.max(0, Math.round(tokens));
+  if (count >= 1_000_000) {
+    return `${formatScaled(count / 1_000_000)}M`;
+  }
+  if (count >= 1_000) {
+    return `${formatScaled(count / 1_000)}k`;
+  }
+  return String(count);
+};
+
+const formatScaled = (value: number): string => {
+  if (value >= 100 || Number.isInteger(value)) return String(Math.round(value));
+  return value.toFixed(1).replace(/\.0$/, "");
+};
+
 export const formatContextWindow = (tokens: number | undefined): string => {
   if (tokens === undefined) return "-";
-  if (tokens >= 1_000_000)
-    return `${(tokens / 1_000_000).toFixed(tokens % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(0)}k`;
-  return String(tokens);
+  return formatTokenCount(tokens);
 };
 
 export const parseTokenAmount = (raw: string): number | undefined => {
