@@ -266,6 +266,19 @@
     "loading": "Loading providers",
     "viewModels": "View models",
     "noModels": "No models detected yet. Try refreshing.",
+    "errors": {
+      "timeout": "Request timed out after {{seconds}} seconds.",
+      "unreachable": "Cannot reach the server: {{message}}",
+      "invalidUrl": "The URL is malformed: {{url}}",
+      "auth": "Authentication failed (HTTP {{status}}). Check the API key.",
+      "notFound": "Endpoint not found at this URL (HTTP {{status}}).",
+      "rateLimited": "Rate limited by the server (HTTP {{status}}). Try again later.",
+      "serverError": "Server error (HTTP {{status}}).",
+      "clientError": "Server returned HTTP {{status}}.",
+      "parse": "Could not parse the server response: {{message}}",
+      "http": "Network error: {{message}}",
+      "generic": "{{message}}"
+    },
     "modelsCount": "{{count}} model",
     "modelsCount_plural": "{{count}} models",
     "table": {
@@ -359,9 +372,10 @@
       "detecting": "Detecting models",
       "detected": "Detected {{count}} model.",
       "detected_plural": "Detected {{count}} models.",
+      "success": "Provider added successfully with {{count}} model(s).",
       "errors": {
         "required": "Name and base URL are required.",
-        "fetchFailed": "Failed to fetch models from this provider. Check the URL and API key.",
+        "fetchFailed": "Failed to fetch models: {{message}}",
         "noModels": "No models found for this provider.",
         "unknown": "Unknown error."
       }

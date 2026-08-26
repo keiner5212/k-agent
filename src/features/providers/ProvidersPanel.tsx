@@ -5,8 +5,9 @@ import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { Table, type TableColumn } from "@/components/Table";
 import { highlightMatch } from "@/lib/highlight";
+import { formatProviderError } from "@/lib/provider-error";
 import { useProvidersStore } from "@/lib/providers";
-import type { ModelInfo, Provider } from "@/types/providers";
+import type { ModelInfo, Provider, ProviderErrorPayload } from "@/types/providers";
 import { DeleteProviderDialog } from "./DeleteProviderDialog";
 import { ModelFormDialog } from "./ModelFormDialog";
 import { ProviderFormDialog } from "./ProviderFormDialog";
@@ -48,6 +49,13 @@ export const ProvidersPanel = ({ query }: ProvidersPanelProps): ReactNode => {
   const { t } = useTranslation();
   const providers = useProvidersStore((state) => state.providers);
   const loading = useProvidersStore((state) => state.loading);
+  const errorFromResult = (result: {
+    error?: string;
+    errorPayload?: ProviderErrorPayload;
+  }): string | undefined => {
+    if (!result.error) return undefined;
+    return result.errorPayload ? formatProviderError(t, result.errorPayload) : result.error;
+  };
   const error = useProvidersStore((state) => state.error);
   const load = useProvidersStore((state) => state.load);
   const remove = useProvidersStore((state) => state.remove);
@@ -226,7 +234,8 @@ export const ProvidersPanel = ({ query }: ProvidersPanelProps): ReactNode => {
         onConfirm={async () => {
           if (!deleteTarget) return "missing target";
           const result = await remove(deleteTarget.id);
-          if (result.error) return result.error;
+          const error = errorFromResult(result);
+          if (error) return error;
           await load();
           return undefined;
         }}
@@ -257,7 +266,8 @@ export const ProvidersPanel = ({ query }: ProvidersPanelProps): ReactNode => {
         onSave={async (draft) => {
           if (!modelEditor) return "missing provider";
           const result = await upsertModel(modelEditor.providerId, draft);
-          if (result.error) return result.error;
+          const error = errorFromResult(result);
+          if (error) return error;
           await load();
           return undefined;
         }}
@@ -265,7 +275,8 @@ export const ProvidersPanel = ({ query }: ProvidersPanelProps): ReactNode => {
           modelEditor?.model && editingProvider
             ? async () => {
                 const result = await removeModel(editingProvider.id, modelEditor.model?.id ?? "");
-                if (result.error) return result.error;
+                const error = errorFromResult(result);
+                if (error) return error;
                 await load();
                 return undefined;
               }

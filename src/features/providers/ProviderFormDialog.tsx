@@ -5,6 +5,7 @@ import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { Select } from "@/components/Select";
 import { useProvidersStore } from "@/lib/providers";
+import { formatProviderError } from "@/lib/provider-error";
 import { clearStoredSecretMask, isStoredSecretMask, storedSecretDisplay } from "@/lib/secret-field";
 import {
   DEFAULT_BASE_URLS,
@@ -53,6 +54,7 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
   const [clearApiKey, setClearApiKey] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [detectedCount, setDetectedCount] = useState<number | null>(null);
 
   const isEditing = Boolean(draft?.id);
@@ -71,6 +73,7 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
       return;
     }
     setSubmitting(true);
+    setSuccess(null);
     setError(null);
     setDetectedCount(null);
     const result = await save({
@@ -86,19 +89,21 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
     });
     setSubmitting(false);
     if (result.error) {
-      console.error("Uy pa, cule error bien socromático, pilla: ", result.error);
-      setError(t("providers.form.errors.fetchFailed"));
+      setError(
+        result.errorPayload ? formatProviderError(t, result.errorPayload) 
+        : t("providers.form.errors.fetchFailed", { message: result.error }));
       return;
     }
     if (!result.provider) {
       setError(t("providers.form.errors.unknown"));
       return;
     }
-    if (!isEditing && result.provider?.models.length === 0) {
+    if (!isEditing && result.provider.models.length === 0) {
       setError(t("providers.form.errors.noModels"));
       return;
     }
     setDetectedCount(result.provider.models.length);
+    setSuccess(t("providers.form.success", { count: result.provider.models.length }));
     onSaved();
     onOpenChange(false);
   };
@@ -228,7 +233,7 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
           </div>
         ) : null}
 
-        {detectedCount !== null ? (
+        {success ? (
           <div className="form-success" role="status">
             {t("providers.form.detected", { count: detectedCount })}
           </div>
