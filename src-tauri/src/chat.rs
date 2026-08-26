@@ -830,6 +830,32 @@ fn emit_chunk(on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>, kind: &str, tex
     }
 }
 
+fn tool_call_argument(name: &str, arguments: &str) -> String {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(arguments) else {
+        return String::new();
+    };
+    if name == tools::SKILL_TOOL_NAME {
+        return value
+            .get("name")
+            .and_then(|item| item.as_str())
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+            .unwrap_or("")
+            .to_string();
+    }
+    String::new()
+}
+
+fn emit_tool_call(on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>, call: &ModelToolCall) {
+    let argument = tool_call_argument(&call.name, &call.arguments);
+    let text = if argument.is_empty() {
+        call.name.clone()
+    } else {
+        format!("{}\n{argument}", call.name)
+    };
+    emit_chunk(on_chunk, "tool", &text);
+}
+
 fn take_split(
     full_content: &mut String,
     full_reasoning: &mut String,
@@ -1370,18 +1396,6 @@ async fn dispatch_provider(
     }
 }
 
-fn emit_output_chunks(
-    on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
-    output: &ChatOutput,
-) {
-    if !output.reasoning.is_empty() {
-        emit_chunk(on_chunk, "reasoning", &output.reasoning);
-    }
-    if !output.content.is_empty() {
-        emit_chunk(on_chunk, "content", &output.content);
-    }
-}
-
 async fn send_message(
     app: &AppHandle,
     provider: &Provider,
@@ -1409,9 +1423,14 @@ async fn send_message(
             tool_names: call.tool_names,
         };
         let output = dispatch_provider(provider, &round_call, None).await?;
+        if !output.reasoning.is_empty() {
+            emit_chunk(on_chunk, "reasoning", &output.reasoning);
+        }
 
         if output.tool_calls.is_empty() {
-            emit_output_chunks(on_chunk, &output);
+            if !output.content.is_empty() {
+                emit_chunk(on_chunk, "content", &output.content);
+            }
             return Ok(output);
         }
 
@@ -1426,6 +1445,7 @@ async fn send_message(
         });
 
         for tc in &output.tool_calls {
+            emit_tool_call(on_chunk, tc);
             let outcome = if call.tool_names.iter().any(|name| name == &tc.name) {
                 tools::execute(&tc.name, &tc.arguments, &ctx)
             } else {

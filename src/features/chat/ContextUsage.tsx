@@ -1,17 +1,22 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/Dialog";
-import { resolveAgentSystem } from "@/lib/agent-system";
+import { buildAgentsMdRules, composeAgentSystem } from "@/lib/agent-system";
+import { useAgentsMdStore } from "@/lib/agents-md";
 import { useAgentsStore } from "@/lib/agents";
+import { appContextDirective } from "@/lib/app-context";
+import { resolveAgentMeta } from "@/lib/builtin-agents";
 import { useComposerStore } from "@/lib/composer";
 import {
   buildContextUsage,
+  estimateLoadedSkillTokens,
+  estimateToolDefinitionTokens,
   formatUsageCost,
   formatUsageTokens,
   resolveSelectedModel,
 } from "@/lib/context-usage";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
-import { composeSystemWithLanguage } from "@/lib/response-language";
+import { responseLanguageDirective } from "@/lib/response-language";
 import { useProvidersStore } from "@/lib/providers";
 import { selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import { useSelectionStore } from "@/lib/selected-model";
@@ -34,27 +39,45 @@ export const ContextUsage = (): ReactNode => {
   const selectedAgent = useComposerStore((state) => state.selectedAgent);
   const agentContexts = useAgentsStore((state) => state.contexts);
   const skillContexts = useSkillsStore((state) => state.contexts);
+  const agentsMdFiles = useAgentsMdStore((state) => state.files);
   const forceResponseLanguage = useSettingsStore((state) => state.forceResponseLanguage);
   const responseLanguage = useSettingsStore((state) => state.responseLanguage);
   const model = useMemo(() => resolveSelectedModel(providers, selection), [providers, selection]);
-  const systemPromptTokens = useMemo(() => {
-    const base = resolveAgentSystem(selectedAgent, agentContexts, skillContexts, t);
-    const system = composeSystemWithLanguage(base, forceResponseLanguage, responseLanguage);
-    return estimateTokensFromText(system);
-  }, [agentContexts, forceResponseLanguage, responseLanguage, selectedAgent, skillContexts, t]);
+  const extras = useMemo(() => {
+    const agent = resolveAgentMeta(selectedAgent, agentContexts, t);
+    const agentSystem = composeAgentSystem(agent, skillContexts);
+    const appContext = appContextDirective(responseLanguage);
+    const systemParts: string[] = [];
+    if (agentSystem.length > 0) systemParts.push(agentSystem);
+    if (appContext.length > 0) systemParts.push(appContext);
+    const language = forceResponseLanguage ? responseLanguageDirective(responseLanguage) : "";
+    const rules = buildAgentsMdRules(agentsMdFiles);
+    return {
+      systemPrompt: estimateTokensFromText(systemParts.join("\n\n")),
+      languageDirective: estimateTokensFromText(language),
+      rules: estimateTokensFromText(rules),
+      toolDefinitions: estimateToolDefinitionTokens(agent?.tools ?? []),
+      skills: estimateLoadedSkillTokens(messages, skillContexts, agent?.skills ?? []),
+    };
+  }, [
+    agentContexts,
+    agentsMdFiles,
+    forceResponseLanguage,
+    messages,
+    responseLanguage,
+    selectedAgent,
+    skillContexts,
+    t,
+  ]);
   const usage = useMemo(
     () =>
       buildContextUsage({
         windowTokens: model?.contextWindow,
-        extras: {
-          systemPrompt: systemPromptTokens,
-          languageDirective: 0,
-          rules: 0,
-        },
+        extras,
         cost: model?.cost,
         messages,
       }),
-    [messages, model, systemPromptTokens],
+    [extras, messages, model],
   );
   const visibleBuckets = usage.buckets.filter((item) => item.tokens > 0);
   const listBuckets =

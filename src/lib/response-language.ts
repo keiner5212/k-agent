@@ -26,9 +26,12 @@ export const composeSystemWithLanguage = (
   base: string,
   force: boolean,
   language: AppLanguage,
+  rules = "",
 ): string => {
   const parts: string[] = [];
   if (force) parts.push(DIRECTIVE[language]);
+  const trimmedRules = rules.replace(/\n+$/, "");
+  if (trimmedRules.length > 0) parts.push(trimmedRules);
   const trimmed = base.replace(/\n+$/, "");
   if (trimmed.length > 0) parts.push(trimmed);
   const context = appContextDirective(language);

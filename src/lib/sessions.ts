@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
-import { composeAgentSystem } from "@/lib/agent-system";
+import { buildAgentsMdRules, composeAgentSystem } from "@/lib/agent-system";
 import { resolveAgentMeta } from "@/lib/builtin-agents";
+import { useAgentsMdStore } from "@/lib/agents-md";
 import { useAgentsStore } from "@/lib/agents";
 import { useComposerStore, type ComposerMode } from "@/lib/composer";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
@@ -21,13 +22,14 @@ import {
   summarizeShellResultForAi,
   type ShellChunk,
 } from "@/lib/shell";
-import type {
-  ChatAttachment,
-  ChatChunk,
-  ChatMessage,
-  ChatTurn,
-  SelectedModel,
-  SendChatResult,
+import {
+  parseToolChunkText,
+  type ChatAttachment,
+  type ChatChunk,
+  type ChatMessage,
+  type ChatTurn,
+  type SelectedModel,
+  type SendChatResult,
 } from "@/types/chat";
 import {
   sortSessions,
@@ -417,25 +419,28 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       onChunk.onmessage = (chunk) => {
         if (!chunk.text || get().sendingSessionId !== sessionId) return;
         const isReasoning = chunk.kind === "reasoning";
-        if (isReasoning) {
+        const isTool = chunk.kind === "tool";
+        if (isReasoning || isTool) {
           thinkingStartedAt ??= Date.now();
         } else if (thinkingStartedAt !== undefined && thinkingEndedAt === undefined) {
           thinkingEndedAt = Date.now();
         }
+        const toolCall = isTool ? parseToolChunkText(chunk.text) : null;
         const nextSessions = get().sessions.map((session) => {
           if (session.id !== sessionId) return session;
           const index = session.messages.findIndex((message) => message.id === assistantId);
           if (index < 0) {
             return {
               ...session,
-              preview: isReasoning ? session.preview : chunk.text,
+              preview: isReasoning || isTool ? session.preview : chunk.text,
               messages: [
                 ...session.messages,
                 {
                   id: assistantId,
                   role: "assistant" as const,
-                  content: isReasoning ? "" : chunk.text,
+                  content: isReasoning || isTool ? "" : chunk.text,
                   reasoning: isReasoning ? chunk.text : undefined,
+                  toolCalls: toolCall ? [toolCall] : undefined,
                   streaming: true,
                 },
               ],
@@ -444,14 +449,16 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           const messages = session.messages.slice();
           const current = messages[index];
           if (!current) return session;
-          const content = isReasoning ? current.content : `${current.content}${chunk.text}`;
+          const content =
+            isReasoning || isTool ? current.content : `${current.content}${chunk.text}`;
           const reasoning = isReasoning
             ? `${current.reasoning ?? ""}${chunk.text}`
             : current.reasoning;
-          messages[index] = { ...current, content, reasoning, streaming: true };
+          const toolCalls = toolCall ? [...(current.toolCalls ?? []), toolCall] : current.toolCalls;
+          messages[index] = { ...current, content, reasoning, toolCalls, streaming: true };
           return {
             ...session,
-            preview: isReasoning ? session.preview : content,
+            preview: isReasoning || isTool ? session.preview : content,
             messages,
           };
         });
@@ -465,7 +472,13 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       const t = i18n.t.bind(i18n);
       const agent = resolveAgentMeta(selectedAgent, agentContexts, t);
       const baseSystem = composeAgentSystem(agent, skillContexts);
-      const system = composeSystemWithLanguage(baseSystem, forceResponseLanguage, responseLanguage);
+      const rules = buildAgentsMdRules(useAgentsMdStore.getState().files);
+      const system = composeSystemWithLanguage(
+        baseSystem,
+        forceResponseLanguage,
+        responseLanguage,
+        rules,
+      );
       const toolNames = agent?.tools ?? [];
       const result = await invoke<SendChatResult>("send_chat_message", {
         input: {
@@ -508,9 +521,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         messages[index] = {
           ...current,
           content: result.content || current.content,
-          reasoning: result.reasoning || current.reasoning,
-          reasoningSignature: result.reasoningSignature || current.reasoningSignature,
+          reasoning: current.reasoning || result.reasoning,
+          reasoningSignature: current.reasoningSignature || result.reasoningSignature,
           thinkingMs: duration ?? current.thinkingMs,
+          toolCalls: current.toolCalls,
           streaming: false,
         };
         return {

@@ -7,14 +7,16 @@ How k-agent builds the model system prompt and how the agent should behave on ea
 When a chat message is sent, the backend receives one system string assembled on the frontend:
 
 1. **Language rule** (optional). When `forceResponseLanguage` is on, the language directive is first. It overrides conflicting language instructions but not behavior.
-2. **Agent system** from `composeAgentSystem()`:
+2. **Global rules** from `~/.k-agent/AGENTS.md` when that file exists.
+3. **Workspace rules** from `{workspace}/AGENTS.md` when that file exists.
+4. **Agent system** from `composeAgentSystem()`:
    - **1. Agent flow** - numbered turn protocol.
    - **2. Agent skill loading** - turn-1 batch `skill` calls when the agent has bound global skills.
    - **3. Agent skills** - names and descriptions only (global skills bound to the agent).
    - **4. Local tools** - tools enabled on that agent (today: `skill`).
    - **5. Workspace skills** - names and descriptions for workspace-local skills.
    - **6. Personality** - agent persona markdown body only.
-3. **App context** (optional). Extra app-level notes when configured.
+5. **App context** (optional). Extra app-level notes when configured.
 
 Skill bodies are never pasted into the system prompt. They arrive through tool results after a `skill` call.
 
@@ -55,7 +57,7 @@ The chat request only includes tools enabled on the selected agent. Tool names t
 `send_chat_message` sends `toolNames` from the selected agent. `send_message` in `chat.rs`:
 
 1. Calls the provider with those tool definitions when the list is not empty.
-2. If the model returns tool calls, executes each allowed name via `tools::execute`.
+2. If the model returns tool calls, emits a `tool` chunk with the tool name (and skill name for `skill`), then executes each allowed name via `tools::execute`.
 3. Appends assistant tool-call turns and user/tool-result turns to the in-memory turn list.
 4. Re-requests until the model returns text only or `MAX_TOOL_ROUNDS` (12) is hit.
 5. Streaming is disabled during tool rounds; final text is emitted as chunks after the loop.
@@ -69,7 +71,7 @@ Provider message shapes:
 ## Token accounting
 
 - **Personality** alone drives `estimatedTokens` on `AgentMeta` in Rust and builtin agents in the UI.
-- **Context usage** estimates the full composed system string (`composeSystemWithLanguage` + agent system), matching what is sent to the model.
+- **Context usage** splits the composed system (language, AGENTS.md rules, agent system), plus tool JSON schemas, bound/loaded skill bodies, and conversation (content, reasoning, attachment text).
 
 ## Related files
 

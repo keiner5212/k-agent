@@ -4,7 +4,7 @@ import { FileText, Film, Sparkles } from "lucide-react";
 import { attachmentPreviewUrl } from "@/lib/attachments";
 import { renderMarkdown } from "@/lib/markdown";
 import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
-import type { ChatAttachment, ChatMessage } from "@/types/chat";
+import type { ChatAttachment, ChatMessage, ChatToolCall } from "@/types/chat";
 import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
 import { ChatWaitingLine } from "./ChatWaitingLine";
 import { MessageActions } from "./MessageActions";
@@ -19,6 +19,9 @@ const AssistantMarkdown = ({ content }: { content: string }): ReactNode => {
     />
   );
 };
+
+const formatToolCall = (call: ChatToolCall): string =>
+  call.argument && call.argument.length > 0 ? `${call.name} "${call.argument}"` : call.name;
 
 const ThinkingBlock = ({
   reasoning,
@@ -42,6 +45,19 @@ const ThinkingBlock = ({
       <summary className="chat-thinking__summary">{label}</summary>
       <pre className="chat-thinking__body">{reasoning}</pre>
     </details>
+  );
+};
+
+const ToolCallsBlock = ({ calls }: { calls: ChatToolCall[] }): ReactNode => {
+  if (calls.length === 0) return null;
+  return (
+    <ul className="chat-tools">
+      {calls.map((call, index) => (
+        <li key={`${call.name}-${index}`} className="chat-tools__item">
+          {formatToolCall(call)}
+        </li>
+      ))}
+    </ul>
   );
 };
 
@@ -106,6 +122,7 @@ const MessageBody = ({ message }: { message: ChatMessage }): ReactNode => {
           streaming={message.streaming}
           thinkingMs={message.thinkingMs}
         />
+        <ToolCallsBlock calls={message.toolCalls ?? []} />
         <AssistantMarkdown content={message.content} />
         <InterruptedFooter interrupted={message.interrupted ?? false} />
       </>

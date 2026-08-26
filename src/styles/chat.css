@@ -981,6 +981,24 @@ button.change-bar__stat:focus-visible {
   word-break: break-word;
 }
 
+.chat-tools {
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.chat-tools__item {
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-muted);
+  opacity: 0.72;
+  font-family: var(--font-mono);
+}
+
+.chat-tools__item::before {
+  content: "-> ";
+}
+
 .chat-message--streaming .chat-message__content::after {
   content: "";
   display: inline-block;

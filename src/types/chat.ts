@@ -16,11 +16,27 @@ export type ChatAttachment = {
   text?: string;
 };
 
-export type ChatChunkKind = "content" | "reasoning";
+export type ChatChunkKind = "content" | "reasoning" | "tool";
 
 export type ChatChunk = {
   kind: ChatChunkKind;
   text: string;
+};
+
+export type ChatToolCall = {
+  name: string;
+  argument?: string;
+};
+
+export const parseToolChunkText = (text: string): ChatToolCall => {
+  const nl = text.indexOf("\n");
+  if (nl < 0) {
+    const name = text.trim();
+    return { name };
+  }
+  const name = text.slice(0, nl).trim();
+  const argument = text.slice(nl + 1).trim();
+  return argument.length > 0 ? { name, argument } : { name };
 };
 
 export type ChatMessage = {
@@ -35,6 +51,7 @@ export type ChatMessage = {
   shellAiSummary?: string;
   interrupted?: boolean;
   attachments?: ChatAttachment[];
+  toolCalls?: ChatToolCall[];
 };
 
 export type ChatTurn = {

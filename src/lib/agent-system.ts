@@ -8,6 +8,7 @@ import {
   type AgentSkillRef,
   type AgentToolId,
 } from "@/types/agents";
+import type { AgentsMdFile } from "@/types/agents-md";
 import type { SkillContext } from "@/types/skills";
 
 const findSkillMeta = (
@@ -97,6 +98,17 @@ const buildToolCatalog = (enabled: readonly string[]): string => {
     .map((id) => `- \`${id}\`: ${CHAT_TOOL_DESCRIPTIONS[id]}`);
   if (lines.length === 0) return "";
   return ["# 4. Local tools", "", ...lines].join("\n");
+};
+
+export const buildAgentsMdRules = (files: readonly AgentsMdFile[]): string => {
+  const parts: string[] = [];
+  const globalBody =
+    files.find((item) => item.kind === "global" && item.exists)?.content.trim() ?? "";
+  if (globalBody.length > 0) parts.push(`# Global rules\n\n${globalBody}`);
+  const workspaceBody =
+    files.find((item) => item.kind === "local" && item.exists)?.content.trim() ?? "";
+  if (workspaceBody.length > 0) parts.push(`# Workspace rules\n\n${workspaceBody}`);
+  return parts.join("\n\n");
 };
 
 export const composeAgentSystem = (
