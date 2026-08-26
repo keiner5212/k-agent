@@ -57,13 +57,14 @@ const toChatTurns = (messages: ChatMessage[]): ChatTurn[] => {
       const rounds = message.toolRounds ?? [];
       const splitReasoning = rounds.length > 0;
       for (const round of rounds) {
+        const calls = round.calls ?? [];
         turns.push({
           role: "assistant",
           content: round.content ?? "",
           reasoning: round.reasoning || null,
           reasoningSignature: round.reasoningSignature ?? null,
           attachments: message.attachments,
-          toolCalls: round.calls.map((call) => ({
+          toolCalls: calls.map((call) => ({
             id: call.id,
             name: call.name,
             argument: call.argument,
@@ -71,7 +72,7 @@ const toChatTurns = (messages: ChatMessage[]): ChatTurn[] => {
             thoughtSignature: call.thoughtSignature,
           })),
         });
-        for (const call of round.calls) {
+        for (const call of calls) {
           turns.push({
             role: "user",
             content: "",
@@ -173,6 +174,22 @@ const persistableSnapshot = (snapshot: SessionsSnapshot): SessionsSnapshot => ({
       }),
   })),
 });
+
+const HYDRATE_TIMEOUT_MS = 8000;
+
+const invokeWithTimeout = async <T>(command: string, ms: number): Promise<T> => {
+  let timer = 0;
+  try {
+    return await Promise.race([
+      invoke<T>(command),
+      new Promise<T>((_, reject) => {
+        timer = window.setTimeout(() => reject(new Error("sessions hydrate timeout")), ms);
+      }),
+    ]);
+  } finally {
+    window.clearTimeout(timer);
+  }
+};
 
 const persistSnapshot = async (snapshot: SessionsSnapshot): Promise<void> => {
   if (!isTauri()) return;
@@ -295,7 +312,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       return;
     }
     try {
-      const snapshot = await invoke<SessionsSnapshot>("load_sessions");
+      const snapshot = await invokeWithTimeout<SessionsSnapshot>(
+        "load_sessions",
+        HYDRATE_TIMEOUT_MS,
+      );
       if (get().hydrated) return;
       const ensured = ensureSession(snapshot.sessions, snapshot.activeSessionId);
       set({

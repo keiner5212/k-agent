@@ -691,7 +691,10 @@ pub async fn create_agent(
     }
     ensure_inside(&agent_path, &root)?;
     let skills = sanitize_skills(&input.skills, &live);
-    let tools = sanitize_tools(&input.tools);
+    let mut tools = sanitize_tools(&input.tools);
+    if tools.is_empty() {
+        tools = AGENT_TOOLS.iter().map(|name| (*name).to_string()).collect();
+    }
     let personality = clamp_personality(&input.personality);
     fs::create_dir_all(&agent_path).map_err(|error| AgentError::Io(error.to_string()))?;
     let content = build_agent_md(

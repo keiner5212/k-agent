@@ -1084,24 +1084,6 @@ button.change-bar__stat:focus-visible {
   gap: var(--space-2);
 }
 
-.chat-diff {
-  margin: 0;
-  padding: var(--space-3);
-  overflow: auto;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  line-height: var(--leading-normal);
-  white-space: pre;
-  background-color: var(--surface-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-
-.dialog-body > .chat-diff {
-  flex: 1;
-  min-height: 0;
-}
-
 .chat-message--pending {
   display: inline-flex;
   align-items: center;

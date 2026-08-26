@@ -3,12 +3,26 @@ import { useUndoRedoKeydown } from "@/lib/use-undo-redo-keydown";
 import { useUndoableText } from "@/lib/undoable-text";
 import { useSettingsStore } from "@/lib/settings";
 
+export type LineKind = "context" | "add" | "remove";
+
 type LineEditorProps = {
   value: string;
   onChange: (next: string) => void;
   readOnly?: boolean;
   maxLines?: number;
   id?: string;
+  startLine?: number;
+  lineNumbers?: number[];
+  lineKinds?: LineKind[];
+};
+
+const originLine = (startLine: number | undefined): number =>
+  startLine && startLine > 0 ? Math.floor(startLine) : 1;
+
+const markForKind = (kind: LineKind): string => {
+  if (kind === "add") return "+";
+  if (kind === "remove") return "-";
+  return "";
 };
 
 export const LineEditor = ({
@@ -17,6 +31,9 @@ export const LineEditor = ({
   readOnly,
   maxLines,
   id,
+  startLine,
+  lineNumbers,
+  lineKinds,
 }: LineEditorProps): ReactNode => {
   const gutterInnerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -25,8 +42,10 @@ export const LineEditor = ({
   const { pushChange, undo, redo } = useUndoableText(value, onChange);
   const [lineHeights, setLineHeights] = useState<number[]>([0]);
   const [measureTick, setMeasureTick] = useState(0);
+  const rowMode = Boolean(lineKinds && lineKinds.length > 0);
+  const origin = originLine(startLine);
 
-  useUndoRedoKeydown(textareaRef, keybindings, undo, redo, !readOnly);
+  useUndoRedoKeydown(textareaRef, keybindings, undo, redo, !readOnly && !rowMode);
 
   const logicalLines = useMemo(() => {
     if (value.length === 0) return [""];
@@ -44,10 +63,12 @@ export const LineEditor = ({
   };
 
   useLayoutEffect(() => {
+    if (rowMode) return;
     syncGutter(textareaRef.current?.scrollTop ?? 0);
-  }, [value, logicalLines.length, lineHeights]);
+  }, [rowMode, value, logicalLines.length, lineHeights]);
 
   useLayoutEffect(() => {
+    if (rowMode) return;
     const textarea = textareaRef.current;
     const measure = measureRef.current;
     if (!textarea || !measure) return;
@@ -76,9 +97,10 @@ export const LineEditor = ({
     });
 
     setLineHeights(heights.length > 0 ? heights : [0]);
-  }, [logicalLines, value, measureTick]);
+  }, [rowMode, logicalLines, value, measureTick]);
 
   useLayoutEffect(() => {
+    if (rowMode) return;
     const textarea = textareaRef.current;
     if (!textarea) return;
     const observer = new ResizeObserver(() => {
@@ -86,7 +108,27 @@ export const LineEditor = ({
     });
     observer.observe(textarea);
     return () => observer.disconnect();
-  }, []);
+  }, [rowMode]);
+
+  if (rowMode && lineKinds) {
+    return (
+      <div className="line-editor line-editor--rows">
+        {logicalLines.map((text, index) => {
+          const kind = lineKinds[index] ?? "context";
+          const number = lineNumbers?.[index] ?? origin + index;
+          return (
+            <div key={index} className="line-editor__row" data-kind={kind}>
+              <span className="line-editor__gutter-line">{number}</span>
+              <span className="line-editor__mark" aria-hidden="true">
+                {markForKind(kind)}
+              </span>
+              <span className="line-editor__code">{text.length === 0 ? " " : text}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="line-editor">
@@ -98,7 +140,7 @@ export const LineEditor = ({
               className="line-editor__gutter-line"
               style={{ minHeight: lineHeights[index] ?? undefined }}
             >
-              {index + 1}
+              {lineNumbers?.[index] ?? origin + index}
             </div>
           ))}
         </div>

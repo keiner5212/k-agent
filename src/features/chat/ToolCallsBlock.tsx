@@ -1,12 +1,9 @@
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Dialog } from "@/components/Dialog";
-import {
-  ReadOnlyEditorDialog,
-  READ_ONLY_EDITOR_SURFACE,
-} from "@/features/chat/ReadOnlyEditorDialog";
+import type { LineKind } from "@/components/LineEditor";
+import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
-import { readSessionFileRevision, unifiedDiff, yamlBlockValue } from "@/lib/session-files";
+import { diffEditorValue, readSessionFileRevision, yamlBlockValue } from "@/lib/session-files";
 import { skillNameFromCall, type ChatToolCall } from "@/types/chat";
 import { formatContextWindow } from "@/types/providers";
 
@@ -17,9 +14,11 @@ type ToolCallsBlockProps = {
 
 type PreviewState = {
   titleKey: string;
-  mode: "text" | "diff";
   value: string;
   path?: string;
+  startLine?: number;
+  lineNumbers?: number[];
+  lineKinds?: LineKind[];
 };
 
 const fileName = (path: string): string => {
@@ -68,7 +67,6 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
       if (display.status !== "ok") {
         setPreview({
           titleKey: call.name === "edit" ? "chat.tools.editTitle" : "chat.tools.writeTitle",
-          mode: "text",
           value: display.path ? `${display.path}\n${t("chat.tools.error")}` : t("chat.tools.error"),
           path: display.path,
         });
@@ -79,24 +77,25 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
         if (call.name === "write") {
           setPreview({
             titleKey: "chat.tools.writeTitle",
-            mode: "text",
             value: after.content,
             path: display.path,
+            startLine: 1,
           });
           return;
         }
         const before = await readSessionFileRevision(sessionId, call.id, "before");
+        const packed = diffEditorValue(before.content, after.content);
         setPreview({
           titleKey: "chat.tools.editTitle",
-          mode: "diff",
-          value: unifiedDiff(display.path ?? call.name, before.content, after.content),
+          value: packed.value,
           path: display.path,
+          lineNumbers: packed.lineNumbers,
+          lineKinds: packed.lineKinds,
         });
         return;
       } catch {
         setPreview({
           titleKey: "chat.tools.outputTitle",
-          mode: "text",
           value: call.output ?? "",
           path: display.path,
         });
@@ -113,9 +112,9 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
             : "chat.tools.outputTitle";
     setPreview({
       titleKey,
-      mode: "text",
       value: previewFromOutput(call),
       path: display?.path,
+      startLine: call.name === "read" ? display?.startLine : undefined,
     });
   };
 
@@ -174,25 +173,17 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
         })}
       </ul>
       <ReadOnlyEditorDialog
-        open={preview?.mode === "text"}
+        open={preview !== null}
         titleKey={preview?.titleKey ?? "chat.tools.outputTitle"}
         value={preview?.value ?? ""}
         path={preview?.path}
+        startLine={preview?.startLine}
+        lineNumbers={preview?.lineNumbers}
+        lineKinds={preview?.lineKinds}
         onOpenChange={(open) => {
           if (!open) setPreview(null);
         }}
       />
-      <Dialog
-        open={preview?.mode === "diff"}
-        onOpenChange={(open) => {
-          if (!open) setPreview(null);
-        }}
-        titleKey={preview?.titleKey ?? "chat.tools.editTitle"}
-        size="wide"
-        surfaceStyle={READ_ONLY_EDITOR_SURFACE}
-      >
-        {preview?.mode === "diff" ? <pre className="chat-diff">{preview.value}</pre> : null}
-      </Dialog>
     </>
   );
 };

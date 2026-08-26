@@ -8,6 +8,7 @@ import type { AgentWriteInput } from "@/lib/agents";
 import {
   AGENT_TOOL_IDS,
   MAX_AGENT_SKILLS,
+  PLAN_AGENT_TOOL_IDS,
   skillRefKey,
   type AgentContextKind,
   type AgentMeta,
@@ -73,7 +74,12 @@ const AgentFormBody = ({
   const [name, setName] = useState(initial?.id ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [skills, setSkills] = useState<AgentSkillRef[]>(initial?.skills ?? []);
-  const [tools, setTools] = useState<string[]>(initial?.tools ?? []);
+  const [tools, setTools] = useState<string[]>(() => {
+    if (initial?.tools && initial.tools.length > 0) return [...initial.tools];
+    if (initial?.id === "plan") return [...PLAN_AGENT_TOOL_IDS];
+    if (mode === "create") return [...AGENT_TOOL_IDS];
+    return [];
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

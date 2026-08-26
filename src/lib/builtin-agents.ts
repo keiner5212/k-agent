@@ -1,6 +1,12 @@
 import type { TFunction } from "i18next";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
-import { AGENT_TOOL_IDS, parseAgentKey, type AgentContext, type AgentMeta } from "@/types/agents";
+import {
+  AGENT_TOOL_IDS,
+  PLAN_AGENT_TOOL_IDS,
+  parseAgentKey,
+  type AgentContext,
+  type AgentMeta,
+} from "@/types/agents";
 
 export const BUILTIN_AGENT_IDS = ["build", "plan"] as const;
 
@@ -21,12 +27,13 @@ export const parseBuiltinAgentKey = (value: string): BuiltinAgentId | null => {
   return isBuiltinAgentId(id) ? id : null;
 };
 
-export const builtinAgentTools = (): string[] => [...AGENT_TOOL_IDS];
+export const builtinAgentTools = (id: BuiltinAgentId): string[] =>
+  id === "plan" ? [...PLAN_AGENT_TOOL_IDS] : [...AGENT_TOOL_IDS];
 
 export const builtinAgentMeta = (id: BuiltinAgentId, t: TFunction): AgentMeta => {
   const description = t(`agents.builtin.${id}.description`);
   const personality = t(`agents.builtin.${id}.personality`);
-  const tools = builtinAgentTools();
+  const tools = builtinAgentTools(id);
   return {
     id,
     path: `${BUILTIN_AGENTS_ROOT}/${id}`,

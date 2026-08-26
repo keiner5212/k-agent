@@ -6,6 +6,8 @@ export const AGENT_TOOL_IDS = ["skill", "read", "write", "edit", "list_directory
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
 
+export const PLAN_AGENT_TOOL_IDS: readonly AgentToolId[] = ["skill", "read", "list_directory"];
+
 export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   skill: "Load a skill by name. Returns SKILL.md body and dir.",
   read: "Read a file. Path absolute or workspace-relative.",

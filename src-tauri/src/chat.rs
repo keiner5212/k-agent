@@ -86,6 +86,7 @@ pub struct PersistedToolCall {
     pub arguments: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thought_signature: Option<String>,
+    #[serde(default)]
     pub output: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display: Option<ToolDisplay>,
@@ -94,11 +95,13 @@ pub struct PersistedToolCall {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolRoundTrace {
+    #[serde(default)]
     pub reasoning: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub reasoning_signature: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub content: String,
+    #[serde(default)]
     pub calls: Vec<PersistedToolCall>,
 }
 

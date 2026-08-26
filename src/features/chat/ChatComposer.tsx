@@ -174,6 +174,7 @@ export const ChatComposer = (): ReactNode => {
     }
     if (!canSend) return;
     const text = value;
+    const pending = attachments;
     const action = matchActionSlashCommand(text);
     if (action) {
       clearComposer();
@@ -181,9 +182,8 @@ export const ChatComposer = (): ReactNode => {
       textareaRef.current?.focus();
       return;
     }
-    const pending = attachments;
-    clearComposer();
-    await sendMessage(text, undefined, pending);
+    const accepted = await sendMessage(text, undefined, pending);
+    if (accepted) clearComposer();
     textareaRef.current?.focus();
   }, [
     attachments,

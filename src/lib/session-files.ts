@@ -35,10 +35,25 @@ export const yamlBlockValue = (source: string, key: string): string => {
   return body.join("\n");
 };
 
-export const unifiedDiff = (path: string, before: string, after: string, context = 3): string => {
-  const oldLines = before.split("\n");
-  const newLines = after.split("\n");
-  if (before === after) return `--- a/${path}\n+++ b/${path}\n`;
+export type DiffLineKind = "context" | "add" | "remove";
+
+type DiffRow = {
+  kind: DiffLineKind;
+  text: string;
+  line: number;
+};
+
+export type DiffEditorValue = {
+  value: string;
+  lineNumbers: number[];
+  lineKinds: DiffLineKind[];
+};
+
+const splitLines = (source: string): string[] => (source.length === 0 ? [] : source.split("\n"));
+
+const buildDiffRows = (before: string, after: string, context: number): DiffRow[] => {
+  const oldLines = splitLines(before);
+  const newLines = splitLines(after);
   let start = 0;
   while (
     start < oldLines.length &&
@@ -56,28 +71,39 @@ export const unifiedDiff = (path: string, before: string, after: string, context
   const hunkStartOld = Math.max(0, start - context);
   const hunkStartNew = Math.max(0, start - context);
   const hunkEndOld = Math.min(oldLines.length, oldEnd + context);
-  const hunkEndNew = Math.min(newLines.length, newEnd + context);
-  const oldCount = hunkEndOld - hunkStartOld;
-  const newCount = hunkEndNew - hunkStartNew;
-  const lines = [
-    `--- a/${path}`,
-    `+++ b/${path}`,
-    `@@ -${hunkStartOld + 1},${oldCount} +${hunkStartNew + 1},${newCount} @@`,
-  ];
+  const rows: DiffRow[] = [];
+  let oldLine = hunkStartOld + 1;
+  let newLine = hunkStartNew + 1;
   for (let index = hunkStartOld; index < start; index += 1) {
-    lines.push(` ${oldLines[index]}`);
+    rows.push({ kind: "context", text: oldLines[index] ?? "", line: newLine });
+    oldLine += 1;
+    newLine += 1;
   }
   for (let index = start; index < oldEnd; index += 1) {
-    lines.push(`-${oldLines[index] ?? ""}`);
+    rows.push({ kind: "remove", text: oldLines[index] ?? "", line: oldLine });
+    oldLine += 1;
   }
   for (let index = start; index < newEnd; index += 1) {
-    lines.push(`+${newLines[index] ?? ""}`);
+    rows.push({ kind: "add", text: newLines[index] ?? "", line: newLine });
+    newLine += 1;
   }
-  const tailOld = oldLines.slice(oldEnd, hunkEndOld);
-  for (const line of tailOld) {
-    lines.push(` ${line}`);
+  for (let index = oldEnd; index < hunkEndOld; index += 1) {
+    rows.push({ kind: "context", text: oldLines[index] ?? "", line: newLine });
+    newLine += 1;
   }
-  return lines.join("\n");
+  return rows;
+};
+
+export const diffEditorValue = (before: string, after: string, context = 3): DiffEditorValue => {
+  if (before === after) {
+    return { value: after, lineNumbers: [], lineKinds: [] };
+  }
+  const rows = buildDiffRows(before, after, context);
+  return {
+    value: rows.map((row) => row.text).join("\n"),
+    lineNumbers: rows.map((row) => row.line),
+    lineKinds: rows.map((row) => row.kind),
+  };
 };
 
 export const readSessionAttachment = (sessionId: string, attachmentId: string) =>
@@ -101,7 +127,7 @@ export const collectSessionChanges = (messages: ChatMessage[]): SessionChangedFi
   const byPath = new Map<string, SessionChangedFile>();
   for (const message of messages) {
     for (const round of message.toolRounds ?? []) {
-      for (const call of round.calls) {
+      for (const call of round.calls ?? []) {
         if (!isActionOk(call.display) || !call.display.path) continue;
         const path = call.display.path;
         const prev = byPath.get(path);

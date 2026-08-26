@@ -12,6 +12,7 @@ use crate::attachments::ChatAttachment;
 const SESSIONS_FILE: &str = "sessions.json";
 const SESSIONS_DIR: &str = "sessions";
 const SESSION_FILE: &str = "session.json";
+const INDEX_MAX_BYTES: u64 = 1_048_576;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -286,66 +287,19 @@ fn write_index(app: &AppHandle, snapshot: &SessionsSnapshot) -> Result<(), Sessi
     std::fs::write(path, json).map_err(|e| SessionError::Io(e.to_string()))
 }
 
-fn prune_session_dirs(app: &AppHandle, keep: &HashSet<String>) -> Result<(), SessionError> {
-    let root = sessions_root(app)?;
-    if !root.exists() {
-        return Ok(());
-    }
-    let entries = std::fs::read_dir(&root).map_err(|e| SessionError::Io(e.to_string()))?;
-    for entry in entries {
-        let entry = entry.map_err(|e| SessionError::Io(e.to_string()))?;
-        let file_type = entry
-            .file_type()
-            .map_err(|e| SessionError::Io(e.to_string()))?;
-        if !file_type.is_dir() {
+fn prune_removed_session_dirs(
+    app: &AppHandle,
+    keep: &HashSet<String>,
+    previously_listed: &HashSet<String>,
+) -> Result<(), SessionError> {
+    for id in previously_listed {
+        if keep.contains(id) || !is_safe_id(id) {
             continue;
         }
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if !keep.contains(&name) {
-            let _ = std::fs::remove_dir_all(entry.path());
-        }
+        let path = session_dir(app, id)?;
+        let _ = std::fs::remove_dir_all(path);
     }
     Ok(())
-}
-
-fn load_index_snapshot(app: &AppHandle, raw: &str) -> Result<SessionsSnapshot, SessionError> {
-    let index: SessionsIndex =
-        serde_json::from_str(raw).map_err(|e| SessionError::Parse(e.to_string()))?;
-    if index.sessions.is_empty() {
-        return Ok(empty_snapshot());
-    }
-    let mut sessions = Vec::new();
-    for entry in index.sessions {
-        if !is_safe_id(&entry.id) {
-            continue;
-        }
-        let mut session = read_session_record(app, &entry.id)?;
-        if session.title.is_empty() {
-            session.title = entry.title;
-        }
-        if session.preview.is_empty() {
-            session.preview = entry.preview;
-        }
-        if session.updated_at == 0 {
-            session.updated_at = entry.updated_at;
-        }
-        sessions.push(session);
-    }
-    if sessions.is_empty() {
-        return Ok(empty_snapshot());
-    }
-    let mut snapshot = SessionsSnapshot {
-        active_session_id: index.active_session_id,
-        sessions,
-    };
-    if !snapshot
-        .sessions
-        .iter()
-        .any(|session| session.id == snapshot.active_session_id)
-    {
-        snapshot.active_session_id = snapshot.sessions[0].id.clone();
-    }
-    Ok(snapshot)
 }
 
 fn save_snapshot_sync(app: &AppHandle, snapshot: &mut SessionsSnapshot) -> Result<(), SessionError> {
@@ -360,21 +314,78 @@ fn save_snapshot_sync(app: &AppHandle, snapshot: &mut SessionsSnapshot) -> Resul
         return Err(SessionError::Parse("active session id not found".into()));
     }
     let keep: HashSet<String> = snapshot.sessions.iter().map(|session| session.id.clone()).collect();
+    let previously_listed: HashSet<String> = read_thin_index(app)
+        .map(|index| index.sessions.into_iter().map(|entry| entry.id).collect())
+        .unwrap_or_default();
     for session in &mut snapshot.sessions {
         write_session_record(app, session)?;
     }
     write_index(app, snapshot)?;
-    prune_session_dirs(app, &keep)?;
+    prune_removed_session_dirs(app, &keep, &previously_listed)?;
     Ok(())
 }
 
-fn load_snapshot_sync(app: &AppHandle) -> Result<SessionsSnapshot, SessionError> {
-    let path = sessions_index_path(app)?;
-    if !path.exists() {
+fn load_from_session_dirs(app: &AppHandle) -> Result<SessionsSnapshot, SessionError> {
+    let root = sessions_root(app)?;
+    if !root.exists() {
         return Ok(empty_snapshot());
     }
-    let raw = std::fs::read_to_string(&path).map_err(|e| SessionError::Io(e.to_string()))?;
-    load_index_snapshot(app, &raw)
+    let entries = std::fs::read_dir(&root).map_err(|e| SessionError::Io(e.to_string()))?;
+    let mut sessions = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|e| SessionError::Io(e.to_string()))?;
+        let file_type = entry.file_type().map_err(|e| SessionError::Io(e.to_string()))?;
+        if !file_type.is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !is_safe_id(&name) {
+            continue;
+        }
+        match read_session_record(app, &name) {
+            Ok(session) => sessions.push(session),
+            Err(_) => continue,
+        }
+    }
+    if sessions.is_empty() {
+        return Ok(empty_snapshot());
+    }
+    sessions.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+    let active_session_id = sessions[0].id.clone();
+    Ok(SessionsSnapshot {
+        active_session_id,
+        sessions,
+    })
+}
+
+fn read_thin_index(app: &AppHandle) -> Option<SessionsIndex> {
+    let path = sessions_index_path(app).ok()?;
+    let meta = std::fs::metadata(&path).ok()?;
+    if meta.len() > INDEX_MAX_BYTES {
+        return None;
+    }
+    let raw = std::fs::read_to_string(&path).ok()?;
+    if raw.contains("\"messages\"") {
+        return None;
+    }
+    serde_json::from_str(&raw).ok()
+}
+
+fn load_snapshot_sync(app: &AppHandle) -> Result<SessionsSnapshot, SessionError> {
+    let mut snapshot = load_from_session_dirs(app)?;
+    if snapshot.sessions.is_empty() {
+        return Ok(snapshot);
+    }
+    if let Some(index) = read_thin_index(app) {
+        if snapshot
+            .sessions
+            .iter()
+            .any(|session| session.id == index.active_session_id)
+        {
+            snapshot.active_session_id = index.active_session_id;
+        }
+    }
+    Ok(snapshot)
 }
 
 fn safe_rel_path(rel: &str) -> Result<&str, SessionError> {

@@ -142,13 +142,16 @@ const MessageBody = ({
     if (rounds && rounds.length > 0 && !message.streaming) {
       return (
         <>
-          {rounds.map((round, index) => (
-            <div key={round.calls[0]?.id ?? `round-${index}`}>
-              <ThinkingBlock reasoning={round.reasoning} />
-              <AssistantMarkdown content={round.content ?? ""} />
-              <ToolCallsBlock sessionId={sessionId} calls={round.calls} />
-            </div>
-          ))}
+          {rounds.map((round, index) => {
+            const calls = round.calls ?? [];
+            return (
+              <div key={calls[0]?.id ?? `round-${index}`}>
+                <ThinkingBlock reasoning={round.reasoning} />
+                <AssistantMarkdown content={round.content ?? ""} />
+                <ToolCallsBlock sessionId={sessionId} calls={calls} />
+              </div>
+            );
+          })}
           <ThinkingBlock reasoning={message.reasoning ?? ""} thinkingMs={message.thinkingMs} />
           <AssistantMarkdown content={message.content} />
           <InterruptedFooter interrupted={message.interrupted ?? false} />

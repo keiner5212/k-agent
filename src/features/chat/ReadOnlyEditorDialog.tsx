@@ -2,7 +2,7 @@ import { type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
-import { LineEditor } from "@/components/LineEditor";
+import { LineEditor, type LineKind } from "@/components/LineEditor";
 
 export const READ_ONLY_EDITOR_SURFACE: CSSProperties = {
   height: "calc(100vh - var(--titlebar-height) - var(--space-6))",
@@ -14,6 +14,9 @@ type ReadOnlyEditorDialogProps = {
   titleKey: string;
   value: string;
   path?: string;
+  startLine?: number;
+  lineNumbers?: number[];
+  lineKinds?: LineKind[];
   onOpenChange: (open: boolean) => void;
 };
 
@@ -22,6 +25,9 @@ export const ReadOnlyEditorDialog = ({
   titleKey,
   value,
   path,
+  startLine,
+  lineNumbers,
+  lineKinds,
   onOpenChange,
 }: ReadOnlyEditorDialogProps): ReactNode => {
   const { t } = useTranslation();
@@ -42,7 +48,14 @@ export const ReadOnlyEditorDialog = ({
               </div>
             </div>
           ) : null}
-          <LineEditor value={value} onChange={() => undefined} readOnly />
+          <LineEditor
+            value={value}
+            onChange={() => undefined}
+            readOnly
+            startLine={startLine}
+            lineNumbers={lineNumbers}
+            lineKinds={lineKinds}
+          />
           <div className="form-actions">
             <GlassButton variant="secondary" onClick={() => onOpenChange(false)}>
               {t("agents.default.close")}

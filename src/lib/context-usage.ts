@@ -159,7 +159,7 @@ const roundsForTokens = (
     return message.toolRounds.map((round) => ({
       reasoning: round.reasoning,
       content: round.content ?? "",
-      calls: round.calls,
+      calls: round.calls ?? [],
     }));
   }
   if (message.toolCalls && message.toolCalls.length > 0) {

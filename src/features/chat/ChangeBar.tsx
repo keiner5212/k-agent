@@ -2,14 +2,12 @@ import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FileDiff } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
-import {
-  ReadOnlyEditorDialog,
-  READ_ONLY_EDITOR_SURFACE,
-} from "@/features/chat/ReadOnlyEditorDialog";
+import type { LineKind } from "@/components/LineEditor";
+import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
 import {
   collectSessionChanges,
+  diffEditorValue,
   readSessionFileRevision,
-  unifiedDiff,
   type SessionChangedFile,
 } from "@/lib/session-files";
 import { selectActiveMessages, useSessionsStore } from "@/lib/sessions";
@@ -17,7 +15,12 @@ import { selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 export const ChangeBar = (): ReactNode => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [diff, setDiff] = useState<{ path: string; value: string } | null>(null);
+  const [diff, setDiff] = useState<{
+    path: string;
+    value: string;
+    lineNumbers?: number[];
+    lineKinds?: LineKind[];
+  } | null>(null);
   const sessionId = useSessionsStore((state) => state.activeSessionId);
   const messages = useSessionsStore(selectActiveMessages);
   const files = collectSessionChanges(messages);
@@ -32,9 +35,12 @@ export const ChangeBar = (): ReactNode => {
         readSessionFileRevision(sessionId, file.callId, "before"),
         readSessionFileRevision(sessionId, file.callId, "after"),
       ]);
+      const packed = diffEditorValue(before.content, after.content);
       setDiff({
         path: file.path,
-        value: unifiedDiff(file.path, before.content, after.content),
+        value: packed.value,
+        lineNumbers: packed.lineNumbers,
+        lineKinds: packed.lineKinds,
       });
     } catch {
       setDiff({ path: file.path, value: "" });
@@ -97,25 +103,16 @@ export const ChangeBar = (): ReactNode => {
         )}
       </Dialog>
       <ReadOnlyEditorDialog
-        open={diff !== null && !diff.value}
+        open={diff !== null}
         titleKey="chat.tools.editTitle"
-        value=""
+        value={diff?.value ?? ""}
         path={diff?.path}
+        lineNumbers={diff?.lineNumbers}
+        lineKinds={diff?.lineKinds}
         onOpenChange={(open) => {
           if (!open) setDiff(null);
         }}
       />
-      <Dialog
-        open={diff !== null && Boolean(diff.value)}
-        onOpenChange={(next) => {
-          if (!next) setDiff(null);
-        }}
-        titleKey="chat.tools.editTitle"
-        size="wide"
-        surfaceStyle={READ_ONLY_EDITOR_SURFACE}
-      >
-        {diff?.value ? <pre className="chat-diff">{diff.value}</pre> : null}
-      </Dialog>
     </>
   );
 };
