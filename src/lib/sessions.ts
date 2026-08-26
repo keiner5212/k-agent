@@ -6,6 +6,7 @@ import { resolveAgentPersonality } from "@/lib/builtin-agents";
 import { useComposerStore } from "@/lib/composer";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
 import { useProvidersStore } from "@/lib/providers";
+import { composeSystemWithLanguage } from "@/lib/response-language";
 import { selectEffort, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
 import type { ChatChunk, ChatMessage, ChatTurn, SelectedModel, SendChatResult } from "@/types/chat";
@@ -348,11 +349,13 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         set({ sessions: nextSessions });
       };
 
-      const system = resolveAgentPersonality(
+      const { forceResponseLanguage, responseLanguage } = useSettingsStore.getState();
+      const baseSystem = resolveAgentPersonality(
         useComposerStore.getState().selectedAgent,
         useAgentsStore.getState().contexts,
         i18n.t.bind(i18n),
       );
+      const system = composeSystemWithLanguage(baseSystem, forceResponseLanguage, responseLanguage);
       const result = await invoke<SendChatResult>("send_chat_message", {
         input: {
           providerId: selection.providerId,

@@ -697,6 +697,7 @@ button.change-bar__stat:focus-visible {
 
 .context-usage-dialog {
   --cat-systemPrompt: #8b919a;
+  --cat-languageDirective: #facc15;
   --cat-toolDefinitions: #c4b5fd;
   --cat-rules: #86efac;
   --cat-skills: #e8c4a8;
@@ -751,6 +752,10 @@ button.change-bar__stat:focus-visible {
 
 .context-usage-dialog [data-cat="systemPrompt"] {
   background-color: var(--cat-systemPrompt);
+}
+
+.context-usage-dialog [data-cat="languageDirective"] {
+  background-color: var(--cat-languageDirective);
 }
 
 .context-usage-dialog [data-cat="toolDefinitions"] {

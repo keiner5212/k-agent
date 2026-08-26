@@ -4,6 +4,7 @@ import { formatTokenCount, type ModelCost, type ModelInfo, type Provider } from 
 
 export const CONTEXT_CATEGORY_IDS = [
   "systemPrompt",
+  "languageDirective",
   "toolDefinitions",
   "rules",
   "skills",

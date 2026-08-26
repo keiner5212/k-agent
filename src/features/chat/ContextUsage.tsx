@@ -12,8 +12,10 @@ import {
 } from "@/lib/context-usage";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import { useProvidersStore } from "@/lib/providers";
+import { responseLanguageDirective } from "@/lib/response-language";
 import { selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import { useSelectionStore } from "@/lib/selected-model";
+import { useSettingsStore } from "@/lib/settings";
 import { formatContextWindow } from "@/types/providers";
 
 const RING_SIZE = 14;
@@ -30,20 +32,29 @@ export const ContextUsage = (): ReactNode => {
   const messages = useSessionsStore(selectActiveMessages);
   const selectedAgent = useComposerStore((state) => state.selectedAgent);
   const agentContexts = useAgentsStore((state) => state.contexts);
+  const forceResponseLanguage = useSettingsStore((state) => state.forceResponseLanguage);
+  const responseLanguage = useSettingsStore((state) => state.responseLanguage);
   const model = useMemo(() => resolveSelectedModel(providers, selection), [providers, selection]);
   const systemPromptTokens = useMemo(
     () => estimateTokensFromText(resolveAgentPersonality(selectedAgent, agentContexts, t)),
     [agentContexts, selectedAgent, t],
   );
+  const languageDirectiveTokens = useMemo(
+    () =>
+      forceResponseLanguage
+        ? estimateTokensFromText(responseLanguageDirective(responseLanguage))
+        : 0,
+    [forceResponseLanguage, responseLanguage],
+  );
   const usage = useMemo(
     () =>
       buildContextUsage({
         windowTokens: model?.contextWindow,
-        extras: { systemPrompt: systemPromptTokens },
+        extras: { systemPrompt: systemPromptTokens, languageDirective: languageDirectiveTokens },
         cost: model?.cost,
         messages,
       }),
-    [messages, model, systemPromptTokens],
+    [languageDirectiveTokens, messages, model, systemPromptTokens],
   );
   const visibleBuckets = usage.buckets.filter((item) => item.tokens > 0);
   const listBuckets =

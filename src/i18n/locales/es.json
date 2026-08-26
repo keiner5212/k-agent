@@ -770,6 +770,7 @@
       "tokens": "~{{used}} / {{window}} tokens",
       "categories": {
         "systemPrompt": "Prompt de sistema",
+        "languageDirective": "Directiva de idioma",
         "toolDefinitions": "Definiciones de herramientas",
         "rules": "Reglas",
         "skills": "Skills",
