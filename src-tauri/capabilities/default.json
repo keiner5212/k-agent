@@ -13,6 +13,7 @@
     "notification:allow-notify",
     "notification:allow-is-permission-granted",
     "notification:allow-request-permission",
+    "opener:default",
     "allow-list",
     "allow-save",
     "allow-delete",
@@ -71,6 +72,7 @@
     "allow-load-sessions",
     "allow-save-sessions",
     "allow-generate-session-title",
+    "allow-generate-app-content",
     "allow-run-shell-command",
     "allow-cancel-running-task"
   ]

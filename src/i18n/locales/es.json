@@ -7,6 +7,11 @@
     "name": "k-agent",
     "shortcut_hint": "Pulsa {{shortcut}} para abrir ajustes"
   },
+  "appGeneration": {
+    "noModel": "Elige un modelo de generacion en Ajustes.",
+    "skill": "Generar o mejorar skill",
+    "personality": "Generar o mejorar personalidad"
+  },
   "window": {
     "minimize": "Minimizar",
     "maximize": "Maximizar",
@@ -776,6 +781,9 @@
       "running": "Ejecutando...",
       "attach": "Adjuntar",
       "attachDisabled": "Este modelo no acepta archivos.",
+      "improve": "Mejorar prompt",
+      "improveEmpty": "Escribe un prompt para mejorar.",
+      "improveDisabled": "Elige un modelo para mejorar el prompt.",
       "attachFilter": "Archivos permitidos",
       "removeAttachment": "Quitar adjunto",
       "attachTooMany": "Demasiados adjuntos.",

@@ -54,6 +54,7 @@ permissions = [
   "allow-load-sessions",
   "allow-save-sessions",
   "allow-generate-session-title",
+  "allow-generate-app-content",
   "allow-run-shell-command",
 ]
 
@@ -346,6 +347,11 @@ commands.allow = ["save_sessions"]
 identifier = "allow-generate-session-title"
 description = "Generate a session title from the first message."
 commands.allow = ["generate_session_title"]
+
+[[permission]]
+identifier = "allow-generate-app-content"
+description = "Generate or improve in-app content such as prompts, skills, and personalities."
+commands.allow = ["generate_app_content"]
 
 [[permission]]
 identifier = "allow-run-shell-command"

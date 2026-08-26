@@ -7,6 +7,11 @@
     "name": "k-agent",
     "shortcut_hint": "Press {{shortcut}} for settings"
   },
+  "appGeneration": {
+    "noModel": "Pick an app generation model in Settings.",
+    "skill": "Generate or improve skill",
+    "personality": "Generate or improve personality"
+  },
   "window": {
     "minimize": "Minimize",
     "maximize": "Maximize",
@@ -776,6 +781,9 @@
       "running": "Running...",
       "attach": "Attach",
       "attachDisabled": "This model does not accept files.",
+      "improve": "Improve prompt",
+      "improveEmpty": "Type a prompt to improve.",
+      "improveDisabled": "Pick a model to improve the prompt.",
       "attachFilter": "Allowed files",
       "removeAttachment": "Remove attachment",
       "attachTooMany": "Too many attachments.",

@@ -357,7 +357,28 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.skill-editor__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   flex-shrink: 0;
+}
+
+.skill-editor__head--end {
+  justify-content: flex-end;
+}
+
+.magic-generate {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.magic-generate:hover:not(:disabled) {
+  color: var(--accent);
 }
 
 .skill-editor__loading {

@@ -3,8 +3,10 @@ import { useTranslation } from "react-i18next";
 import { FileText, Film, Sparkles } from "lucide-react";
 import { attachmentPreviewUrl } from "@/lib/attachments";
 import { renderMarkdown } from "@/lib/markdown";
+import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import type { ChatAttachment, ChatMessage, ChatToolCall } from "@/types/chat";
+import { formatContextWindow } from "@/types/providers";
 import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
 import { ChatWaitingLine } from "./ChatWaitingLine";
 import { MessageActions } from "./MessageActions";
@@ -52,11 +54,24 @@ const ToolCallsBlock = ({ calls }: { calls: ChatToolCall[] }): ReactNode => {
   if (calls.length === 0) return null;
   return (
     <ul className="chat-tools">
-      {calls.map((call, index) => (
-        <li key={call.id ?? `${call.name}-${index}`} className="chat-tools__item">
-          {formatToolCall(call)}
-        </li>
-      ))}
+      {calls.map((call, index) => {
+        const isSkill = call.name === "skill";
+        const output = call.output?.trim() ?? "";
+        const tokens = output.length > 0 ? estimateTokensFromText(output) : null;
+        return (
+          <li
+            key={call.id ?? `${call.name}-${index}`}
+            className={`chat-tools__item${isSkill ? " chat-tools__item--skill" : ""}`}
+          >
+            <span className="chat-tools__line">
+              {formatToolCall(call)}
+              {tokens !== null ? (
+                <span className="chat-tools__tokens">~{formatContextWindow(tokens)}</span>
+              ) : null}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 };

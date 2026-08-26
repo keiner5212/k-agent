@@ -4,7 +4,9 @@ import { Loader2 } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { LineEditor } from "@/components/LineEditor";
+import { MagicGenerateButton } from "@/components/MagicGenerateButton";
 import { EDITOR_SAVE_EVENT } from "@/lib/keybindings";
+import { generateAppContent } from "@/lib/app-generation";
 import {
   MAX_AGENT_PERSONALITY_LINES,
   clampPersonality,
@@ -68,6 +70,7 @@ const AgentPersonalityBody = ({
   const [content, setContent] = useState(() => agent.personality);
   const [original, setOriginal] = useState(() => agent.personality);
   const [submitting, setSubmitting] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lines = personalityLineCount(content);
 
@@ -97,6 +100,27 @@ const AgentPersonalityBody = ({
   };
 
   const dirty = content !== original;
+  const canGenerate = !readOnly && !submitting && !generating;
+
+  const handleGenerate = useCallback((): void => {
+    if (!canGenerate) return;
+    void (async () => {
+      setGenerating(true);
+      setError(null);
+      const result = await generateAppContent({
+        kind: "composePersonality",
+        content,
+        name: agent.name,
+        description: agent.description,
+      });
+      setGenerating(false);
+      if (result.error) {
+        setError(result.error === "noModel" ? t("appGeneration.noModel") : result.error);
+        return;
+      }
+      if (result.text) setContent(clampPersonality(result.text));
+    })();
+  }, [agent.description, agent.name, canGenerate, content, t]);
 
   useEffect(() => {
     if (readOnly) return;
@@ -110,8 +134,27 @@ const AgentPersonalityBody = ({
   return (
     <div className="skill-editor">
       {agent.path ? (
-        <div className="skill-editor__path" title={agent.path}>
-          {agent.path}
+        <div className="skill-editor__head">
+          <div className="skill-editor__path" title={agent.path}>
+            {agent.path}
+          </div>
+          {!readOnly ? (
+            <MagicGenerateButton
+              label={t("appGeneration.personality")}
+              onClick={handleGenerate}
+              disabled={!canGenerate}
+              loading={generating}
+            />
+          ) : null}
+        </div>
+      ) : !readOnly ? (
+        <div className="skill-editor__head skill-editor__head--end">
+          <MagicGenerateButton
+            label={t("appGeneration.personality")}
+            onClick={handleGenerate}
+            disabled={!canGenerate}
+            loading={generating}
+          />
         </div>
       ) : null}
       {error ? (
@@ -145,13 +188,17 @@ const AgentPersonalityBody = ({
           </GlassButton>
         ) : (
           <>
-            <GlassButton variant="secondary" onClick={handleRevert} disabled={submitting || !dirty}>
+            <GlassButton
+              variant="secondary"
+              onClick={handleRevert}
+              disabled={submitting || generating || !dirty}
+            >
               {t("agents.editor.revert")}
             </GlassButton>
             <GlassButton
               variant="secondary"
               onClick={() => void handleSave()}
-              disabled={submitting || !dirty}
+              disabled={submitting || generating || !dirty}
             >
               {submitting ? (
                 <>
@@ -162,7 +209,11 @@ const AgentPersonalityBody = ({
                 <span>{t("agents.editor.save")}</span>
               )}
             </GlassButton>
-            <GlassButton variant="primary" onClick={() => void handleDone()} disabled={submitting}>
+            <GlassButton
+              variant="primary"
+              onClick={() => void handleDone()}
+              disabled={submitting || generating}
+            >
               {t("agents.editor.done")}
             </GlassButton>
           </>

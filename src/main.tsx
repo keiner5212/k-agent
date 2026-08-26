@@ -17,8 +17,10 @@ import "./styles/theme.css";
 import "./styles/chat.css";
 import { App } from "./App";
 import { attachWebviewLogging } from "@/lib/webview-log";
+import { installExternalLinkInterceptor } from "@/lib/external-links";
 
 attachWebviewLogging();
+installExternalLinkInterceptor();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element missing");

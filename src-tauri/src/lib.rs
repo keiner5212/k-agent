@@ -42,7 +42,7 @@ use tauri::{
 use tokio::sync::oneshot;
 
 use attachments::prepare_chat_attachments;
-use chat::{generate_session_title, send_chat_message};
+use chat::{generate_app_content, generate_session_title, send_chat_message};
 use providers::{
     delete_provider, delete_provider_model, list_providers, refresh_provider_models,
     refresh_single_model, save_provider, set_model_favorite, upsert_provider_model,
@@ -632,6 +632,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(LocalWorkspace {
             path: Mutex::new(parse_workspace_arg().or_else(|| {
                 let home = default_workspace();
@@ -699,6 +700,7 @@ pub fn run() {
             save_sessions,
             send_chat_message,
             generate_session_title,
+            generate_app_content,
             run_shell_command,
             prepare_chat_attachments,
             webview_log,

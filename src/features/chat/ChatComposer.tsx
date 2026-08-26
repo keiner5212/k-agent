@@ -13,6 +13,7 @@ import { ArrowUp, Paperclip, Play } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
+import { MagicGenerateButton } from "@/components/MagicGenerateButton";
 import {
   clipboardLooksLikeAttachment,
   collectClipboardFiles,
@@ -23,6 +24,7 @@ import {
   prepareFileAttachments,
   preparePathAttachments,
 } from "@/lib/attachments";
+import { generateAppContent } from "@/lib/app-generation";
 import { useChatStore } from "@/lib/chat";
 import { useComposerStore } from "@/lib/composer";
 import { resolveSelectedModel } from "@/lib/context-usage";
@@ -64,9 +66,12 @@ export const ChatComposer = (): ReactNode => {
   const enqueue = useSessionsStore((state) => state.enqueue);
   const requestRewind = useRewindConfirmStore((state) => state.requestRewind);
   const keybindings = useSettingsStore((state) => state.keybindings);
+  const appGenerationModel = useSettingsStore((state) => state.appGenerationModel);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { pushChange, undo, redo } = useUndoableText(value, setValue);
   const [attachError, setAttachError] = useState<string | undefined>();
+  const [improving, setImproving] = useState(false);
+  const [improveError, setImproveError] = useState<string | undefined>();
   const model = useMemo(() => resolveSelectedModel(providers, selection), [providers, selection]);
   const allowedTypes = useMemo(() => pickerAttachmentTypes(model), [model]);
   const shellMode = mode === "shell";
@@ -77,6 +82,9 @@ export const ChatComposer = (): ReactNode => {
   const canSend = Boolean(selection) && hydrated && hasPayload && !busy;
   const canRunShell = hydrated && value.trim().length > 0 && !busy;
   const canAttach = !shellMode && isTauri() && allowedTypes.length > 0;
+  const generationModel = appGenerationModel ?? selection;
+  const canImprove =
+    !shellMode && isTauri() && Boolean(generationModel) && value.trim().length > 0 && !busy;
 
   const runSlashAction = useCallback(
     (commandId: string): void => {
@@ -220,6 +228,30 @@ export const ChatComposer = (): ReactNode => {
         ? t("chat.composer.send")
         : t("chat.composer.disabledHint");
   const attachLabel = canAttach ? t("chat.composer.attach") : t("chat.composer.attachDisabled");
+  const improveLabel = canImprove
+    ? t("chat.composer.improve")
+    : value.trim().length === 0
+      ? t("chat.composer.improveEmpty")
+      : t("chat.composer.improveDisabled");
+
+  const handleImprove = useCallback(() => {
+    if (!canImprove || improving) return;
+    void (async () => {
+      setImproving(true);
+      setImproveError(undefined);
+      const result = await generateAppContent({
+        kind: "improvePrompt",
+        content: value,
+      });
+      setImproving(false);
+      if (result.error) {
+        setImproveError(result.error === "noModel" ? t("appGeneration.noModel") : result.error);
+        return;
+      }
+      if (result.text) pushChange(result.text);
+    })();
+  }, [canImprove, improving, pushChange, t, value]);
+
   useUndoRedoKeydown(textareaRef, keybindings, undo, redo);
   useComposerFocusKeys(textareaRef, pushChange);
 
@@ -239,6 +271,7 @@ export const ChatComposer = (): ReactNode => {
       <ComposerQueue />
       {!shellMode ? <ComposerAttachments /> : null}
       {attachError ? <p className="chat-composer__attach-error">{attachError}</p> : null}
+      {improveError ? <p className="chat-composer__attach-error">{improveError}</p> : null}
       <div className="chat-composer__field">
         <ComposerTextarea
           value={value}
@@ -249,6 +282,15 @@ export const ChatComposer = (): ReactNode => {
           onPaste={handlePaste}
         />
         <div className="chat-composer__actions">
+          {!shellMode ? (
+            <MagicGenerateButton
+              label={improveLabel}
+              className="chat-composer__magic"
+              onClick={handleImprove}
+              disabled={!canImprove}
+              loading={improving}
+            />
+          ) : null}
           {!shellMode ? (
             <IconButton
               label={attachLabel}

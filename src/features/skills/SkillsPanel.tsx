@@ -32,7 +32,7 @@ export const SkillsPanel = ({ query }: SkillsPanelProps): ReactNode => {
   const deleteSkill = useSkillsStore((state) => state.remove);
 
   const [tab, setTab] = useState<Tab>("global");
-  const [editorPath, setEditorPath] = useState<string | null>(null);
+  const [editorSkill, setEditorSkill] = useState<SkillInfo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string } | null>(null);
   const [createName, setCreateName] = useState<string | null>(null);
 
@@ -98,7 +98,7 @@ export const SkillsPanel = ({ query }: SkillsPanelProps): ReactNode => {
           <SkillContextView
             context={active}
             onCreate={() => setCreateName(active.path)}
-            onEdit={(skill) => setEditorPath(skill.path)}
+            onEdit={(skill) => setEditorSkill(skill)}
             onDelete={(skill) => setDeleteTarget({ id: skill.id })}
           />
         ) : (
@@ -121,14 +121,14 @@ export const SkillsPanel = ({ query }: SkillsPanelProps): ReactNode => {
       />
 
       <SkillEditorDialog
-        open={editorPath !== null}
-        skillPath={editorPath}
+        open={editorSkill !== null}
+        skill={editorSkill}
         onOpenChange={(open) => {
-          if (!open) setEditorPath(null);
+          if (!open) setEditorSkill(null);
         }}
         onSave={async (content) => {
-          if (!editorPath) return "no skill";
-          const result = await updateContent(editorPath, content);
+          if (!editorSkill) return "no skill";
+          const result = await updateContent(editorSkill.path, content);
           if (result.error) return result.error;
           await refresh();
           return undefined;
