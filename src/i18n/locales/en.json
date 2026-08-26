@@ -18,6 +18,9 @@
     "unmaximize": "Restore",
     "close": "Close"
   },
+  "links": {
+    "openInBrowserHint": "Ctrl + click to open in browser"
+  },
   "empty": {
     "title": "Nothing here yet",
     "description": "This is a blank shell. Build your orchestrator on top of it."

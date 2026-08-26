@@ -1,6 +1,6 @@
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import { AGENT_TOOL_IDS, CHAT_TOOL_DESCRIPTIONS, type AgentToolId } from "@/types/agents";
-import type { ChatMessage, SelectedModel } from "@/types/chat";
+import type { ChatMessage, ChatToolCall, SelectedModel } from "@/types/chat";
 import type { McpServer } from "@/types/mcp-servers";
 import { formatTokenCount, type ModelCost, type ModelInfo, type Provider } from "@/types/providers";
 
@@ -140,6 +140,22 @@ export const resolveSelectedModel = (
   return provider.models.find((item) => item.id === selection.modelId) ?? null;
 };
 
+const callText = (call: ChatToolCall): string =>
+  [call.name, call.argument ?? "", call.arguments ?? "", call.output ?? ""].join("\n");
+
+const roundsForTokens = (message: ChatMessage): { reasoning: string; calls: ChatToolCall[] }[] => {
+  if (message.toolRounds && message.toolRounds.length > 0) {
+    return message.toolRounds.map((round) => ({
+      reasoning: round.reasoning,
+      calls: round.calls,
+    }));
+  }
+  if (message.toolCalls && message.toolCalls.length > 0) {
+    return [{ reasoning: "", calls: message.toolCalls }];
+  }
+  return [];
+};
+
 const messageBody = (message: ChatMessage): string => message.shellAiSummary ?? message.content;
 
 export const conversationTokens = (messages: ChatMessage[]): number =>
@@ -148,6 +164,13 @@ export const conversationTokens = (messages: ChatMessage[]): number =>
     tokens += estimateTokensFromText(message.reasoning ?? "");
     for (const item of message.attachments ?? []) {
       tokens += estimateTokensFromText(item.text ?? "");
+    }
+    for (const round of roundsForTokens(message)) {
+      tokens += estimateTokensFromText(round.reasoning);
+      for (const call of round.calls) {
+        if (call.name === "skill") continue;
+        tokens += estimateTokensFromText(callText(call));
+      }
     }
     return sum + tokens;
   }, 0);
@@ -206,9 +229,11 @@ export const loadedSkillNamesFromMessages = (messages: ChatMessage[]): string[] 
 export const estimateLoadedSkillTokens = (messages: ChatMessage[]): number => {
   let tokens = 0;
   for (const message of messages) {
-    for (const call of message.toolCalls ?? []) {
-      if (call.name !== "skill" || !call.output) continue;
-      tokens += estimateTokensFromText(call.output);
+    for (const round of roundsForTokens(message)) {
+      for (const call of round.calls) {
+        if (call.name !== "skill" || !call.output) continue;
+        tokens += estimateTokensFromText(call.output);
+      }
     }
   }
   return tokens;
@@ -222,18 +247,29 @@ export const estimateMessageCostUsd = (
   if (!cost) return 0;
   let inputTokens = extraInputTokens;
   let outputTokens = 0;
+  let reasoningTokens = 0;
   for (const message of messages) {
     const tokens = estimateTokensFromText(messageBody(message));
     const reasoning = estimateTokensFromText(message.reasoning ?? "");
-    let toolTokens = 0;
-    for (const call of message.toolCalls ?? []) {
-      toolTokens += estimateTokensFromText(call.output ?? "");
-    }
     if (message.role === "user") inputTokens += tokens;
-    else outputTokens += tokens + reasoning;
-    inputTokens += toolTokens;
+    else outputTokens += tokens;
+    reasoningTokens += reasoning;
+    for (const round of roundsForTokens(message)) {
+      reasoningTokens += estimateTokensFromText(round.reasoning);
+      for (const call of round.calls) {
+        inputTokens += estimateTokensFromText(call.output ?? "");
+        outputTokens += estimateTokensFromText(
+          [call.name, call.argument ?? "", call.arguments ?? ""].join("\n"),
+        );
+      }
+    }
   }
-  return (inputTokens / 1_000_000) * cost.input + (outputTokens / 1_000_000) * cost.output;
+  const reasoningRate = cost.reasoning ?? cost.output;
+  return (
+    (inputTokens / 1_000_000) * cost.input +
+    (outputTokens / 1_000_000) * cost.output +
+    (reasoningTokens / 1_000_000) * reasoningRate
+  );
 };
 
 export const buildContextUsage = ({
@@ -256,7 +292,7 @@ export const buildContextUsage = ({
   const usedTokens = buckets.reduce((sum, item) => sum + item.tokens, 0);
   const freeTokens = Math.max(0, window - usedTokens);
   const percent = window === 0 ? 0 : Math.min(100, Math.round((usedTokens / window) * 100));
-  const extraInputTokens = usedTokens - conversation;
+  const extraInputTokens = Math.max(0, usedTokens - conversation - (extras?.skills ?? 0));
   return {
     windowTokens: window,
     usedTokens,

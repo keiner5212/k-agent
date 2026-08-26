@@ -18,6 +18,9 @@
     "unmaximize": "Restaurar",
     "close": "Cerrar"
   },
+  "links": {
+    "openInBrowserHint": "Ctrl + clic para abrir en el navegador"
+  },
   "empty": {
     "title": "Todavía no hay nada aquí",
     "description": "Esta es una aplicación vacía. Construye tu orquestador encima."

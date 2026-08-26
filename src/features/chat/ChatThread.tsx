@@ -12,7 +12,8 @@ import { ChatWaitingLine } from "./ChatWaitingLine";
 import { MessageActions } from "./MessageActions";
 
 const AssistantMarkdown = ({ content }: { content: string }): ReactNode => {
-  const html = useMemo(() => renderMarkdown(content), [content]);
+  const { t } = useTranslation();
+  const html = useMemo(() => renderMarkdown(content, t("links.openInBrowserHint")), [content, t]);
   if (content.length === 0) return null;
   return (
     <div
@@ -130,6 +131,23 @@ const MessageBody = ({ message }: { message: ChatMessage }): ReactNode => {
     );
   }
   if (message.role === "assistant") {
+    const rounds = message.toolRounds;
+    if (rounds && rounds.length > 0 && !message.streaming) {
+      return (
+        <>
+          {rounds.map((round, index) => (
+            <div key={round.calls[0]?.id ?? `round-${index}`}>
+              <ThinkingBlock reasoning={round.reasoning} />
+              <AssistantMarkdown content={round.content ?? ""} />
+              <ToolCallsBlock calls={round.calls} />
+            </div>
+          ))}
+          <ThinkingBlock reasoning={message.reasoning ?? ""} thinkingMs={message.thinkingMs} />
+          <AssistantMarkdown content={message.content} />
+          <InterruptedFooter interrupted={message.interrupted ?? false} />
+        </>
+      );
+    }
     return (
       <>
         <ThinkingBlock

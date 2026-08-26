@@ -18,6 +18,8 @@ pub struct SessionToolCall {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub arguments: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thought_signature: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
 }
 
@@ -41,6 +43,8 @@ pub struct SessionMessage {
     pub attachments: Vec<crate::attachments::ChatAttachment>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_calls: Vec<SessionToolCall>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_rounds: Vec<crate::chat::ToolRoundTrace>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -13,14 +13,15 @@ When a chat message is sent, the backend receives one system string assembled on
    - **1. Agent flow** - numbered turn protocol.
    - **2. Agent skill loading** - turn-1 batch `skill` calls when the agent has bound global skills not already in context.
    - **3. Agent skills** - names and descriptions only (global skills bound to the agent).
-   - **4. Local tools** - tools enabled on that agent (`skill`, `read`, `write`, `edit`, `list_directory`).
-   - **5. Workspace skills** - names and descriptions for workspace-local skills.
-   - **6. Personality** - agent persona markdown body only.
+
+- **4. Workspace skills** - names and descriptions for workspace-local skills.
+- **5. Personality** - agent persona markdown body only.
+
 5. **App context** (optional). Extra app-level notes when configured.
 
-Tool JSON schemas are sent on the request `tools` field, not repeated in the system prompt. Enabled MCP tools are merged into that list at send time (`mcp_{server}_{tool}`).
+Tool JSON schemas are sent on the request `tools` field, not in the system prompt. Enabled MCP tools are merged into that list at send time (`mcp_{server}_{tool}`).
 
-Skill bodies arrive through tool results after a `skill` call. Persisted on the assistant message (`toolCalls` with `output`) in `sessions.json` and replayed on the next send.
+Skill bodies arrive through tool results after a `skill` call. Persisted on the assistant message (`toolRounds` with per-round reasoning, calls, and `output`) in `sessions.json` and replayed on the next send. Each round is sent back as assistant tool-calls, then tool results, then the next think/answer.
 
 ## Turn protocol (model behavior)
 
@@ -53,25 +54,25 @@ Local tools: `skill`, `read`, `write`, `edit`, `list_directory`. MCP tools are i
 
 `send_chat_message` sends `toolNames` from the selected agent and loads MCP tools on the backend. `send_message` in `chat.rs`:
 
-1. Calls the provider with those tool definitions when the list is not empty.
+1. Calls the provider with those tool definitions when the list is not empty. Each provider turn streams tokens when a UI channel is attached, including tool rounds.
 2. If the model returns tool calls, emits a `tool` chunk, then executes each allowed name (local or MCP).
 3. Truncates oversized tool results before they go back to the model.
-4. Appends assistant tool-call turns and user/tool-result turns to the in-memory turn list.
-5. Re-requests until the model returns text only or `MAX_TOOL_ROUNDS` (12) is hit.
-6. Streaming is disabled during tool rounds; final text is emitted as chunks after the loop. Assistant text is truncated if it exceeds the output guard.
+4. Appends assistant tool-call turns (with that round's reasoning) and user/tool-result turns to the in-memory turn list.
+5. Re-requests until the model returns text only or `MAX_TOOL_ROUNDS` (12) is hit. Later rounds can think again, then answer.
+6. Assistant text is truncated if it exceeds the output guard.
 
 Gemini function calls echo `thoughtSignature` on later rounds (required by Gemini 3 thinking + tools).
 
 Provider message shapes:
 
-- OpenAI-compatible: `tool_calls` on assistant, `role: tool` results.
+- OpenAI-compatible: `tool_calls` on assistant, `role: tool` results. Prior `reasoning_content` is echoed on later rounds.
 - Anthropic: `tool_use` / `tool_result` content blocks. Thinking blocks are echoed on later rounds.
 - Gemini: `functionCall` / `functionResponse` parts, plus thought signatures when present.
 
 ## Token accounting
 
 - **Personality** alone drives `estimatedTokens` on `AgentMeta` in Rust and builtin agents in the UI.
-- **Context usage** is 0 until the first message in the session. After that it splits language, AGENTS.md rules, agent system, tool JSON schemas, MCP tools, persisted skill tool outputs, and conversation.
+- **Context usage** is 0 until the first message in the session. After that it splits language, AGENTS.md rules, agent system, tool JSON schemas, MCP tools, persisted skill tool outputs, other tool I/O plus conversation text, and reasoning. Cost treats tool results as input, tool-call args and assistant text as output, and thinking at the reasoning rate when the catalog has one.
 
 ## Related files
 

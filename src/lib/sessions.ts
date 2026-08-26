@@ -30,6 +30,7 @@ import {
   type ChatMessage,
   type ChatToolCall,
   type ChatTurn,
+  type PersistedToolCall,
   type SelectedModel,
   type SendChatResult,
   type ToolRoundTrace,
@@ -69,35 +70,65 @@ const toolCallsFromRounds = (rounds: ToolRoundTrace[] | undefined): ChatToolCall
   return calls.length > 0 ? calls : undefined;
 };
 
+const toPersistedCall = (call: ChatToolCall): PersistedToolCall | null => {
+  if (!call.output) return null;
+  return {
+    id: call.id ?? "",
+    name: call.name,
+    argument: call.argument,
+    arguments: call.arguments,
+    thoughtSignature: call.thoughtSignature,
+    output: call.output,
+  };
+};
+
+const roundsFromMessage = (message: ChatMessage): ToolRoundTrace[] => {
+  if (message.toolRounds && message.toolRounds.length > 0) {
+    return message.toolRounds;
+  }
+  const calls = (message.toolCalls ?? [])
+    .map(toPersistedCall)
+    .filter((call): call is PersistedToolCall => call !== null);
+  if (calls.length === 0) return [];
+  return [
+    {
+      reasoning: message.reasoning ?? "",
+      reasoningSignature: message.reasoningSignature,
+      calls,
+    },
+  ];
+};
+
 const toChatTurns = (messages: ChatMessage[]): ChatTurn[] => {
   const turns: ChatTurn[] = [];
   for (const message of messages) {
     if (message.streaming) continue;
-    if (message.role === "assistant" && message.toolCalls?.length) {
-      const withOutput = message.toolCalls.filter((call) => call.output);
-      if (withOutput.length > 0) {
+    if (message.role === "assistant") {
+      const rounds = roundsFromMessage(message);
+      const splitReasoning = rounds.length > 0 && Boolean(message.toolRounds?.length);
+      for (const round of rounds) {
         turns.push({
           role: "assistant",
-          content: "",
-          reasoning: message.reasoning ?? null,
-          reasoningSignature: message.reasoningSignature ?? null,
+          content: round.content ?? "",
+          reasoning: round.reasoning || null,
+          reasoningSignature: round.reasoningSignature ?? null,
           attachments: message.attachments,
-          toolCalls: withOutput.map((call) => ({
-            id: call.id ?? "",
+          toolCalls: round.calls.map((call) => ({
+            id: call.id,
             name: call.name,
             argument: call.argument,
             arguments: call.arguments,
             thoughtSignature: call.thoughtSignature,
           })),
         });
-        for (const call of withOutput) {
+        for (const call of round.calls) {
           turns.push({
             role: "user",
             content: "",
             toolResult: {
-              callId: call.id ?? "",
+              callId: call.id,
               name: call.name,
-              content: call.output!,
+              content: call.output,
             },
           });
         }
@@ -106,13 +137,14 @@ const toChatTurns = (messages: ChatMessage[]): ChatTurn[] => {
       if (
         body.trim().length > 0 ||
         (message.attachments?.length ?? 0) > 0 ||
-        withOutput.length === 0
+        (!splitReasoning && rounds.length === 0 && (message.reasoning ?? "").trim().length > 0)
       ) {
         turns.push({
           role: "assistant",
           content: body,
-          reasoning: withOutput.length > 0 ? null : (message.reasoning ?? null),
-          reasoningSignature: withOutput.length > 0 ? null : (message.reasoningSignature ?? null),
+          reasoning: splitReasoning || rounds.length === 0 ? (message.reasoning ?? null) : null,
+          reasoningSignature:
+            splitReasoning || rounds.length === 0 ? (message.reasoningSignature ?? null) : null,
           attachments: message.attachments,
         });
       }
@@ -584,6 +616,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
                 reasoningSignature: result.reasoningSignature,
                 thinkingMs: duration,
                 toolCalls: toolCallsFromRounds(result.toolRounds),
+                toolRounds: result.toolRounds,
               },
             ],
           };
@@ -594,10 +627,11 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         messages[index] = {
           ...current,
           content: result.content || current.content,
-          reasoning: current.reasoning || result.reasoning,
-          reasoningSignature: current.reasoningSignature || result.reasoningSignature,
+          reasoning: result.reasoning,
+          reasoningSignature: result.reasoningSignature || current.reasoningSignature,
           thinkingMs: duration ?? current.thinkingMs,
           toolCalls: toolCallsFromRounds(result.toolRounds) ?? current.toolCalls,
+          toolRounds: result.toolRounds?.length ? result.toolRounds : current.toolRounds,
           streaming: false,
         };
         return {

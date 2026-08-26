@@ -43,6 +43,22 @@ export const parseToolChunkText = (text: string): ChatToolCall => {
   return argument.length > 0 ? { name, argument } : { name };
 };
 
+export type PersistedToolCall = {
+  id: string;
+  name: string;
+  argument?: string;
+  arguments?: string;
+  thoughtSignature?: string;
+  output: string;
+};
+
+export type ToolRoundTrace = {
+  reasoning: string;
+  reasoningSignature?: string;
+  content?: string;
+  calls: PersistedToolCall[];
+};
+
 export type ChatMessage = {
   id: string;
   role: ChatRole;
@@ -56,6 +72,7 @@ export type ChatMessage = {
   interrupted?: boolean;
   attachments?: ChatAttachment[];
   toolCalls?: ChatToolCall[];
+  toolRounds?: ToolRoundTrace[];
 };
 
 export type ChatToolResultTurn = {
@@ -72,21 +89,6 @@ export type ChatTurn = {
   attachments?: ChatAttachment[];
   toolCalls?: ChatToolCall[];
   toolResult?: ChatToolResultTurn;
-};
-
-export type PersistedToolCall = {
-  id: string;
-  name: string;
-  argument?: string;
-  arguments?: string;
-  thoughtSignature?: string;
-  output: string;
-};
-
-export type ToolRoundTrace = {
-  reasoning: string;
-  reasoningSignature?: string;
-  calls: PersistedToolCall[];
 };
 
 export type SendChatResult = {

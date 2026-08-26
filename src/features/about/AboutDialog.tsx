@@ -35,7 +35,13 @@ export const AboutDialog = ({ open, onOpenChange }: AboutDialogProps): ReactNode
           {APP_CREATORS.map((creator) => (
             <li key={creator.url}>
               <span className="about-dialog__name">{creator.name}</span>
-              <a className="about-dialog__link" href={creator.url} target="_blank" rel="noreferrer">
+              <a
+                className="about-dialog__link"
+                href={creator.url}
+                target="_blank"
+                rel="noreferrer"
+                title={t("links.openInBrowserHint")}
+              >
                 {creator.url.replace("https://github.com/", "@")}
               </a>
             </li>

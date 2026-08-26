@@ -1,13 +1,6 @@
 import type { TFunction } from "i18next";
 import { resolveAgentMeta } from "@/lib/builtin-agents";
-import {
-  AGENT_TOOL_IDS,
-  CHAT_TOOL_DESCRIPTIONS,
-  type AgentContext,
-  type AgentMeta,
-  type AgentSkillRef,
-  type AgentToolId,
-} from "@/types/agents";
+import type { AgentContext, AgentMeta, AgentSkillRef } from "@/types/agents";
 import type { AgentsMdFile } from "@/types/agents-md";
 import type { SkillContext } from "@/types/skills";
 
@@ -58,7 +51,7 @@ const buildWorkspaceSkillCatalog = (skillContexts: readonly SkillContext[]): str
     lines.push(`- \`${name}\`: ${detail}`);
   }
   if (lines.length === 0) return "";
-  return ["# 5. Workspace skills", "", ...lines].join("\n");
+  return ["# 4. Workspace skills", "", ...lines].join("\n");
 };
 
 const buildAgentSkillLoadingDirective = (names: readonly string[]): string => {
@@ -91,14 +84,6 @@ const buildTurnProtocol = (hasAgentSkills: boolean): string => {
   return ["# 1. Agent flow", "", ...steps].join("\n");
 };
 
-const buildToolCatalog = (enabled: readonly string[]): string => {
-  const lines = enabled
-    .filter((id): id is AgentToolId => (AGENT_TOOL_IDS as readonly string[]).includes(id))
-    .map((id) => `- \`${id}\`: ${CHAT_TOOL_DESCRIPTIONS[id]}`);
-  if (lines.length === 0) return "";
-  return ["# 4. Local tools", "", ...lines].join("\n");
-};
-
 export const buildAgentsMdRules = (files: readonly AgentsMdFile[]): string => {
   const parts: string[] = [];
   const globalBody =
@@ -127,13 +112,11 @@ export const composeAgentSystem = (
   if (skillDirective.length > 0) parts.push(skillDirective);
   const agentCatalog = buildAgentSkillCatalog(agentSkills);
   if (agentCatalog.length > 0) parts.push(agentCatalog);
-  const tools = buildToolCatalog(agent.tools);
-  if (tools.length > 0) parts.push(tools);
   const workspaceSkills = buildWorkspaceSkillCatalog(skillContexts);
   if (workspaceSkills.length > 0) parts.push(workspaceSkills);
   const personality = agent.personality.trim();
   if (personality.length > 0) {
-    parts.push(`# 6. Personality\n\n${personality}`);
+    parts.push(`# 5. Personality\n\n${personality}`);
   }
   return parts.join("\n\n");
 };

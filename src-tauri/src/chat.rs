@@ -95,6 +95,8 @@ pub struct ToolRoundTrace {
     pub reasoning: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub reasoning_signature: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub content: String,
     pub calls: Vec<PersistedToolCall>,
 }
 
@@ -694,6 +696,37 @@ fn gemini_user_parts(turn: &Turn) -> Vec<serde_json::Value> {
     parts
 }
 
+fn openai_assistant_message(turn: &Turn) -> serde_json::Value {
+    let mut message = serde_json::Map::new();
+    message.insert("role".into(), json!("assistant"));
+    if turn.content.is_empty() && !turn.tool_calls.is_empty() {
+        message.insert("content".into(), serde_json::Value::Null);
+    } else {
+        message.insert("content".into(), json!(turn.content));
+    }
+    if !turn.reasoning.is_empty() {
+        message.insert("reasoning_content".into(), json!(turn.reasoning));
+    }
+    if !turn.tool_calls.is_empty() {
+        let tool_calls = turn
+            .tool_calls
+            .iter()
+            .map(|call| {
+                json!({
+                    "id": call.id,
+                    "type": "function",
+                    "function": {
+                        "name": call.name,
+                        "arguments": call.arguments,
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+        message.insert("tool_calls".into(), json!(tool_calls));
+    }
+    serde_json::Value::Object(message)
+}
+
 fn openai_messages(system: Option<&str>, turns: &[Turn]) -> serde_json::Value {
     let mut messages = Vec::with_capacity(turns.len() + 1);
     if let Some(system) = nonempty_text(system) {
@@ -709,37 +742,7 @@ fn openai_messages(system: Option<&str>, turns: &[Turn]) -> serde_json::Value {
             continue;
         }
         if turn.assistant {
-            if !turn.tool_calls.is_empty() {
-                let tool_calls = turn
-                    .tool_calls
-                    .iter()
-                    .map(|call| {
-                        json!({
-                            "id": call.id,
-                            "type": "function",
-                            "function": {
-                                "name": call.name,
-                                "arguments": call.arguments,
-                            }
-                        })
-                    })
-                    .collect::<Vec<_>>();
-                let content = if turn.content.is_empty() {
-                    serde_json::Value::Null
-                } else {
-                    json!(turn.content)
-                };
-                messages.push(json!({
-                    "role": "assistant",
-                    "content": content,
-                    "tool_calls": tool_calls,
-                }));
-                continue;
-            }
-            messages.push(json!({
-                "role": "assistant",
-                "content": turn.content,
-            }));
+            messages.push(openai_assistant_message(turn));
             continue;
         }
         messages.push(json!({ "role": "user", "content": openai_user_content(turn) }));
@@ -1160,10 +1163,96 @@ fn json_text(value: Option<&serde_json::Value>) -> String {
     }
 }
 
+struct StreamToolDelta {
+    index: usize,
+    id: String,
+    name: String,
+    arguments: String,
+    thought_signature: String,
+    replace_args: bool,
+}
+
 struct StreamDelta {
     content: String,
     reasoning: String,
     reasoning_signature: String,
+    tools: Vec<StreamToolDelta>,
+}
+
+impl Default for StreamDelta {
+    fn default() -> Self {
+        Self {
+            content: String::new(),
+            reasoning: String::new(),
+            reasoning_signature: String::new(),
+            tools: Vec::new(),
+        }
+    }
+}
+
+#[derive(Default)]
+struct ToolCallBuilder {
+    id: String,
+    name: String,
+    arguments: String,
+    thought_signature: String,
+}
+
+fn merge_tool_delta(slots: &mut Vec<(usize, ToolCallBuilder)>, delta: StreamToolDelta) {
+    if let Some((_, slot)) = slots.iter_mut().find(|(index, _)| *index == delta.index) {
+        if !delta.id.is_empty() {
+            slot.id = delta.id;
+        }
+        if !delta.name.is_empty() {
+            slot.name = delta.name;
+        }
+        if delta.replace_args {
+            if !delta.arguments.is_empty() {
+                slot.arguments = delta.arguments;
+            }
+        } else {
+            slot.arguments.push_str(&delta.arguments);
+        }
+        if !delta.thought_signature.is_empty() {
+            slot.thought_signature = delta.thought_signature;
+        }
+        return;
+    }
+    slots.push((
+        delta.index,
+        ToolCallBuilder {
+            id: delta.id,
+            name: delta.name,
+            arguments: delta.arguments,
+            thought_signature: delta.thought_signature,
+        },
+    ));
+    slots.sort_by_key(|(index, _)| *index);
+}
+
+fn finish_stream_tools(slots: Vec<(usize, ToolCallBuilder)>) -> Vec<ModelToolCall> {
+    slots
+        .into_iter()
+        .filter(|(_, slot)| !slot.name.is_empty())
+        .map(|(_, slot)| {
+            let arguments = if slot.arguments.trim().is_empty() {
+                "{}".to_string()
+            } else {
+                slot.arguments
+            };
+            let id = if slot.id.is_empty() {
+                tools::new_tool_call_id()
+            } else {
+                slot.id
+            };
+            ModelToolCall {
+                id,
+                name: slot.name,
+                arguments,
+                thought_signature: slot.thought_signature,
+            }
+        })
+        .collect()
 }
 
 fn openai_delta_pair(value: &serde_json::Value) -> StreamDelta {
@@ -1175,14 +1264,90 @@ fn openai_delta_pair(value: &serde_json::Value) -> StreamDelta {
     } else {
         json_text(delta.and_then(|item| item.get("reasoning")))
     };
+    let mut tools = Vec::new();
+    if let Some(calls) = delta
+        .and_then(|item| item.get("tool_calls"))
+        .and_then(|item| item.as_array())
+    {
+        for call in calls {
+            let index = call
+                .get("index")
+                .and_then(|item| item.as_u64())
+                .unwrap_or(0) as usize;
+            let id = call
+                .get("id")
+                .and_then(|item| item.as_str())
+                .unwrap_or("")
+                .to_string();
+            let function = call.get("function");
+            let name = function
+                .and_then(|item| item.get("name"))
+                .and_then(|item| item.as_str())
+                .unwrap_or("")
+                .to_string();
+            let arguments = function
+                .and_then(|item| item.get("arguments"))
+                .and_then(|item| item.as_str())
+                .unwrap_or("")
+                .to_string();
+            tools.push(StreamToolDelta {
+                index,
+                id,
+                name,
+                arguments,
+                thought_signature: String::new(),
+                replace_args: false,
+            });
+        }
+    }
     StreamDelta {
         content,
         reasoning,
         reasoning_signature: String::new(),
+        tools,
     }
 }
 
 fn anthropic_delta_pair(value: &serde_json::Value) -> StreamDelta {
+    let event_type = value
+        .get("type")
+        .and_then(|item| item.as_str())
+        .unwrap_or("");
+    let index = value
+        .get("index")
+        .and_then(|item| item.as_u64())
+        .unwrap_or(0) as usize;
+    if event_type == "content_block_start" {
+        let block = value.get("content_block");
+        let block_type = block
+            .and_then(|item| item.get("type"))
+            .and_then(|item| item.as_str())
+            .unwrap_or("");
+        if block_type == "tool_use" {
+            let id = block
+                .and_then(|item| item.get("id"))
+                .and_then(|item| item.as_str())
+                .unwrap_or("")
+                .to_string();
+            let name = block
+                .and_then(|item| item.get("name"))
+                .and_then(|item| item.as_str())
+                .unwrap_or("")
+                .to_string();
+            return StreamDelta {
+                tools: vec![StreamToolDelta {
+                    index,
+                    id,
+                    name,
+                    arguments: String::new(),
+                    thought_signature: String::new(),
+                    replace_args: false,
+                }],
+                ..StreamDelta::default()
+            };
+        }
+        return StreamDelta::default();
+    }
     let delta_type = value
         .pointer("/delta/type")
         .and_then(|item| item.as_str())
@@ -1194,32 +1359,40 @@ fn anthropic_delta_pair(value: &serde_json::Value) -> StreamDelta {
                 .and_then(|item| item.as_str())
                 .unwrap_or("")
                 .to_string(),
-            reasoning: String::new(),
-            reasoning_signature: String::new(),
+            ..StreamDelta::default()
         },
         "thinking_delta" => StreamDelta {
-            content: String::new(),
             reasoning: value
                 .pointer("/delta/thinking")
                 .and_then(|item| item.as_str())
                 .unwrap_or("")
                 .to_string(),
-            reasoning_signature: String::new(),
+            ..StreamDelta::default()
         },
         "signature_delta" => StreamDelta {
-            content: String::new(),
-            reasoning: String::new(),
             reasoning_signature: value
                 .pointer("/delta/signature")
                 .and_then(|item| item.as_str())
                 .unwrap_or("")
                 .to_string(),
+            ..StreamDelta::default()
         },
-        _ => StreamDelta {
-            content: String::new(),
-            reasoning: String::new(),
-            reasoning_signature: String::new(),
+        "input_json_delta" => StreamDelta {
+            tools: vec![StreamToolDelta {
+                index,
+                id: String::new(),
+                name: String::new(),
+                arguments: value
+                    .pointer("/delta/partial_json")
+                    .and_then(|item| item.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                thought_signature: String::new(),
+                replace_args: false,
+            }],
+            ..StreamDelta::default()
         },
+        _ => StreamDelta::default(),
     }
 }
 
@@ -1228,15 +1401,46 @@ fn gemini_delta_pair(value: &serde_json::Value) -> StreamDelta {
         .pointer("/candidates/0/content/parts")
         .and_then(|item| item.as_array())
     else {
-        return StreamDelta {
-            content: String::new(),
-            reasoning: String::new(),
-            reasoning_signature: String::new(),
-        };
+        return StreamDelta::default();
     };
     let mut content = String::new();
     let mut reasoning = String::new();
+    let mut reasoning_signature = String::new();
+    let mut tools = Vec::new();
     for part in parts {
+        let part_signature = thought_sig(
+            part.get("thoughtSignature")
+                .and_then(|item| item.as_str()),
+        );
+        if !part_signature.is_empty() {
+            reasoning_signature = part_signature.clone();
+        }
+        if let Some(call) = part.get("functionCall") {
+            let name = call
+                .get("name")
+                .and_then(|item| item.as_str())
+                .unwrap_or("")
+                .to_string();
+            let args = call.get("args").cloned().unwrap_or(serde_json::Value::Null);
+            let arguments = if args.is_null() {
+                "{}".to_string()
+            } else {
+                serde_json::to_string(&args).unwrap_or_else(|_| args.to_string())
+            };
+            tools.push(StreamToolDelta {
+                index: tools.len(),
+                id: String::new(),
+                name,
+                arguments,
+                thought_signature: if part_signature.is_empty() {
+                    reasoning_signature.clone()
+                } else {
+                    part_signature
+                },
+                replace_args: true,
+            });
+            continue;
+        }
         let Some(text) = part.get("text").and_then(|item| item.as_str()) else {
             continue;
         };
@@ -1252,7 +1456,8 @@ fn gemini_delta_pair(value: &serde_json::Value) -> StreamDelta {
     StreamDelta {
         content,
         reasoning,
-        reasoning_signature: String::new(),
+        reasoning_signature,
+        tools,
     }
 }
 
@@ -1265,6 +1470,7 @@ async fn collect_stream(
     let mut content = String::new();
     let mut reasoning = String::new();
     let mut reasoning_signature = String::new();
+    let mut tool_slots: Vec<(usize, ToolCallBuilder)> = Vec::new();
     consume_sse(resp, |data| {
         let Ok(value) = serde_json::from_str::<serde_json::Value>(data) else {
             return Ok(());
@@ -1285,18 +1491,22 @@ async fn collect_stream(
                 on_chunk,
             );
         }
+        for tool in delta.tools {
+            merge_tool_delta(&mut tool_slots, tool);
+        }
         Ok(())
     })
     .await?;
     take_split(&mut content, &mut reasoning, filter.finish(), on_chunk);
-    if content.trim().is_empty() && reasoning.trim().is_empty() {
+    let tool_calls = finish_stream_tools(tool_slots);
+    if content.trim().is_empty() && reasoning.trim().is_empty() && tool_calls.is_empty() {
         Err(ChatError::EmptyResponse)
     } else {
         Ok(ChatOutput {
             content,
             reasoning,
             reasoning_signature,
-            tool_calls: Vec::new(),
+            tool_calls,
             tool_rounds: Vec::new(),
         })
     }
@@ -1384,7 +1594,7 @@ async fn send_openai_like(
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
 ) -> Result<ChatOutput, ChatError> {
-    let stream = on_chunk.is_some() && !tools_enabled(call);
+    let stream = on_chunk.is_some();
     let client = if stream {
         stream_http_client()?
     } else {
@@ -1491,7 +1701,7 @@ async fn send_anthropic_like(
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
 ) -> Result<ChatOutput, ChatError> {
-    let stream = on_chunk.is_some() && !tools_enabled(call);
+    let stream = on_chunk.is_some();
     let client = if stream {
         stream_http_client()?
     } else {
@@ -1597,7 +1807,7 @@ async fn send_gemini_like(
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
 ) -> Result<ChatOutput, ChatError> {
-    let stream = on_chunk.is_some() && !tools_enabled(call);
+    let stream = on_chunk.is_some();
     let client = if stream {
         stream_http_client()?
     } else {
@@ -1772,15 +1982,17 @@ async fn send_message(
             tool_names: call.tool_names,
             mcp_tools: call.mcp_tools,
         };
-        let output = dispatch_provider(provider, &round_call, None).await?;
-        if !output.reasoning.is_empty() {
+        let output = dispatch_provider(provider, &round_call, on_chunk).await?;
+        if on_chunk.is_none() && !output.reasoning.is_empty() {
             emit_chunk(on_chunk, "reasoning", &output.reasoning);
         }
 
         if output.tool_calls.is_empty() {
             if !output.content.is_empty() {
                 let content = tools::truncate_assistant(&output.content);
-                emit_chunk(on_chunk, "content", &content);
+                if on_chunk.is_none() {
+                    emit_chunk(on_chunk, "content", &content);
+                }
                 return Ok(ChatOutput {
                     content,
                     reasoning: output.reasoning,
@@ -1884,6 +2096,7 @@ async fn send_message(
         tool_rounds.push(ToolRoundTrace {
             reasoning: output.reasoning.clone(),
             reasoning_signature: output.reasoning_signature.clone(),
+            content: output.content.clone(),
             calls: persisted_calls,
         });
     }
