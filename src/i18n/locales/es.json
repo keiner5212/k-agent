@@ -360,7 +360,10 @@
       "detected": "Se detectaron {{count}} modelos.",
       "detected_plural": "Se detectó {{count}} modelo.",
       "errors": {
-        "required": "Nombre y URL base son obligatorios."
+        "required": "Nombre y URL base son obligatorios.",
+        "fetchFailed": "No se pudieron obtener modelos de este proveedor. Revisa la URL y la clave API.",
+        "noModels": "No se encontraron modelos para este proveedor.",
+        "unknown": "Error desconocido."
       }
     },
     "delete": {

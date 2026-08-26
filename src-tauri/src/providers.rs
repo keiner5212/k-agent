@@ -753,23 +753,16 @@ pub async fn save_provider(
         last_synced_at: None,
     };
 
-    match fetch_models(&stored).await {
-        Ok(model_ids) => {
-            stored.models = enrich_models(
-                &app,
-                &stored,
-                &model_ids,
-                previous_models,
-                detail_concurrency(input.worker_cores),
-            )
-            .await;
-            stored.last_synced_at = Some(now);
-        }
-        Err(_) => {
-            stored.models = previous_models;
-            stored.last_synced_at = None;
-        }
-    }
+    let models_ids = fetch_models(&stored).await?;
+    stored.models = enrich_models(
+        &app,
+        &stored,
+        &models_ids,
+        previous_models,
+        detail_concurrency(input.worker_cores),
+    )
+    .await;
+    stored.last_synced_at = Some(now);
 
     if let Some(idx) = existing_idx {
         providers[idx] = stored.clone();
