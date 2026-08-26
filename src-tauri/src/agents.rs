@@ -8,14 +8,22 @@ use thiserror::Error;
 
 use crate::pathutil;
 use crate::skills::{estimate_tokens, global_skills_root, list_skills_in, parse_yaml_scalar};
-use crate::tools::SKILL_TOOL_NAME;
+use crate::tools::{
+    EDIT_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME, WRITE_TOOL_NAME,
+};
 
 pub const MAX_AGENT_SKILLS: usize = 10;
 pub const MAX_AGENT_PERSONALITY_LINES: usize = 200;
 const PERSONA_MANIFEST: &str = "persona.md";
 const LEGACY_MANIFESTS: &[&str] = &["PERSONA.md", "AGENT.md", "agent.md"];
 
-const AGENT_TOOLS: &[&str] = &[SKILL_TOOL_NAME];
+const AGENT_TOOLS: &[&str] = &[
+    SKILL_TOOL_NAME,
+    READ_TOOL_NAME,
+    WRITE_TOOL_NAME,
+    EDIT_TOOL_NAME,
+    LIST_DIRECTORY_TOOL_NAME,
+];
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
@@ -400,10 +408,7 @@ fn sanitize_tools(tools: &[String]) -> Vec<String> {
     out
 }
 
-fn sanitize_skills(
-    skills: &[AgentSkillRef],
-    live: &HashSet<AgentSkillRef>,
-) -> Vec<AgentSkillRef> {
+fn sanitize_skills(skills: &[AgentSkillRef], live: &HashSet<AgentSkillRef>) -> Vec<AgentSkillRef> {
     let mut out = Vec::new();
     for skill in skills {
         if skill.kind != AgentContextKind::Global {

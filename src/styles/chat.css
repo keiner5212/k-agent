@@ -496,7 +496,8 @@ button.change-bar__stat:focus-visible {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: 0 4px 16px color-mix(in oklch, var(--background) 60%, transparent);
-  z-index: 20;
+  z-index: 40;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1366,7 +1367,7 @@ button.change-bar__stat:focus-visible {
   color: var(--danger);
   border: 1px solid color-mix(in oklch, var(--danger) 35%, var(--border));
   border-radius: var(--radius-sm);
-  background-color: color-mix(in oklch, var(--danger) 8%, transparent);
+  background-color: color-mix(in oklch, var(--danger) 12%, var(--surface-elevated));
   animation: chat-message-in 0.28s var(--ease-out) both;
 }
 
@@ -1938,12 +1939,15 @@ button.change-bar__stat:focus-visible {
 
 :root[data-translucent="true"] .sessions-sidebar,
 :root[data-translucent="true"] .chat-thread,
-:root[data-translucent="true"] .model-selector__pill,
 :root[data-translucent="true"] .context-strip__chip,
 :root[data-translucent="true"] .change-bar__stat,
-:root[data-translucent="true"] .context-usage,
-:root[data-translucent="true"] .model-selector__popover {
+:root[data-translucent="true"] .context-usage {
   background-color: var(--frost-fill-muted);
+}
+
+:root[data-translucent="true"] .model-selector__pill,
+:root[data-translucent="true"] .model-selector__popover {
+  background-color: var(--surface-elevated);
 }
 
 :root[data-translucent="true"] .chat-message--user.chat-message--shell {

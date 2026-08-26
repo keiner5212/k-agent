@@ -599,11 +599,7 @@ async fn fetch_models(provider: &Provider) -> Result<Vec<String>, ProviderError>
                 Some(key) => format!("{base}/v1beta/models?key={key}"),
                 None => format!("{base}/v1beta/models"),
             };
-            let resp = client
-                .get(&url)
-                .send()
-                .await
-                .map_err(classify_send_error)?;
+            let resp = client.get(&url).send().await.map_err(classify_send_error)?;
             let status = resp.status();
             if !status.is_success() {
                 let body = resp.text().await.unwrap_or_default();

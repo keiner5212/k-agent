@@ -18,6 +18,7 @@ export type RunShellRequest = {
   sessionId?: string;
   timeoutMs?: number;
   maxOutputBytes?: number;
+  shell?: string;
 };
 
 export type RunShellResponse = {
@@ -74,6 +75,7 @@ export const runShellCommand = (
       sessionId: request.sessionId ?? null,
       timeoutMs: request.timeoutMs ?? null,
       maxOutputBytes: request.maxOutputBytes ?? null,
+      shell: request.shell ?? null,
     },
     onChunk,
   });

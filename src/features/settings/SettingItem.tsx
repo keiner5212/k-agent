@@ -197,6 +197,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const responseLanguage = useSettingsStore((state) => state.responseLanguage);
   const blockedCommands = useSettingsStore((state) => state.blockedCommands);
   const allowedCommands = useSettingsStore((state) => state.allowedCommands);
+  const shellProgram = useSettingsStore((state) => state.shellProgram);
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
   const workspaceMemoryEnabled = useSettingsStore((state) => state.workspaceMemoryEnabled);
   const buildAgentEnabled = useSettingsStore((state) => state.buildAgentEnabled);
@@ -215,6 +216,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setResponseLanguage = useSettingsStore((state) => state.setResponseLanguage);
   const setBlockedCommands = useSettingsStore((state) => state.setBlockedCommands);
   const setAllowedCommands = useSettingsStore((state) => state.setAllowedCommands);
+  const setShellProgram = useSettingsStore((state) => state.setShellProgram);
   const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
   const setWorkspaceMemoryEnabled = useSettingsStore((state) => state.setWorkspaceMemoryEnabled);
   const setBuildAgentEnabled = useSettingsStore((state) => state.setBuildAgentEnabled);
@@ -358,6 +360,21 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
             addLabel={t(`${listKeys(item.id)}.add`)}
             emptyMessage={t(`${listKeys(item.id)}.empty`)}
             removeLabel={t(`${listKeys(item.id)}.remove`)}
+          />
+        ) : null}
+
+        {item.type === "text" ? (
+          <input
+            id={`setting-${item.id}`}
+            className="input input--mono"
+            type="text"
+            value={item.id === "shellProgram" ? shellProgram : ""}
+            onChange={(event) => {
+              if (item.id === "shellProgram") setShellProgram(event.target.value);
+            }}
+            placeholder={t(`settings.${item.id}.placeholder`)}
+            autoComplete="off"
+            spellCheck={false}
           />
         ) : null}
 

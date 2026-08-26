@@ -1,10 +1,11 @@
-export const MCP_TRANSPORTS = ["stdio", "sse", "http"] as const;
+export const MCP_TRANSPORTS = ["stdio", "http"] as const;
 
 export type McpTransport = (typeof MCP_TRANSPORTS)[number];
 
 export type McpToolSummary = {
   name: string;
   description?: string;
+  inputSchema?: Record<string, unknown>;
 };
 
 export type McpServer = {

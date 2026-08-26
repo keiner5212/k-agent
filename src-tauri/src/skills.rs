@@ -470,14 +470,18 @@ fn skill_markdown_body(raw: &str) -> String {
     after_first[end + 4..].trim_start_matches('\n').to_string()
 }
 
-pub(crate) fn find_skill_by_name(app: &AppHandle, query: &str) -> Result<Option<LoadedSkill>, SkillError> {
+pub(crate) fn find_skill_by_name(
+    app: &AppHandle,
+    query: &str,
+) -> Result<Option<LoadedSkill>, SkillError> {
     let needle = query.trim().to_ascii_lowercase();
     if needle.is_empty() {
         return Ok(None);
     }
     for context in collect_skill_contexts(app)? {
         for skill in context.skills {
-            if skill.name.to_ascii_lowercase() != needle && skill.id.to_ascii_lowercase() != needle {
+            if skill.name.to_ascii_lowercase() != needle && skill.id.to_ascii_lowercase() != needle
+            {
                 continue;
             }
             let raw = read_skill_raw(Path::new(&skill.path))?;

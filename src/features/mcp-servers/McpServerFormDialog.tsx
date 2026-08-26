@@ -82,7 +82,7 @@ const McpServerFormBody = ({ draft, onOpenChange }: McpServerFormBodyProps): Rea
   const [error, setError] = useState<string | null>(null);
   const isEditing = Boolean(draft?.id);
   const isStdio = transport === "stdio";
-  const probesTools = transport === "stdio" || transport === "http";
+  const probesTools = true;
   const hasEnvSecrets = Boolean(draft?.hasEnvSecrets);
   const hasHeaderSecrets = Boolean(draft?.hasHeaderSecrets);
   const hasSecrets = hasEnvSecrets || hasHeaderSecrets;

@@ -108,6 +108,11 @@
       "empty": "No allowed commands yet.",
       "remove": "Remove command"
     },
+    "shellProgram": {
+      "label": "Shell program",
+      "description": "Executable used for composer shell commands. Leave empty to use the system default (/bin/sh on Unix, cmd.exe on Windows).",
+      "placeholder": "System default"
+    },
     "notificationsEnabled": {
       "label": "Show desktop notifications",
       "description": "Show OS notifications for chat events when the window is not focused."
@@ -416,7 +421,6 @@
     "empty": "No MCP servers configured yet.",
     "transports": {
       "stdio": "Stdio",
-      "sse": "SSE",
       "http": "HTTP"
     },
     "table": {
@@ -620,6 +624,22 @@
       "skill": {
         "label": "Load skills",
         "description": "Load skill instructions into the conversation by name."
+      },
+      "read": {
+        "label": "Read files",
+        "description": "Read files or list directories in the workspace."
+      },
+      "write": {
+        "label": "Write files",
+        "description": "Create or overwrite a file with new content."
+      },
+      "edit": {
+        "label": "Edit files",
+        "description": "Apply exact string replacements inside an existing file."
+      },
+      "list_directory": {
+        "label": "List directories",
+        "description": "List the contents of a workspace directory, optionally recursive."
       }
     },
     "delete": {

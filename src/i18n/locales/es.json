@@ -108,6 +108,11 @@
       "empty": "Aún no hay comandos permitidos.",
       "remove": "Quitar comando"
     },
+    "shellProgram": {
+      "label": "Programa de shell",
+      "description": "Ejecutable para los comandos del compositor. Vacio usa el predeterminado del sistema (/bin/sh en Unix, cmd.exe en Windows).",
+      "placeholder": "Predeterminado del sistema"
+    },
     "notificationsEnabled": {
       "label": "Mostrar notificaciones de escritorio",
       "description": "Muestra notificaciones del sistema para eventos del chat cuando la ventana no está enfocada."
@@ -416,7 +421,6 @@
     "empty": "Aún no hay servidores MCP configurados.",
     "transports": {
       "stdio": "Stdio",
-      "sse": "SSE",
       "http": "HTTP"
     },
     "table": {
@@ -620,6 +624,22 @@
       "skill": {
         "label": "Cargar habilidades",
         "description": "Cargar instrucciones de una habilidad en la conversacion por nombre."
+      },
+      "read": {
+        "label": "Leer archivos",
+        "description": "Leer archivos o listar directorios del workspace."
+      },
+      "write": {
+        "label": "Escribir archivos",
+        "description": "Crear o sobrescribir un archivo con contenido nuevo."
+      },
+      "edit": {
+        "label": "Editar archivos",
+        "description": "Aplicar reemplazos exactos de texto dentro de un archivo existente."
+      },
+      "list_directory": {
+        "label": "Listar directorios",
+        "description": "Listar el contenido de un directorio del workspace, con recursion opcional."
       }
     },
     "delete": {

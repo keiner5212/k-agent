@@ -1,5 +1,13 @@
 export type SettingItemType =
-  "select" | "toggle" | "keybinding" | "action" | "list" | "modelChoice" | "imagePicker" | "slider";
+  | "select"
+  | "toggle"
+  | "keybinding"
+  | "action"
+  | "list"
+  | "modelChoice"
+  | "imagePicker"
+  | "slider"
+  | "text";
 
 export type SettingOption = {
   value: string;

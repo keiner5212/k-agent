@@ -18,6 +18,8 @@ import {
   DEFAULT_REMINDER_INTERVAL,
   DEFAULT_RESPONSE_LANGUAGE,
   DEFAULT_SETTINGS,
+  DEFAULT_SHELL_PROGRAM,
+  SHELL_PROGRAM_MAX_LENGTH,
   DEFAULT_TEXT_SCALE,
   DEFAULT_TITLE_USE_FIRST_MESSAGE,
   DEFAULT_TRANSLUCENCY_ENABLED,
@@ -156,6 +158,16 @@ const sanitizeCommandList = (value: unknown): string[] => {
   return out;
 };
 
+const sanitizeShellProgram = (value: unknown): string => {
+  if (typeof value !== "string") return DEFAULT_SHELL_PROGRAM;
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.includes("\0")) return DEFAULT_SHELL_PROGRAM;
+  if (trimmed.length > SHELL_PROGRAM_MAX_LENGTH) {
+    return trimmed.slice(0, SHELL_PROGRAM_MAX_LENGTH);
+  }
+  return trimmed;
+};
+
 const sanitizeModelChoice = (value: unknown): SelectedModel | null => {
   if (value === null || value === undefined) return null;
   if (typeof value === "object") {
@@ -205,6 +217,7 @@ const sanitizeSettings = (raw: unknown): Settings => {
     responseLanguage: sanitizeLanguage(obj.responseLanguage ?? DEFAULT_RESPONSE_LANGUAGE),
     blockedCommands: sanitizeCommandList(obj.blockedCommands),
     allowedCommands: sanitizeCommandList(obj.allowedCommands),
+    shellProgram: sanitizeShellProgram(obj.shellProgram),
     notificationsEnabled: sanitizeBoolean(obj.notificationsEnabled, DEFAULT_NOTIFICATIONS_ENABLED),
     workspaceMemoryEnabled: sanitizeBoolean(
       obj.workspaceMemoryEnabled,
@@ -249,6 +262,7 @@ export type SettingsStore = Settings & {
   setResponseLanguage: (language: AppLanguage) => void;
   setBlockedCommands: (commands: string[]) => void;
   setAllowedCommands: (commands: string[]) => void;
+  setShellProgram: (program: string) => void;
   setNotificationsEnabled: (enabled: boolean) => void;
   setWorkspaceMemoryEnabled: (enabled: boolean) => void;
   setTitleGenerationModel: (model: SelectedModel | null) => void;
@@ -367,6 +381,7 @@ const snapshot = (state: SettingsStore): Settings => ({
   responseLanguage: state.responseLanguage,
   blockedCommands: state.blockedCommands,
   allowedCommands: state.allowedCommands,
+  shellProgram: state.shellProgram,
   notificationsEnabled: state.notificationsEnabled,
   workspaceMemoryEnabled: state.workspaceMemoryEnabled,
   titleGenerationModel: state.titleGenerationModel,
@@ -525,6 +540,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setAllowedCommands: (commands) => {
     set({ allowedCommands: sanitizeCommandList(commands) });
+    void persist(snapshot(get()));
+  },
+
+  setShellProgram: (program) => {
+    set({ shellProgram: sanitizeShellProgram(program) });
     void persist(snapshot(get()));
   },
 

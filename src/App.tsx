@@ -18,6 +18,7 @@ import { closeTopDialog } from "@/lib/dialog-stack";
 import { useGlobalKeybindings } from "@/lib/use-global-keybindings";
 import { useSettingsStore } from "@/lib/settings";
 import { useComposerStore } from "@/lib/composer";
+import { useMcpServersStore } from "@/lib/mcp-servers";
 import { useSessionsStore } from "@/lib/sessions";
 import { useSelectionStore } from "@/lib/selected-model";
 import { isTauri } from "@/lib/platform";
@@ -61,6 +62,7 @@ export const App = (): ReactNode => {
   const hydrateSelection = useSelectionStore((state) => state.hydrate);
   const hydrateSessions = useSessionsStore((state) => state.hydrate);
   const hydrateAgent = useComposerStore((state) => state.hydrateAgent);
+  const hydrateMcp = useMcpServersStore((state) => state.load);
   const clearComposer = useComposerStore((state) => state.clear);
 
   useEffect(() => {
@@ -74,6 +76,10 @@ export const App = (): ReactNode => {
   useEffect(() => {
     void hydrateAgent();
   }, [hydrateAgent]);
+
+  useEffect(() => {
+    void hydrateMcp();
+  }, [hydrateMcp]);
 
   useEffect(() => {
     void hydrateSessions();

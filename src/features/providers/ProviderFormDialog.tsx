@@ -90,8 +90,10 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
     setSubmitting(false);
     if (result.error) {
       setError(
-        result.errorPayload ? formatProviderError(t, result.errorPayload) 
-        : t("providers.form.errors.fetchFailed", { message: result.error }));
+        result.errorPayload
+          ? formatProviderError(t, result.errorPayload)
+          : t("providers.form.errors.fetchFailed", { message: result.error }),
+      );
       return;
     }
     if (!result.provider) {

@@ -10,11 +10,7 @@ import { useAgentsStore } from "@/lib/agents";
 import { useSkillsStore } from "@/lib/skills";
 import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { formatContextWindow } from "@/types/providers";
-import type {
-  AgentContext as AgentContextType,
-  AgentMeta,
-  AgentSkillRef,
-} from "@/types/agents";
+import type { AgentContext as AgentContextType, AgentMeta, AgentSkillRef } from "@/types/agents";
 import { AgentFormDialog } from "./AgentFormDialog";
 import { AgentPersonalityDialog } from "./AgentPersonalityDialog";
 import { DeleteAgentDialog } from "./DeleteAgentDialog";

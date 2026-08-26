@@ -85,7 +85,7 @@ const buildTurnProtocol = (hasAgentSkills: boolean): string => {
       ? "Turn 1: batch-load every agent-bound skill with the `skill` tool. No prose."
       : "Turn 1: skip agent skill loading when the agent has no bound skills.",
     "Then load matching workspace skills with `skill` when they are listed and relevant.",
-    "Call only tools listed under Local tools. Do not invent tool names.",
+    "Call only tools in the request tools list (local and MCP). Do not invent names.",
     "Finally answer using the agent personality at the end of this system prompt.",
   ];
   return ["# 1. Agent flow", "", ...steps].join("\n");

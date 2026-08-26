@@ -27,6 +27,8 @@ export type ChatToolCall = {
   id?: string;
   name: string;
   argument?: string;
+  arguments?: string;
+  thoughtSignature?: string;
   output?: string;
 };
 
@@ -76,6 +78,8 @@ export type PersistedToolCall = {
   id: string;
   name: string;
   argument?: string;
+  arguments?: string;
+  thoughtSignature?: string;
   output: string;
 };
 

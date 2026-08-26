@@ -4,7 +4,7 @@ use super::{Tool, ToolContext, ToolOutcome, ToolSpec};
 
 pub const NAME: &str = "skill";
 
-const DESCRIPTION: &str = "Load listed skill instructions by name.";
+const DESCRIPTION: &str = "Load a skill by name. Returns SKILL.md body and dir.";
 
 pub struct SkillTool;
 

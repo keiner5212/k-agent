@@ -32,6 +32,8 @@ pub struct RunShellInput {
     pub timeout_ms: Option<u64>,
     #[serde(default)]
     pub max_output_bytes: Option<usize>,
+    #[serde(default)]
+    pub shell: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -104,15 +106,9 @@ fn resolve_cwd(cwd: Option<&str>, workspace_root: &Path) -> Result<PathBuf, Shel
     match cwd.map(str::trim).filter(|v| !v.is_empty()) {
         None => Ok(workspace_root.to_path_buf()),
         Some(raw) => {
-            let candidate = {
-                let path = Path::new(raw);
-                if path.is_absolute() {
-                    path.to_path_buf()
-                } else {
-                    workspace_root.join(path)
-                }
-            };
-            let resolved = dunce::canonicalize(&candidate)
+            let candidate = crate::pathutil::resolve_tool_path(raw, Some(workspace_root))
+                .map_err(ShellError::CwdMissing)?;
+            let resolved = crate::pathutil::canonicalize_path(&candidate)
                 .map_err(|e| ShellError::CwdMissing(format!("{raw}: {e}")))?;
             if !resolved.starts_with(workspace_root) {
                 return Err(ShellError::CwdEscape);
@@ -122,24 +118,64 @@ fn resolve_cwd(cwd: Option<&str>, workspace_root: &Path) -> Result<PathBuf, Shel
     }
 }
 
-#[cfg(unix)]
-fn shell_program() -> &'static str {
-    "/bin/sh"
+struct ShellSpec {
+    program: String,
+    prefix_args: Vec<String>,
 }
 
-#[cfg(unix)]
-fn shell_arg() -> &'static str {
-    "-c"
+fn default_shell() -> ShellSpec {
+    #[cfg(windows)]
+    {
+        ShellSpec {
+            program: "cmd.exe".into(),
+            prefix_args: vec!["/C".into()],
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        ShellSpec {
+            program: "/bin/sh".into(),
+            prefix_args: vec!["-c".into()],
+        }
+    }
 }
 
-#[cfg(windows)]
-fn shell_program() -> &'static str {
-    "cmd.exe"
+fn shell_file_stem(program: &str) -> String {
+    Path::new(program)
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or(program)
+        .to_ascii_lowercase()
 }
 
-#[cfg(windows)]
-fn shell_arg() -> &'static str {
-    "/C"
+fn shell_from_program(program: &str) -> ShellSpec {
+    let stem = shell_file_stem(program);
+    let prefix_args = if stem == "cmd" {
+        vec!["/C".into()]
+    } else if stem == "powershell" || stem == "pwsh" {
+        vec![
+            "-NoLogo".into(),
+            "-NoProfile".into(),
+            "-NonInteractive".into(),
+            "-Command".into(),
+        ]
+    } else {
+        vec!["-c".into()]
+    };
+    ShellSpec {
+        program: program.to_string(),
+        prefix_args,
+    }
+}
+
+fn resolve_shell(override_program: Option<&str>) -> ShellSpec {
+    match override_program
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(program) => shell_from_program(program),
+        None => default_shell(),
+    }
 }
 
 fn take_utf8(pending: &mut Vec<u8>, incoming: &[u8]) -> String {
@@ -359,13 +395,14 @@ pub async fn run_shell_command(
         .cloned_path()
         .ok_or(ShellError::MissingWorkspace)
         .and_then(|path| {
-            dunce::canonicalize(&path)
+            crate::pathutil::canonicalize_path(&path)
                 .map_err(|e| ShellError::CwdMissing(format!("workspace_root: {e}")))
         })?;
 
     let cwd = resolve_cwd(input.cwd.as_deref(), &workspace_root)?;
     let timeout_ms = clamp_timeout(input.timeout_ms);
     let cap = clamp_output_cap(input.max_output_bytes);
+    let shell = resolve_shell(input.shell.as_deref());
 
     let (_cancel_guard, cancel_rx) = match input.session_id.clone() {
         Some(id) => {
@@ -381,8 +418,8 @@ pub async fn run_shell_command(
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
 
-    let mut cmd = Command::new(shell_program());
-    cmd.arg(shell_arg())
+    let mut cmd = Command::new(&shell.program);
+    cmd.args(&shell.prefix_args)
         .arg(command)
         .current_dir(&cwd)
         .stdin(Stdio::null())

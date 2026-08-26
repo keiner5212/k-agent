@@ -48,6 +48,8 @@ export const COMMAND_LIST_MAX_LENGTH = 200;
 
 export const DEFAULT_BLOCKED_COMMANDS: string[] = [];
 export const DEFAULT_ALLOWED_COMMANDS: string[] = [];
+export const DEFAULT_SHELL_PROGRAM = "";
+export const SHELL_PROGRAM_MAX_LENGTH = 512;
 
 export const DEFAULT_NOTIFICATIONS_ENABLED = true;
 export const DEFAULT_WORKSPACE_MEMORY_ENABLED = false;
@@ -130,6 +132,7 @@ export type Settings = {
   responseLanguage: AppLanguage;
   blockedCommands: string[];
   allowedCommands: string[];
+  shellProgram: string;
   notificationsEnabled: boolean;
   workspaceMemoryEnabled: boolean;
   titleGenerationModel: SelectedModel | null;
@@ -160,6 +163,7 @@ export const DEFAULT_SETTINGS: Settings = {
   responseLanguage: DEFAULT_RESPONSE_LANGUAGE,
   blockedCommands: DEFAULT_BLOCKED_COMMANDS,
   allowedCommands: DEFAULT_ALLOWED_COMMANDS,
+  shellProgram: DEFAULT_SHELL_PROGRAM,
   notificationsEnabled: DEFAULT_NOTIFICATIONS_ENABLED,
   workspaceMemoryEnabled: DEFAULT_WORKSPACE_MEMORY_ENABLED,
   titleGenerationModel: DEFAULT_TITLE_GENERATION_MODEL,

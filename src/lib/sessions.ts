@@ -60,6 +60,8 @@ const toolCallsFromRounds = (rounds: ToolRoundTrace[] | undefined): ChatToolCall
         id: call.id,
         name: call.name,
         argument: call.argument,
+        arguments: call.arguments,
+        thoughtSignature: call.thoughtSignature,
         output: call.output,
       });
     }
@@ -84,6 +86,8 @@ const toChatTurns = (messages: ChatMessage[]): ChatTurn[] => {
             id: call.id ?? "",
             name: call.name,
             argument: call.argument,
+            arguments: call.arguments,
+            thoughtSignature: call.thoughtSignature,
           })),
         });
         for (const call of withOutput) {
@@ -954,7 +958,14 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     };
 
     try {
-      const result = await runShellCommand({ command: resolvedCommand, sessionId }, onChunk);
+      const result = await runShellCommand(
+        {
+          command: resolvedCommand,
+          sessionId,
+          shell: useSettingsStore.getState().shellProgram || undefined,
+        },
+        onChunk,
+      );
       cancelStreamFrame();
       const output = buildShellResultContent(result);
       const aiOutput = summarizeShellResultForAi(result);

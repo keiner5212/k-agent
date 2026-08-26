@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tauri::{AppHandle, Manager};
 use thiserror::Error;
 use uuid::Uuid;
@@ -15,7 +16,7 @@ const MCP_SECRETS_FILE: &str = "mcp-secrets.json";
 #[serde(rename_all = "camelCase")]
 pub enum McpTransport {
     Stdio,
-    Sse,
+    #[serde(alias = "sse")]
     Http,
 }
 
@@ -34,6 +35,8 @@ pub struct McpToolSummary {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_schema: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,8 +130,8 @@ pub enum McpServerError {
     UrlRequired,
     #[error("tool probe failed: {0}")]
     ProbeFailed(String),
-    #[error("tool probe is not supported for SSE transport")]
-    ProbeUnsupported,
+    #[error("mcp tool call failed: {0}")]
+    CallFailed(String),
     #[error("{0}")]
     Crypto(String),
 }
@@ -226,7 +229,7 @@ fn redact(mut server: McpServer) -> McpServer {
     server
 }
 
-async fn load_all(app: &AppHandle) -> Result<Vec<McpServer>, McpServerError> {
+pub(crate) async fn load_all(app: &AppHandle) -> Result<Vec<McpServer>, McpServerError> {
     let path = servers_path(app)?;
     let mut servers = load_servers(&path).await?;
     let dir = secrets_dir(app)?;
@@ -311,7 +314,7 @@ fn validate_input(input: &SaveMcpServerInput) -> Result<(), McpServerError> {
                 return Err(McpServerError::CommandRequired);
             }
         }
-        McpTransport::Sse | McpTransport::Http => {
+        McpTransport::Http => {
             if trim_opt(input.url.clone()).is_none() {
                 return Err(McpServerError::UrlRequired);
             }

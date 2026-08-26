@@ -17,9 +17,18 @@ const MCP_PROTOCOL_VERSION: &str = "2024-11-05";
 const MCP_SESSION_HEADER: &str = "mcp-session-id";
 
 #[derive(Debug, Deserialize)]
+struct ListedTool {
+    name: String,
+    #[serde(default)]
+    description: Option<String>,
+    #[serde(default, rename = "inputSchema")]
+    input_schema: Option<Value>,
+}
+
+#[derive(Debug, Deserialize)]
 struct ToolsListPage {
     #[serde(default)]
-    tools: Vec<McpToolSummary>,
+    tools: Vec<ListedTool>,
     #[serde(default, rename = "nextCursor")]
     next_cursor: Option<String>,
 }
@@ -28,7 +37,6 @@ pub async fn probe_tools(server: &McpServer) -> Result<Vec<McpToolSummary>, McpS
     match server.transport {
         McpTransport::Stdio => probe_stdio(server).await,
         McpTransport::Http => probe_http(server).await,
-        McpTransport::Sse => Err(McpServerError::ProbeUnsupported),
     }
 }
 
@@ -182,8 +190,12 @@ async fn probe_http(server: &McpServer) -> Result<Vec<McpToolSummary>, McpServer
 }
 
 fn http_client() -> Result<Client, McpServerError> {
+    http_client_timeout(MCP_PROBE_TIMEOUT)
+}
+
+fn http_client_timeout(limit: Duration) -> Result<Client, McpServerError> {
     Client::builder()
-        .timeout(MCP_PROBE_TIMEOUT)
+        .timeout(limit)
         .user_agent(concat!("k-agent/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|error| McpServerError::ProbeFailed(error.to_string()))
@@ -429,7 +441,7 @@ fn parse_tools_page(result: Value) -> Result<ToolsListPage, McpServerError> {
     serde_json::from_value(result).map_err(|error| McpServerError::Parse(error.to_string()))
 }
 
-fn normalize_tools(tools: Vec<McpToolSummary>) -> Vec<McpToolSummary> {
+fn normalize_tools(tools: Vec<ListedTool>) -> Vec<McpToolSummary> {
     let mut seen = HashMap::new();
     let mut out = Vec::new();
     for tool in tools {
@@ -444,8 +456,289 @@ fn normalize_tools(tools: Vec<McpToolSummary>) -> Vec<McpToolSummary> {
                 .description
                 .map(|value| value.trim().to_string())
                 .filter(|value| !value.is_empty()),
+            input_schema: tool.input_schema.filter(|value| value.is_object()),
         });
     }
     out.sort_by(|left, right| left.name.cmp(&right.name));
     out
+}
+
+const MCP_DESC_MAX: usize = 200;
+const MCP_CALL_TIMEOUT: Duration = Duration::from_secs(60);
+
+#[derive(Clone)]
+pub struct BoundMcpTool {
+    pub wire_name: String,
+    pub server: McpServer,
+    pub tool_name: String,
+    pub description: String,
+    pub parameters: Value,
+}
+
+fn sanitize_ident(raw: &str) -> String {
+    let mut out = String::new();
+    for ch in raw.chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch.to_ascii_lowercase());
+        } else if !out.is_empty() && !out.ends_with('_') {
+            out.push('_');
+        }
+    }
+    let trimmed = out.trim_matches('_');
+    if trimmed.is_empty() {
+        "x".into()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn clip_desc(text: &str) -> String {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    if trimmed.chars().count() <= MCP_DESC_MAX {
+        return trimmed.to_string();
+    }
+    let clipped: String = trimmed
+        .chars()
+        .take(MCP_DESC_MAX.saturating_sub(3))
+        .collect();
+    format!("{clipped}...")
+}
+
+fn parameters_from_schema(schema: Option<&Value>) -> Value {
+    match schema {
+        Some(value) if value.is_object() => value.clone(),
+        _ => json!({ "type": "object", "properties": {} }),
+    }
+}
+
+pub async fn bound_tools_for_chat(app: &tauri::AppHandle) -> Vec<BoundMcpTool> {
+    let servers = match crate::mcp_servers::load_all(app).await {
+        Ok(value) => value,
+        Err(_) => return Vec::new(),
+    };
+    let mut used = HashMap::new();
+    let mut out = Vec::new();
+    for server in servers {
+        if !server.enabled {
+            continue;
+        }
+        let slug = sanitize_ident(&server.name);
+        for tool in &server.tools {
+            let tool_slug = sanitize_ident(&tool.name);
+            let mut wire = format!("mcp_{slug}_{tool_slug}");
+            let mut n = 2u32;
+            while used.contains_key(&wire) {
+                wire = format!("mcp_{slug}_{tool_slug}_{n}");
+                n += 1;
+            }
+            used.insert(wire.clone(), ());
+            let description = tool
+                .description
+                .as_deref()
+                .map(clip_desc)
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| format!("MCP tool {} from {}", tool.name, server.name));
+            out.push(BoundMcpTool {
+                wire_name: wire,
+                server: server.clone(),
+                tool_name: tool.name.clone(),
+                description,
+                parameters: parameters_from_schema(tool.input_schema.as_ref()),
+            });
+        }
+    }
+    out
+}
+
+pub async fn call_tool(
+    server: &McpServer,
+    name: &str,
+    arguments: Value,
+) -> Result<String, McpServerError> {
+    match server.transport {
+        McpTransport::Stdio => call_stdio(server, name, arguments).await,
+        McpTransport::Http => call_http(server, name, arguments).await,
+    }
+}
+
+async fn call_stdio(
+    server: &McpServer,
+    name: &str,
+    arguments: Value,
+) -> Result<String, McpServerError> {
+    let command = server
+        .command
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(McpServerError::CommandRequired)?;
+
+    let mut child = Command::new(command);
+    child
+        .args(&server.args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    if let Some(cwd) = server
+        .cwd
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        child.current_dir(cwd);
+    }
+    for (key, value) in server.probe_env() {
+        child.env(key, value);
+    }
+
+    let mut child = child
+        .spawn()
+        .map_err(|error| McpServerError::CallFailed(error.to_string()))?;
+    let stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| McpServerError::CallFailed("stdin unavailable".into()))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| McpServerError::CallFailed("stdout unavailable".into()))?;
+
+    let invoke = async {
+        let mut stdin = stdin;
+        let mut reader = BufReader::new(stdout);
+        rpc_request_stdio(
+            &mut reader,
+            &mut stdin,
+            1,
+            "initialize",
+            json!({
+                "protocolVersion": MCP_PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "k-agent",
+                    "version": env!("CARGO_PKG_VERSION"),
+                }
+            }),
+        )
+        .await?;
+        write_message_stdio(
+            &mut stdin,
+            &json!({
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized",
+                "params": {}
+            }),
+        )
+        .await?;
+        let result = rpc_request_stdio(
+            &mut reader,
+            &mut stdin,
+            2,
+            "tools/call",
+            json!({
+                "name": name,
+                "arguments": arguments,
+            }),
+        )
+        .await?;
+        Ok(tool_result_text(result))
+    };
+
+    let result = timeout(MCP_CALL_TIMEOUT, invoke).await;
+    let _ = child.kill().await;
+    match result {
+        Ok(Ok(text)) => Ok(text),
+        Ok(Err(error)) => Err(error),
+        Err(_) => Err(McpServerError::CallFailed("timed out".into())),
+    }
+}
+
+async fn call_http(
+    server: &McpServer,
+    name: &str,
+    arguments: Value,
+) -> Result<String, McpServerError> {
+    let url = server
+        .url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(McpServerError::UrlRequired)?;
+    let client = http_client_timeout(MCP_CALL_TIMEOUT)?;
+    let mut session_id: Option<String> = None;
+
+    http_rpc(
+        &client,
+        url,
+        server,
+        &mut session_id,
+        1,
+        "initialize",
+        json!({
+            "protocolVersion": MCP_PROTOCOL_VERSION,
+            "capabilities": {},
+            "clientInfo": {
+                "name": "k-agent",
+                "version": env!("CARGO_PKG_VERSION"),
+            }
+        }),
+    )
+    .await?;
+    http_notification(
+        &client,
+        url,
+        server,
+        &mut session_id,
+        "notifications/initialized",
+    )
+    .await?;
+    let result = http_rpc(
+        &client,
+        url,
+        server,
+        &mut session_id,
+        2,
+        "tools/call",
+        json!({
+            "name": name,
+            "arguments": arguments,
+        }),
+    )
+    .await?;
+    Ok(tool_result_text(result))
+}
+
+fn tool_result_text(result: Value) -> String {
+    let is_error = result
+        .get("isError")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let body = if let Some(items) = result.get("content").and_then(Value::as_array) {
+        let texts: Vec<&str> = items
+            .iter()
+            .filter_map(|item| item.get("text").and_then(Value::as_str))
+            .filter(|text| !text.is_empty())
+            .collect();
+        if texts.is_empty() {
+            result.to_string()
+        } else {
+            texts.join("\n")
+        }
+    } else if result.is_null() {
+        String::new()
+    } else {
+        result.to_string()
+    };
+    if is_error {
+        if body.is_empty() {
+            "MCP tool returned an error.".into()
+        } else {
+            format!("MCP tool error: {body}")
+        }
+    } else {
+        body
+    }
 }

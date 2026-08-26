@@ -10,6 +10,7 @@ import { useComposerStore } from "@/lib/composer";
 import {
   buildContextUsage,
   estimateLoadedSkillTokens,
+  estimateMcpToolTokens,
   estimateToolDefinitionTokens,
   formatUsageCost,
   formatUsageTokens,
@@ -23,6 +24,7 @@ import { selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import { useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
 import { useSkillsStore } from "@/lib/skills";
+import { useMcpServersStore } from "@/lib/mcp-servers";
 import { formatContextWindow } from "@/types/providers";
 
 const RING_SIZE = 14;
@@ -40,11 +42,14 @@ export const ContextUsage = (): ReactNode => {
   const selectedAgent = useComposerStore((state) => state.selectedAgent);
   const agentContexts = useAgentsStore((state) => state.contexts);
   const skillContexts = useSkillsStore((state) => state.contexts);
+  const mcpServers = useMcpServersStore((state) => state.servers);
   const agentsMdFiles = useAgentsMdStore((state) => state.files);
   const forceResponseLanguage = useSettingsStore((state) => state.forceResponseLanguage);
   const responseLanguage = useSettingsStore((state) => state.responseLanguage);
   const model = useMemo(() => resolveSelectedModel(providers, selection), [providers, selection]);
+  const started = messages.length > 0;
   const extras = useMemo(() => {
+    if (!started) return {};
     const agent = resolveAgentMeta(selectedAgent, agentContexts, t);
     const loadedSkills = loadedSkillNamesFromMessages(messages);
     const agentSystem = composeAgentSystem(agent, skillContexts, loadedSkills);
@@ -60,26 +65,29 @@ export const ContextUsage = (): ReactNode => {
       rules: estimateTokensFromText(rules),
       toolDefinitions: estimateToolDefinitionTokens(agent?.tools ?? []),
       skills: estimateLoadedSkillTokens(messages),
+      mcpTools: estimateMcpToolTokens(mcpServers),
     };
   }, [
     agentContexts,
     agentsMdFiles,
     forceResponseLanguage,
+    mcpServers,
     messages,
     responseLanguage,
     selectedAgent,
     skillContexts,
+    started,
     t,
   ]);
   const usage = useMemo(
     () =>
       buildContextUsage({
         windowTokens: model?.contextWindow,
-        extras,
+        extras: started ? extras : {},
         cost: model?.cost,
-        messages,
+        messages: started ? messages : [],
       }),
-    [extras, messages, model],
+    [extras, messages, model, started],
   );
   const visibleBuckets = usage.buckets.filter((item) => item.tokens > 0);
   const listBuckets =

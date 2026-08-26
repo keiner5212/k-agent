@@ -16,6 +16,8 @@ pub struct SessionToolCall {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub argument: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arguments: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
 }
 

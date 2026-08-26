@@ -224,6 +224,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         ],
       },
       {
+        id: "shellProgram",
+        type: "text",
+        titleKey: "settings.shellProgram.label",
+        descriptionKey: "settings.shellProgram.description",
+        keywords: ["shell", "bash", "zsh", "pwsh", "cmd", "terminal", "program"],
+      },
+      {
         id: "notificationsEnabled",
         type: "toggle",
         titleKey: "settings.notificationsEnabled.label",
@@ -368,7 +375,7 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
     id: "mcpServers",
     titleKey: "settings.sections.mcpServers",
     descriptionKey: "mcpServers.description",
-    keywords: ["mcp", "model context protocol", "tools", "server", "stdio", "sse"],
+    keywords: ["mcp", "model context protocol", "tools", "server", "stdio", "http"],
     items: [],
   },
   {
