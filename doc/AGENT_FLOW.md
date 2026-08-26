@@ -10,10 +10,12 @@ When a chat message is sent, the backend receives one system string assembled on
 2. **Global rules** from `~/.k-agent/AGENTS.md` when that file exists.
 3. **Workspace rules** from `{workspace}/AGENTS.md` when that file exists.
 4. **Agent system** from `composeAgentSystem()`:
-   - **Flow** - turn-1 skill batch when the agent has bound skills; workspace skill load-on-demand; use advertised tools; then personality.
-   - **Agent skills** - names and descriptions only (global skills bound to the agent).
-   - **Workspace skills** - names and descriptions for workspace-local skills.
-   - **Personality** - agent persona markdown body only.
+   - **1. Agent flow** - numbered turn protocol.
+   - **2. Agent skill loading** - turn-1 batch `skill` calls when the agent has bound global skills not already in context.
+   - **3. Agent skills** - names and descriptions only (global skills bound to the agent).
+   - **4. Local tools** - tools enabled on that agent (today: `skill`).
+   - **5. Workspace skills** - names and descriptions for workspace-local skills.
+   - **6. Personality** - agent persona markdown body only.
 5. **App context** (optional). Extra app-level notes when configured.
 
 Tool JSON schemas are sent on the request `tools` field, not repeated in the system prompt.
@@ -31,7 +33,7 @@ The model is instructed to follow this sequence:
 | Tools  | Call only advertised tools. Do not invent tool names.                                |
 | Answer | Reply using agent personality.                                                       |
 
-Turn 1 is omitted from the prompt when the agent has no bound skills (e.g. builtin build/plan).
+Turn 1 batch list omits skills already loaded in the session. Section 2 is omitted when every bound skill is already in context.
 
 ## Agent skills vs workspace skills
 
