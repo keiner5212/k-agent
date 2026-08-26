@@ -753,8 +753,15 @@
     },
     "shell": {
       "running": "Ejecutando comando shell...",
-      "failed": "Shell fallo: {{error}}",
-      "needsWorkspace": "El shell necesita una carpeta de workspace."
+      "failed": "Shell falló: {{error}}",
+      "needsWorkspace": "El shell necesita una carpeta de workspace.",
+      "expand": "Abrir salida en consola",
+      "console": {
+        "title": "Salida del shell",
+        "copy": "Copiar salida",
+        "copied": "Copiado",
+        "empty": "Sin salida todavía."
+      }
     },
     "fileMentions": {
       "label": "Archivos del workspace",

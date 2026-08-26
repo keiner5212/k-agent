@@ -448,7 +448,10 @@ pub(crate) fn http_client() -> Result<reqwest::Client, ProviderError> {
         .map_err(|e| ProviderError::Http(e.to_string()))
 }
 
-pub(crate) fn attach_auth(req: reqwest::RequestBuilder, provider: &Provider) -> reqwest::RequestBuilder {
+pub(crate) fn attach_auth(
+    req: reqwest::RequestBuilder,
+    provider: &Provider,
+) -> reqwest::RequestBuilder {
     match provider.kind {
         ProviderKind::OpenAiLike => {
             if let Some(key) = provider.api_key.as_deref() {

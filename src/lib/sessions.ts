@@ -15,6 +15,7 @@ import {
   formatShellMessage,
   runShellCommand,
   summarizeShellResultForAi,
+  type ShellChunk,
 } from "@/lib/shell";
 import type { ChatChunk, ChatMessage, ChatTurn, SelectedModel, SendChatResult } from "@/types/chat";
 import {
@@ -568,6 +569,47 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       });
     }
 
+    const streamBuffer: { stdout: string; stderr: string } = { stdout: "", stderr: "" };
+
+    const displayStream = (): string => {
+      const parts: string[] = [];
+      if (streamBuffer.stdout.length > 0) parts.push(streamBuffer.stdout.replace(/\n$/, ""));
+      if (streamBuffer.stderr.length > 0) {
+        parts.push(`stderr:\n${streamBuffer.stderr.replace(/\n$/, "")}`);
+      }
+      if (parts.length === 0) return i18n.t("chat.shell.running");
+      return parts.join("\n\n");
+    };
+
+    const applyShellStream = (): void => {
+      const content = formatShellMessage(resolvedCommand, displayStream());
+      const nextSessions = patchActiveSession(get().sessions, sessionId, (session) => {
+        const messages = session.messages.slice();
+        const idx = messages.findIndex((message) => message.id === userMessageId);
+        if (idx < 0) return session;
+        const current = messages[idx];
+        if (!current) return session;
+        messages[idx] = { ...current, content, streaming: true };
+        return { ...session, preview: resolvedCommand, messages };
+      });
+      set({ sessions: nextSessions });
+    };
+
+    let streamFrame = 0;
+    const cancelStreamFrame = (): void => {
+      if (streamFrame === 0) return;
+      cancelAnimationFrame(streamFrame);
+      streamFrame = 0;
+    };
+    const scheduleShellStream = (): void => {
+      if (streamFrame !== 0) return;
+      streamFrame = requestAnimationFrame(() => {
+        streamFrame = 0;
+        if (get().shellRunningSessionId !== sessionId) return;
+        applyShellStream();
+      });
+    };
+
     const applyShellMessage = (content: string, shellAiSummary?: string, error?: string): void => {
       const nextSessions = sortSessions(
         patchActiveSession(get().sessions, sessionId, (session) => {
@@ -580,6 +622,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
               ...current,
               content,
               shellAiSummary,
+              streaming: false,
             };
           }
           return {
@@ -600,8 +643,17 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       void persistSnapshot(snapshotFromState(nextSessions, active));
     };
 
+    const onChunk = new Channel<ShellChunk>();
+    onChunk.onmessage = (chunk) => {
+      if (get().shellRunningSessionId !== sessionId) return;
+      if (chunk.kind === "stdout") streamBuffer.stdout += chunk.text;
+      else if (chunk.kind === "stderr") streamBuffer.stderr += chunk.text;
+      scheduleShellStream();
+    };
+
     try {
-      const result = await runShellCommand({ command: resolvedCommand });
+      const result = await runShellCommand({ command: resolvedCommand }, onChunk);
+      cancelStreamFrame();
       const output = buildShellResultContent(result);
       const aiOutput = summarizeShellResultForAi(result);
       const content = formatShellMessage(resolvedCommand, output);
@@ -610,6 +662,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         aiOutput !== output ? formatShellMessage(resolvedCommand, aiOutput) : undefined,
       );
     } catch (error) {
+      cancelStreamFrame();
       const errorMessage = ipcErrorMessage(error);
       const failed = i18n.t("chat.shell.failed", { error: errorMessage });
       applyShellMessage(formatShellMessage(resolvedCommand, failed), failed, errorMessage);

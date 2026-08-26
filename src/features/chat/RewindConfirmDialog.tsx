@@ -13,12 +13,10 @@ export const RewindConfirmDialog = (): ReactNode => {
   const rewindTo = useSessionsStore((state) => state.rewindTo);
 
   const removalCount = useMemo(() => {
-    if (!targetMessageId) return 0;
+    if (!open || !targetMessageId) return 0;
     const sessionId = useSessionsStore.getState().activeSessionId;
     if (!sessionId) return 0;
-    const session = useSessionsStore
-      .getState()
-      .sessions.find((item) => item.id === sessionId);
+    const session = useSessionsStore.getState().sessions.find((item) => item.id === sessionId);
     if (!session) return 0;
     const index = session.messages.findIndex((m) => m.id === targetMessageId);
     if (index < 0) return 0;
@@ -45,9 +43,7 @@ export const RewindConfirmDialog = (): ReactNode => {
       size="narrow"
     >
       <div className="delete-skill">
-        <p className="delete-skill__body">
-          {t("chat.rewind.body", { count: removalCount })}
-        </p>
+        <p className="delete-skill__body">{t("chat.rewind.body", { count: removalCount })}</p>
         <div className="form-actions">
           <GlassButton variant="secondary" onClick={cancel}>
             {t("chat.rewind.cancel")}

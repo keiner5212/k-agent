@@ -37,13 +37,13 @@ use tauri::{
     LogicalSize, Manager, Size, State, WindowEvent,
 };
 
+use chat::{generate_session_title, send_chat_message};
 use providers::{
     delete_provider, delete_provider_model, list_providers, refresh_provider_models,
     refresh_single_model, save_provider, set_model_favorite, upsert_provider_model,
 };
-use chat::{generate_session_title, send_chat_message};
-use shell::run_shell_command;
 use sessions::{load_sessions, save_sessions};
+use shell::run_shell_command;
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
 static WINDOW_BOUNDS_RESTORED: AtomicBool = AtomicBool::new(false);

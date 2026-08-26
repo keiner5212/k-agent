@@ -46,7 +46,12 @@ async fn probe_stdio(server: &McpServer) -> Result<Vec<McpToolSummary>, McpServe
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
-    if let Some(cwd) = server.cwd.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+    if let Some(cwd) = server
+        .cwd
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         child.current_dir(cwd);
     }
     for (key, value) in server.probe_env() {
@@ -56,8 +61,14 @@ async fn probe_stdio(server: &McpServer) -> Result<Vec<McpToolSummary>, McpServe
     let mut child = child
         .spawn()
         .map_err(|error| McpServerError::ProbeFailed(error.to_string()))?;
-    let stdin = child.stdin.take().ok_or_else(|| McpServerError::ProbeFailed("stdin unavailable".into()))?;
-    let stdout = child.stdout.take().ok_or_else(|| McpServerError::ProbeFailed("stdout unavailable".into()))?;
+    let stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| McpServerError::ProbeFailed("stdin unavailable".into()))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| McpServerError::ProbeFailed("stdout unavailable".into()))?;
 
     let probe = async {
         let mut stdin = stdin;
@@ -126,7 +137,14 @@ async fn probe_http(server: &McpServer) -> Result<Vec<McpToolSummary>, McpServer
         }),
     )
     .await?;
-    http_notification(&client, url, server, &mut session_id, "notifications/initialized").await?;
+    http_notification(
+        &client,
+        url,
+        server,
+        &mut session_id,
+        "notifications/initialized",
+    )
+    .await?;
 
     let mut tools = Vec::new();
     let mut cursor: Option<String> = None;
@@ -272,7 +290,10 @@ fn parse_http_body(content_type: &str, bytes: &[u8]) -> Result<Value, McpServerE
     if text.is_empty() {
         return Err(McpServerError::ProbeFailed("empty http response".into()));
     }
-    if content_type.contains("text/event-stream") || text.starts_with("event:") || text.contains("\ndata:") {
+    if content_type.contains("text/event-stream")
+        || text.starts_with("event:")
+        || text.contains("\ndata:")
+    {
         return parse_sse_payload(text);
     }
     serde_json::from_str(text).map_err(|error| McpServerError::Parse(error.to_string()))
@@ -344,7 +365,8 @@ async fn write_message_stdio(
     stdin: &mut tokio::process::ChildStdin,
     body: &Value,
 ) -> Result<(), McpServerError> {
-    let encoded = serde_json::to_string(body).map_err(|error| McpServerError::Parse(error.to_string()))?;
+    let encoded =
+        serde_json::to_string(body).map_err(|error| McpServerError::Parse(error.to_string()))?;
     stdin
         .write_all(encoded.as_bytes())
         .await
@@ -388,7 +410,8 @@ async fn read_message_stdio(
         if trimmed.is_empty() {
             continue;
         }
-        return serde_json::from_str(trimmed).map_err(|error| McpServerError::Parse(error.to_string()));
+        return serde_json::from_str(trimmed)
+            .map_err(|error| McpServerError::Parse(error.to_string()));
     }
 }
 

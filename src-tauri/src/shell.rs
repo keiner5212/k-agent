@@ -3,6 +3,7 @@ use std::process::Stdio;
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
+use tauri::ipc::Channel;
 use tauri::State;
 use thiserror::Error;
 use tokio::io::AsyncReadExt;
@@ -18,6 +19,7 @@ const MAX_TIMEOUT_MS: u64 = 10 * 60_000;
 const MAX_OUTPUT_BYTES_CAP: usize = 8 * 1024 * 1024;
 const PIPE_DRAIN_MS: u64 = 1_500;
 const KILL_WAIT_MS: u64 = 400;
+const STREAM_FLUSH_BYTES: usize = 4096;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -44,6 +46,20 @@ pub struct RunShellResult {
     pub stderr_truncated: bool,
     pub duration_ms: u64,
     pub started_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum ShellChunkKind {
+    Stdout,
+    Stderr,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShellChunk {
+    pub kind: ShellChunkKind,
+    pub text: String,
 }
 
 #[derive(Debug, Error)]
@@ -123,12 +139,121 @@ fn shell_arg() -> &'static str {
     "/C"
 }
 
-async fn read_capped<R>(reader: &mut R, cap: usize) -> (String, bool)
+fn take_utf8(pending: &mut Vec<u8>, incoming: &[u8]) -> String {
+    if incoming.is_empty() && pending.is_empty() {
+        return String::new();
+    }
+    pending.extend_from_slice(incoming);
+    let mut out = String::new();
+    loop {
+        match std::str::from_utf8(pending) {
+            Ok(s) => {
+                out.push_str(s);
+                pending.clear();
+                break;
+            }
+            Err(err) => {
+                let valid = err.valid_up_to();
+                if valid > 0 {
+                    let prefix = std::str::from_utf8(&pending[..valid]).unwrap_or("");
+                    out.push_str(prefix);
+                    pending.drain(..valid);
+                }
+                match err.error_len() {
+                    Some(len) => {
+                        let len = len.min(pending.len());
+                        if len == 0 {
+                            break;
+                        }
+                        out.push('\u{FFFD}');
+                        pending.drain(..len);
+                    }
+                    None => break,
+                }
+            }
+        }
+    }
+    out
+}
+
+fn finish_utf8(pending: &mut Vec<u8>) -> String {
+    let mut out = take_utf8(pending, &[]);
+    if !pending.is_empty() {
+        out.push('\u{FFFD}');
+        pending.clear();
+    }
+    out
+}
+
+fn flush_emit(
+    on_chunk: Option<&Channel<ShellChunk>>,
+    kind: ShellChunkKind,
+    emit_buf: &mut String,
+    force: bool,
+) {
+    if emit_buf.is_empty() {
+        return;
+    }
+    if !force && emit_buf.len() < STREAM_FLUSH_BYTES {
+        return;
+    }
+    if let Some(channel) = on_chunk {
+        let _ = channel.send(ShellChunk {
+            kind,
+            text: std::mem::take(emit_buf),
+        });
+    } else {
+        emit_buf.clear();
+    }
+}
+
+fn push_stream_bytes(
+    on_chunk: Option<&Channel<ShellChunk>>,
+    kind: ShellChunkKind,
+    utf8_pending: &mut Vec<u8>,
+    emit_buf: &mut String,
+    bytes: &[u8],
+) {
+    let Some(channel) = on_chunk else {
+        return;
+    };
+    let text = take_utf8(utf8_pending, bytes);
+    if text.is_empty() {
+        return;
+    }
+    emit_buf.push_str(&text);
+    flush_emit(Some(channel), kind, emit_buf, false);
+}
+
+fn finish_stream(
+    on_chunk: Option<&Channel<ShellChunk>>,
+    kind: ShellChunkKind,
+    utf8_pending: &mut Vec<u8>,
+    emit_buf: &mut String,
+) {
+    let Some(channel) = on_chunk else {
+        return;
+    };
+    let rest = finish_utf8(utf8_pending);
+    if !rest.is_empty() {
+        emit_buf.push_str(&rest);
+    }
+    flush_emit(Some(channel), kind, emit_buf, true);
+}
+
+async fn read_streaming<R>(
+    reader: &mut R,
+    cap: usize,
+    on_chunk: Option<Channel<ShellChunk>>,
+    kind: ShellChunkKind,
+) -> (String, bool)
 where
     R: tokio::io::AsyncRead + Unpin,
 {
     let mut buf = Vec::with_capacity(cap.min(8192));
     let mut chunk = [0u8; 4096];
+    let mut utf8_pending = Vec::new();
+    let mut emit_buf = String::new();
     let mut truncated = false;
     loop {
         match reader.read(&mut chunk).await {
@@ -137,13 +262,23 @@ where
                 if truncated {
                     continue;
                 }
-                if buf.len() + n > cap {
-                    let remaining = cap.saturating_sub(buf.len());
-                    buf.extend_from_slice(&chunk[..remaining]);
+                let take = if buf.len() + n > cap {
                     truncated = true;
+                    cap.saturating_sub(buf.len())
+                } else {
+                    n
+                };
+                if take == 0 {
                     continue;
                 }
-                buf.extend_from_slice(&chunk[..n]);
+                buf.extend_from_slice(&chunk[..take]);
+                push_stream_bytes(
+                    on_chunk.as_ref(),
+                    kind,
+                    &mut utf8_pending,
+                    &mut emit_buf,
+                    &chunk[..take],
+                );
             }
             Err(_) => {
                 if !truncated {
@@ -153,6 +288,7 @@ where
             }
         }
     }
+    finish_stream(on_chunk.as_ref(), kind, &mut utf8_pending, &mut emit_buf);
     let s = String::from_utf8_lossy(&buf).into_owned();
     (s, truncated)
 }
@@ -242,6 +378,7 @@ async fn collect_pipes_after_kill(
 pub async fn run_shell_command(
     state: State<'_, LocalWorkspace>,
     input: RunShellInput,
+    on_chunk: Channel<ShellChunk>,
 ) -> Result<RunShellResult, ShellError> {
     let command = input.command.trim();
     if command.is_empty() {
@@ -301,8 +438,26 @@ pub async fn run_shell_command(
         .take()
         .ok_or_else(|| ShellError::Io("stderr pipe missing".into()))?;
 
-    let stdout_task = tokio::spawn(async move { read_capped(&mut stdout_reader, cap).await });
-    let stderr_task = tokio::spawn(async move { read_capped(&mut stderr_reader, cap).await });
+    let stdout_chunk = on_chunk.clone();
+    let stderr_chunk = on_chunk;
+    let stdout_task = tokio::spawn(async move {
+        read_streaming(
+            &mut stdout_reader,
+            cap,
+            Some(stdout_chunk),
+            ShellChunkKind::Stdout,
+        )
+        .await
+    });
+    let stderr_task = tokio::spawn(async move {
+        read_streaming(
+            &mut stderr_reader,
+            cap,
+            Some(stderr_chunk),
+            ShellChunkKind::Stderr,
+        )
+        .await
+    });
 
     let exit_status = match timeout(Duration::from_millis(timeout_ms), child.wait()).await {
         Ok(result) => result.map_err(|e| ShellError::Io(format!("wait: {e}")))?,

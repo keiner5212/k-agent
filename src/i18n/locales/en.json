@@ -754,7 +754,14 @@
     "shell": {
       "running": "Running shell command...",
       "failed": "Shell failed: {{error}}",
-      "needsWorkspace": "Shell needs a workspace folder."
+      "needsWorkspace": "Shell needs a workspace folder.",
+      "expand": "Open output in console",
+      "console": {
+        "title": "Shell output",
+        "copy": "Copy output",
+        "copied": "Copied",
+        "empty": "No output yet."
+      }
     },
     "fileMentions": {
       "label": "Workspace files",

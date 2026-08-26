@@ -273,10 +273,7 @@ fn trim_opt(value: Option<String>) -> Option<String> {
         .filter(|item| !item.is_empty())
 }
 
-fn merge_secrets(
-    previous: &McpServerSecrets,
-    input: &SaveMcpServerInput,
-) -> McpServerSecrets {
+fn merge_secrets(previous: &McpServerSecrets, input: &SaveMcpServerInput) -> McpServerSecrets {
     let mut env = if input.env.is_empty() {
         previous.env.clone()
     } else {
@@ -351,7 +348,10 @@ pub async fn save_mcp_server(
 ) -> Result<McpServer, McpServerError> {
     validate_input(&input)?;
     let mut servers = load_all(&app).await?;
-    let id = input.id.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
+    let id = input
+        .id
+        .clone()
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
     let previous = servers.iter().find(|server| server.id == id).cloned();
     let secrets = merge_secrets(
         &previous

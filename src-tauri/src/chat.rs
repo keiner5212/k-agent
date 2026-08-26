@@ -661,7 +661,9 @@ fn anthropic_delta_pair(value: &serde_json::Value) -> StreamDelta {
 }
 
 fn gemini_delta_pair(value: &serde_json::Value) -> StreamDelta {
-    let Some(parts) = value.pointer("/candidates/0/content/parts").and_then(|item| item.as_array())
+    let Some(parts) = value
+        .pointer("/candidates/0/content/parts")
+        .and_then(|item| item.as_array())
     else {
         return StreamDelta {
             content: String::new(),
@@ -713,7 +715,12 @@ async fn collect_stream(
             emit_chunk(on_chunk, "reasoning", &delta.reasoning);
         }
         if !delta.content.is_empty() {
-            take_split(&mut content, &mut reasoning, filter.push(&delta.content), on_chunk);
+            take_split(
+                &mut content,
+                &mut reasoning,
+                filter.push(&delta.content),
+                on_chunk,
+            );
         }
         Ok(())
     })
@@ -968,7 +975,10 @@ async fn send_gemini_like(
     };
     let url = match provider.api_key.as_deref() {
         Some(key) if stream => {
-            format!("{base}/v1beta/models/{}:{method}?alt=sse&key={key}", call.model.id)
+            format!(
+                "{base}/v1beta/models/{}:{method}?alt=sse&key={key}",
+                call.model.id
+            )
         }
         Some(key) => format!("{base}/v1beta/models/{}:{method}?key={key}", call.model.id),
         None if stream => format!("{base}/v1beta/models/{}:{method}?alt=sse", call.model.id),
@@ -1150,7 +1160,10 @@ struct OpenAiChatMessage {
 
 impl OpenAiChatMessage {
     fn into_output(self) -> Option<ChatOutput> {
-        let raw = self.content.and_then(|content| content.into_text()).unwrap_or_default();
+        let raw = self
+            .content
+            .and_then(|content| content.into_text())
+            .unwrap_or_default();
         let (content, tagged) = extract_think(&raw);
         let mut reasoning = self.reasoning_content.unwrap_or_default();
         if !tagged.is_empty() {

@@ -11,9 +11,7 @@ type RewindConfirmState = {
 const lastUserMessageId = (): string | null => {
   const sessionId = useSessionsStore.getState().activeSessionId;
   if (!sessionId) return null;
-  const session = useSessionsStore
-    .getState()
-    .sessions.find((item) => item.id === sessionId);
+  const session = useSessionsStore.getState().sessions.find((item) => item.id === sessionId);
   if (!session) return null;
   for (let i = session.messages.length - 1; i >= 0; i -= 1) {
     const message = session.messages[i];

@@ -109,8 +109,8 @@ async fn save_snapshot(app: &AppHandle, snapshot: &SessionsSnapshot) -> Result<(
             .await
             .map_err(|e| SessionError::Io(e.to_string()))?;
     }
-    let json = serde_json::to_string_pretty(snapshot)
-        .map_err(|e| SessionError::Parse(e.to_string()))?;
+    let json =
+        serde_json::to_string_pretty(snapshot).map_err(|e| SessionError::Parse(e.to_string()))?;
     tokio::fs::write(path, json)
         .await
         .map_err(|e| SessionError::Io(e.to_string()))
@@ -122,10 +122,7 @@ pub async fn load_sessions(app: AppHandle) -> Result<SessionsSnapshot, SessionEr
 }
 
 #[tauri::command]
-pub async fn save_sessions(
-    app: AppHandle,
-    snapshot: SessionsSnapshot,
-) -> Result<(), SessionError> {
+pub async fn save_sessions(app: AppHandle, snapshot: SessionsSnapshot) -> Result<(), SessionError> {
     if snapshot.sessions.is_empty() {
         return Err(SessionError::Parse("sessions must not be empty".into()));
     }

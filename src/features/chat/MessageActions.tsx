@@ -1,7 +1,9 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Copy, RotateCcw } from "lucide-react";
+import { Copy, Maximize2, RotateCcw } from "lucide-react";
 import { IconButton } from "@/components/IconButton";
+import { parseShellMessage } from "@/lib/shell";
+import { useShellOutputStore } from "@/lib/shell-output";
 import { useRewindConfirmStore } from "@/lib/rewind-confirm";
 import { useSessionsStore } from "@/lib/sessions";
 import type { ChatMessage } from "@/types/chat";
@@ -25,6 +27,7 @@ const copyText = async (text: string): Promise<boolean> => {
 export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
   const { t } = useTranslation();
   const requestRewind = useRewindConfirmStore((state) => state.requestRewind);
+  const openShellOutput = useShellOutputStore((state) => state.openFor);
   const sending = useSessionsStore((state) => state.sending);
   const sendingSessionId = useSessionsStore((state) => state.sendingSessionId);
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
@@ -36,6 +39,7 @@ export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
   const isStreaming = Boolean(message.streaming);
   const canCopy = hasContent && !isStreaming;
   const canRewind = isUser && !isSendingHere;
+  const canExpand = message.kind === "shell" && hasContent;
 
   const handleCopy = useCallback(async () => {
     if (!canCopy) return;
@@ -50,8 +54,23 @@ export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
     requestRewind(message.id);
   }, [canRewind, message.id, requestRewind]);
 
+  const handleExpand = useCallback(() => {
+    if (!canExpand || !activeSessionId) return;
+    const { command } = parseShellMessage(message.content);
+    openShellOutput(message.id, command, activeSessionId);
+  }, [canExpand, message.id, message.content, activeSessionId, openShellOutput]);
+
   return (
     <div className="chat-message__actions" data-role={message.role}>
+      {canExpand ? (
+        <IconButton
+          label={t("chat.shell.expand")}
+          className="chat-message__action"
+          onClick={handleExpand}
+        >
+          <Maximize2 size={14} strokeWidth={1.5} />
+        </IconButton>
+      ) : null}
       {canCopy ? (
         <IconButton
           label={copied ? t("chat.message.copied") : t("chat.message.copy")}

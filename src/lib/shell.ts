@@ -1,7 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { Channel } from "@tauri-apps/api/core";
 import { expandWorkspaceMentions } from "@/lib/file-mentions";
 import { DESKTOP_REQUIRED, isTauri, platform } from "@/lib/platform";
 import type { WorkspaceEntry } from "@/types/workspace-files";
+
+export type ShellChunkKind = "stdout" | "stderr";
+
+export type ShellChunk = {
+  kind: ShellChunkKind;
+  text: string;
+};
 
 export type RunShellRequest = {
   command: string;
@@ -51,7 +59,10 @@ export const expandShellMentions = (
   workspaceRoot: string,
 ): string => expandWorkspaceMentions(text, entries, workspaceRoot, shellQuote);
 
-export const runShellCommand = (request: RunShellRequest): Promise<RunShellResponse> => {
+export const runShellCommand = (
+  request: RunShellRequest,
+  onChunk: Channel<ShellChunk>,
+): Promise<RunShellResponse> => {
   if (!isTauri()) return Promise.reject(new Error(DESKTOP_REQUIRED));
   return invoke<RunShellResponse>("run_shell_command", {
     input: {
@@ -60,6 +71,7 @@ export const runShellCommand = (request: RunShellRequest): Promise<RunShellRespo
       timeoutMs: request.timeoutMs ?? null,
       maxOutputBytes: request.maxOutputBytes ?? null,
     },
+    onChunk,
   });
 };
 
@@ -100,3 +112,9 @@ export const buildShellResultContent = (result: RunShellResponse): string =>
 
 export const formatShellMessage = (command: string, output: string): string =>
   output.length === 0 ? command : `${command}\n\n${output}`;
+
+export const parseShellMessage = (content: string): { command: string; output: string } => {
+  const idx = content.indexOf("\n\n");
+  if (idx < 0) return { command: content, output: "" };
+  return { command: content.slice(0, idx), output: content.slice(idx + 2) };
+};

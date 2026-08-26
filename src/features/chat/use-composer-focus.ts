@@ -61,6 +61,14 @@ export const useComposerFocusKeys = (
       const field = textareaRef.current;
       if (!field) return;
 
+      if (event.key === "Tab" && !event.shiftKey) {
+        if (event.target === field) return;
+        if (isEditableTarget(event.target)) return;
+        event.preventDefault();
+        field.focus();
+        return;
+      }
+
       if (matchesChordString(event, modeToggleBinding)) {
         if (isEditableTarget(event.target) && event.target !== field) return;
         event.preventDefault();

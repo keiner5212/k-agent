@@ -126,15 +126,11 @@ export const ComposerTextarea = ({
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (
-      matchesAgentCycle(event.nativeEvent, agentCycleBinding) &&
-      !shellMode &&
-      !slashMenuOpen &&
-      !atMenuOpen
-    ) {
-      if (applyComposerAgentCycle(1)) {
-        event.preventDefault();
+    if (matchesAgentCycle(event.nativeEvent, agentCycleBinding)) {
+      if (!shellMode && !slashMenuOpen && !atMenuOpen) {
+        applyComposerAgentCycle(1);
       }
+      event.preventDefault();
       return;
     }
     if (event.key === "Backspace" && !event.shiftKey) {

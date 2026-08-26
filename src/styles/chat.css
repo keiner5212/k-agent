@@ -890,6 +890,11 @@ button.change-bar__stat:focus-visible {
   animation-name: chat-message-in-end;
 }
 
+.chat-message--user.chat-message--shell {
+  border-color: color-mix(in oklch, #5fd99e 38%, var(--border));
+  background-color: color-mix(in oklch, #5fd99e 8%, var(--surface-elevated));
+}
+
 .chat-message--assistant {
   align-self: flex-start;
   animation-name: chat-message-in-start;
@@ -1639,6 +1644,11 @@ button.change-bar__stat:focus-visible {
   background-color: var(--frost-fill-muted);
 }
 
+:root[data-translucent="true"] .chat-message--user.chat-message--shell {
+  background-color: color-mix(in oklch, #5fd99e 10%, transparent);
+  border-color: color-mix(in oklch, #5fd99e 50%, var(--frost-border));
+}
+
 :root[data-translucent="true"] .chat-composer__input-stack {
   background-color: color-mix(in oklch, var(--surface-elevated) 92%, transparent);
   border-color: var(--frost-border);
@@ -1652,4 +1662,121 @@ button.change-bar__stat:focus-visible {
   box-shadow: var(--shadow-md), var(--frost-highlight);
   -webkit-backdrop-filter: var(--frost-filter-strong);
   backdrop-filter: var(--frost-filter-strong);
+}
+
+/* ========== Shell output console ========== */
+
+.shell-console {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background-color: color-mix(in oklch, #07140c 88%, #000);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+}
+
+.shell-console__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  background-color: color-mix(in oklch, #0a1a12 92%, #000);
+  border-bottom: 1px solid color-mix(in oklch, #3d9970 28%, var(--border));
+}
+
+.shell-console__icon {
+  flex-shrink: 0;
+  color: #5fd99e;
+}
+
+.shell-console__prompt {
+  flex-shrink: 0;
+  color: #5fd99e;
+  font-weight: var(--weight-semibold);
+  user-select: none;
+}
+
+.shell-console__command {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell-console__copy {
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  color: var(--text-muted);
+}
+
+.shell-console__copy:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.shell-console__output {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: #c9f5dc;
+}
+
+.shell-console__output--streaming::after {
+  content: "";
+  display: inline-block;
+  align-self: flex-start;
+  width: 0.5em;
+  height: 1em;
+  margin-top: var(--space-1);
+  background-color: #5fd99e;
+  border-radius: 1px;
+  animation: chat-caret 1s steps(1, end) infinite;
+}
+
+.shell-console__block {
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.shell-console__block--stderr {
+  color: #f8b4b4;
+  border-left: 2px solid color-mix(in oklch, var(--danger) 60%, transparent);
+  padding-left: var(--space-2);
+}
+
+.shell-console__placeholder {
+  margin: 0;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+:root[data-translucent="true"] .shell-console {
+  background-color: color-mix(in oklch, #07140c 20%, var(--background));
+}
+
+:root[data-translucent="true"] .shell-console__head {
+  background-color: color-mix(in oklch, #0a1a12 70%, transparent);
 }
