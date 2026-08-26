@@ -7,30 +7,20 @@ use tauri::{AppHandle, Manager};
 use thiserror::Error;
 
 use crate::pathutil;
-use crate::skills::{
-    estimate_tokens, global_skills_root, list_skills_in, local_skills_root, parse_yaml_scalar,
-};
+use crate::skills::{estimate_tokens, global_skills_root, list_skills_in, parse_yaml_scalar};
+use crate::tools::SKILL_TOOL_NAME;
 
 pub const MAX_AGENT_SKILLS: usize = 10;
 pub const MAX_AGENT_PERSONALITY_LINES: usize = 200;
 const PERSONA_MANIFEST: &str = "persona.md";
 const LEGACY_MANIFESTS: &[&str] = &["PERSONA.md", "AGENT.md", "agent.md"];
 
-const AGENT_TOOLS: &[&str] = &[
-    "read_file",
-    "write_file",
-    "edit_file",
-    "delete_file",
-    "run_command",
-    "search_code",
-    "web_fetch",
-];
+const AGENT_TOOLS: &[&str] = &[SKILL_TOOL_NAME];
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum AgentContextKind {
     Global,
-    Local,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -141,18 +131,9 @@ fn global_agents_root(home: &Path) -> PathBuf {
     home.join(crate::APP_CONFIG_DIR).join("agents")
 }
 
-fn local_agents_root(workspace: &Path) -> PathBuf {
-    workspace.join(crate::WORKSPACE_AGENTS_DIR).join("agents")
-}
-
 fn ensure_dir(path: &Path) -> Result<PathBuf, AgentError> {
     fs::create_dir_all(path).map_err(|error| AgentError::Io(error.to_string()))?;
     canonicalize_safe(path)
-}
-
-fn resolve_workspace(app: &AppHandle) -> Option<PathBuf> {
-    let state = app.state::<crate::LocalWorkspace>();
-    state.path.lock().ok().and_then(|guard| guard.clone())
 }
 
 fn has_agent_manifest(dir: &Path) -> bool {
@@ -247,21 +228,18 @@ fn clamp_personality(raw: &str) -> String {
 
 fn parse_skill_ref(raw: &str) -> Option<AgentSkillRef> {
     let (kind_raw, id_raw) = raw.split_once('/')?;
-    let kind = match kind_raw {
-        "global" => AgentContextKind::Global,
-        "local" => AgentContextKind::Local,
-        _ => return None,
-    };
+    if kind_raw != "global" {
+        return None;
+    }
     let id = validate_agent_name(id_raw).ok()?;
-    Some(AgentSkillRef { kind, id })
+    Some(AgentSkillRef {
+        kind: AgentContextKind::Global,
+        id,
+    })
 }
 
 fn skill_ref_key(skill: &AgentSkillRef) -> String {
-    let kind = match skill.kind {
-        AgentContextKind::Global => "global",
-        AgentContextKind::Local => "local",
-    };
-    format!("{kind}/{}", skill.id)
+    format!("global/{}", skill.id)
 }
 
 struct ParsedAgent {
@@ -397,24 +375,13 @@ fn build_agent_md(
     out
 }
 
-fn live_skill_ids(
-    home: &Path,
-    workspace: Option<&Path>,
-) -> Result<HashSet<AgentSkillRef>, AgentError> {
+fn live_skill_ids(home: &Path) -> Result<HashSet<AgentSkillRef>, AgentError> {
     let mut live = HashSet::new();
     for skill in list_skills_in(&global_skills_root(home)).map_err(skill_err)? {
         live.insert(AgentSkillRef {
             kind: AgentContextKind::Global,
             id: skill.id,
         });
-    }
-    if let Some(workspace) = workspace {
-        for skill in list_skills_in(&local_skills_root(workspace)).map_err(skill_err)? {
-            live.insert(AgentSkillRef {
-                kind: AgentContextKind::Local,
-                id: skill.id,
-            });
-        }
     }
     Ok(live)
 }
@@ -435,12 +402,11 @@ fn sanitize_tools(tools: &[String]) -> Vec<String> {
 
 fn sanitize_skills(
     skills: &[AgentSkillRef],
-    agent_kind: AgentContextKind,
     live: &HashSet<AgentSkillRef>,
 ) -> Vec<AgentSkillRef> {
     let mut out = Vec::new();
     for skill in skills {
-        if agent_kind == AgentContextKind::Global && skill.kind != AgentContextKind::Global {
+        if skill.kind != AgentContextKind::Global {
             continue;
         }
         if !live.contains(skill) {
@@ -489,11 +455,10 @@ fn write_agent_md(dir: &Path, content: &str) -> Result<(), AgentError> {
 fn agent_meta_from_dir(
     dir: &Path,
     id: String,
-    agent_kind: AgentContextKind,
     live: &HashSet<AgentSkillRef>,
 ) -> Result<(AgentMeta, bool), AgentError> {
     let parsed = read_parsed_agent(dir)?;
-    let skills = sanitize_skills(&parsed.skills, agent_kind, live);
+    let skills = sanitize_skills(&parsed.skills, live);
     let tools = sanitize_tools(&parsed.tools);
     let changed = skills != parsed.skills || tools != parsed.tools;
     if changed {
@@ -517,21 +482,16 @@ fn agent_meta_from_dir(
     } else {
         parsed.name
     };
-    let content = build_agent_md(
-        &display_name,
-        &parsed.description,
-        &skills,
-        &tools,
-        &parsed.body,
-    );
+    let personality = parsed.body;
+    let estimated_tokens = estimate_tokens(&personality);
     Ok((
         AgentMeta {
             id,
             path: dir.display().to_string(),
             name: display_name,
             description: parsed.description,
-            personality: parsed.body,
-            estimated_tokens: estimate_tokens(&content),
+            personality,
+            estimated_tokens,
             skills,
             tools,
         },
@@ -541,7 +501,6 @@ fn agent_meta_from_dir(
 
 fn list_agents_in(
     root: &Path,
-    agent_kind: AgentContextKind,
     live: &HashSet<AgentSkillRef>,
 ) -> Result<Vec<AgentMeta>, AgentError> {
     let entries = match fs::read_dir(root) {
@@ -572,7 +531,7 @@ fn list_agents_in(
         if !has_agent_manifest(&path) {
             continue;
         }
-        match agent_meta_from_dir(&path, name.to_string(), agent_kind, live) {
+        match agent_meta_from_dir(&path, name.to_string(), live) {
             Ok((meta, _)) => agents.push(meta),
             Err(_) => continue,
         }
@@ -643,9 +602,6 @@ pub(crate) fn drop_skill_ref(
         .home_dir()
         .map_err(|error| AgentError::Io(error.to_string()))?;
     rewrite_agents_dropping_skill(&global_agents_root(&home), kind, skill_id)?;
-    if let Some(workspace) = resolve_workspace(app) {
-        rewrite_agents_dropping_skill(&local_agents_root(&workspace), kind, skill_id)?;
-    }
     Ok(())
 }
 
@@ -661,24 +617,13 @@ fn collect_agent_contexts(app: &AppHandle) -> Result<Vec<AgentContext>, AgentErr
         .path()
         .home_dir()
         .map_err(|error| AgentError::Io(error.to_string()))?;
-    let workspace = resolve_workspace(app);
-    let live = live_skill_ids(&home, workspace.as_deref())?;
+    let live = live_skill_ids(&home)?;
     let global_root = global_agents_root(&home);
-    let global = AgentContext {
+    Ok(vec![AgentContext {
         kind: AgentContextKind::Global,
         path: global_root.display().to_string(),
-        agents: list_agents_in(&global_root, AgentContextKind::Global, &live)?,
-    };
-    let mut contexts = vec![global];
-    if let Some(workspace) = workspace {
-        let local_root = local_agents_root(&workspace);
-        contexts.push(AgentContext {
-            kind: AgentContextKind::Local,
-            path: local_root.display().to_string(),
-            agents: list_agents_in(&local_root, AgentContextKind::Local, &live)?,
-        });
-    }
-    Ok(contexts)
+        agents: list_agents_in(&global_root, &live)?,
+    }])
 }
 
 #[tauri::command]
@@ -690,8 +635,7 @@ pub async fn read_agent_meta(
         .path()
         .home_dir()
         .map_err(|error| AgentError::Io(error.to_string()))?;
-    let workspace = resolve_workspace(&app);
-    let live = live_skill_ids(&home, workspace.as_deref())?;
+    let live = live_skill_ids(&home)?;
     let root = resolve_root_path(&input.root_path)?;
     if !root.exists() {
         return Err(AgentError::NotFound(input.root_path));
@@ -702,29 +646,19 @@ pub async fn read_agent_meta(
         return Err(AgentError::NotFound(validated));
     }
     ensure_inside(&agent_path, &root)?;
-    let kind = agent_kind_for_root(&root, &home, workspace.as_deref());
-    let (meta, _) = agent_meta_from_dir(&agent_path, validated, kind, &live)?;
+    ensure_global_agents_root(&root, &home)?;
+    let (meta, _) = agent_meta_from_dir(&agent_path, validated, &live)?;
     Ok(meta)
 }
 
-fn agent_kind_for_root(root: &Path, home: &Path, workspace: Option<&Path>) -> AgentContextKind {
-    if let Ok(root_canon) = canonicalize_safe(root) {
-        if canonicalize_safe(&global_agents_root(home))
-            .ok()
-            .is_some_and(|global| global == root_canon)
-        {
-            return AgentContextKind::Global;
-        }
-        if let Some(workspace) = workspace {
-            if canonicalize_safe(&local_agents_root(workspace))
-                .ok()
-                .is_some_and(|local| local == root_canon)
-            {
-                return AgentContextKind::Local;
-            }
-        }
+fn ensure_global_agents_root(root: &Path, home: &Path) -> Result<(), AgentError> {
+    if canonicalize_safe(&global_agents_root(home))
+        .ok()
+        .is_some_and(|global| canonicalize_safe(root).ok() == Some(global))
+    {
+        return Ok(());
     }
-    AgentContextKind::Local
+    Err(AgentError::Forbidden)
 }
 
 #[tauri::command]
@@ -732,13 +666,16 @@ pub async fn create_agent(
     app: AppHandle,
     input: CreateAgentInput,
 ) -> Result<AgentMeta, AgentError> {
+    if input.kind != AgentContextKind::Global {
+        return Err(AgentError::Forbidden);
+    }
     let home = app
         .path()
         .home_dir()
         .map_err(|error| AgentError::Io(error.to_string()))?;
-    let workspace = resolve_workspace(&app);
-    let live = live_skill_ids(&home, workspace.as_deref())?;
+    let live = live_skill_ids(&home)?;
     let root = ensure_dir(&resolve_root_path(&input.root_path)?)?;
+    ensure_global_agents_root(&root, &home)?;
     let validated = validate_agent_name(&input.name)?;
     let agent_path = root.join(&validated);
     let resumable = agent_path.is_dir() && !has_agent_manifest(&agent_path);
@@ -748,7 +685,7 @@ pub async fn create_agent(
         )));
     }
     ensure_inside(&agent_path, &root)?;
-    let skills = sanitize_skills(&input.skills, input.kind, &live);
+    let skills = sanitize_skills(&input.skills, &live);
     let tools = sanitize_tools(&input.tools);
     let personality = clamp_personality(&input.personality);
     fs::create_dir_all(&agent_path).map_err(|error| AgentError::Io(error.to_string()))?;
@@ -765,13 +702,14 @@ pub async fn create_agent(
         }
         return Err(error);
     }
+    let estimated_tokens = estimate_tokens(&personality);
     Ok(AgentMeta {
         id: validated.clone(),
         path: agent_path.display().to_string(),
         name: validated,
         description: input.description,
         personality,
-        estimated_tokens: estimate_tokens(&content),
+        estimated_tokens,
         skills,
         tools,
     })
@@ -782,16 +720,19 @@ pub async fn update_agent(
     app: AppHandle,
     input: UpdateAgentInput,
 ) -> Result<AgentMeta, AgentError> {
+    if input.kind != AgentContextKind::Global {
+        return Err(AgentError::Forbidden);
+    }
     let home = app
         .path()
         .home_dir()
         .map_err(|error| AgentError::Io(error.to_string()))?;
-    let workspace = resolve_workspace(&app);
-    let live = live_skill_ids(&home, workspace.as_deref())?;
+    let live = live_skill_ids(&home)?;
     let root_canon = canonicalize_safe(Path::new(&input.path))
         .ok()
         .and_then(|p| p.parent().map(|p| p.to_path_buf()))
         .ok_or_else(|| AgentError::InvalidPath(input.path.clone()))?;
+    ensure_global_agents_root(&root_canon, &home)?;
     let agent_path = PathBuf::from(&input.path);
     if !agent_path.is_dir() {
         return Err(AgentError::NotFound(input.path.clone()));
@@ -813,7 +754,7 @@ pub async fn update_agent(
         }
         fs::rename(&agent_path, &new_path).map_err(|error| AgentError::Io(error.to_string()))?;
     }
-    let skills = sanitize_skills(&input.skills, input.kind, &live);
+    let skills = sanitize_skills(&input.skills, &live);
     let tools = sanitize_tools(&input.tools);
     let personality = clamp_personality(&input.personality);
     let content = build_agent_md(
@@ -824,13 +765,14 @@ pub async fn update_agent(
         &personality,
     );
     write_agent_md(&new_path, &content)?;
+    let estimated_tokens = estimate_tokens(&personality);
     Ok(AgentMeta {
         id: validated.clone(),
         path: new_path.display().to_string(),
         name: validated,
         description: input.description,
         personality,
-        estimated_tokens: estimate_tokens(&content),
+        estimated_tokens,
         skills,
         tools,
     })

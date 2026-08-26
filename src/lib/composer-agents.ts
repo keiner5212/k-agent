@@ -24,9 +24,9 @@ export const listComposerAgentKeys = (
   const builtin = listEnabledBuiltinAgents(t, enabled).map((agent) =>
     builtinAgentKey(agent.id as BuiltinAgentId),
   );
-  const user = contexts.flatMap((context) =>
-    context.agents.map((agent) => agentKey(context.kind, agent.id)),
-  );
+  const user = contexts
+    .filter((context) => context.kind === "global")
+    .flatMap((context) => context.agents.map((agent) => agentKey("global", agent.id)));
   return [...builtin, ...user];
 };
 

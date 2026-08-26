@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
+import { composeAgentSystem } from "@/lib/agent-system";
+import { resolveAgentMeta } from "@/lib/builtin-agents";
 import { useAgentsStore } from "@/lib/agents";
-import { resolveAgentPersonality } from "@/lib/builtin-agents";
 import { useComposerStore, type ComposerMode } from "@/lib/composer";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
 import { useProvidersStore } from "@/lib/providers";
@@ -11,6 +12,7 @@ import { notifyResponseFinished } from "@/lib/notifications";
 import { composeSystemWithLanguage } from "@/lib/response-language";
 import { selectEffort, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
+import { useSkillsStore } from "@/lib/skills";
 import {
   appendInterruptedFooter,
   buildShellResultContent,
@@ -457,12 +459,14 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       };
 
       const { forceResponseLanguage, responseLanguage } = useSettingsStore.getState();
-      const baseSystem = resolveAgentPersonality(
-        useComposerStore.getState().selectedAgent,
-        useAgentsStore.getState().contexts,
-        i18n.t.bind(i18n),
-      );
+      const selectedAgent = useComposerStore.getState().selectedAgent;
+      const agentContexts = useAgentsStore.getState().contexts;
+      const skillContexts = useSkillsStore.getState().contexts;
+      const t = i18n.t.bind(i18n);
+      const agent = resolveAgentMeta(selectedAgent, agentContexts, t);
+      const baseSystem = composeAgentSystem(agent, skillContexts);
       const system = composeSystemWithLanguage(baseSystem, forceResponseLanguage, responseLanguage);
+      const toolNames = agent?.tools ?? [];
       const result = await invoke<SendChatResult>("send_chat_message", {
         input: {
           providerId: selection.providerId,
@@ -471,6 +475,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           system: system.length > 0 ? system : null,
           effort: effort ?? null,
           sessionId: sessionId,
+          toolNames,
         },
         onChunk,
       });

@@ -1,0 +1,130 @@
+import type { TFunction } from "i18next";
+import { resolveAgentMeta } from "@/lib/builtin-agents";
+import {
+  AGENT_TOOL_IDS,
+  CHAT_TOOL_DESCRIPTIONS,
+  type AgentContext,
+  type AgentMeta,
+  type AgentSkillRef,
+  type AgentToolId,
+} from "@/types/agents";
+import type { SkillContext } from "@/types/skills";
+
+const findSkillMeta = (
+  contexts: readonly SkillContext[],
+  ref: AgentSkillRef,
+): { name: string; description: string } | null => {
+  const ctx = contexts.find((item) => item.kind === ref.kind);
+  const skill = ctx?.skills.find((item) => item.id === ref.id);
+  if (!skill) return null;
+  const name = skill.name.trim().length > 0 ? skill.name.trim() : ref.id;
+  const description = skill.description.trim();
+  return { name, description };
+};
+
+const buildAgentSkillCatalog = (
+  refs: readonly AgentSkillRef[],
+  skillContexts: readonly SkillContext[],
+): string => {
+  const lines: string[] = [];
+  const seen = new Set<string>();
+  for (const ref of refs) {
+    const meta = findSkillMeta(skillContexts, ref);
+    if (!meta || seen.has(meta.name)) continue;
+    seen.add(meta.name);
+    const detail = meta.description.length > 0 ? meta.description : meta.name;
+    lines.push(`- \`${meta.name}\`: ${detail}`);
+  }
+  if (lines.length === 0) return "";
+  return ["# 3. Agent skills", "", ...lines].join("\n");
+};
+
+const buildWorkspaceSkillCatalog = (skillContexts: readonly SkillContext[]): string => {
+  const ctx = skillContexts.find((item) => item.kind === "local");
+  const lines: string[] = [];
+  for (const skill of ctx?.skills ?? []) {
+    const name = skill.name.trim().length > 0 ? skill.name.trim() : skill.id;
+    const description = skill.description.trim();
+    const detail = description.length > 0 ? description : name;
+    lines.push(`- \`${name}\`: ${detail}`);
+  }
+  if (lines.length === 0) return "";
+  return ["# 5. Workspace skills", "", ...lines].join("\n");
+};
+
+const buildAgentSkillLoadingDirective = (
+  refs: readonly AgentSkillRef[],
+  skillContexts: readonly SkillContext[],
+): string => {
+  const names: string[] = [];
+  for (const ref of refs) {
+    const meta = findSkillMeta(skillContexts, ref);
+    if (!meta || names.includes(meta.name)) continue;
+    names.push(meta.name);
+  }
+  if (names.length === 0) return "";
+  const count = names.length;
+  const plural = count === 1 ? "" : "s";
+  const list = names.map((name, index) => `${index + 1}. \`${name}\``).join("\n");
+  return [
+    "# 2. Agent skill loading - turn 1",
+    "",
+    `Single tool batch, exactly ${count} \`skill\` call${plural}, before any other tool or prose:`,
+    "",
+    list,
+    "",
+    "No other tool calls on turn 1. Retry a failed skill once; report on turn 2.",
+    "Later turns: load any matching skill not already in context.",
+  ].join("\n");
+};
+
+const buildTurnProtocol = (hasAgentSkills: boolean): string => {
+  const steps = [
+    "Follow system sections in order. Each numbered block maps to a phase of the reply.",
+    hasAgentSkills
+      ? "Turn 1: batch-load every agent-bound skill with the `skill` tool. No prose."
+      : "Turn 1: skip agent skill loading when the agent has no bound skills.",
+    "Then load matching workspace skills with `skill` when they are listed and relevant.",
+    "Call only tools listed under Local tools. Do not invent tool names.",
+    "Finally answer using the agent personality at the end of this system prompt.",
+  ];
+  return ["# 1. Agent flow", "", ...steps].join("\n");
+};
+
+const buildToolCatalog = (enabled: readonly string[]): string => {
+  const lines = enabled
+    .filter((id): id is AgentToolId => (AGENT_TOOL_IDS as readonly string[]).includes(id))
+    .map((id) => `- \`${id}\`: ${CHAT_TOOL_DESCRIPTIONS[id]}`);
+  if (lines.length === 0) return "";
+  return ["# 4. Local tools", "", ...lines].join("\n");
+};
+
+export const composeAgentSystem = (
+  agent: AgentMeta | null,
+  skillContexts: SkillContext[],
+): string => {
+  if (!agent) return "";
+  const parts: string[] = [];
+  const protocol = buildTurnProtocol(agent.skills.length > 0);
+  if (protocol.length > 0) parts.push(protocol);
+  const skillDirective = buildAgentSkillLoadingDirective(agent.skills, skillContexts);
+  if (skillDirective.length > 0) parts.push(skillDirective);
+  const agentSkills = buildAgentSkillCatalog(agent.skills, skillContexts);
+  if (agentSkills.length > 0) parts.push(agentSkills);
+  const tools = buildToolCatalog(agent.tools);
+  if (tools.length > 0) parts.push(tools);
+  const workspaceSkills = buildWorkspaceSkillCatalog(skillContexts);
+  if (workspaceSkills.length > 0) parts.push(workspaceSkills);
+  const personality = agent.personality.trim();
+  if (personality.length > 0) {
+    parts.push(`# 6. Personality\n\n${personality}`);
+  }
+  return parts.join("\n\n");
+};
+
+export const resolveAgentSystem = (
+  key: string,
+  agentContexts: AgentContext[],
+  skillContexts: SkillContext[],
+  t: TFunction,
+): string => composeAgentSystem(resolveAgentMeta(key, agentContexts, t), skillContexts);

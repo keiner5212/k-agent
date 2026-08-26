@@ -526,11 +526,10 @@
   },
   "agents": {
     "title": "Agents",
-    "description": "A session agent is a personality for the chat: prompt, skills, and tools. Global agents live in ~/.k-agent/agents. Local agents live in .agents/agents under the workspace.",
+    "description": "A session agent is a personality for the chat: prompt, skills, and tools. Custom agents live in ~/.k-agent/agents. Built-in agents ship with the app.",
     "context": {
       "default": "Built-in",
-      "global": "Global",
-      "local": "Workspace"
+      "global": "Global"
     },
     "default": {
       "viewTitle": "View personality",
@@ -548,7 +547,7 @@
       }
     },
     "empty": "No agents in this folder yet.",
-    "emptyTab": "Launch the app with a workspace path to see local agents.",
+    "emptyTab": "No global agents folder is available.",
     "table": {
       "name": "Name",
       "description": "Description",
@@ -581,10 +580,9 @@
       "skills": "Skills",
       "skillsCount": "{{count}} / {{max}}",
       "skillsHintGlobal": "Global agents can only load global skills. Up to 10.",
-      "skillsHintLocal": "Workspace agents can load global and workspace skills. Up to 10.",
       "skillsEmpty": "No skills available for this location.",
       "tools": "Tools",
-      "toolsHint": "Example tool permissions. Real tools come later.",
+      "toolsHint": "Tools the agent may call during chat. Only registered local tools are listed.",
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving",
@@ -602,33 +600,9 @@
       "dirty": "Unsaved changes"
     },
     "tools": {
-      "read_file": {
-        "label": "Read files",
-        "description": "Read file contents from the workspace."
-      },
-      "write_file": {
-        "label": "Write files",
-        "description": "Create new files."
-      },
-      "edit_file": {
-        "label": "Edit files",
-        "description": "Patch existing files."
-      },
-      "delete_file": {
-        "label": "Delete files",
-        "description": "Remove files from the workspace."
-      },
-      "run_command": {
-        "label": "Run commands",
-        "description": "Execute shell commands."
-      },
-      "search_code": {
-        "label": "Search code",
-        "description": "Search the workspace by text or pattern."
-      },
-      "web_fetch": {
-        "label": "Fetch URLs",
-        "description": "Download content from the network."
+      "skill": {
+        "label": "Load skills",
+        "description": "Load skill instructions into the conversation by name."
       }
     },
     "delete": {

@@ -1,16 +1,17 @@
-export type AgentContextKind = "global" | "local" | "builtin";
+export type AgentContextKind = "global" | "builtin";
 
-export const AGENT_TOOL_IDS = [
-  "read_file",
-  "write_file",
-  "edit_file",
-  "delete_file",
-  "run_command",
-  "search_code",
-  "web_fetch",
-] as const;
+export type AgentSkillKind = "global";
+
+export const AGENT_TOOL_IDS = ["skill"] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
+
+export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
+  skill:
+    "Load a specialized skill when the task matches an available skill in the system context. " +
+    "Use this tool to inject the skill instructions into the conversation. " +
+    "The name must match a skill listed in the system prompt.",
+};
 
 export const MAX_AGENT_SKILLS = 10;
 export const MAX_AGENT_PERSONALITY_LINES = 200;
@@ -28,7 +29,7 @@ export const clampPersonality = (text: string): string => {
 };
 
 export type AgentSkillRef = {
-  kind: AgentContextKind;
+  kind: AgentSkillKind;
   id: string;
 };
 
@@ -56,7 +57,7 @@ export const parseAgentKey = (value: string): { kind: AgentContextKind; id: stri
   if (sep <= 0) return null;
   const kind = value.slice(0, sep);
   const id = value.slice(sep + 1);
-  if ((kind !== "global" && kind !== "local" && kind !== "builtin") || id.length === 0) return null;
+  if ((kind !== "global" && kind !== "builtin") || id.length === 0) return null;
   return { kind, id };
 };
 

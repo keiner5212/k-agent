@@ -526,11 +526,10 @@
   },
   "agents": {
     "title": "Agentes",
-    "description": "Un agente de sesión es una personalidad para el chat: prompt, habilidades y herramientas. Los globales viven en ~/.k-agent/agents. Los locales viven en .agents/agents del workspace.",
+    "description": "Un agente de sesion es una personalidad para el chat: prompt, habilidades y herramientas. Los personalizados viven en ~/.k-agent/agents. Los integrados vienen con la app.",
     "context": {
       "default": "Integrados",
-      "global": "Global",
-      "local": "Workspace"
+      "global": "Global"
     },
     "default": {
       "viewTitle": "Ver personalidad",
@@ -548,7 +547,7 @@
       }
     },
     "empty": "Aún no hay agentes en esta carpeta.",
-    "emptyTab": "Inicia la app con una ruta de workspace para ver agentes locales.",
+    "emptyTab": "No hay carpeta global de agentes disponible.",
     "table": {
       "name": "Nombre",
       "description": "Descripción",
@@ -580,11 +579,10 @@
       "personalityCount": "{{count}} / {{max}}",
       "skills": "Habilidades",
       "skillsCount": "{{count}} / {{max}}",
-      "skillsHintGlobal": "Un agente global solo puede cargar habilidades globales. Máximo 10.",
-      "skillsHintLocal": "Un agente de workspace puede cargar habilidades globales y locales. Máximo 10.",
-      "skillsEmpty": "No hay habilidades disponibles para esta ubicación.",
+      "skillsHintGlobal": "Un agente global solo puede cargar habilidades globales. Maximo 10.",
+      "skillsEmpty": "No hay habilidades disponibles para esta ubicacion.",
       "tools": "Herramientas",
-      "toolsHint": "Permisos de ejemplo. Las herramientas reales vendrán después.",
+      "toolsHint": "Herramientas que el agente puede llamar en el chat. Solo se listan herramientas locales registradas.",
       "cancel": "Cancelar",
       "save": "Guardar",
       "saving": "Guardando",
@@ -602,33 +600,9 @@
       "dirty": "Cambios sin guardar"
     },
     "tools": {
-      "read_file": {
-        "label": "Leer archivos",
-        "description": "Leer contenido de archivos del workspace."
-      },
-      "write_file": {
-        "label": "Crear archivos",
-        "description": "Crear archivos nuevos."
-      },
-      "edit_file": {
-        "label": "Editar archivos",
-        "description": "Modificar archivos existentes."
-      },
-      "delete_file": {
-        "label": "Eliminar archivos",
-        "description": "Borrar archivos del workspace."
-      },
-      "run_command": {
-        "label": "Ejecutar comandos",
-        "description": "Correr comandos de shell."
-      },
-      "search_code": {
-        "label": "Buscar código",
-        "description": "Buscar texto o patrones en el workspace."
-      },
-      "web_fetch": {
-        "label": "Obtener URLs",
-        "description": "Descargar contenido de la red."
+      "skill": {
+        "label": "Cargar habilidades",
+        "description": "Cargar instrucciones de una habilidad en la conversacion por nombre."
       }
     },
     "delete": {

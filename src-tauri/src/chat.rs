@@ -5,12 +5,14 @@ use thiserror::Error;
 
 use crate::attachments::ChatAttachment;
 use crate::providers::{attach_auth, load_all, ModelInfo, Provider, ProviderError, ProviderKind};
+use crate::tools::{self, ModelToolCall, ToolContext};
 
 const CHAT_HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
 const DEFAULT_TEMPERATURE: f64 = 1.0;
 const DEFAULT_TOP_P: f64 = 0.95;
 const DEFAULT_MAX_OUTPUT: u64 = 8192;
 const TITLE_MAX_OUTPUT: u64 = 64;
+const MAX_TOOL_ROUNDS: usize = 12;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,6 +41,8 @@ pub struct SendChatInput {
     pub effort: Option<String>,
     #[serde(default)]
     pub session_id: Option<String>,
+    #[serde(default)]
+    pub tool_names: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -62,6 +66,14 @@ struct ChatOutput {
     content: String,
     reasoning: String,
     reasoning_signature: String,
+    tool_calls: Vec<ModelToolCall>,
+}
+
+#[derive(Clone)]
+struct ToolResultTurn {
+    call_id: String,
+    name: String,
+    content: String,
 }
 
 #[derive(Clone)]
@@ -71,6 +83,8 @@ struct Turn {
     reasoning: String,
     reasoning_signature: String,
     attachments: Vec<ChatAttachment>,
+    tool_calls: Vec<ModelToolCall>,
+    tool_result: Option<ToolResultTurn>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -97,6 +111,11 @@ struct ChatCall<'a> {
     effort: Option<&'a str>,
     max_output: u64,
     enable_reasoning: bool,
+    tool_names: &'a [String],
+}
+
+fn tools_enabled(call: &ChatCall<'_>) -> bool {
+    !call.tool_names.is_empty()
 }
 
 #[derive(Debug, Error)]
@@ -236,6 +255,8 @@ fn user_turn(content: String) -> Turn {
         reasoning: String::new(),
         reasoning_signature: String::new(),
         attachments: Vec::new(),
+        tool_calls: Vec::new(),
+        tool_result: None,
     }
 }
 
@@ -273,6 +294,8 @@ fn normalize_turns(input: &[ChatTurn]) -> Vec<Turn> {
             reasoning,
             reasoning_signature,
             attachments,
+            tool_calls: Vec::new(),
+            tool_result: None,
         });
     }
     while turns.first().is_some_and(|turn| turn.assistant) {
@@ -406,7 +429,42 @@ fn openai_messages(system: Option<&str>, turns: &[Turn]) -> serde_json::Value {
         messages.push(json!({ "role": "system", "content": system }));
     }
     for turn in turns {
+        if let Some(result) = &turn.tool_result {
+            messages.push(json!({
+                "role": "tool",
+                "tool_call_id": result.call_id,
+                "content": result.content,
+            }));
+            continue;
+        }
         if turn.assistant {
+            if !turn.tool_calls.is_empty() {
+                let tool_calls = turn
+                    .tool_calls
+                    .iter()
+                    .map(|call| {
+                        json!({
+                            "id": call.id,
+                            "type": "function",
+                            "function": {
+                                "name": call.name,
+                                "arguments": call.arguments,
+                            }
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                let content = if turn.content.is_empty() {
+                    serde_json::Value::Null
+                } else {
+                    json!(turn.content)
+                };
+                messages.push(json!({
+                    "role": "assistant",
+                    "content": content,
+                    "tool_calls": tool_calls,
+                }));
+                continue;
+            }
             messages.push(json!({
                 "role": "assistant",
                 "content": turn.content,
@@ -421,28 +479,96 @@ fn openai_messages(system: Option<&str>, turns: &[Turn]) -> serde_json::Value {
 fn anthropic_messages(turns: &[Turn]) -> serde_json::Value {
     let mut messages = Vec::with_capacity(turns.len());
     for turn in turns {
+        if let Some(result) = &turn.tool_result {
+            messages.push(json!({
+                "role": "user",
+                "content": [{
+                    "type": "tool_result",
+                    "tool_use_id": result.call_id,
+                    "content": result.content,
+                }],
+            }));
+            continue;
+        }
         if !turn.assistant {
             messages.push(json!({ "role": "user", "content": anthropic_user_content(turn) }));
             continue;
         }
         messages.push(json!({
             "role": "assistant",
-            "content": [{ "type": "text", "text": turn.content }],
+            "content": anthropic_assistant_blocks(turn),
         }));
     }
     json!(messages)
 }
 
+fn anthropic_assistant_blocks(turn: &Turn) -> Vec<serde_json::Value> {
+    let mut blocks = Vec::new();
+    if !turn.reasoning.is_empty() {
+        let mut thinking = json!({
+            "type": "thinking",
+            "thinking": turn.reasoning,
+        });
+        if !turn.reasoning_signature.is_empty() {
+            thinking["signature"] = json!(turn.reasoning_signature);
+        }
+        blocks.push(thinking);
+    }
+    if !turn.content.is_empty() {
+        blocks.push(json!({ "type": "text", "text": turn.content }));
+    }
+    for call in &turn.tool_calls {
+        let input = serde_json::from_str::<serde_json::Value>(&call.arguments)
+            .unwrap_or(serde_json::Value::Null);
+        blocks.push(json!({
+            "type": "tool_use",
+            "id": call.id,
+            "name": call.name,
+            "input": input,
+        }));
+    }
+    if blocks.is_empty() {
+        blocks.push(json!({ "type": "text", "text": "" }));
+    }
+    blocks
+}
+
 fn gemini_contents(turns: &[Turn]) -> serde_json::Value {
     let mut contents = Vec::with_capacity(turns.len());
     for turn in turns {
+        if let Some(result) = &turn.tool_result {
+            contents.push(json!({
+                "role": "user",
+                "parts": [{
+                    "functionResponse": {
+                        "name": result.name,
+                        "response": { "output": result.content },
+                    }
+                }],
+            }));
+            continue;
+        }
         if turn.assistant {
-            if turn.content.is_empty() {
+            let mut parts = Vec::new();
+            if !turn.content.is_empty() {
+                parts.push(json!({ "text": turn.content }));
+            }
+            for call in &turn.tool_calls {
+                let args = serde_json::from_str::<serde_json::Value>(&call.arguments)
+                    .unwrap_or(serde_json::Value::Null);
+                parts.push(json!({
+                    "functionCall": {
+                        "name": call.name,
+                        "args": args,
+                    }
+                }));
+            }
+            if parts.is_empty() {
                 continue;
             }
             contents.push(json!({
                 "role": "model",
-                "parts": [{ "text": turn.content }],
+                "parts": parts,
             }));
             continue;
         }
@@ -867,6 +993,7 @@ async fn collect_stream(
             content,
             reasoning,
             reasoning_signature,
+            tool_calls: Vec::new(),
         })
     }
 }
@@ -953,7 +1080,7 @@ async fn send_openai_like(
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
 ) -> Result<ChatOutput, ChatError> {
-    let stream = on_chunk.is_some();
+    let stream = on_chunk.is_some() && !tools_enabled(call);
     let client = if stream {
         stream_http_client()?
     } else {
@@ -973,6 +1100,9 @@ async fn send_openai_like(
         body["max_tokens"] = json!(call.max_output);
     }
     apply_openai_like_reasoning(&mut body, provider, call);
+    if tools_enabled(call) {
+        body["tools"] = tools::openai_tools_for(call.tool_names);
+    }
     if stream {
         body["stream"] = json!(true);
     }
@@ -1011,7 +1141,7 @@ async fn send_anthropic_like(
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
 ) -> Result<ChatOutput, ChatError> {
-    let stream = on_chunk.is_some();
+    let stream = on_chunk.is_some() && !tools_enabled(call);
     let client = if stream {
         stream_http_client()?
     } else {
@@ -1029,6 +1159,9 @@ async fn send_anthropic_like(
         body["system"] = json!(system);
     }
     apply_anthropic_like_reasoning(&mut body, provider, call);
+    if tools_enabled(call) {
+        body["tools"] = tools::anthropic_tools_for(call.tool_names);
+    }
     if stream {
         body["stream"] = json!(true);
     }
@@ -1062,6 +1195,7 @@ async fn send_anthropic_like(
     let mut content = String::new();
     let mut reasoning = String::new();
     let mut reasoning_signature = String::new();
+    let mut tool_calls = Vec::new();
     for block in body.content {
         match block.block_type.as_str() {
             "thinking" => {
@@ -1075,18 +1209,34 @@ async fn send_anthropic_like(
                 }
             }
             "text" => content.push_str(&block.text),
+            "tool_use" => {
+                if block.id.is_empty() || block.name.is_empty() {
+                    continue;
+                }
+                let arguments = if block.input.is_null() {
+                    "{}".to_string()
+                } else {
+                    serde_json::to_string(&block.input).unwrap_or_else(|_| block.input.to_string())
+                };
+                tool_calls.push(ModelToolCall {
+                    id: block.id.clone(),
+                    name: block.name.clone(),
+                    arguments,
+                });
+            }
             _ => {}
         }
     }
     let content = content.trim().to_string();
     let reasoning = reasoning.trim().to_string();
-    if content.is_empty() && reasoning.is_empty() {
+    if content.is_empty() && reasoning.is_empty() && tool_calls.is_empty() {
         return Err(ChatError::EmptyResponse);
     }
     Ok(ChatOutput {
         content,
         reasoning,
         reasoning_signature,
+        tool_calls,
     })
 }
 
@@ -1095,7 +1245,7 @@ async fn send_gemini_like(
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
 ) -> Result<ChatOutput, ChatError> {
-    let stream = on_chunk.is_some();
+    let stream = on_chunk.is_some() && !tools_enabled(call);
     let client = if stream {
         stream_http_client()?
     } else {
@@ -1135,6 +1285,9 @@ async fn send_gemini_like(
             "parts": [{ "text": system }],
         });
     }
+    if tools_enabled(call) {
+        body["tools"] = tools::gemini_tools_for(call.tool_names);
+    }
     let mut req = client.post(&url).json(&body);
     if stream {
         req = req.header(reqwest::header::ACCEPT, "text/event-stream");
@@ -1160,6 +1313,7 @@ async fn send_gemini_like(
         .map_err(|e| ChatError::Parse(e.to_string()))?;
     let mut content = String::new();
     let mut reasoning = String::new();
+    let mut tool_calls = Vec::new();
     if let Some(parts) = body
         .candidates
         .into_iter()
@@ -1168,6 +1322,19 @@ async fn send_gemini_like(
         .map(|item| item.parts)
     {
         for part in parts {
+            if let Some(call) = part.function_call {
+                let arguments = if call.args.is_null() {
+                    "{}".to_string()
+                } else {
+                    serde_json::to_string(&call.args).unwrap_or_else(|_| call.args.to_string())
+                };
+                tool_calls.push(ModelToolCall {
+                    id: format!("gemini_{}_{}", call.name, tool_calls.len()),
+                    name: call.name,
+                    arguments,
+                });
+                continue;
+            }
             let Some(text) = part.text else {
                 continue;
             };
@@ -1180,17 +1347,43 @@ async fn send_gemini_like(
     }
     let content = content.trim().to_string();
     let reasoning = reasoning.trim().to_string();
-    if content.is_empty() && reasoning.is_empty() {
+    if content.is_empty() && reasoning.is_empty() && tool_calls.is_empty() {
         return Err(ChatError::EmptyResponse);
     }
     Ok(ChatOutput {
         content,
         reasoning,
         reasoning_signature: String::new(),
+        tool_calls,
     })
 }
 
+async fn dispatch_provider(
+    provider: &Provider,
+    call: &ChatCall<'_>,
+    on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
+) -> Result<ChatOutput, ChatError> {
+    match provider.kind {
+        ProviderKind::OpenAiLike => send_openai_like(provider, call, on_chunk).await,
+        ProviderKind::AnthropicLike => send_anthropic_like(provider, call, on_chunk).await,
+        ProviderKind::GeminiLike => send_gemini_like(provider, call, on_chunk).await,
+    }
+}
+
+fn emit_output_chunks(
+    on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
+    output: &ChatOutput,
+) {
+    if !output.reasoning.is_empty() {
+        emit_chunk(on_chunk, "reasoning", &output.reasoning);
+    }
+    if !output.content.is_empty() {
+        emit_chunk(on_chunk, "content", &output.content);
+    }
+}
+
 async fn send_message(
+    app: &AppHandle,
     provider: &Provider,
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
@@ -1198,11 +1391,65 @@ async fn send_message(
     if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
     }
-    match provider.kind {
-        ProviderKind::OpenAiLike => send_openai_like(provider, call, on_chunk).await,
-        ProviderKind::AnthropicLike => send_anthropic_like(provider, call, on_chunk).await,
-        ProviderKind::GeminiLike => send_gemini_like(provider, call, on_chunk).await,
+    if !tools_enabled(call) {
+        return dispatch_provider(provider, call, on_chunk).await;
     }
+
+    let mut turns = call.turns.to_vec();
+    let ctx = ToolContext { app };
+
+    for _ in 0..MAX_TOOL_ROUNDS {
+        let round_call = ChatCall {
+            model: call.model,
+            turns: &turns,
+            system: call.system,
+            effort: call.effort,
+            max_output: call.max_output,
+            enable_reasoning: call.enable_reasoning,
+            tool_names: call.tool_names,
+        };
+        let output = dispatch_provider(provider, &round_call, None).await?;
+
+        if output.tool_calls.is_empty() {
+            emit_output_chunks(on_chunk, &output);
+            return Ok(output);
+        }
+
+        turns.push(Turn {
+            assistant: true,
+            content: output.content.clone(),
+            reasoning: output.reasoning.clone(),
+            reasoning_signature: output.reasoning_signature.clone(),
+            attachments: Vec::new(),
+            tool_calls: output.tool_calls.clone(),
+            tool_result: None,
+        });
+
+        for tc in &output.tool_calls {
+            let outcome = if call.tool_names.iter().any(|name| name == &tc.name) {
+                tools::execute(&tc.name, &tc.arguments, &ctx)
+            } else {
+                tools::ToolOutcome {
+                    text: format!("Tool `{}` is not enabled for this agent.", tc.name),
+                }
+            };
+            turns.push(Turn {
+                assistant: false,
+                content: String::new(),
+                reasoning: String::new(),
+                reasoning_signature: String::new(),
+                attachments: Vec::new(),
+                tool_calls: Vec::new(),
+                tool_result: Some(ToolResultTurn {
+                    call_id: tc.id.clone(),
+                    name: tc.name.clone(),
+                    content: outcome.text.clone(),
+                }),
+            });
+        }
+    }
+
+    Err(ChatError::Provider("tool loop exceeded max rounds".into()))
 }
 
 #[derive(Debug, Deserialize)]
@@ -1248,8 +1495,9 @@ pub async fn generate_session_title(
         effort: None,
         max_output: capped_output(&model, TITLE_MAX_OUTPUT),
         enable_reasoning: false,
+        tool_names: &[],
     };
-    let title = normalize_generated_title(&send_message(&provider, &call, None).await?.content);
+    let title = normalize_generated_title(&send_message(&app, &provider, &call, None).await?.content);
     if title.is_empty() {
         return Err(ChatError::EmptyResponse);
     }
@@ -1290,6 +1538,20 @@ struct OpenAiChatMessage {
     content: Option<OpenAiContent>,
     #[serde(default)]
     reasoning_content: Option<String>,
+    #[serde(default)]
+    tool_calls: Vec<OpenAiToolCall>,
+}
+
+#[derive(Deserialize)]
+struct OpenAiToolCall {
+    id: String,
+    function: OpenAiToolFunction,
+}
+
+#[derive(Deserialize)]
+struct OpenAiToolFunction {
+    name: String,
+    arguments: String,
 }
 
 impl OpenAiChatMessage {
@@ -1307,13 +1569,23 @@ impl OpenAiChatMessage {
             reasoning.push_str(&tagged);
         }
         let reasoning = reasoning.trim().to_string();
-        if content.is_empty() && reasoning.is_empty() {
+        let tool_calls = self
+            .tool_calls
+            .into_iter()
+            .map(|call| ModelToolCall {
+                id: call.id,
+                name: call.function.name,
+                arguments: call.function.arguments,
+            })
+            .collect::<Vec<_>>();
+        if content.is_empty() && reasoning.is_empty() && tool_calls.is_empty() {
             None
         } else {
             Some(ChatOutput {
                 content,
                 reasoning,
                 reasoning_signature: String::new(),
+                tool_calls,
             })
         }
     }
@@ -1374,6 +1646,12 @@ struct AnthropicContentBlock {
     thinking: String,
     #[serde(default)]
     signature: String,
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    input: serde_json::Value,
 }
 
 #[derive(Deserialize)]
@@ -1396,6 +1674,15 @@ struct GeminiPart {
     text: Option<String>,
     #[serde(default)]
     thought: bool,
+    #[serde(default, rename = "functionCall")]
+    function_call: Option<GeminiFunctionCall>,
+}
+
+#[derive(Deserialize)]
+struct GeminiFunctionCall {
+    name: String,
+    #[serde(default)]
+    args: serde_json::Value,
 }
 
 #[tauri::command]
@@ -1426,6 +1713,16 @@ pub async fn send_chat_message(
         is_effort_model(&model)
     };
     let system = nonempty_text(input.system.as_deref()).map(str::to_string);
+    let registered: std::collections::HashSet<String> = tools::specs()
+        .into_iter()
+        .map(|spec| spec.name.to_string())
+        .collect();
+    let tool_names: Vec<String> = input
+        .tool_names
+        .iter()
+        .filter(|name| registered.contains(name.as_str()))
+        .cloned()
+        .collect();
     let call = ChatCall {
         model: &model,
         turns: &turns,
@@ -1433,9 +1730,10 @@ pub async fn send_chat_message(
         effort: effort.as_deref(),
         max_output: output_tokens(&model),
         enable_reasoning,
+        tool_names: &tool_names,
     };
     log_chat_config(&provider, &input, &call);
-    let send_fut = send_message(&provider, &call, Some(&on_chunk));
+    let send_fut = send_message(&app, &provider, &call, Some(&on_chunk));
     tokio::pin!(send_fut);
     let output = match cancel_rx {
         Some(rx) => {

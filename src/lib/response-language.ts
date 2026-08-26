@@ -28,9 +28,9 @@ export const composeSystemWithLanguage = (
   language: AppLanguage,
 ): string => {
   const parts: string[] = [];
+  if (force) parts.push(DIRECTIVE[language]);
   const trimmed = base.replace(/\n+$/, "");
   if (trimmed.length > 0) parts.push(trimmed);
-  if (force) parts.push(DIRECTIVE[language]);
   const context = appContextDirective(language);
   if (context.length > 0) parts.push(context);
   return parts.join("\n\n");

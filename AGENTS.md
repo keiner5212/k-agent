@@ -114,7 +114,7 @@ App data dir:
 - `AGENTS.md` optional global instruction file. List never creates it. Create/edit/delete from Settings.
 
 Workspace `{workspace}/.agents/skills/`: local skills. Created on first local skill create.
-Workspace `{workspace}/.agents/agents/`: local session agents (`persona.md`). Created on first local agent create. Do not scan `.k-agent` inside a workspace.
+Session agents live in `~/.k-agent/agents/` only. Builtin agents are app-defined.
 Workspace `{workspace}/AGENTS.md`: optional workspace instruction file (fallback `agents.md`). List never creates it. Create/edit/delete from Settings. Session agents are not stored as AGENTS.md.
 
 Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then bundled overlay. User-edited / custom models are not overwritten.

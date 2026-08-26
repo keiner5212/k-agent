@@ -233,11 +233,7 @@ const AgentFormBody = ({
             </span>
           </legend>
           <span className="field__hint">
-            {kind === "builtin"
-              ? t("agents.builtin.hint")
-              : kind === "global"
-                ? t("agents.form.skillsHintGlobal")
-                : t("agents.form.skillsHintLocal")}
+            {kind === "builtin" ? t("agents.builtin.hint") : t("agents.form.skillsHintGlobal")}
           </span>
           {availableSkills.length === 0 ? (
             <p className="agent-form__empty">{t("agents.form.skillsEmpty")}</p>
@@ -257,11 +253,6 @@ const AgentFormBody = ({
                         onChange={(event) => toggleSkill(skill, event.target.checked)}
                       />
                       <span className="agent-pick__id">{skill.id}</span>
-                      <span className="agent-pick__kind">
-                        {skill.kind === "global"
-                          ? t("agents.context.global")
-                          : t("agents.context.local")}
-                      </span>
                     </label>
                   </li>
                 );
