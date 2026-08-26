@@ -11,7 +11,10 @@ export const ChatThread = (): ReactNode => {
   const sendingSessionId = useSessionsStore((state) => state.sendingSessionId);
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
   const error = useSessionsStore((state) => state.error);
-  const waiting = sending && sendingSessionId === activeSessionId;
+  const waiting =
+    sending &&
+    sendingSessionId === activeSessionId &&
+    !messages.some((message) => message.streaming);
 
   if (messages.length === 0 && !error) {
     return (
@@ -31,7 +34,7 @@ export const ChatThread = (): ReactNode => {
         {messages.map((message) => (
           <article
             key={message.id}
-            className={`chat-message chat-message--${message.role}`}
+            className={`chat-message chat-message--${message.role}${message.streaming ? " chat-message--streaming" : ""}`}
             data-role={message.role}
           >
             <p className="chat-message__content">{message.content}</p>

@@ -6,7 +6,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crate::providers::ModelInfo;
+use crate::providers::{ModelCost, ModelInfo};
 use crate::APP_CONFIG_DIR;
 
 const CACHE_FILE: &str = "models-dev-cache.json";
@@ -45,6 +45,8 @@ pub struct CatalogEntry {
     pub multimodal: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub effort_levels: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost: Option<ModelCost>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,
 }
@@ -89,6 +91,22 @@ struct ModelsDevModel {
     attachment: bool,
     #[serde(default)]
     reasoning_options: Vec<ModelsDevReasoningOption>,
+    #[serde(default)]
+    cost: Option<ModelsDevCost>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelsDevCost {
+    #[serde(default)]
+    input: Option<f64>,
+    #[serde(default)]
+    output: Option<f64>,
+    #[serde(default)]
+    reasoning: Option<f64>,
+    #[serde(default)]
+    cache_read: Option<f64>,
+    #[serde(default)]
+    cache_write: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -124,11 +142,21 @@ struct ModelsDevProvider {
 }
 
 impl Catalog {
-    fn insert(&mut self, entry: CatalogEntry) {
+    fn insert(&mut self, mut entry: CatalogEntry) {
         let mut keys = Vec::with_capacity(1 + entry.aliases.len());
         keys.push(normalize_id(&entry.id));
         for alias in &entry.aliases {
             keys.push(normalize_id(alias));
+        }
+        if entry.cost.is_none() {
+            for key in &keys {
+                if let Some(current) = self.by_id.get(key) {
+                    if current.cost.is_some() {
+                        entry.cost = current.cost.clone();
+                        break;
+                    }
+                }
+            }
         }
         for key in keys {
             self.by_id.insert(key, entry.clone());
@@ -190,6 +218,9 @@ impl Catalog {
         }
         if model.effort_levels.is_empty() {
             model.effort_levels = entry.effort_levels.clone();
+        }
+        if model.cost.is_none() {
+            model.cost = entry.cost.clone();
         }
         model.reasoning |= entry.reasoning;
         model.tool_call |= entry.tool_call;
@@ -282,7 +313,13 @@ async fn fetch_models_dev() -> Result<Vec<CatalogEntry>, String> {
                 .entry(key)
                 .and_modify(|current| {
                     if richer_than(current, &entry) {
-                        *current = entry.clone();
+                        let mut next = entry.clone();
+                        if next.cost.is_none() {
+                            next.cost = current.cost.clone();
+                        }
+                        *current = next;
+                    } else if current.cost.is_none() {
+                        current.cost = entry.cost.clone();
                     }
                 })
                 .or_insert(entry);
@@ -328,8 +365,21 @@ fn catalog_from_models_dev(key: String, model: ModelsDevModel) -> CatalogEntry {
         effort_levels,
         input,
         output,
+        cost: model.cost.and_then(model_cost_from_dev),
         aliases: Vec::new(),
     }
+}
+
+fn model_cost_from_dev(cost: ModelsDevCost) -> Option<ModelCost> {
+    let input = cost.input?;
+    let output = cost.output?;
+    Some(ModelCost {
+        input,
+        output,
+        reasoning: cost.reasoning,
+        cache_read: cost.cache_read,
+        cache_write: cost.cache_write,
+    })
 }
 
 fn effort_from_options(options: &[ModelsDevReasoningOption]) -> Vec<String> {
@@ -378,11 +428,12 @@ fn richer_than(current: &CatalogEntry, candidate: &CatalogEntry) -> bool {
     score(candidate) > score(current)
 }
 
-fn score(entry: &CatalogEntry) -> (usize, usize, u8, u8, u8) {
+fn score(entry: &CatalogEntry) -> (usize, usize, u8, u8, u8, u8) {
     (
         entry.effort_levels.len(),
         entry.input.len(),
         u8::from(entry.context_window.is_some()),
+        u8::from(entry.cost.is_some()),
         u8::from(entry.reasoning),
         u8::from(entry.tool_call),
     )

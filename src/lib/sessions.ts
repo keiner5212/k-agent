@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
+import { useProvidersStore } from "@/lib/providers";
 import { selectEffort, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
 import type { ChatMessage, SelectedModel, SendChatResult } from "@/types/chat";
@@ -45,6 +46,16 @@ const resolveTitleModel = (): SelectedModel | null => {
   const { titleGenerationModel } = useSettingsStore.getState();
   if (titleGenerationModel) return titleGenerationModel;
   return useSelectionStore.getState().selection;
+};
+
+const resolveSendEffort = (selection: SelectedModel): string | undefined => {
+  const stored = selectEffort(useSelectionStore.getState());
+  if (stored) return stored;
+  const provider = useProvidersStore
+    .getState()
+    .providers.find((item) => item.id === selection.providerId);
+  const model = provider?.models.find((item) => item.id === selection.modelId);
+  return model?.effortLevels?.[0];
 };
 
 const generateSessionTitle = async (firstMessage: string): Promise<string> => {
@@ -219,7 +230,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     if (!activeSession) return;
 
     const isFirstMessage = activeSession.messages.length === 0;
-    const effort = selectEffort(useSelectionStore.getState()) ?? undefined;
+    const effort = resolveSendEffort(selection);
     const userMessage: ChatMessage = {
       id: nextId(),
       role: "user",
@@ -261,6 +272,33 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     }
 
     try {
+      const assistantId = nextId();
+      const onChunk = new Channel<string>();
+      onChunk.onmessage = (chunk) => {
+        if (!chunk || get().sendingSessionId !== sessionId) return;
+        const nextSessions = get().sessions.map((session) => {
+          if (session.id !== sessionId) return session;
+          const index = session.messages.findIndex((message) => message.id === assistantId);
+          if (index < 0) {
+            return {
+              ...session,
+              preview: chunk,
+              messages: [
+                ...session.messages,
+                { id: assistantId, role: "assistant" as const, content: chunk, streaming: true },
+              ],
+            };
+          }
+          const messages = session.messages.slice();
+          const current = messages[index];
+          if (!current) return session;
+          const content = `${current.content}${chunk}`;
+          messages[index] = { ...current, content, streaming: true };
+          return { ...session, preview: content, messages };
+        });
+        set({ sessions: nextSessions });
+      };
+
       const result = await invoke<SendChatResult>("send_chat_message", {
         input: {
           providerId: selection.providerId,
@@ -268,21 +306,38 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           message: trimmed,
           effort: effort ?? null,
         },
+        onChunk,
       });
-      const assistantMessage: ChatMessage = {
-        id: nextId(),
-        role: "assistant",
-        content: result.content,
-      };
       const replyAt = Date.now();
-      const withAssistant = sortSessions(
-        patchActiveSession(get().sessions, sessionId, (session) => ({
+      const withAssistant = get().sessions.map((session) => {
+        if (session.id !== sessionId) return session;
+        const index = session.messages.findIndex((message) => message.id === assistantId);
+        if (index < 0) {
+          return {
+            ...session,
+            preview: result.content,
+            updatedAt: replyAt,
+            messages: [
+              ...session.messages,
+              { id: assistantId, role: "assistant" as const, content: result.content },
+            ],
+          };
+        }
+        const messages = session.messages.slice();
+        const current = messages[index];
+        if (!current) return session;
+        messages[index] = {
+          ...current,
+          content: result.content || current.content,
+          streaming: false,
+        };
+        return {
           ...session,
-          preview: result.content,
+          preview: messages[index]?.content ?? result.content,
           updatedAt: replyAt,
-          messages: [...session.messages, assistantMessage],
-        })),
-      );
+          messages,
+        };
+      });
       const stillSending = get().sendingSessionId === sessionId;
       set({
         sessions: withAssistant,
@@ -292,7 +347,21 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       void persistSnapshot(snapshotFromState(withAssistant, active));
     } catch (error) {
       if (get().sendingSessionId === sessionId) {
-        set({ sending: false, sendingSessionId: null, error: ipcErrorMessage(error) });
+        const nextSessions = get().sessions.map((session) => {
+          if (session.id !== sessionId) return session;
+          return {
+            ...session,
+            messages: session.messages.map((message) =>
+              message.streaming ? { ...message, streaming: false } : message,
+            ),
+          };
+        });
+        set({
+          sessions: nextSessions,
+          sending: false,
+          sendingSessionId: null,
+          error: ipcErrorMessage(error),
+        });
       }
     }
   },

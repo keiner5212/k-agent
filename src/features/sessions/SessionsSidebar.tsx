@@ -69,13 +69,8 @@ const SessionItem = ({
     preview.trim().length > 0 ? titleFromFirstMessage(preview) : t("sessions.noPreview");
 
   return (
-    <li className="sessions-sidebar__item-wrap">
-      <button
-        type="button"
-        className="sessions-sidebar__item"
-        data-active={active ? "true" : "false"}
-        onClick={onSelect}
-      >
+    <li className="sessions-sidebar__item-wrap" data-active={active ? "true" : "false"}>
+      <button type="button" className="sessions-sidebar__item" onClick={onSelect}>
         <span className="sessions-sidebar__item-title">{title}</span>
         <span className="sessions-sidebar__item-preview">{previewText}</span>
       </button>
@@ -92,7 +87,7 @@ const SessionItem = ({
           onDelete();
         }}
       >
-        <Trash2 size={12} strokeWidth={1.5} />
+        <Trash2 size={14} strokeWidth={1.75} />
       </IconButton>
     </li>
   );

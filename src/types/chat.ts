@@ -9,6 +9,7 @@ export type ChatMessage = {
   id: string;
   role: ChatRole;
   content: string;
+  streaming?: boolean;
 };
 
 export type SendChatResult = {

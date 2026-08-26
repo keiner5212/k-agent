@@ -8,6 +8,14 @@ export const PROVIDER_KINDS: readonly ProviderKind[] = [
 
 export type ModelSource = "detected" | "custom";
 
+export type ModelCost = {
+  input: number;
+  output: number;
+  reasoning?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+};
+
 export type ModelInfo = {
   id: string;
   contextWindow?: number;
@@ -23,6 +31,7 @@ export type ModelInfo = {
   attachment?: boolean;
   multimodal?: boolean;
   effortLevels?: string[];
+  cost?: ModelCost;
   source?: ModelSource;
   userEdited?: boolean;
   favorite?: boolean;

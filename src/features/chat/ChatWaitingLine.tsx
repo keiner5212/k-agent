@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { Sparkles } from "lucide-react";
 
 const ROTATE_MS = 2800;
 
@@ -34,7 +35,14 @@ export const ChatWaitingLine = (): ReactNode => {
 
   return (
     <article className="chat-message chat-message--assistant chat-message--pending">
-      <p className="chat-message__content">{phrase}</p>
+      <span className="chat-waiting__icon" aria-hidden="true">
+        <Sparkles size={15} strokeWidth={1.75} />
+      </span>
+      <p className="chat-message__content chat-waiting__copy">
+        <span key={index} className="chat-waiting__phrase">
+          {phrase}
+        </span>
+      </p>
     </article>
   );
 };

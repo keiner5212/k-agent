@@ -10,6 +10,19 @@ use uuid::Uuid;
 
 use crate::APP_CONFIG_DIR;
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelCost {
+    pub input: f64,
+    pub output: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_read: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_write: Option<f64>,
+}
+
 const PROVIDERS_FILE: &str = "providers.json";
 const PROVIDER_KEYS_FILE: &str = "provider-keys.json";
 const HTTP_TIMEOUT: Duration = Duration::from_secs(20);
@@ -63,6 +76,8 @@ pub struct ModelInfo {
     pub multimodal: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub effort_levels: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost: Option<ModelCost>,
     #[serde(default, skip_serializing_if = "is_detected")]
     pub source: ModelSource,
     #[serde(default, skip_serializing_if = "is_false")]
@@ -88,6 +103,7 @@ impl ModelInfo {
             attachment: false,
             multimodal: false,
             effort_levels: Vec::new(),
+            cost: None,
             source: ModelSource::Detected,
             user_edited: false,
             favorite: false,

@@ -2,6 +2,23 @@
 
 Desktop app: Tauri 2 + Rust + React 19 + TypeScript. One pattern per category. Reuse existing code. Do not invent a second way.
 
+## Inspiration (OpenCode + Command Code)
+
+Product behavior takes cues from [OpenCode](https://github.com/anomalyco/opencode) and [Command Code](https://commandcode.ai/). Both trees live under `.tmp/` (gitignored). Keep them installed there; do not import them into the app.
+
+Expected paths:
+
+- `.tmp/opencode` - OpenCode source
+- `.tmp/command-code` - Command Code (`npm i -g command-code` is not enough; clone or unpack into `.tmp/command-code`)
+
+When a feature could follow either product:
+
+1. Ask the user first. Do not pick a design, copy a flow, or start coding from those trees until they confirm.
+2. After yes: read both implementations. Compare parse, UI, and data shape.
+3. Propose a k-agent middle path that learns from both, then implement only that. Do not clone either UI or paste their code.
+
+Never vendor `.tmp` into `src/` or `src-tauri/`.
+
 ## Layout
 
 ```
