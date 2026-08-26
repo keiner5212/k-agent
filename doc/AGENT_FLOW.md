@@ -10,28 +10,28 @@ When a chat message is sent, the backend receives one system string assembled on
 2. **Global rules** from `~/.k-agent/AGENTS.md` when that file exists.
 3. **Workspace rules** from `{workspace}/AGENTS.md` when that file exists.
 4. **Agent system** from `composeAgentSystem()`:
-   - **1. Agent flow** - numbered turn protocol.
-   - **2. Agent skill loading** - turn-1 batch `skill` calls when the agent has bound global skills.
-   - **3. Agent skills** - names and descriptions only (global skills bound to the agent).
-   - **4. Local tools** - tools enabled on that agent (today: `skill`).
-   - **5. Workspace skills** - names and descriptions for workspace-local skills.
-   - **6. Personality** - agent persona markdown body only.
+   - **Flow** - turn-1 skill batch when the agent has bound skills; workspace skill load-on-demand; use advertised tools; then personality.
+   - **Agent skills** - names and descriptions only (global skills bound to the agent).
+   - **Workspace skills** - names and descriptions for workspace-local skills.
+   - **Personality** - agent persona markdown body only.
 5. **App context** (optional). Extra app-level notes when configured.
 
-Skill bodies are never pasted into the system prompt. They arrive through tool results after a `skill` call.
+Tool JSON schemas are sent on the request `tools` field, not repeated in the system prompt.
+
+Skill bodies arrive through tool results after a `skill` call. Persisted on the assistant message (`toolCalls` with `output`) in `sessions.json` and replayed on the next send.
 
 ## Turn protocol (model behavior)
 
 The model is instructed to follow this sequence:
 
-| Phase  | Action                                                                                                             |
-| ------ | ------------------------------------------------------------------------------------------------------------------ |
-| Turn 1 | If the agent has bound skills, one batch of `skill` tool calls for every listed agent skill. No user-facing prose. |
-| Next   | Load matching workspace skills with `skill` when they are listed and relevant.                                     |
-| Tools  | Call only tools listed under Local tools. Do not invent tool names.                                                |
-| Answer | Reply using agent personality.                                                                                     |
+| Phase  | Action                                                                               |
+| ------ | ------------------------------------------------------------------------------------ |
+| Turn 1 | If the agent has bound skills, one batch of `skill` calls for those names. No prose. |
+| Next   | Load matching workspace skills with `skill` when they are listed and relevant.       |
+| Tools  | Call only advertised tools. Do not invent tool names.                                |
+| Answer | Reply using agent personality.                                                       |
 
-Turn 1 is skipped when the agent has no bound skills (e.g. builtin build/plan).
+Turn 1 is omitted from the prompt when the agent has no bound skills (e.g. builtin build/plan).
 
 ## Agent skills vs workspace skills
 
@@ -49,7 +49,7 @@ The chat request only includes tools enabled on the selected agent. Tool names t
 
 - **Name:** `skill`
 - **Input:** `{ "name": "<skill name>" }`
-- **Behavior:** Finds a global or workspace skill by name, returns a `<skill_content>` block with the SKILL.md body and base directory.
+- **Behavior:** Finds a global or workspace skill by name, returns the SKILL.md body and `dir: <path>`.
 - **Registration:** Add new tools beside `skill.rs` and register in `all_tools()` inside `mod.rs`.
 
 ### Chat tool loop
@@ -71,7 +71,7 @@ Provider message shapes:
 ## Token accounting
 
 - **Personality** alone drives `estimatedTokens` on `AgentMeta` in Rust and builtin agents in the UI.
-- **Context usage** splits the composed system (language, AGENTS.md rules, agent system), plus tool JSON schemas, bound/loaded skill bodies, and conversation (content, reasoning, attachment text).
+- **Context usage** splits language, AGENTS.md rules, agent system, tool JSON schemas, persisted skill tool outputs, and conversation (content, reasoning, attachment text).
 
 ## Related files
 

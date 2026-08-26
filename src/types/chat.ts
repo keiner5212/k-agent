@@ -24,8 +24,10 @@ export type ChatChunk = {
 };
 
 export type ChatToolCall = {
+  id?: string;
   name: string;
   argument?: string;
+  output?: string;
 };
 
 export const parseToolChunkText = (text: string): ChatToolCall => {
@@ -54,16 +56,38 @@ export type ChatMessage = {
   toolCalls?: ChatToolCall[];
 };
 
+export type ChatToolResultTurn = {
+  callId: string;
+  name: string;
+  content: string;
+};
+
 export type ChatTurn = {
   role: ChatRole;
   content: string;
   reasoning?: string | null;
   reasoningSignature?: string | null;
   attachments?: ChatAttachment[];
+  toolCalls?: ChatToolCall[];
+  toolResult?: ChatToolResultTurn;
+};
+
+export type PersistedToolCall = {
+  id: string;
+  name: string;
+  argument?: string;
+  output: string;
+};
+
+export type ToolRoundTrace = {
+  reasoning: string;
+  reasoningSignature?: string;
+  calls: PersistedToolCall[];
 };
 
 export type SendChatResult = {
   content: string;
   reasoning?: string;
   reasoningSignature?: string;
+  toolRounds?: ToolRoundTrace[];
 };

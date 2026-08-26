@@ -16,6 +16,7 @@ import { agentKey } from "@/types/agents";
 export const AgentSelector = (): ReactNode => {
   const { t } = useTranslation();
   const selectedAgent = useComposerStore((state) => state.selectedAgent);
+  const agentHydrated = useComposerStore((state) => state.agentHydrated);
   const setSelectedAgent = useComposerStore((state) => state.setSelectedAgent);
   const contexts = useAgentsStore((state) => state.contexts);
   const buildAgentEnabled = useSettingsStore((state) => state.buildAgentEnabled);
@@ -61,6 +62,7 @@ export const AgentSelector = (): ReactNode => {
   const options = [...builtinOptions, ...userOptions];
 
   useEffect(() => {
+    if (!agentHydrated) return;
     const values = optionValues.length === 0 ? [] : optionValues.split("|");
     if (values.length === 0) {
       if (selectedAgent !== "") setSelectedAgent("");
@@ -69,7 +71,7 @@ export const AgentSelector = (): ReactNode => {
     if (!values.includes(selectedAgent)) {
       setSelectedAgent(values[0] ?? "");
     }
-  }, [optionValues, selectedAgent, setSelectedAgent]);
+  }, [agentHydrated, optionValues, selectedAgent, setSelectedAgent]);
 
   return (
     <div className="agent-selector">

@@ -1,13 +1,6 @@
 import type { TFunction } from "i18next";
 import { resolveAgentMeta } from "@/lib/builtin-agents";
-import {
-  AGENT_TOOL_IDS,
-  CHAT_TOOL_DESCRIPTIONS,
-  type AgentContext,
-  type AgentMeta,
-  type AgentSkillRef,
-  type AgentToolId,
-} from "@/types/agents";
+import type { AgentContext, AgentMeta, AgentSkillRef } from "@/types/agents";
 import type { AgentsMdFile } from "@/types/agents-md";
 import type { SkillContext } from "@/types/skills";
 
@@ -23,81 +16,56 @@ const findSkillMeta = (
   return { name, description };
 };
 
-const buildAgentSkillCatalog = (
+const uniqueAgentSkills = (
   refs: readonly AgentSkillRef[],
   skillContexts: readonly SkillContext[],
-): string => {
-  const lines: string[] = [];
+): { name: string; description: string }[] => {
+  const out: { name: string; description: string }[] = [];
   const seen = new Set<string>();
   for (const ref of refs) {
     const meta = findSkillMeta(skillContexts, ref);
     if (!meta || seen.has(meta.name)) continue;
     seen.add(meta.name);
-    const detail = meta.description.length > 0 ? meta.description : meta.name;
-    lines.push(`- \`${meta.name}\`: ${detail}`);
+    out.push(meta);
   }
-  if (lines.length === 0) return "";
-  return ["# 3. Agent skills", "", ...lines].join("\n");
+  return out;
+};
+
+const formatSkillLines = (items: { name: string; description: string }[]): string[] =>
+  items.map((item) => {
+    const detail = item.description.length > 0 ? item.description : item.name;
+    return `- ${item.name}: ${detail}`;
+  });
+
+const buildAgentSkillCatalog = (items: { name: string; description: string }[]): string => {
+  if (items.length === 0) return "";
+  return ["# Agent skills", ...formatSkillLines(items)].join("\n");
 };
 
 const buildWorkspaceSkillCatalog = (skillContexts: readonly SkillContext[]): string => {
   const ctx = skillContexts.find((item) => item.kind === "local");
-  const lines: string[] = [];
+  const items: { name: string; description: string }[] = [];
   for (const skill of ctx?.skills ?? []) {
     const name = skill.name.trim().length > 0 ? skill.name.trim() : skill.id;
-    const description = skill.description.trim();
-    const detail = description.length > 0 ? description : name;
-    lines.push(`- \`${name}\`: ${detail}`);
+    items.push({ name, description: skill.description.trim() });
   }
-  if (lines.length === 0) return "";
-  return ["# 5. Workspace skills", "", ...lines].join("\n");
+  if (items.length === 0) return "";
+  return ["# Workspace skills", ...formatSkillLines(items)].join("\n");
 };
 
-const buildAgentSkillLoadingDirective = (
-  refs: readonly AgentSkillRef[],
-  skillContexts: readonly SkillContext[],
+const buildTurnProtocol = (
+  agentSkillNames: readonly string[],
+  hasWorkspaceSkills: boolean,
 ): string => {
-  const names: string[] = [];
-  for (const ref of refs) {
-    const meta = findSkillMeta(skillContexts, ref);
-    if (!meta || names.includes(meta.name)) continue;
-    names.push(meta.name);
+  const lines = ["# Flow"];
+  if (agentSkillNames.length > 0) {
+    lines.push(`Turn 1: one skill batch for ${agentSkillNames.join(", ")}. No prose.`);
   }
-  if (names.length === 0) return "";
-  const count = names.length;
-  const plural = count === 1 ? "" : "s";
-  const list = names.map((name, index) => `${index + 1}. \`${name}\``).join("\n");
-  return [
-    "# 2. Agent skill loading - turn 1",
-    "",
-    `Single tool batch, exactly ${count} \`skill\` call${plural}, before any other tool or prose:`,
-    "",
-    list,
-    "",
-    "No other tool calls on turn 1. Retry a failed skill once; report on turn 2.",
-    "Later turns: load any matching skill not already in context.",
-  ].join("\n");
-};
-
-const buildTurnProtocol = (hasAgentSkills: boolean): string => {
-  const steps = [
-    "Follow system sections in order. Each numbered block maps to a phase of the reply.",
-    hasAgentSkills
-      ? "Turn 1: batch-load every agent-bound skill with the `skill` tool. No prose."
-      : "Turn 1: skip agent skill loading when the agent has no bound skills.",
-    "Then load matching workspace skills with `skill` when they are listed and relevant.",
-    "Call only tools listed under Local tools. Do not invent tool names.",
-    "Finally answer using the agent personality at the end of this system prompt.",
-  ];
-  return ["# 1. Agent flow", "", ...steps].join("\n");
-};
-
-const buildToolCatalog = (enabled: readonly string[]): string => {
-  const lines = enabled
-    .filter((id): id is AgentToolId => (AGENT_TOOL_IDS as readonly string[]).includes(id))
-    .map((id) => `- \`${id}\`: ${CHAT_TOOL_DESCRIPTIONS[id]}`);
-  if (lines.length === 0) return "";
-  return ["# 4. Local tools", "", ...lines].join("\n");
+  if (hasWorkspaceSkills) {
+    lines.push("Later: skill for a listed workspace skill when relevant.");
+  }
+  lines.push("Use only advertised tools. Then follow Personality.");
+  return lines.join("\n");
 };
 
 export const buildAgentsMdRules = (files: readonly AgentsMdFile[]): string => {
@@ -114,22 +82,26 @@ export const buildAgentsMdRules = (files: readonly AgentsMdFile[]): string => {
 export const composeAgentSystem = (
   agent: AgentMeta | null,
   skillContexts: SkillContext[],
+  loadedSkillNames: readonly string[] = [],
 ): string => {
   if (!agent) return "";
-  const parts: string[] = [];
-  const protocol = buildTurnProtocol(agent.skills.length > 0);
-  if (protocol.length > 0) parts.push(protocol);
-  const skillDirective = buildAgentSkillLoadingDirective(agent.skills, skillContexts);
-  if (skillDirective.length > 0) parts.push(skillDirective);
-  const agentSkills = buildAgentSkillCatalog(agent.skills, skillContexts);
-  if (agentSkills.length > 0) parts.push(agentSkills);
-  const tools = buildToolCatalog(agent.tools);
-  if (tools.length > 0) parts.push(tools);
+  const loaded = new Set(loadedSkillNames.map((name) => name.trim()).filter(Boolean));
+  const agentSkills = uniqueAgentSkills(agent.skills, skillContexts).filter(
+    (item) => !loaded.has(item.name),
+  );
   const workspaceSkills = buildWorkspaceSkillCatalog(skillContexts);
+  const parts: string[] = [
+    buildTurnProtocol(
+      agentSkills.map((item) => item.name),
+      workspaceSkills.length > 0,
+    ),
+  ];
+  const agentCatalog = buildAgentSkillCatalog(agentSkills);
+  if (agentCatalog.length > 0) parts.push(agentCatalog);
   if (workspaceSkills.length > 0) parts.push(workspaceSkills);
   const personality = agent.personality.trim();
   if (personality.length > 0) {
-    parts.push(`# 6. Personality\n\n${personality}`);
+    parts.push(`# Personality\n\n${personality}`);
   }
   return parts.join("\n\n");
 };

@@ -13,6 +13,7 @@ import {
   estimateToolDefinitionTokens,
   formatUsageCost,
   formatUsageTokens,
+  loadedSkillNamesFromMessages,
   resolveSelectedModel,
 } from "@/lib/context-usage";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
@@ -45,7 +46,8 @@ export const ContextUsage = (): ReactNode => {
   const model = useMemo(() => resolveSelectedModel(providers, selection), [providers, selection]);
   const extras = useMemo(() => {
     const agent = resolveAgentMeta(selectedAgent, agentContexts, t);
-    const agentSystem = composeAgentSystem(agent, skillContexts);
+    const loadedSkills = loadedSkillNamesFromMessages(messages);
+    const agentSystem = composeAgentSystem(agent, skillContexts, loadedSkills);
     const appContext = appContextDirective(responseLanguage);
     const systemParts: string[] = [];
     if (agentSystem.length > 0) systemParts.push(agentSystem);
@@ -57,7 +59,7 @@ export const ContextUsage = (): ReactNode => {
       languageDirective: estimateTokensFromText(language),
       rules: estimateTokensFromText(rules),
       toolDefinitions: estimateToolDefinitionTokens(agent?.tools ?? []),
-      skills: estimateLoadedSkillTokens(messages, skillContexts, agent?.skills ?? []),
+      skills: estimateLoadedSkillTokens(messages),
     };
   }, [
     agentContexts,

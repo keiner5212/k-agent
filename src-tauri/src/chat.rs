@@ -16,6 +16,24 @@ const MAX_TOOL_ROUNDS: usize = 12;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ChatToolCallTurn {
+    #[serde(default)]
+    pub id: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub argument: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatToolResultTurn {
+    pub call_id: String,
+    pub name: String,
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatTurn {
     pub role: String,
     #[serde(default)]
@@ -26,6 +44,10 @@ pub struct ChatTurn {
     pub reasoning_signature: Option<String>,
     #[serde(default)]
     pub attachments: Vec<ChatAttachment>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_calls: Vec<ChatToolCallTurn>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_result: Option<ChatToolResultTurn>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,6 +67,25 @@ pub struct SendChatInput {
     pub tool_names: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PersistedToolCall {
+    pub id: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub argument: Option<String>,
+    pub output: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolRoundTrace {
+  pub reasoning: String,
+  #[serde(default, skip_serializing_if = "String::is_empty")]
+  pub reasoning_signature: String,
+  pub calls: Vec<PersistedToolCall>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SendChatResult {
@@ -53,6 +94,8 @@ pub struct SendChatResult {
     pub reasoning: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub reasoning_signature: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_rounds: Vec<ToolRoundTrace>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -67,6 +110,7 @@ struct ChatOutput {
     reasoning: String,
     reasoning_signature: String,
     tool_calls: Vec<ModelToolCall>,
+    tool_rounds: Vec<ToolRoundTrace>,
 }
 
 #[derive(Clone)]
@@ -260,11 +304,79 @@ fn user_turn(content: String) -> Turn {
     }
 }
 
+fn tool_arguments_json(name: &str, argument: Option<&str>) -> String {
+    if name == tools::SKILL_TOOL_NAME {
+        let value = argument.unwrap_or("").trim();
+        return json!({ "name": value }).to_string();
+    }
+    "{}".to_string()
+}
+
+fn tool_call_argument(name: &str, arguments: &str) -> String {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(arguments) else {
+        return String::new();
+    };
+    if name == tools::SKILL_TOOL_NAME {
+        return value
+            .get("name")
+            .and_then(|item| item.as_str())
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+            .unwrap_or("")
+            .to_string();
+    }
+    String::new()
+}
+
 fn normalize_turns(input: &[ChatTurn]) -> Vec<Turn> {
     let mut turns: Vec<Turn> = Vec::new();
     for item in input {
         let assistant = item.role.eq_ignore_ascii_case("assistant");
         if !assistant && !item.role.eq_ignore_ascii_case("user") {
+            continue;
+        }
+        if let Some(result) = &item.tool_result {
+            turns.push(Turn {
+                assistant: false,
+                content: String::new(),
+                reasoning: String::new(),
+                reasoning_signature: String::new(),
+                attachments: Vec::new(),
+                tool_calls: Vec::new(),
+                tool_result: Some(ToolResultTurn {
+                    call_id: result.call_id.clone(),
+                    name: result.name.clone(),
+                    content: result.content.clone(),
+                }),
+            });
+            continue;
+        }
+        if assistant && !item.tool_calls.is_empty() {
+            let tool_calls = item
+                .tool_calls
+                .iter()
+                .map(|call| {
+                    let id = if call.id.is_empty() {
+                        tools::new_tool_call_id()
+                    } else {
+                        call.id.clone()
+                    };
+                    ModelToolCall {
+                        id,
+                        name: call.name.clone(),
+                        arguments: tool_arguments_json(&call.name, call.argument.as_deref()),
+                    }
+                })
+                .collect();
+            turns.push(Turn {
+                assistant: true,
+                content: item.content.clone(),
+                reasoning: item.reasoning.clone().unwrap_or_default(),
+                reasoning_signature: item.reasoning_signature.clone().unwrap_or_default(),
+                attachments: item.attachments.clone(),
+                tool_calls,
+                tool_result: None,
+            });
             continue;
         }
         let content = item.content.clone();
@@ -275,7 +387,7 @@ fn normalize_turns(input: &[ChatTurn]) -> Vec<Turn> {
             continue;
         }
         if let Some(last) = turns.last_mut() {
-            if last.assistant == assistant {
+            if last.assistant == assistant && last.tool_calls.is_empty() && last.tool_result.is_none() {
                 if !last.content.is_empty() && !content.is_empty() {
                     last.content.push_str("\n\n");
                 }
@@ -830,22 +942,6 @@ fn emit_chunk(on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>, kind: &str, tex
     }
 }
 
-fn tool_call_argument(name: &str, arguments: &str) -> String {
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(arguments) else {
-        return String::new();
-    };
-    if name == tools::SKILL_TOOL_NAME {
-        return value
-            .get("name")
-            .and_then(|item| item.as_str())
-            .map(str::trim)
-            .filter(|item| !item.is_empty())
-            .unwrap_or("")
-            .to_string();
-    }
-    String::new()
-}
-
 fn emit_tool_call(on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>, call: &ModelToolCall) {
     let argument = tool_call_argument(&call.name, &call.arguments);
     let text = if argument.is_empty() {
@@ -1020,6 +1116,7 @@ async fn collect_stream(
             reasoning,
             reasoning_signature,
             tool_calls: Vec::new(),
+            tool_rounds: Vec::new(),
         })
     }
 }
@@ -1263,6 +1360,7 @@ async fn send_anthropic_like(
         reasoning,
         reasoning_signature,
         tool_calls,
+        tool_rounds: Vec::new(),
     })
 }
 
@@ -1381,6 +1479,7 @@ async fn send_gemini_like(
         reasoning,
         reasoning_signature: String::new(),
         tool_calls,
+        tool_rounds: Vec::new(),
     })
 }
 
@@ -1406,11 +1505,19 @@ async fn send_message(
         return Err(ChatError::EmptyMessage);
     }
     if !tools_enabled(call) {
-        return dispatch_provider(provider, call, on_chunk).await;
+        let output = dispatch_provider(provider, call, on_chunk).await?;
+        return Ok(ChatOutput {
+            content: output.content,
+            reasoning: output.reasoning,
+            reasoning_signature: output.reasoning_signature,
+            tool_calls: output.tool_calls,
+            tool_rounds: Vec::new(),
+        });
     }
 
     let mut turns = call.turns.to_vec();
     let ctx = ToolContext { app };
+    let mut tool_rounds: Vec<ToolRoundTrace> = Vec::new();
 
     for _ in 0..MAX_TOOL_ROUNDS {
         let round_call = ChatCall {
@@ -1431,8 +1538,31 @@ async fn send_message(
             if !output.content.is_empty() {
                 emit_chunk(on_chunk, "content", &output.content);
             }
-            return Ok(output);
+            return Ok(ChatOutput {
+                content: output.content,
+                reasoning: output.reasoning,
+                reasoning_signature: output.reasoning_signature,
+                tool_calls: Vec::new(),
+                tool_rounds,
+            });
         }
+
+        let model_calls: Vec<ModelToolCall> = output
+            .tool_calls
+            .iter()
+            .map(|tc| {
+                let id = if tc.id.is_empty() {
+                    tools::new_tool_call_id()
+                } else {
+                    tc.id.clone()
+                };
+                ModelToolCall {
+                    id,
+                    name: tc.name.clone(),
+                    arguments: tc.arguments.clone(),
+                }
+            })
+            .collect();
 
         turns.push(Turn {
             assistant: true,
@@ -1440,11 +1570,12 @@ async fn send_message(
             reasoning: output.reasoning.clone(),
             reasoning_signature: output.reasoning_signature.clone(),
             attachments: Vec::new(),
-            tool_calls: output.tool_calls.clone(),
+            tool_calls: model_calls.clone(),
             tool_result: None,
         });
 
-        for tc in &output.tool_calls {
+        let mut persisted_calls = Vec::new();
+        for tc in &model_calls {
             emit_tool_call(on_chunk, tc);
             let outcome = if call.tool_names.iter().any(|name| name == &tc.name) {
                 tools::execute(&tc.name, &tc.arguments, &ctx)
@@ -1453,6 +1584,17 @@ async fn send_message(
                     text: format!("Tool `{}` is not enabled for this agent.", tc.name),
                 }
             };
+            let argument = tool_call_argument(&tc.name, &tc.arguments);
+            persisted_calls.push(PersistedToolCall {
+                id: tc.id.clone(),
+                name: tc.name.clone(),
+                argument: if argument.is_empty() {
+                    None
+                } else {
+                    Some(argument)
+                },
+                output: outcome.text.clone(),
+            });
             turns.push(Turn {
                 assistant: false,
                 content: String::new(),
@@ -1467,6 +1609,12 @@ async fn send_message(
                 }),
             });
         }
+
+        tool_rounds.push(ToolRoundTrace {
+            reasoning: output.reasoning.clone(),
+            reasoning_signature: output.reasoning_signature.clone(),
+            calls: persisted_calls,
+        });
     }
 
     Err(ChatError::Provider("tool loop exceeded max rounds".into()))
@@ -1606,6 +1754,7 @@ impl OpenAiChatMessage {
                 reasoning,
                 reasoning_signature: String::new(),
                 tool_calls,
+                tool_rounds: Vec::new(),
             })
         }
     }
@@ -1772,5 +1921,6 @@ pub async fn send_chat_message(
         content: output.content,
         reasoning: output.reasoning,
         reasoning_signature: output.reasoning_signature,
+        tool_rounds: output.tool_rounds,
     })
 }

@@ -1,20 +1,14 @@
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
-import {
-  AGENT_TOOL_IDS,
-  CHAT_TOOL_DESCRIPTIONS,
-  type AgentSkillRef,
-  type AgentToolId,
-} from "@/types/agents";
+import { AGENT_TOOL_IDS, CHAT_TOOL_DESCRIPTIONS, type AgentToolId } from "@/types/agents";
 import type { ChatMessage, SelectedModel } from "@/types/chat";
 import { formatTokenCount, type ModelCost, type ModelInfo, type Provider } from "@/types/providers";
-import type { SkillContext } from "@/types/skills";
 
 const SKILL_TOOL_PARAMETERS = {
   type: "object",
   properties: {
     name: {
       type: "string",
-      description: "Skill name from the available skills list",
+      description: "Skill name",
     },
   },
   required: ["name"],
@@ -94,35 +88,26 @@ export const estimateToolDefinitionTokens = (toolNames: readonly string[]): numb
   return estimateTokensFromText(parts.join("\n"));
 };
 
-const skillBodyTokens = (name: string, skillContexts: readonly SkillContext[]): number => {
-  for (const context of skillContexts) {
-    const skill = context.skills.find((item) => item.name === name || item.id === name);
-    if (skill) return skill.estimatedTokens;
-  }
-  return 0;
-};
-
-export const estimateLoadedSkillTokens = (
-  messages: ChatMessage[],
-  skillContexts: readonly SkillContext[],
-  bound: readonly AgentSkillRef[] = [],
-): number => {
+export const loadedSkillNamesFromMessages = (messages: ChatMessage[]): string[] => {
   const names = new Set<string>();
-  for (const ref of bound) {
-    const context = skillContexts.find((item) => item.kind === ref.kind);
-    const skill = context?.skills.find((item) => item.id === ref.id);
-    const name = skill?.name.trim() || skill?.id;
-    if (name) names.add(name);
-  }
   for (const message of messages) {
     for (const call of message.toolCalls ?? []) {
-      if (call.name !== "skill") continue;
+      if (call.name !== "skill" || !call.output) continue;
       const argument = call.argument?.trim();
       if (argument) names.add(argument);
     }
   }
+  return [...names];
+};
+
+export const estimateLoadedSkillTokens = (messages: ChatMessage[]): number => {
   let tokens = 0;
-  for (const name of names) tokens += skillBodyTokens(name, skillContexts);
+  for (const message of messages) {
+    for (const call of message.toolCalls ?? []) {
+      if (call.name !== "skill" || !call.output) continue;
+      tokens += estimateTokensFromText(call.output);
+    }
+  }
   return tokens;
 };
 
@@ -137,8 +122,13 @@ export const estimateMessageCostUsd = (
   for (const message of messages) {
     const tokens = estimateTokensFromText(messageBody(message));
     const reasoning = estimateTokensFromText(message.reasoning ?? "");
+    let toolTokens = 0;
+    for (const call of message.toolCalls ?? []) {
+      toolTokens += estimateTokensFromText(call.output ?? "");
+    }
     if (message.role === "user") inputTokens += tokens;
     else outputTokens += tokens + reasoning;
+    inputTokens += toolTokens;
   }
   return (inputTokens / 1_000_000) * cost.input + (outputTokens / 1_000_000) * cost.output;
 };

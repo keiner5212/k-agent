@@ -53,7 +53,7 @@ const ToolCallsBlock = ({ calls }: { calls: ChatToolCall[] }): ReactNode => {
   return (
     <ul className="chat-tools">
       {calls.map((call, index) => (
-        <li key={`${call.name}-${index}`} className="chat-tools__item">
+        <li key={call.id ?? `${call.name}-${index}`} className="chat-tools__item">
           {formatToolCall(call)}
         </li>
       ))}

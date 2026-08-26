@@ -60,6 +60,7 @@ export const App = (): ReactNode => {
   const setSidebarOpen = useSettingsStore((state) => state.setSessionSidebarOpen);
   const hydrateSelection = useSelectionStore((state) => state.hydrate);
   const hydrateSessions = useSessionsStore((state) => state.hydrate);
+  const hydrateAgent = useComposerStore((state) => state.hydrateAgent);
   const clearComposer = useComposerStore((state) => state.clear);
 
   useEffect(() => {
@@ -69,6 +70,10 @@ export const App = (): ReactNode => {
   useEffect(() => {
     void hydrateSelection();
   }, [hydrateSelection]);
+
+  useEffect(() => {
+    void hydrateAgent();
+  }, [hydrateAgent]);
 
   useEffect(() => {
     void hydrateSessions();

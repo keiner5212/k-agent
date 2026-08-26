@@ -22,14 +22,17 @@ import {
   summarizeShellResultForAi,
   type ShellChunk,
 } from "@/lib/shell";
+import { loadedSkillNamesFromMessages } from "@/lib/context-usage";
 import {
   parseToolChunkText,
   type ChatAttachment,
   type ChatChunk,
   type ChatMessage,
+  type ChatToolCall,
   type ChatTurn,
   type SelectedModel,
   type SendChatResult,
+  type ToolRoundTrace,
 } from "@/types/chat";
 import {
   sortSessions,
@@ -48,22 +51,85 @@ export type QueuedMessage = {
   attachments?: ChatAttachment[];
 };
 
-const toChatTurns = (messages: ChatMessage[]): ChatTurn[] =>
-  messages
-    .filter((message) => !message.streaming)
-    .filter(
-      (message) =>
-        message.content.trim().length > 0 ||
-        (message.reasoning ?? "").trim().length > 0 ||
-        (message.attachments?.length ?? 0) > 0,
-    )
-    .map((message) => ({
-      role: message.role,
-      content: message.shellAiSummary ?? message.content,
-      reasoning: message.reasoning ?? null,
-      reasoningSignature: message.reasoningSignature ?? null,
-      attachments: message.attachments,
-    }));
+const toolCallsFromRounds = (rounds: ToolRoundTrace[] | undefined): ChatToolCall[] | undefined => {
+  if (!rounds?.length) return undefined;
+  const calls: ChatToolCall[] = [];
+  for (const round of rounds) {
+    for (const call of round.calls) {
+      calls.push({
+        id: call.id,
+        name: call.name,
+        argument: call.argument,
+        output: call.output,
+      });
+    }
+  }
+  return calls.length > 0 ? calls : undefined;
+};
+
+const toChatTurns = (messages: ChatMessage[]): ChatTurn[] => {
+  const turns: ChatTurn[] = [];
+  for (const message of messages) {
+    if (message.streaming) continue;
+    if (message.role === "assistant" && message.toolCalls?.length) {
+      const withOutput = message.toolCalls.filter((call) => call.output);
+      if (withOutput.length > 0) {
+        turns.push({
+          role: "assistant",
+          content: "",
+          reasoning: message.reasoning ?? null,
+          reasoningSignature: message.reasoningSignature ?? null,
+          attachments: message.attachments,
+          toolCalls: withOutput.map((call) => ({
+            id: call.id ?? "",
+            name: call.name,
+            argument: call.argument,
+          })),
+        });
+        for (const call of withOutput) {
+          turns.push({
+            role: "user",
+            content: "",
+            toolResult: {
+              callId: call.id ?? "",
+              name: call.name,
+              content: call.output!,
+            },
+          });
+        }
+      }
+      const body = message.shellAiSummary ?? message.content;
+      if (
+        body.trim().length > 0 ||
+        (message.attachments?.length ?? 0) > 0 ||
+        withOutput.length === 0
+      ) {
+        turns.push({
+          role: "assistant",
+          content: body,
+          reasoning: withOutput.length > 0 ? null : (message.reasoning ?? null),
+          reasoningSignature: withOutput.length > 0 ? null : (message.reasoningSignature ?? null),
+          attachments: message.attachments,
+        });
+      }
+      continue;
+    }
+    if (
+      message.content.trim().length > 0 ||
+      (message.reasoning ?? "").trim().length > 0 ||
+      (message.attachments?.length ?? 0) > 0
+    ) {
+      turns.push({
+        role: message.role,
+        content: message.shellAiSummary ?? message.content,
+        reasoning: message.reasoning ?? null,
+        reasoningSignature: message.reasoningSignature ?? null,
+        attachments: message.attachments,
+      });
+    }
+  }
+  return turns;
+};
 
 const previewFromMessages = (messages: ChatMessage[]): string => {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -471,7 +537,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       const skillContexts = useSkillsStore.getState().contexts;
       const t = i18n.t.bind(i18n);
       const agent = resolveAgentMeta(selectedAgent, agentContexts, t);
-      const baseSystem = composeAgentSystem(agent, skillContexts);
+      const historyMessages = withUser.find((session) => session.id === sessionId)?.messages ?? [];
+      const loadedSkills = loadedSkillNamesFromMessages(historyMessages);
+      const baseSystem = composeAgentSystem(agent, skillContexts, loadedSkills);
       const rules = buildAgentsMdRules(useAgentsMdStore.getState().files);
       const system = composeSystemWithLanguage(
         baseSystem,
@@ -511,6 +579,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
                 reasoning: result.reasoning,
                 reasoningSignature: result.reasoningSignature,
                 thinkingMs: duration,
+                toolCalls: toolCallsFromRounds(result.toolRounds),
               },
             ],
           };
@@ -524,7 +593,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           reasoning: current.reasoning || result.reasoning,
           reasoningSignature: current.reasoningSignature || result.reasoningSignature,
           thinkingMs: duration ?? current.thinkingMs,
-          toolCalls: current.toolCalls,
+          toolCalls: toolCallsFromRounds(result.toolRounds) ?? current.toolCalls,
           streaming: false,
         };
         return {

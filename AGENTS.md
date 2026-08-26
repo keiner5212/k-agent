@@ -99,7 +99,7 @@ Secrets and UI settings live in the Tauri app data dir (`app.path().app_data_dir
 
 App data dir:
 
-- `settings.json` (plugin-store; keys `settings`, `selectedModel`, `modelEffort:*`)
+- `settings.json` (plugin-store; keys `settings`, `selectedModel`, `selectedAgent`, `modelEffort:*`)
 - `master.key` (mode 0600) via `secret.rs`
 - `provider-keys.json` (`enc:v1:` blobs keyed by provider id, mode 0600)
 - `mcp-secrets.json` (`enc:v1:` blobs keyed by MCP server id, mode 0600)

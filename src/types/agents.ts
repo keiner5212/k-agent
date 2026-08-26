@@ -7,10 +7,7 @@ export const AGENT_TOOL_IDS = ["skill"] as const;
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
 
 export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
-  skill:
-    "Load a specialized skill when the task matches an available skill in the system context. " +
-    "Use this tool to inject the skill instructions into the conversation. " +
-    "The name must match a skill listed in the system prompt.",
+  skill: "Load listed skill instructions by name.",
 };
 
 export const MAX_AGENT_SKILLS = 10;

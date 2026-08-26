@@ -454,7 +454,6 @@ fn collect_skill_contexts(app: &AppHandle) -> Result<Vec<SkillContext>, SkillErr
 }
 
 pub(crate) struct LoadedSkill {
-    pub name: String,
     pub path: String,
     pub body: String,
 }
@@ -483,7 +482,6 @@ pub(crate) fn find_skill_by_name(app: &AppHandle, query: &str) -> Result<Option<
             }
             let raw = read_skill_raw(Path::new(&skill.path))?;
             return Ok(Some(LoadedSkill {
-                name: skill.name,
                 path: skill.path,
                 body: skill_markdown_body(&raw),
             }));

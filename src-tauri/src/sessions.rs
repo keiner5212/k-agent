@@ -9,6 +9,18 @@ const SESSIONS_FILE: &str = "sessions.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SessionToolCall {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub id: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub argument: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionMessage {
     pub id: String,
     pub role: String,
@@ -25,6 +37,8 @@ pub struct SessionMessage {
     pub shell_ai_summary: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub attachments: Vec<crate::attachments::ChatAttachment>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_calls: Vec<SessionToolCall>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

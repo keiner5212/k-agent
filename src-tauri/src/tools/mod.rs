@@ -2,8 +2,13 @@ mod skill;
 
 use serde_json::{json, Value};
 use tauri::AppHandle;
+use uuid::Uuid;
 
 pub const SKILL_TOOL_NAME: &str = skill::NAME;
+
+pub fn new_tool_call_id() -> String {
+    format!("call_{}", Uuid::new_v4().simple())
+}
 
 #[derive(Debug, Clone)]
 pub struct ToolSpec {

@@ -4,11 +4,7 @@ use super::{Tool, ToolContext, ToolOutcome, ToolSpec};
 
 pub const NAME: &str = "skill";
 
-const DESCRIPTION: &str = concat!(
-    "Load a specialized skill when the task matches an available skill in the system context. ",
-    "Use this tool to inject the skill instructions into the conversation. ",
-    "The name must match a skill listed in the system prompt."
-);
+const DESCRIPTION: &str = "Load listed skill instructions by name.";
 
 pub struct SkillTool;
 
@@ -22,7 +18,7 @@ impl Tool for SkillTool {
                 "properties": {
                     "name": {
                         "type": "string",
-                        "description": "Skill name from the available skills list"
+                        "description": "Skill name"
                     }
                 },
                 "required": ["name"]
@@ -43,7 +39,7 @@ impl Tool for SkillTool {
         }
         match crate::skills::find_skill_by_name(ctx.app, name) {
             Ok(Some(skill)) => ToolOutcome {
-                text: to_model_output(&skill.name, &skill.path, &skill.body),
+                text: to_model_output(&skill.path, &skill.body),
             },
             Ok(None) => ToolOutcome {
                 text: format!("Skill `{name}` was not found."),
@@ -55,12 +51,6 @@ impl Tool for SkillTool {
     }
 }
 
-fn to_model_output(name: &str, path: &str, body: &str) -> String {
-    let directory = std::path::Path::new(path)
-        .to_string_lossy()
-        .into_owned();
-    format!(
-        "<skill_content name=\"{name}\">\n# Skill: {name}\n\n{}\n\nBase directory for this skill: {directory}\nRelative paths in this skill (e.g., scripts/, reference/) are relative to this base directory.\n</skill_content>",
-        body.trim()
-    )
+fn to_model_output(path: &str, body: &str) -> String {
+    format!("{}\n\ndir: {path}", body.trim())
 }
