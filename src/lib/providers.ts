@@ -1,12 +1,50 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import type { ModelDraft, Provider, ProviderDraft } from "@/types/providers";
+import type { ModelDraft, Provider, ProviderDraft, ProviderErrorPayload } from "@/types/providers";
 import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "@/lib/platform";
 import { acquireWorkerCores, getWorkerCoreSnapshot } from "@/lib/worker-cores";
 
 export type ProviderMutationResult = {
   provider?: Provider;
   error?: string;
+  errorPayload?: ProviderErrorPayload;
+};
+
+const parseProviderError = (error: unknown): ProviderErrorPayload | undefined => {
+  if (!error || typeof error !== "object") return undefined;
+  const record = error as Record<string, unknown>;
+  const kind = record.kind;
+  if (typeof kind !== "string") return undefined;
+  const message = record.message;
+  switch (kind) {
+    case "timeout":
+      return {
+        kind: "timeout",
+        seconds: typeof record.seconds === "number" ? record.seconds : 0,
+      };
+    case "api":
+      if (typeof record.status !== "number" || typeof message !== "string") return undefined;
+      return { kind: "api", status: record.status, message };
+    case "path":
+    case "io":
+    case "parse":
+    case "http":
+    case "unreachable":
+    case "invalidUrl":
+    case "notFound":
+    case "duplicate":
+    case "crypto":
+      if (typeof message !== "string") return undefined;
+      return { kind, message };
+    default:
+      return undefined;
+  }
+};
+
+const payloadToMessage = (payload: ProviderErrorPayload): string => {
+  if (payload.kind === "timeout") return `timeout after ${payload.seconds}s`;
+  if (payload.kind === "api") return payload.message || `server returned ${payload.status}`;
+  return payload.message;
 };
 
 const replaceProvider = (providers: Provider[], provider: Provider): Provider[] => {
@@ -34,6 +72,10 @@ const runMutation = async (
     const provider = await work();
     return provider ? { provider } : {};
   } catch (error) {
+    const payload = parseProviderError(error);
+    if (payload) {
+      return { error: payloadToMessage(payload), errorPayload: payload };
+    }
     return { error: ipcErrorMessage(error) };
   }
 };

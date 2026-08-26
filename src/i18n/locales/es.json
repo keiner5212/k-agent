@@ -285,7 +285,20 @@
     "empty": "Aún no hay proveedores configurados.",
     "loading": "Cargando proveedores",
     "viewModels": "Ver modelos",
-    "noModels": "No se han detectado modelos. Prueba a actualizar.",
+    "noModels": "No se han detectado modelos. Prueba a refrescar.",
+    "errors": {
+      "timeout": "La petición agotó el tiempo de espera tras {{seconds}} segundos.",
+      "unreachable": "No se puede contactar con el servidor: {{message}}",
+      "invalidUrl": "La URL está mal formada: {{url}}",
+      "auth": "Error de autenticación (HTTP {{status}}). Revisa la clave API.",
+      "notFound": "No se encontró el endpoint en esta URL (HTTP {{status}}).",
+      "rateLimited": "El servidor limitó la tasa de peticiones (HTTP {{status}}). Inténtalo más tarde.",
+      "serverError": "Error del servidor (HTTP {{status}}).",
+      "clientError": "El servidor devolvió HTTP {{status}}.",
+      "parse": "No se pudo procesar la respuesta del servidor: {{message}}",
+      "http": "Error de red: {{message}}",
+      "generic": "{{message}}"
+    },
     "modelsCount": "{{count}} modelo",
     "modelsCount_plural": "{{count}} modelos",
     "table": {
@@ -381,9 +394,10 @@
       "detecting": "Detectando modelos",
       "detected": "Se detectaron {{count}} modelos.",
       "detected_plural": "Se detectó {{count}} modelo.",
+      "success": "Proveedor guardado correctamente.",
       "errors": {
         "required": "Nombre y URL base son obligatorios.",
-        "fetchFailed": "No se pudieron obtener modelos de este proveedor. Revisa la URL y la clave API.",
+        "fetchFailed": "No se pudieron obtener los modelos: {{message}}",
         "noModels": "No se encontraron modelos para este proveedor.",
         "unknown": "Error desconocido."
       }

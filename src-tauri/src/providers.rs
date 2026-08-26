@@ -247,6 +247,12 @@ pub enum ProviderError {
     Parse(String),
     #[error("http error: {0}")]
     Http(String),
+    #[error("cannot reach server: {0}")]
+    Unreachable(String),
+    #[error("invalid URL: {0}")]
+    InvalidUrl(String),
+    #[error("request timed out after {0}s")]
+    Timeout(u64),
     #[error("provider with id {0} not found")]
     NotFound(String),
     #[error("model id already exists: {0}")]
@@ -259,7 +265,51 @@ pub enum ProviderError {
 
 impl Serialize for ProviderError {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        crate::serialize_error(self, serializer)
+        #[derive(Serialize)]
+        #[serde(tag = "kind", rename_all = "camelCase")]
+        enum Payload<'a> {
+            Path { message: &'a str },
+            Io { message: &'a str },
+            Parse { message: &'a str },
+            Http { message: &'a str },
+            Unreachable { message: &'a str },
+            InvalidUrl { message: &'a str },
+            Timeout { seconds: u64 },
+            NotFound { message: &'a str },
+            Duplicate { message: &'a str },
+            Crypto { message: &'a str },
+            Api { status: u16, message: &'a str },
+        }
+        let payload = match self {
+            Self::Path(m) => Payload::Path { message: m },
+            Self::Io(m) => Payload::Io { message: m },
+            Self::Parse(m) => Payload::Parse { message: m },
+            Self::Http(m) => Payload::Http { message: m },
+            Self::Unreachable(m) => Payload::Unreachable { message: m },
+            Self::InvalidUrl(m) => Payload::InvalidUrl { message: m },
+            Self::Timeout(seconds) => Payload::Timeout { seconds: *seconds },
+            Self::NotFound(m) => Payload::NotFound { message: m },
+            Self::Duplicate(m) => Payload::Duplicate { message: m },
+            Self::Crypto(m) => Payload::Crypto { message: m },
+            Self::ApiStatus { status, body } => Payload::Api {
+                status: *status,
+                message: body,
+            },
+        };
+        payload.serialize(serializer)
+    }
+}
+
+fn classify_send_error(err: reqwest::Error) -> ProviderError {
+    if err.is_timeout() {
+        ProviderError::Timeout(HTTP_TIMEOUT.as_secs())
+    } else if err.is_builder() {
+        let url = err.url().map(|u| u.to_string()).unwrap_or_default();
+        ProviderError::InvalidUrl(url)
+    } else if err.is_connect() {
+        ProviderError::Unreachable(err.to_string())
+    } else {
+        ProviderError::Http(err.to_string())
     }
 }
 
@@ -508,7 +558,7 @@ async fn fetch_models(provider: &Provider) -> Result<Vec<String>, ProviderError>
             let resp = attach_auth(req, provider)
                 .send()
                 .await
-                .map_err(|e| ProviderError::Http(e.to_string()))?;
+                .map_err(classify_send_error)?;
             let status = resp.status();
             if !status.is_success() {
                 let body = resp.text().await.unwrap_or_default();
@@ -529,7 +579,7 @@ async fn fetch_models(provider: &Provider) -> Result<Vec<String>, ProviderError>
             let resp = attach_auth(req, provider)
                 .send()
                 .await
-                .map_err(|e| ProviderError::Http(e.to_string()))?;
+                .map_err(classify_send_error)?;
             let status = resp.status();
             if !status.is_success() {
                 let body = resp.text().await.unwrap_or_default();
@@ -553,7 +603,7 @@ async fn fetch_models(provider: &Provider) -> Result<Vec<String>, ProviderError>
                 .get(&url)
                 .send()
                 .await
-                .map_err(|e| ProviderError::Http(e.to_string()))?;
+                .map_err(classify_send_error)?;
             let status = resp.status();
             if !status.is_success() {
                 let body = resp.text().await.unwrap_or_default();

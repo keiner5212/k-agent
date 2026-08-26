@@ -1,5 +1,31 @@
 export type ProviderKind = "openai-like" | "anthropic-like" | "gemini-like";
 
+export type ProviderErrorKind =
+  | "path"
+  | "io"
+  | "parse"
+  | "http"
+  | "unreachable"
+  | "invalidUrl"
+  | "timeout"
+  | "notFound"
+  | "duplicate"
+  | "crypto"
+  | "api";
+
+export type ProviderErrorPayload =
+  | { kind: "path"; message: string }
+  | { kind: "io"; message: string }
+  | { kind: "parse"; message: string }
+  | { kind: "http"; message: string }
+  | { kind: "unreachable"; message: string }
+  | { kind: "invalidUrl"; message: string }
+  | { kind: "timeout"; seconds: number }
+  | { kind: "notFound"; message: string }
+  | { kind: "duplicate"; message: string }
+  | { kind: "crypto"; message: string }
+  | { kind: "api"; status: number; message: string };
+
 export const PROVIDER_KINDS: readonly ProviderKind[] = [
   "openai-like",
   "anthropic-like",
