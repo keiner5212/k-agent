@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { readImage } from "@tauri-apps/plugin-clipboard-manager";
 import type { AttachmentKind, ChatAttachment } from "@/types/chat";
 import type { ModelInfo } from "@/types/providers";
 import { isTauri } from "@/lib/platform";
+import { readSessionAttachment } from "@/lib/session-files";
 
 export const ATTACHMENT_KINDS: readonly AttachmentKind[] = [
   "image",
@@ -231,4 +233,26 @@ export const preparePathAttachments = async (
 export const attachmentPreviewUrl = (item: ChatAttachment): string | null => {
   if (item.kind !== "image" || !item.data) return null;
   return `data:${item.mime};base64,${item.data}`;
+};
+
+export const useHydratedAttachment = (
+  sessionId: string | null,
+  item: ChatAttachment,
+): ChatAttachment => {
+  const [fetched, setFetched] = useState<ChatAttachment | null>(null);
+  useEffect(() => {
+    if (item.data || item.kind === "text" || item.kind === "document" || !sessionId) return;
+    let cancelled = false;
+    void readSessionAttachment(sessionId, item.id)
+      .then((next) => {
+        if (!cancelled) setFetched(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [item.data, item.file, item.id, item.kind, sessionId]);
+  if (item.data || item.kind === "text" || item.kind === "document") return item;
+  if (fetched && fetched.id === item.id && fetched.data) return fetched;
+  return item;
 };

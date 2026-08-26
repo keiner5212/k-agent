@@ -635,7 +635,7 @@
       },
       "read": {
         "label": "Leer archivos",
-        "description": "Leer archivos o listar directorios del workspace."
+        "description": "Leer archivos del workspace."
       },
       "write": {
         "label": "Escribir archivos",
@@ -721,7 +721,8 @@
     "thinking": {
       "label": "Pensamiento",
       "duration_one": "Pensó {{count}} segundo",
-      "duration_other": "Pensó {{count}} segundos"
+      "duration_other": "Pensó {{count}} segundos",
+      "durationMs": "Pensó {{count}} ms"
     },
     "waiting": {
       "phrases": [
@@ -879,12 +880,24 @@
       }
     },
     "changes": {
-      "label": "Cambios en el árbol de trabajo",
+      "label": "Cambios en el arbol de trabajo",
       "title": "Archivos modificados",
+      "empty": "Ningun archivo modificado en esta sesion.",
       "files_one": "archivo",
       "files_other": "archivos",
-      "lines_one": "línea",
-      "lines_other": "líneas"
+      "lines_one": "linea",
+      "lines_other": "lineas"
+    },
+    "tools": {
+      "ok": "Ok",
+      "error": "Error",
+      "lines": "L{{start}}-L{{end}}",
+      "skillTitle": "Skill",
+      "readTitle": "Archivo",
+      "listTitle": "Directorio",
+      "writeTitle": "Archivo",
+      "editTitle": "Diff",
+      "outputTitle": "Salida de la herramienta"
     }
   },
   "sessions": {

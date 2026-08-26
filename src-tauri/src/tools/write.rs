@@ -3,7 +3,10 @@ use std::path::PathBuf;
 
 use serde_json::{json, Value};
 
-use super::{Tool, ToolContext, ToolOutcome, ToolSpec};
+use super::{
+    line_add_remove, yaml_doc, FileSnapshot, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec,
+    YamlValue, TOOL_KIND_ACTION,
+};
 
 pub const NAME: &str = "write";
 
@@ -35,48 +38,60 @@ impl Tool for WriteTool {
 
     fn execute(&self, args: &Value, ctx: &ToolContext<'_>) -> ToolOutcome {
         let Some(content) = args.get("content").and_then(Value::as_str) else {
-            return ToolOutcome {
-                text: "write tool requires a string `content`.".into(),
-            };
+            return super::action_error("", "write tool requires a string `content`.");
         };
         let Some(raw_path) = args.get("filePath").and_then(Value::as_str) else {
-            return ToolOutcome {
-                text: "write tool requires a string `filePath`.".into(),
-            };
+            return super::action_error("", "write tool requires a string `filePath`.");
         };
         let trimmed_path = raw_path.trim();
         if trimmed_path.is_empty() {
-            return ToolOutcome {
-                text: "write tool `filePath` is empty.".into(),
-            };
+            return super::action_error("", "write tool `filePath` is empty.");
         }
         let resolved = match resolve_path(ctx, trimmed_path) {
             Ok(value) => value,
-            Err(message) => return ToolOutcome { text: message },
+            Err(message) => return super::action_error(trimmed_path, &message),
         };
+        let rel = ctx.relative_path(&resolved);
         if let Some(parent) = resolved.parent() {
             if !parent.as_os_str().is_empty() {
                 if let Err(error) = fs::create_dir_all(parent) {
-                    return ToolOutcome {
-                        text: format!(
+                    return super::action_error(
+                        &rel,
+                        &format!(
                             "Unable to create parent directory `{}`: {error}",
                             parent.display()
                         ),
-                    };
+                    );
                 }
             }
         }
+        let before = fs::read_to_string(&resolved).unwrap_or_default();
         match fs::write(&resolved, content) {
-            Ok(()) => ToolOutcome {
-                text: format!(
-                    "Wrote file successfully: {} ({} bytes).",
-                    resolved.display(),
-                    content.len()
-                ),
-            },
-            Err(error) => ToolOutcome {
-                text: format!("Unable to write `{}`: {error}", resolved.display()),
-            },
+            Ok(()) => {
+                let (added, removed) = line_add_remove(&before, content);
+                ToolOutcome {
+                    text: yaml_doc(&[
+                        ("path", YamlValue::Str(&rel)),
+                        ("status", YamlValue::Str("ok")),
+                    ]),
+                    display: ToolDisplay {
+                        kind: TOOL_KIND_ACTION.to_string(),
+                        path: Some(rel),
+                        added: Some(added),
+                        removed: Some(removed),
+                        status: Some("ok".into()),
+                        ..ToolDisplay::default()
+                    },
+                    snapshot: Some(FileSnapshot {
+                        before,
+                        after: content.to_string(),
+                    }),
+                }
+            }
+            Err(error) => super::action_error(
+                &rel,
+                &format!("Unable to write `{}`: {error}", resolved.display()),
+            ),
         }
     }
 }

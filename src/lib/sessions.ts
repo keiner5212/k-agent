@@ -28,12 +28,9 @@ import {
   type ChatAttachment,
   type ChatChunk,
   type ChatMessage,
-  type ChatToolCall,
   type ChatTurn,
-  type PersistedToolCall,
   type SelectedModel,
   type SendChatResult,
-  type ToolRoundTrace,
 } from "@/types/chat";
 import {
   sortSessions,
@@ -52,60 +49,13 @@ export type QueuedMessage = {
   attachments?: ChatAttachment[];
 };
 
-const toolCallsFromRounds = (rounds: ToolRoundTrace[] | undefined): ChatToolCall[] | undefined => {
-  if (!rounds?.length) return undefined;
-  const calls: ChatToolCall[] = [];
-  for (const round of rounds) {
-    for (const call of round.calls) {
-      calls.push({
-        id: call.id,
-        name: call.name,
-        argument: call.argument,
-        arguments: call.arguments,
-        thoughtSignature: call.thoughtSignature,
-        output: call.output,
-      });
-    }
-  }
-  return calls.length > 0 ? calls : undefined;
-};
-
-const toPersistedCall = (call: ChatToolCall): PersistedToolCall | null => {
-  if (!call.output) return null;
-  return {
-    id: call.id ?? "",
-    name: call.name,
-    argument: call.argument,
-    arguments: call.arguments,
-    thoughtSignature: call.thoughtSignature,
-    output: call.output,
-  };
-};
-
-const roundsFromMessage = (message: ChatMessage): ToolRoundTrace[] => {
-  if (message.toolRounds && message.toolRounds.length > 0) {
-    return message.toolRounds;
-  }
-  const calls = (message.toolCalls ?? [])
-    .map(toPersistedCall)
-    .filter((call): call is PersistedToolCall => call !== null);
-  if (calls.length === 0) return [];
-  return [
-    {
-      reasoning: message.reasoning ?? "",
-      reasoningSignature: message.reasoningSignature,
-      calls,
-    },
-  ];
-};
-
 const toChatTurns = (messages: ChatMessage[]): ChatTurn[] => {
   const turns: ChatTurn[] = [];
   for (const message of messages) {
     if (message.streaming) continue;
     if (message.role === "assistant") {
-      const rounds = roundsFromMessage(message);
-      const splitReasoning = rounds.length > 0 && Boolean(message.toolRounds?.length);
+      const rounds = message.toolRounds ?? [];
+      const splitReasoning = rounds.length > 0;
       for (const round of rounds) {
         turns.push({
           role: "assistant",
@@ -211,10 +161,23 @@ const snapshotFromState = (
   sessions,
 });
 
+const persistableSnapshot = (snapshot: SessionsSnapshot): SessionsSnapshot => ({
+  ...snapshot,
+  sessions: snapshot.sessions.map((session) => ({
+    ...session,
+    messages: session.messages
+      .filter((message) => !message.streaming)
+      .map((message) => {
+        const { toolCalls: _toolCalls, streaming: _streaming, ...rest } = message;
+        return rest;
+      }),
+  })),
+});
+
 const persistSnapshot = async (snapshot: SessionsSnapshot): Promise<void> => {
   if (!isTauri()) return;
   try {
-    await invoke("save_sessions", { snapshot });
+    await invoke("save_sessions", { snapshot: persistableSnapshot(snapshot) });
   } catch (error) {
     console.warn("sessions persist failed", error);
   }
@@ -615,7 +578,6 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
                 reasoning: result.reasoning,
                 reasoningSignature: result.reasoningSignature,
                 thinkingMs: duration,
-                toolCalls: toolCallsFromRounds(result.toolRounds),
                 toolRounds: result.toolRounds,
               },
             ],
@@ -630,7 +592,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           reasoning: result.reasoning,
           reasoningSignature: result.reasoningSignature || current.reasoningSignature,
           thinkingMs: duration ?? current.thinkingMs,
-          toolCalls: toolCallsFromRounds(result.toolRounds) ?? current.toolCalls,
+          toolCalls: undefined,
           toolRounds: result.toolRounds?.length ? result.toolRounds : current.toolRounds,
           streaming: false,
         };

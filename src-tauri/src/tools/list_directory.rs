@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
 
-use super::{Tool, ToolContext, ToolOutcome, ToolSpec};
+use super::{
+    yaml_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, YamlValue, TOOL_KIND_CONTEXT,
+};
 
 pub const NAME: &str = "list_directory";
 
@@ -119,35 +121,37 @@ impl Tool for ListDirectoryTool {
             .unwrap_or(false);
         let max_depth = match parse_depth(args) {
             Ok(value) => value,
-            Err(message) => return ToolOutcome { text: message },
+            Err(message) => return super::context_error(None, &message),
         };
 
         let resolved = match resolve_path(ctx, raw_path) {
             Ok(value) => value,
-            Err(message) => return ToolOutcome { text: message },
+            Err(message) => return super::context_error(Some(raw_path), &message),
         };
+        let rel = ctx.relative_path(&resolved);
         let metadata = match fs::metadata(&resolved) {
             Ok(value) => value,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                return ToolOutcome {
-                    text: format!("Directory not found: {}", resolved.display()),
-                };
+                return super::context_error(
+                    Some(&rel),
+                    &format!("Directory not found: {}", resolved.display()),
+                );
             }
             Err(error) => {
-                return ToolOutcome {
-                    text: format!("Unable to stat `{}`: {error}", resolved.display()),
-                };
+                return super::context_error(
+                    Some(&rel),
+                    &format!("Unable to stat `{}`: {error}", resolved.display()),
+                );
             }
         };
         if !metadata.is_dir() {
-            return ToolOutcome {
-                text: format!("Path is not a directory: {}", resolved.display()),
-            };
+            return super::context_error(
+                Some(&rel),
+                &format!("Path is not a directory: {}", resolved.display()),
+            );
         }
 
-        ToolOutcome {
-            text: render_tree(&resolved, recursive, max_depth),
-        }
+        render_tree(&resolved, &rel, recursive, max_depth)
     }
 }
 
@@ -167,21 +171,15 @@ fn resolve_path(ctx: &ToolContext<'_>, raw: &str) -> Result<PathBuf, String> {
     crate::pathutil::resolve_tool_path(raw, ctx.workspace_path().as_deref())
 }
 
-fn render_tree(root: &Path, recursive: bool, max_depth: usize) -> String {
+fn render_tree(root: &Path, rel: &str, recursive: bool, max_depth: usize) -> ToolOutcome {
     let mut lines: Vec<String> = Vec::new();
-    lines.push(format!("<path>{}</path>", root.display()));
-    lines.push("<type>directory-tree</type>".to_string());
-    lines.push("<entries>".to_string());
     if recursive {
         walk_recursive(root, 0, max_depth, &mut lines);
     } else {
         let entries = match collect_entries(root, MAX_ENTRIES_PER_DIR) {
             Ok(value) => value,
             Err(error) => {
-                return format!(
-                    "<path>{}</path>\n<type>directory-tree</type>\n<entries>\nUnable to read: {error}\n</entries>",
-                    root.display()
-                );
+                return super::context_error(Some(rel), &format!("Unable to read: {error}"));
             }
         };
         for (name, is_dir) in entries {
@@ -192,8 +190,20 @@ fn render_tree(root: &Path, recursive: bool, max_depth: usize) -> String {
             lines.push(if is_dir { format!("{name}/") } else { name });
         }
     }
-    lines.push("</entries>".to_string());
-    lines.join("\n")
+    let entries = lines.join("\n");
+    ToolOutcome {
+        text: yaml_doc(&[
+            ("path", YamlValue::Str(rel)),
+            ("entries", YamlValue::Block(&entries)),
+        ]),
+        display: ToolDisplay {
+            kind: TOOL_KIND_CONTEXT.to_string(),
+            path: Some(rel.to_string()),
+            status: Some("ok".into()),
+            ..ToolDisplay::default()
+        },
+        snapshot: None,
+    }
 }
 
 fn walk_recursive(dir: &Path, depth: usize, max_depth: usize, lines: &mut Vec<String>) {

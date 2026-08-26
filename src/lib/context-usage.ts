@@ -1,6 +1,11 @@
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import { AGENT_TOOL_IDS, CHAT_TOOL_DESCRIPTIONS, type AgentToolId } from "@/types/agents";
-import type { ChatMessage, ChatToolCall, SelectedModel } from "@/types/chat";
+import {
+  skillNameFromCall,
+  type ChatMessage,
+  type ChatToolCall,
+  type SelectedModel,
+} from "@/types/chat";
 import type { McpServer } from "@/types/mcp-servers";
 import { formatTokenCount, type ModelCost, type ModelInfo, type Provider } from "@/types/providers";
 
@@ -140,40 +145,109 @@ export const resolveSelectedModel = (
   return provider.models.find((item) => item.id === selection.modelId) ?? null;
 };
 
-const callText = (call: ChatToolCall): string =>
-  [call.name, call.argument ?? "", call.arguments ?? "", call.output ?? ""].join("\n");
+const callArgsText = (call: ChatToolCall): string => {
+  const args = call.arguments?.trim();
+  if (args) return `${call.name}\n${args}`;
+  const argument = call.argument?.trim();
+  return argument ? `${call.name}\n${argument}` : call.name;
+};
 
-const roundsForTokens = (message: ChatMessage): { reasoning: string; calls: ChatToolCall[] }[] => {
+const roundsForTokens = (
+  message: ChatMessage,
+): { reasoning: string; content: string; calls: ChatToolCall[] }[] => {
   if (message.toolRounds && message.toolRounds.length > 0) {
     return message.toolRounds.map((round) => ({
       reasoning: round.reasoning,
+      content: round.content ?? "",
       calls: round.calls,
     }));
   }
   if (message.toolCalls && message.toolCalls.length > 0) {
-    return [{ reasoning: "", calls: message.toolCalls }];
+    return [{ reasoning: "", content: "", calls: message.toolCalls }];
   }
   return [];
 };
 
 const messageBody = (message: ChatMessage): string => message.shellAiSummary ?? message.content;
 
-export const conversationTokens = (messages: ChatMessage[]): number =>
-  messages.reduce((sum, message) => {
-    let tokens = estimateTokensFromText(messageBody(message));
-    tokens += estimateTokensFromText(message.reasoning ?? "");
+type MessageTokenWalk = {
+  conversation: number;
+  skillOutputs: number;
+  input: number;
+  output: number;
+  reasoning: number;
+};
+
+const addTokens = (
+  walk: MessageTokenWalk,
+  field: "conversation" | "skillOutputs" | "input" | "output" | "reasoning",
+  text: string,
+): void => {
+  const tokens = estimateTokensFromText(text);
+  if (tokens === 0) return;
+  walk[field] += tokens;
+};
+
+const walkMessageTokens = (messages: ChatMessage[]): MessageTokenWalk => {
+  const walk: MessageTokenWalk = {
+    conversation: 0,
+    skillOutputs: 0,
+    input: 0,
+    output: 0,
+    reasoning: 0,
+  };
+  for (const message of messages) {
+    const body = messageBody(message);
+    const bodyTokens = estimateTokensFromText(body);
+    walk.conversation += bodyTokens;
+    if (message.role === "user") walk.input += bodyTokens;
+    else walk.output += bodyTokens;
+
     for (const item of message.attachments ?? []) {
-      tokens += estimateTokensFromText(item.text ?? "");
+      const textTokens = estimateTokensFromText(item.text ?? "");
+      walk.conversation += textTokens;
+      if (message.role === "user") walk.input += textTokens;
+      else walk.output += textTokens;
     }
+
+    addTokens(walk, "conversation", message.reasoning ?? "");
+    addTokens(walk, "reasoning", message.reasoning ?? "");
+
     for (const round of roundsForTokens(message)) {
-      tokens += estimateTokensFromText(round.reasoning);
+      const contentTokens = estimateTokensFromText(round.content);
+      walk.conversation += contentTokens;
+      walk.output += contentTokens;
+      addTokens(walk, "conversation", round.reasoning);
+      addTokens(walk, "reasoning", round.reasoning);
       for (const call of round.calls) {
-        if (call.name === "skill") continue;
-        tokens += estimateTokensFromText(callText(call));
+        const argsTokens = estimateTokensFromText(callArgsText(call));
+        walk.conversation += argsTokens;
+        walk.output += argsTokens;
+        const outputTokens = estimateTokensFromText(call.output ?? "");
+        walk.input += outputTokens;
+        if (call.name === "skill") walk.skillOutputs += outputTokens;
+        else walk.conversation += outputTokens;
       }
     }
-    return sum + tokens;
-  }, 0);
+  }
+  return walk;
+};
+
+const costFromWalk = (
+  walk: MessageTokenWalk,
+  cost: ModelCost,
+  extraInputTokens: number,
+): number => {
+  const reasoningRate = cost.reasoning ?? cost.output;
+  return (
+    ((walk.input + extraInputTokens) / 1_000_000) * cost.input +
+    (walk.output / 1_000_000) * cost.output +
+    (walk.reasoning / 1_000_000) * reasoningRate
+  );
+};
+
+export const conversationTokens = (messages: ChatMessage[]): number =>
+  walkMessageTokens(messages).conversation;
 
 export const estimateToolDefinitionTokens = (toolNames: readonly string[]): number => {
   const parts: string[] = [];
@@ -217,27 +291,19 @@ export const estimateMcpToolTokens = (servers: readonly McpServer[]): number => 
 export const loadedSkillNamesFromMessages = (messages: ChatMessage[]): string[] => {
   const names = new Set<string>();
   for (const message of messages) {
-    for (const call of message.toolCalls ?? []) {
-      if (call.name !== "skill" || !call.output) continue;
-      const argument = call.argument?.trim();
-      if (argument) names.add(argument);
+    for (const round of roundsForTokens(message)) {
+      for (const call of round.calls) {
+        if (call.name !== "skill" || !call.output) continue;
+        const name = skillNameFromCall(call);
+        if (name) names.add(name);
+      }
     }
   }
   return [...names];
 };
 
-export const estimateLoadedSkillTokens = (messages: ChatMessage[]): number => {
-  let tokens = 0;
-  for (const message of messages) {
-    for (const round of roundsForTokens(message)) {
-      for (const call of round.calls) {
-        if (call.name !== "skill" || !call.output) continue;
-        tokens += estimateTokensFromText(call.output);
-      }
-    }
-  }
-  return tokens;
-};
+export const estimateLoadedSkillTokens = (messages: ChatMessage[]): number =>
+  walkMessageTokens(messages).skillOutputs;
 
 export const estimateMessageCostUsd = (
   messages: ChatMessage[],
@@ -245,31 +311,7 @@ export const estimateMessageCostUsd = (
   extraInputTokens = 0,
 ): number => {
   if (!cost) return 0;
-  let inputTokens = extraInputTokens;
-  let outputTokens = 0;
-  let reasoningTokens = 0;
-  for (const message of messages) {
-    const tokens = estimateTokensFromText(messageBody(message));
-    const reasoning = estimateTokensFromText(message.reasoning ?? "");
-    if (message.role === "user") inputTokens += tokens;
-    else outputTokens += tokens;
-    reasoningTokens += reasoning;
-    for (const round of roundsForTokens(message)) {
-      reasoningTokens += estimateTokensFromText(round.reasoning);
-      for (const call of round.calls) {
-        inputTokens += estimateTokensFromText(call.output ?? "");
-        outputTokens += estimateTokensFromText(
-          [call.name, call.argument ?? "", call.arguments ?? ""].join("\n"),
-        );
-      }
-    }
-  }
-  const reasoningRate = cost.reasoning ?? cost.output;
-  return (
-    (inputTokens / 1_000_000) * cost.input +
-    (outputTokens / 1_000_000) * cost.output +
-    (reasoningTokens / 1_000_000) * reasoningRate
-  );
+  return costFromWalk(walkMessageTokens(messages), cost, extraInputTokens);
 };
 
 export const buildContextUsage = ({
@@ -284,22 +326,27 @@ export const buildContextUsage = ({
   messages: ChatMessage[];
 }): ContextUsageSnapshot => {
   const window = windowTokens && windowTokens > 0 ? windowTokens : 0;
-  const conversation = conversationTokens(messages);
+  const walk = walkMessageTokens(messages);
   const buckets: ContextBucket[] = CONTEXT_CATEGORY_IDS.map((id) => ({
     id,
-    tokens: id === "conversation" ? conversation : Math.max(0, extras?.[id] ?? 0),
+    tokens:
+      id === "conversation"
+        ? walk.conversation
+        : id === "skills"
+          ? walk.skillOutputs
+          : Math.max(0, extras?.[id] ?? 0),
   }));
   const usedTokens = buckets.reduce((sum, item) => sum + item.tokens, 0);
   const freeTokens = Math.max(0, window - usedTokens);
   const percent = window === 0 ? 0 : Math.min(100, Math.round((usedTokens / window) * 100));
-  const extraInputTokens = Math.max(0, usedTokens - conversation - (extras?.skills ?? 0));
+  const extraInputTokens = Math.max(0, usedTokens - walk.conversation - walk.skillOutputs);
   return {
     windowTokens: window,
     usedTokens,
     freeTokens,
     percent,
     buckets,
-    costUsd: estimateMessageCostUsd(messages, cost, extraInputTokens),
+    costUsd: cost ? costFromWalk(walk, cost, extraInputTokens) : 0,
   };
 };
 

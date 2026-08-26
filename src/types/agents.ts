@@ -8,7 +8,7 @@ export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
 
 export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   skill: "Load a skill by name. Returns SKILL.md body and dir.",
-  read: "Read a file or list a directory. Path absolute or workspace-relative.",
+  read: "Read a file. Path absolute or workspace-relative.",
   write: "Create or overwrite a file.",
   edit: "Exact string replace in a file. Read first.",
   list_directory: "List directory entries. recursive/maxDepth optional.",

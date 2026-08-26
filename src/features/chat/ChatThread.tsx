@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FileText, Film, Sparkles } from "lucide-react";
-import { attachmentPreviewUrl } from "@/lib/attachments";
+import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
 import { renderMarkdown } from "@/lib/markdown";
-import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
-import type { ChatAttachment, ChatMessage, ChatToolCall } from "@/types/chat";
-import { formatContextWindow } from "@/types/providers";
+import type { ChatAttachment, ChatMessage } from "@/types/chat";
 import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
 import { ChatWaitingLine } from "./ChatWaitingLine";
 import { MessageActions } from "./MessageActions";
+import { ToolCallsBlock } from "./ToolCallsBlock";
 
 const AssistantMarkdown = ({ content }: { content: string }): ReactNode => {
   const { t } = useTranslation();
@@ -23,9 +22,6 @@ const AssistantMarkdown = ({ content }: { content: string }): ReactNode => {
   );
 };
 
-const formatToolCall = (call: ChatToolCall): string =>
-  call.argument && call.argument.length > 0 ? `${call.name} "${call.argument}"` : call.name;
-
 const ThinkingBlock = ({
   reasoning,
   streaming,
@@ -38,42 +34,24 @@ const ThinkingBlock = ({
   const { t } = useTranslation();
   if (reasoning.length === 0) return null;
   const seconds =
-    !streaming && thinkingMs !== undefined ? Math.max(1, Math.floor(thinkingMs / 1000)) : undefined;
+    !streaming && thinkingMs !== undefined && thinkingMs >= 1000
+      ? Math.max(1, Math.round(thinkingMs / 1000))
+      : undefined;
+  const ms =
+    !streaming && thinkingMs !== undefined && thinkingMs < 1000
+      ? Math.max(0, thinkingMs)
+      : undefined;
   const label =
-    seconds === undefined
-      ? t("chat.thinking.label")
-      : t("chat.thinking.duration", { count: seconds });
+    seconds !== undefined
+      ? t("chat.thinking.duration", { count: seconds })
+      : ms !== undefined
+        ? t("chat.thinking.durationMs", { count: ms })
+        : t("chat.thinking.label");
   return (
     <details className="chat-thinking" open={Boolean(streaming)}>
       <summary className="chat-thinking__summary">{label}</summary>
       <pre className="chat-thinking__body">{reasoning}</pre>
     </details>
-  );
-};
-
-const ToolCallsBlock = ({ calls }: { calls: ChatToolCall[] }): ReactNode => {
-  if (calls.length === 0) return null;
-  return (
-    <ul className="chat-tools">
-      {calls.map((call, index) => {
-        const isSkill = call.name === "skill";
-        const output = call.output?.trim() ?? "";
-        const tokens = output.length > 0 ? estimateTokensFromText(output) : null;
-        return (
-          <li
-            key={call.id ?? `${call.name}-${index}`}
-            className={`chat-tools__item${isSkill ? " chat-tools__item--skill" : ""}`}
-          >
-            <span className="chat-tools__line">
-              {formatToolCall(call)}
-              {tokens !== null ? (
-                <span className="chat-tools__tokens">~{formatContextWindow(tokens)}</span>
-              ) : null}
-            </span>
-          </li>
-        );
-      })}
-    </ul>
   );
 };
 
@@ -83,45 +61,74 @@ const InterruptedFooter = ({ interrupted }: { interrupted: boolean }): ReactNode
   return <p className="chat-message__interrupted">{t("chat.interruptedByUser")}</p>;
 };
 
-const MessageAttachments = ({ items }: { items: ChatAttachment[] }): ReactNode => {
+const AttachmentThumb = ({
+  item,
+  sessionId,
+  onOpen,
+}: {
+  item: ChatAttachment;
+  sessionId: string | null;
+  onOpen: (item: ChatAttachment) => void;
+}): ReactNode => {
+  const hydrated = useHydratedAttachment(sessionId, item);
+  const thumb = attachmentPreviewUrl(hydrated);
+  return (
+    <button
+      type="button"
+      className="chat-message__attachment-open"
+      title={item.name}
+      onClick={() => onOpen(hydrated)}
+    >
+      {thumb ? (
+        <img src={thumb} alt={item.name} className="chat-message__attachment-image" />
+      ) : (
+        <span className="chat-message__attachment-file">
+          {item.kind === "video" ? (
+            <Film size={14} strokeWidth={1.5} />
+          ) : (
+            <FileText size={14} strokeWidth={1.5} />
+          )}
+          <span>{item.name}</span>
+        </span>
+      )}
+    </button>
+  );
+};
+
+const MessageAttachments = ({
+  items,
+  sessionId,
+}: {
+  items: ChatAttachment[];
+  sessionId: string | null;
+}): ReactNode => {
   const [preview, setPreview] = useState<ChatAttachment | null>(null);
   if (items.length === 0) return null;
   return (
     <>
       <ul className="chat-message__attachments">
-        {items.map((item) => {
-          const thumb = attachmentPreviewUrl(item);
-          return (
-            <li key={item.id} className="chat-message__attachment">
-              <button
-                type="button"
-                className="chat-message__attachment-open"
-                title={item.name}
-                onClick={() => setPreview(item)}
-              >
-                {thumb ? (
-                  <img src={thumb} alt={item.name} className="chat-message__attachment-image" />
-                ) : (
-                  <span className="chat-message__attachment-file">
-                    {item.kind === "video" ? (
-                      <Film size={14} strokeWidth={1.5} />
-                    ) : (
-                      <FileText size={14} strokeWidth={1.5} />
-                    )}
-                    <span>{item.name}</span>
-                  </span>
-                )}
-              </button>
-            </li>
-          );
-        })}
+        {items.map((item) => (
+          <li key={item.id} className="chat-message__attachment">
+            <AttachmentThumb item={item} sessionId={sessionId} onOpen={setPreview} />
+          </li>
+        ))}
       </ul>
-      <AttachmentPreviewDialog item={preview} onClose={() => setPreview(null)} />
+      <AttachmentPreviewDialog
+        sessionId={sessionId}
+        item={preview}
+        onClose={() => setPreview(null)}
+      />
     </>
   );
 };
 
-const MessageBody = ({ message }: { message: ChatMessage }): ReactNode => {
+const MessageBody = ({
+  message,
+  sessionId,
+}: {
+  message: ChatMessage;
+  sessionId: string | null;
+}): ReactNode => {
   if (message.kind === "shell") {
     return (
       <>
@@ -139,7 +146,7 @@ const MessageBody = ({ message }: { message: ChatMessage }): ReactNode => {
             <div key={round.calls[0]?.id ?? `round-${index}`}>
               <ThinkingBlock reasoning={round.reasoning} />
               <AssistantMarkdown content={round.content ?? ""} />
-              <ToolCallsBlock calls={round.calls} />
+              <ToolCallsBlock sessionId={sessionId} calls={round.calls} />
             </div>
           ))}
           <ThinkingBlock reasoning={message.reasoning ?? ""} thinkingMs={message.thinkingMs} />
@@ -155,7 +162,7 @@ const MessageBody = ({ message }: { message: ChatMessage }): ReactNode => {
           streaming={message.streaming}
           thinkingMs={message.thinkingMs}
         />
-        <ToolCallsBlock calls={message.toolCalls ?? []} />
+        <ToolCallsBlock sessionId={sessionId} calls={message.toolCalls ?? []} />
         <AssistantMarkdown content={message.content} />
         <InterruptedFooter interrupted={message.interrupted ?? false} />
       </>
@@ -163,7 +170,7 @@ const MessageBody = ({ message }: { message: ChatMessage }): ReactNode => {
   }
   return (
     <>
-      <MessageAttachments items={message.attachments ?? []} />
+      <MessageAttachments sessionId={sessionId} items={message.attachments ?? []} />
       {message.content ? <p className="chat-message__content">{message.content}</p> : null}
     </>
   );
@@ -230,7 +237,7 @@ export const ChatThread = (): ReactNode => {
             className={`chat-message chat-message--${message.role}${message.kind === "shell" ? " chat-message--shell" : ""}${message.streaming ? " chat-message--streaming" : ""}${message.interrupted ? " chat-message--interrupted" : ""}`}
             data-role={message.role}
           >
-            <MessageBody message={message} />
+            <MessageBody message={message} sessionId={activeSessionId} />
             <MessageActions message={message} />
           </article>
         ))}

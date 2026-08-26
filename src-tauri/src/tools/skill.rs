@@ -1,6 +1,8 @@
 use serde_json::{json, Value};
 
-use super::{Tool, ToolContext, ToolOutcome, ToolSpec};
+use super::{
+    yaml_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, YamlValue, TOOL_KIND_CONTEXT,
+};
 
 pub const NAME: &str = "skill";
 
@@ -28,29 +30,43 @@ impl Tool for SkillTool {
 
     fn execute(&self, args: &Value, ctx: &ToolContext<'_>) -> ToolOutcome {
         let Some(name) = args.get("name").and_then(Value::as_str).map(str::trim) else {
-            return ToolOutcome {
-                text: "skill tool requires a string `name`.".into(),
-            };
+            return super::context_error(None, "skill tool requires a string `name`.");
         };
         if name.is_empty() {
-            return ToolOutcome {
-                text: "skill name is empty.".into(),
-            };
+            return super::context_error(None, "skill name is empty.");
         }
         match crate::skills::find_skill_by_name(ctx.app, name) {
-            Ok(Some(skill)) => ToolOutcome {
-                text: to_model_output(&skill.path, &skill.body),
-            },
-            Ok(None) => ToolOutcome {
-                text: format!("Skill `{name}` was not found."),
-            },
-            Err(error) => ToolOutcome {
-                text: format!("Unable to load skill `{name}`: {error}"),
-            },
+            Ok(Some(skill)) => {
+                let body = skill.body.trim();
+                ToolOutcome {
+                    text: yaml_doc(&[
+                        ("name", YamlValue::Str(name)),
+                        ("path", YamlValue::Str(&skill.path)),
+                        ("body", YamlValue::Block(body)),
+                    ]),
+                    display: ToolDisplay {
+                        kind: TOOL_KIND_CONTEXT.to_string(),
+                        path: Some(skill.path.clone()),
+                        skill_name: Some(name.to_string()),
+                        status: Some("ok".into()),
+                        ..ToolDisplay::default()
+                    },
+                    snapshot: None,
+                }
+            }
+            Ok(None) => with_skill_name(
+                super::context_error(None, &format!("Skill `{name}` was not found.")),
+                name,
+            ),
+            Err(error) => with_skill_name(
+                super::context_error(None, &format!("Unable to load skill `{name}`: {error}")),
+                name,
+            ),
         }
     }
 }
 
-fn to_model_output(path: &str, body: &str) -> String {
-    format!("{}\n\ndir: {path}", body.trim())
+fn with_skill_name(mut outcome: ToolOutcome, name: &str) -> ToolOutcome {
+    outcome.display.skill_name = Some(name.to_string());
+    outcome
 }

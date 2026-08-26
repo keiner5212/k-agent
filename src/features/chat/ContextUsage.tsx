@@ -9,7 +9,6 @@ import { resolveAgentMeta } from "@/lib/builtin-agents";
 import { useComposerStore } from "@/lib/composer";
 import {
   buildContextUsage,
-  estimateLoadedSkillTokens,
   estimateMcpToolTokens,
   estimateToolDefinitionTokens,
   formatUsageCost,
@@ -64,7 +63,6 @@ export const ContextUsage = (): ReactNode => {
       languageDirective: estimateTokensFromText(language),
       rules: estimateTokensFromText(rules),
       toolDefinitions: estimateToolDefinitionTokens(agent?.tools ?? []),
-      skills: estimateLoadedSkillTokens(messages),
       mcpTools: estimateMcpToolTokens(mcpServers),
     };
   }, [

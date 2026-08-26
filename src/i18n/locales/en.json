@@ -635,7 +635,7 @@
       },
       "read": {
         "label": "Read files",
-        "description": "Read files or list directories in the workspace."
+        "description": "Read files in the workspace."
       },
       "write": {
         "label": "Write files",
@@ -721,7 +721,8 @@
     "thinking": {
       "label": "Thinking",
       "duration_one": "Thought for {{count}} second",
-      "duration_other": "Thought for {{count}} seconds"
+      "duration_other": "Thought for {{count}} seconds",
+      "durationMs": "Thought for {{count}} ms"
     },
     "waiting": {
       "phrases": [
@@ -881,10 +882,22 @@
     "changes": {
       "label": "Working tree changes",
       "title": "Changed files",
+      "empty": "No files changed in this session.",
       "files_one": "file",
       "files_other": "files",
       "lines_one": "line",
       "lines_other": "lines"
+    },
+    "tools": {
+      "ok": "Ok",
+      "error": "Error",
+      "lines": "L{{start}}-L{{end}}",
+      "skillTitle": "Skill",
+      "readTitle": "File",
+      "listTitle": "Directory",
+      "writeTitle": "File",
+      "editTitle": "Diff",
+      "outputTitle": "Tool output"
     }
   },
   "sessions": {

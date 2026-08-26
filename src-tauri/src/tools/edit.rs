@@ -5,7 +5,10 @@ use std::sync::{Mutex, OnceLock};
 
 use serde_json::{json, Value};
 
-use super::{Tool, ToolContext, ToolOutcome, ToolSpec};
+use super::{
+    line_add_remove, yaml_doc, FileSnapshot, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec,
+    YamlValue, TOOL_KIND_ACTION,
+};
 
 pub const NAME: &str = "edit";
 
@@ -45,19 +48,13 @@ impl Tool for EditTool {
 
     fn execute(&self, args: &Value, ctx: &ToolContext<'_>) -> ToolOutcome {
         let Some(raw_path) = args.get("filePath").and_then(Value::as_str) else {
-            return ToolOutcome {
-                text: "edit tool requires a string `filePath`.".into(),
-            };
+            return super::action_error("", "edit tool requires a string `filePath`.");
         };
         let Some(old_string) = args.get("oldString").and_then(Value::as_str) else {
-            return ToolOutcome {
-                text: "edit tool requires a string `oldString`.".into(),
-            };
+            return super::action_error("", "edit tool requires a string `oldString`.");
         };
         let Some(new_string) = args.get("newString").and_then(Value::as_str) else {
-            return ToolOutcome {
-                text: "edit tool requires a string `newString`.".into(),
-            };
+            return super::action_error("", "edit tool requires a string `newString`.");
         };
         let replace_all = args
             .get("replaceAll")
@@ -66,22 +63,22 @@ impl Tool for EditTool {
 
         let trimmed_path = raw_path.trim();
         if trimmed_path.is_empty() {
-            return ToolOutcome {
-                text: "edit tool `filePath` is empty.".into(),
-            };
+            return super::action_error("", "edit tool `filePath` is empty.");
         }
         if old_string == new_string {
-            return ToolOutcome {
-                text: "No changes to apply: oldString and newString are identical.".into(),
-            };
+            return super::action_error(
+                trimmed_path,
+                "No changes to apply: oldString and newString are identical.",
+            );
         }
         let resolved = match resolve_path(ctx, trimmed_path) {
             Ok(value) => value,
-            Err(message) => return ToolOutcome { text: message },
+            Err(message) => return super::action_error(trimmed_path, &message),
         };
+        let rel = ctx.relative_path(&resolved);
         let _guard = match file_lock_for(&resolved) {
             Ok(guard) => guard,
-            Err(message) => return ToolOutcome { text: message },
+            Err(message) => return super::action_error(&rel, &message),
         };
 
         match fs::read_to_string(&resolved) {
@@ -94,31 +91,46 @@ impl Tool for EditTool {
                 let replaced =
                     match replace(&content_old, &normalized_old, &normalized_new, replace_all) {
                         Ok(value) => value,
-                        Err(error) => return ToolOutcome { text: error },
+                        Err(error) => return super::action_error(&rel, &error),
                     };
                 if let Err(error) = fs::write(&resolved, &replaced) {
-                    return ToolOutcome {
-                        text: format!("Unable to write `{}`: {error}", resolved.display()),
-                    };
+                    return super::action_error(
+                        &rel,
+                        &format!("Unable to write `{}`: {error}", resolved.display()),
+                    );
                 }
+                let (added, removed) = line_add_remove(&content_old, &replaced);
                 ToolOutcome {
-                    text: format!(
-                        "Edit applied successfully to {} ({} -> {} bytes).",
-                        resolved.display(),
-                        content_old.len(),
-                        replaced.len()
-                    ),
+                    text: yaml_doc(&[
+                        ("path", YamlValue::Str(&rel)),
+                        ("status", YamlValue::Str("ok")),
+                        ("added", YamlValue::Int(added as i64)),
+                        ("removed", YamlValue::Int(removed as i64)),
+                    ]),
+                    display: ToolDisplay {
+                        kind: TOOL_KIND_ACTION.to_string(),
+                        path: Some(rel),
+                        added: Some(added),
+                        removed: Some(removed),
+                        status: Some("ok".into()),
+                        ..ToolDisplay::default()
+                    },
+                    snapshot: Some(FileSnapshot {
+                        before: content_old,
+                        after: replaced,
+                    }),
                 }
             }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => ToolOutcome {
-                text: format!("File not found: {}", resolved.display()),
-            },
-            Err(error) if error.kind() == std::io::ErrorKind::InvalidData => ToolOutcome {
-                text: format!("Cannot edit binary file: {}", resolved.display()),
-            },
-            Err(error) => ToolOutcome {
-                text: format!("Unable to read `{}`: {error}", resolved.display()),
-            },
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                super::action_error(&rel, &format!("File not found: {}", resolved.display()))
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::InvalidData => {
+                super::action_error(&rel, &format!("Cannot edit binary file: {}", resolved.display()))
+            }
+            Err(error) => super::action_error(
+                &rel,
+                &format!("Unable to read `{}`: {error}", resolved.display()),
+            ),
         }
     }
 }

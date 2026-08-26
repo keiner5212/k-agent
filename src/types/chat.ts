@@ -14,6 +14,7 @@ export type ChatAttachment = {
   kind: AttachmentKind;
   data?: string;
   text?: string;
+  file?: string;
 };
 
 export type ChatChunkKind = "content" | "reasoning" | "tool";
@@ -23,6 +24,17 @@ export type ChatChunk = {
   text: string;
 };
 
+export type ToolDisplay = {
+  kind?: string;
+  path?: string;
+  startLine?: number;
+  endLine?: number;
+  added?: number;
+  removed?: number;
+  status?: string;
+  skillName?: string;
+};
+
 export type ChatToolCall = {
   id?: string;
   name: string;
@@ -30,6 +42,7 @@ export type ChatToolCall = {
   arguments?: string;
   thoughtSignature?: string;
   output?: string;
+  display?: ToolDisplay;
 };
 
 export const parseToolChunkText = (text: string): ChatToolCall => {
@@ -43,6 +56,29 @@ export const parseToolChunkText = (text: string): ChatToolCall => {
   return argument.length > 0 ? { name, argument } : { name };
 };
 
+const skillNameFromJson = (raw: string): string => {
+  try {
+    const parsed = JSON.parse(raw) as { name?: unknown };
+    return typeof parsed.name === "string" ? parsed.name.trim() : "";
+  } catch {
+    return "";
+  }
+};
+
+export const skillNameFromCall = (call: ChatToolCall): string => {
+  const named = call.display?.skillName?.trim();
+  if (named) return named;
+  const argument = call.argument?.trim();
+  if (argument) {
+    if (argument.startsWith("{")) {
+      const fromJson = skillNameFromJson(argument);
+      if (fromJson) return fromJson;
+    }
+    return argument;
+  }
+  return call.arguments ? skillNameFromJson(call.arguments) : "";
+};
+
 export type PersistedToolCall = {
   id: string;
   name: string;
@@ -50,6 +86,7 @@ export type PersistedToolCall = {
   arguments?: string;
   thoughtSignature?: string;
   output: string;
+  display?: ToolDisplay;
 };
 
 export type ToolRoundTrace = {

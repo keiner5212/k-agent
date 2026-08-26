@@ -103,6 +103,10 @@ App data dir:
 - `master.key` (mode 0600) via `secret.rs`
 - `provider-keys.json` (`enc:v1:` blobs keyed by provider id, mode 0600)
 - `mcp-secrets.json` (`enc:v1:` blobs keyed by MCP server id, mode 0600)
+- `sessions.json` (thin index: `activeSessionId` plus `{id,title,preview,updatedAt}`)
+- `sessions/{id}/session.json` (messages; no attachment blobs; `toolRounds` only)
+- `sessions/{id}/attachments/{attachmentId}{ext}` (raw attachment bytes)
+- `sessions/{id}/files/{callId}.before` and `{callId}.after` (write/edit snapshots)
 
 `~/.k-agent/`:
 

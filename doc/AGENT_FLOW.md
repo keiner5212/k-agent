@@ -21,7 +21,7 @@ When a chat message is sent, the backend receives one system string assembled on
 
 Tool JSON schemas are sent on the request `tools` field, not in the system prompt. Enabled MCP tools are merged into that list at send time (`mcp_{server}_{tool}`).
 
-Skill bodies arrive through tool results after a `skill` call. Persisted on the assistant message (`toolRounds` with per-round reasoning, calls, and `output`) in `sessions.json` and replayed on the next send. Each round is sent back as assistant tool-calls, then tool results, then the next think/answer.
+Skill bodies arrive through tool results after a `skill` call. Persisted on the assistant message (`toolRounds` with per-round reasoning, calls, `output`, and `display`) in `{app_data}/sessions/{id}/session.json` and replayed on the next send. Each round is sent back as assistant tool-calls, then tool results, then the next think/answer. Do not persist a flattened `toolCalls` copy. Builtin tool `output` is YAML. User attachments are files under `sessions/{id}/attachments/` with a `file` ref on the message.
 
 ## Turn protocol (model behavior)
 
@@ -72,7 +72,7 @@ Provider message shapes:
 ## Token accounting
 
 - **Personality** alone drives `estimatedTokens` on `AgentMeta` in Rust and builtin agents in the UI.
-- **Context usage** is 0 until the first message in the session. After that it splits language, AGENTS.md rules, agent system, tool JSON schemas, MCP tools, persisted skill tool outputs, other tool I/O plus conversation text, and reasoning. Cost treats tool results as input, tool-call args and assistant text as output, and thinking at the reasoning rate when the catalog has one.
+- **Context usage** is 0 until the first message in the session. After that it splits language, AGENTS.md rules, agent system, tool JSON schemas, MCP tools, skill tool outputs, conversation (user/assistant text, attachments, round content, non-skill tool I/O, skill names/args), and reasoning. Cost treats tool results as input, tool-call args and assistant text as output, and thinking at the reasoning rate when the catalog has one. One walk owns the split so skill bodies are not also counted in conversation.
 
 ## Related files
 

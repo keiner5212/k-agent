@@ -4,11 +4,13 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
 
-use super::{Tool, ToolContext, ToolOutcome, ToolSpec};
+use super::{
+    yaml_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, YamlValue, TOOL_KIND_CONTEXT,
+};
 
 pub const NAME: &str = "read";
 
-const DESCRIPTION: &str = "Read a file or list a directory. Path is absolute or workspace-relative. Optional offset (1-based) and limit (default 2000 lines). Output capped at 50 KB.";
+const DESCRIPTION: &str = "Read a file. Path is absolute or workspace-relative. Optional offset (1-based) and limit (default 2000 lines). Output capped at 50 KB.";
 
 const DEFAULT_LIMIT: usize = 2000;
 const MAX_LINE_LENGTH: usize = 2000;
@@ -48,29 +50,26 @@ impl Tool for ReadTool {
 
     fn execute(&self, args: &Value, ctx: &ToolContext<'_>) -> ToolOutcome {
         let Some(raw_path) = args.get("filePath").and_then(Value::as_str) else {
-            return ToolOutcome {
-                text: "read tool requires a string `filePath`.".into(),
-            };
+            return super::context_error(None, "read tool requires a string `filePath`.");
         };
         let trimmed = raw_path.trim();
         if trimmed.is_empty() {
-            return ToolOutcome {
-                text: "read tool `filePath` is empty.".into(),
-            };
+            return super::context_error(None, "read tool `filePath` is empty.");
         }
         let offset = match parse_usize_arg(args, "offset", 1, 1) {
             Ok(value) => value,
-            Err(message) => return ToolOutcome { text: message },
+            Err(message) => return super::context_error(Some(trimmed), &message),
         };
         let limit = match parse_usize_arg(args, "limit", DEFAULT_LIMIT, 1) {
             Ok(value) => value,
-            Err(message) => return ToolOutcome { text: message },
+            Err(message) => return super::context_error(Some(trimmed), &message),
         };
 
         let resolved = match resolve_path(ctx, trimmed) {
             Ok(value) => value,
-            Err(message) => return ToolOutcome { text: message },
+            Err(message) => return super::context_error(Some(trimmed), &message),
         };
+        let rel = ctx.relative_path(&resolved);
         let metadata = match fs::metadata(&resolved) {
             Ok(value) => value,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
@@ -79,44 +78,46 @@ impl Tool for ReadTool {
                     format!("File not found: {}", resolved.display())
                 } else {
                     format!(
-                        "File not found: {}\n\nDid you mean one of these?\n{}",
+                        "File not found: {}\nDid you mean one of these?\n{}",
                         resolved.display(),
                         suggestions.join("\n")
                     )
                 };
-                return ToolOutcome { text: body };
+                return super::context_error(Some(&rel), &body);
             }
             Err(error) => {
-                return ToolOutcome {
-                    text: format!("Unable to stat `{}`: {error}", resolved.display()),
-                };
+                return super::context_error(
+                    Some(&rel),
+                    &format!("Unable to stat `{}`: {error}", resolved.display()),
+                );
             }
         };
 
         let file_type = metadata.file_type();
         if file_type.is_dir() {
-            return ToolOutcome {
-                text: render_directory(&resolved, offset, limit),
-            };
+            return super::context_error(
+                Some(&rel),
+                "Path is a directory. Use list_directory.",
+            );
         }
         if !file_type.is_file() {
-            return ToolOutcome {
-                text: format!(
+            return super::context_error(
+                Some(&rel),
+                &format!(
                     "Cannot read `{}`: not a regular file or directory.",
                     resolved.display()
                 ),
-            };
+            );
         }
 
         if is_likely_binary_path(&resolved) {
-            return ToolOutcome {
-                text: format!("Cannot read binary file: {}", resolved.display()),
-            };
+            return super::context_error(
+                Some(&rel),
+                &format!("Cannot read binary file: {}", resolved.display()),
+            );
         }
 
-        ToolOutcome {
-            text: render_file(&resolved, offset, limit),
-        }
+        render_file(&resolved, &rel, offset, limit)
     }
 }
 
@@ -173,65 +174,79 @@ fn fuzzy_sibling_suggestions(path: &Path) -> Vec<String> {
     hits
 }
 
-fn render_directory(path: &Path, offset: usize, limit: usize) -> String {
-    let entries = match collect_directory_entries(path) {
+fn render_file(path: &Path, rel: &str, offset: usize, limit: usize) -> ToolOutcome {
+    let outcome = read_windowed(path, offset, limit);
+    let result = match outcome {
         Ok(value) => value,
-        Err(error) => return format!("Unable to list `{}`: {error}", path.display()),
+        Err(error) => {
+            let message = if error.kind() == std::io::ErrorKind::InvalidData {
+                format!("Cannot read binary file: {}", path.display())
+            } else {
+                format!("Unable to read `{}`: {error}", path.display())
+            };
+            return super::context_error(Some(rel), &message);
+        }
     };
-    if entries.is_empty() {
-        return format!(
-            "<path>{}</path>\n<type>directory</type>\n<entries>\n(empty)\n</entries>",
-            path.display()
+    if result.raw.is_empty() && offset > 1 && result.total_lines < offset {
+        return super::context_error(
+            Some(rel),
+            &format!(
+                "Offset {offset} is out of range for this file ({} lines).",
+                result.total_lines
+            ),
         );
     }
-    let start = offset.saturating_sub(1);
-    let end = start.saturating_add(limit).min(entries.len());
-    let slice = entries.get(start..end).unwrap_or(&[]);
-    let truncated = end < entries.len();
-    let mut out = String::new();
-    out.push_str(&format!("<path>{}</path>\n", path.display()));
-    out.push_str("<type>directory</type>\n<entries>\n");
-    out.push_str(&slice.join("\n"));
-    out.push('\n');
-    if truncated {
-        out.push_str(&format!(
-            "\n(Showing {} of {} entries. Use 'offset' parameter to read beyond entry {})",
-            slice.len(),
-            entries.len(),
-            end + 1
+    let start_line = if result.raw.is_empty() {
+        offset as u32
+    } else {
+        offset as u32
+    };
+    let end_line = if result.raw.is_empty() {
+        start_line
+    } else {
+        (offset + result.raw.len() - 1) as u32
+    };
+    let mut content = String::new();
+    for (index, line) in result.raw.iter().enumerate() {
+        let line_number = offset + index;
+        content.push_str(&format!("{line_number}: {line}\n"));
+    }
+    let last = offset + result.raw.len().saturating_sub(1);
+    if result.capped {
+        let next = last + 1;
+        content.push_str(&format!(
+            "\n(Output capped at {MAX_BYTES_LABEL}. Showing lines {offset}-{last}. Use offset={next} to continue.)"
+        ));
+    } else if result.more {
+        let next = last + 1;
+        content.push_str(&format!(
+            "\n(Showing lines {offset}-{last} of {}. Use offset={next} to continue.)",
+            result.total_lines
         ));
     } else {
-        out.push_str(&format!("\n({} entries)", entries.len()));
+        content.push_str(&format!(
+            "\n(End of file - total {} lines)",
+            result.total_lines
+        ));
     }
-    out.push_str("\n</entries>");
-    out
-}
-
-fn collect_directory_entries(path: &Path) -> std::io::Result<Vec<String>> {
-    let mut names: Vec<(String, bool)> = Vec::new();
-    for entry in fs::read_dir(path)? {
-        let entry = entry?;
-        let file_type = match entry.file_type() {
-            Ok(value) => value,
-            Err(_) => continue,
-        };
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if name.starts_with('.') {
-            continue;
-        }
-        let mut is_dir = file_type.is_dir();
-        if file_type.is_symlink() {
-            if let Ok(target) = fs::metadata(entry.path()) {
-                is_dir = target.is_dir();
-            }
-        }
-        names.push((name, is_dir));
+    let content = content.trim_end();
+    ToolOutcome {
+        text: yaml_doc(&[
+            ("path", YamlValue::Str(rel)),
+            ("startLine", YamlValue::Int(start_line as i64)),
+            ("endLine", YamlValue::Int(end_line as i64)),
+            ("content", YamlValue::Block(content)),
+        ]),
+        display: ToolDisplay {
+            kind: TOOL_KIND_CONTEXT.to_string(),
+            path: Some(rel.to_string()),
+            start_line: Some(start_line),
+            end_line: Some(end_line),
+            status: Some("ok".into()),
+            ..ToolDisplay::default()
+        },
+        snapshot: None,
     }
-    names.sort_by(|left, right| left.0.cmp(&right.0));
-    Ok(names
-        .into_iter()
-        .map(|(name, is_dir)| if is_dir { format!("{name}/") } else { name })
-        .collect())
 }
 
 fn is_likely_binary_path(path: &Path) -> bool {
@@ -279,55 +294,6 @@ struct ReadResult {
     total_lines: usize,
     more: bool,
     capped: bool,
-}
-
-fn render_file(path: &Path, offset: usize, limit: usize) -> String {
-    let outcome = read_windowed(path, offset, limit);
-    let result = match outcome {
-        Ok(value) => value,
-        Err(error) => {
-            return if error.kind() == std::io::ErrorKind::InvalidData {
-                format!("Cannot read binary file: {}", path.display())
-            } else {
-                format!("Unable to read `{}`: {error}", path.display())
-            }
-        }
-    };
-    if result.raw.is_empty() && offset > 1 {
-        if result.total_lines < offset {
-            return format!(
-                "Offset {offset} is out of range for this file ({} lines).",
-                result.total_lines
-            );
-        }
-    }
-    let mut output = String::new();
-    output.push_str(&format!("<path>{}</path>\n", path.display()));
-    output.push_str("<type>file</type>\n<content>\n");
-    for (index, line) in result.raw.iter().enumerate() {
-        let line_number = offset + index;
-        output.push_str(&format!("{line_number}: {line}\n"));
-    }
-    let last = offset + result.raw.len().saturating_sub(1);
-    if result.capped {
-        let next = last + 1;
-        output.push_str(&format!(
-            "\n(Output capped at {MAX_BYTES_LABEL}. Showing lines {offset}-{last}. Use offset={next} to continue.)"
-        ));
-    } else if result.more {
-        let next = last + 1;
-        output.push_str(&format!(
-            "\n(Showing lines {offset}-{last} of {}. Use offset={next} to continue.)",
-            result.total_lines
-        ));
-    } else {
-        output.push_str(&format!(
-            "\n(End of file - total {} lines)",
-            result.total_lines
-        ));
-    }
-    output.push_str("\n</content>");
-    output
 }
 
 fn read_windowed(path: &Path, offset: usize, limit: usize) -> std::io::Result<ReadResult> {

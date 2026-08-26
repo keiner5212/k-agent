@@ -4,12 +4,13 @@ import { Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { IconButton } from "@/components/IconButton";
 import { LineEditor } from "@/components/LineEditor";
-import { attachmentPreviewUrl, blobFromAttachment } from "@/lib/attachments";
+import { attachmentPreviewUrl, blobFromAttachment, useHydratedAttachment } from "@/lib/attachments";
 import type { ChatAttachment } from "@/types/chat";
 
 type AttachmentPreviewDialogProps = {
   item: ChatAttachment | null;
   onClose: () => void;
+  sessionId?: string | null;
 };
 
 const formatMediaTime = (seconds: number): string => {
@@ -206,9 +207,31 @@ const BlobPreview = ({ item }: { item: ChatAttachment }): ReactNode => {
   return <p className="attachment-preview__missing">{item.name}</p>;
 };
 
+const PreviewStage = ({
+  item,
+  sessionId,
+}: {
+  item: ChatAttachment;
+  sessionId: string | null;
+}): ReactNode => {
+  const hydrated = useHydratedAttachment(sessionId, item);
+  const resolved = hydrated.data || hydrated.text ? hydrated : item;
+  return (
+    <div className="attachment-preview">
+      <p className="attachment-preview__name" title={resolved.name}>
+        {resolved.name}
+      </p>
+      <div className="attachment-preview__stage">
+        <PreviewBody item={resolved} />
+      </div>
+    </div>
+  );
+};
+
 export const AttachmentPreviewDialog = ({
   item,
   onClose,
+  sessionId = null,
 }: AttachmentPreviewDialogProps): ReactNode => (
   <Dialog
     open={item !== null}
@@ -218,15 +241,6 @@ export const AttachmentPreviewDialog = ({
     titleKey="chat.preview.title"
     size="wide"
   >
-    {item ? (
-      <div className="attachment-preview">
-        <p className="attachment-preview__name" title={item.name}>
-          {item.name}
-        </p>
-        <div className="attachment-preview__stage">
-          <PreviewBody item={item} />
-        </div>
-      </div>
-    ) : null}
+    {item ? <PreviewStage item={item} sessionId={sessionId} /> : null}
   </Dialog>
 );

@@ -27,6 +27,8 @@ pub struct ChatAttachment {
     pub data: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -183,6 +185,7 @@ fn build_attachment(
         kind: kind.to_string(),
         data,
         text,
+        file: None,
     })
 }
 

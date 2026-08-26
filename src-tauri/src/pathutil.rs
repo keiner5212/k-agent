@@ -125,6 +125,21 @@ pub fn resolve_tool_path(raw: &str, workspace: Option<&Path>) -> Result<PathBuf,
     }
 }
 
+pub fn relative_to_workspace(path: &Path, workspace: Option<&Path>) -> String {
+    let unified = path.to_string_lossy().replace('\\', "/");
+    if let Some(root) = workspace {
+        let root_unified = root.to_string_lossy().replace('\\', "/");
+        let root_trim = root_unified.trim_end_matches('/');
+        if let Some(rest) = unified.strip_prefix(root_trim) {
+            let rest = rest.trim_start_matches('/');
+            if !rest.is_empty() {
+                return rest.to_string();
+            }
+        }
+    }
+    unified
+}
+
 pub fn workspace_from_app(app: &tauri::AppHandle) -> Option<PathBuf> {
     use tauri::Manager;
     app.state::<crate::LocalWorkspace>()
@@ -186,5 +201,12 @@ mod tests {
         let root = PathBuf::from("/workspace");
         let resolved = resolve_tool_path("  ", Some(&root)).unwrap();
         assert_eq!(resolved, root);
+    }
+
+    #[test]
+    fn relative_to_workspace_strips_root() {
+        let root = PathBuf::from("/workspace");
+        let path = root.join("src/lib.rs");
+        assert_eq!(relative_to_workspace(&path, Some(&root)), "src/lib.rs");
     }
 }

@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::attachments::ChatAttachment;
 use crate::providers::{attach_auth, load_all, ModelInfo, Provider, ProviderError, ProviderKind};
-use crate::tools::{self, ModelToolCall, ToolContext};
+use crate::tools::{self, ModelToolCall, ToolContext, ToolDisplay};
 
 const CHAT_HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
 const DEFAULT_TEMPERATURE: f64 = 1.0;
@@ -87,6 +87,8 @@ pub struct PersistedToolCall {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thought_signature: Option<String>,
     pub output: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display: Option<ToolDisplay>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1951,6 +1953,7 @@ async fn send_message(
     provider: &Provider,
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
+    session_id: Option<&str>,
 ) -> Result<ChatOutput, ChatError> {
     if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
@@ -2041,31 +2044,60 @@ async fn send_message(
         let mut persisted_calls = Vec::new();
         for tc in &model_calls {
             emit_tool_call(on_chunk, tc);
-            let raw_text =
+            let (raw_text, display) =
                 if let Some(mcp) = call.mcp_tools.iter().find(|item| item.wire_name == tc.name) {
                     let args = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
-                    match crate::mcp_client::call_tool(&mcp.server, &mcp.tool_name, args).await {
-                        Ok(text) => text,
-                        Err(error) => format!("MCP tool `{}` failed: {error}", mcp.tool_name),
-                    }
+                    let text =
+                        match crate::mcp_client::call_tool(&mcp.server, &mcp.tool_name, args).await
+                        {
+                            Ok(text) => text,
+                            Err(error) => {
+                                format!("MCP tool `{}` failed: {error}", mcp.tool_name)
+                            }
+                        };
+                    (
+                        text,
+                        Some(ToolDisplay {
+                            kind: tools::TOOL_KIND_CONTEXT.to_string(),
+                            ..ToolDisplay::default()
+                        }),
+                    )
                 } else if call.tool_names.iter().any(|name| name == &tc.name) {
-                    tools::execute(&tc.name, &tc.arguments, &ctx).text
+                    let outcome = tools::execute(&tc.name, &tc.arguments, &ctx);
+                    if let Some(snapshot) = outcome.snapshot {
+                        if let Some(sid) = session_id {
+                            let _ = crate::sessions::write_file_revision(
+                                app,
+                                sid,
+                                &tc.id,
+                                &snapshot.before,
+                                &snapshot.after,
+                            );
+                        }
+                    }
+                    (outcome.text, Some(outcome.display))
                 } else {
-                    format!("Tool `{}` is not enabled for this agent.", tc.name)
+                    (
+                        format!("Tool `{}` is not enabled for this agent.", tc.name),
+                        Some(ToolDisplay {
+                            kind: tools::TOOL_KIND_CONTEXT.to_string(),
+                            status: Some("error".into()),
+                            ..ToolDisplay::default()
+                        }),
+                    )
                 };
             let outcome_text = tools::truncate_output(&raw_text);
             let argument = tool_call_argument(&tc.name, &tc.arguments);
-            let is_mcp = call.mcp_tools.iter().any(|item| item.wire_name == tc.name);
-            let arguments_json = if tc.name == tools::READ_TOOL_NAME
-                || tc.name == tools::WRITE_TOOL_NAME
-                || tc.name == tools::EDIT_TOOL_NAME
-                || tc.name == tools::LIST_DIRECTORY_TOOL_NAME
-                || is_mcp
-            {
-                Some(tc.arguments.clone())
-            } else {
-                None
-            };
+            let mut display = display;
+            if tc.name == tools::SKILL_TOOL_NAME && !argument.is_empty() {
+                let meta = display.get_or_insert_with(|| ToolDisplay {
+                    kind: tools::TOOL_KIND_CONTEXT.to_string(),
+                    ..ToolDisplay::default()
+                });
+                if meta.skill_name.as_deref().unwrap_or("").is_empty() {
+                    meta.skill_name = Some(argument.clone());
+                }
+            }
             persisted_calls.push(PersistedToolCall {
                 id: tc.id.clone(),
                 name: tc.name.clone(),
@@ -2074,9 +2106,10 @@ async fn send_message(
                 } else {
                     Some(argument)
                 },
-                arguments: arguments_json,
+                arguments: nonempty_text(Some(&tc.arguments)).map(str::to_string),
                 thought_signature: nonempty_text(Some(&tc.thought_signature)).map(str::to_string),
                 output: outcome_text.clone(),
+                display,
             });
             turns.push(Turn {
                 assistant: false,
@@ -2151,7 +2184,7 @@ pub async fn generate_session_title(
         mcp_tools: &[],
     };
     let title =
-        normalize_generated_title(&send_message(&app, &provider, &call, None).await?.content);
+        normalize_generated_title(&send_message(&app, &provider, &call, None, None).await?.content);
     if title.is_empty() {
         return Err(ChatError::EmptyResponse);
     }
@@ -2278,7 +2311,7 @@ pub async fn generate_app_content(
         tool_names: &[],
         mcp_tools: &[],
     };
-    let text = normalize_generated_text(&send_message(&app, &provider, &call, None).await?.content);
+    let text = normalize_generated_text(&send_message(&app, &provider, &call, None, None).await?.content);
     if text.is_empty() {
         return Err(ChatError::EmptyResponse);
     }
@@ -2485,7 +2518,12 @@ pub async fn send_chat_message(
         None => (None, None),
     };
     let (provider, model) = load_provider_model(&app, &input.provider_id, &input.model_id).await?;
-    let turns = normalize_turns(&input.messages);
+    let mut turns = normalize_turns(&input.messages);
+    if let Some(session_id) = input.session_id.as_deref() {
+        for turn in &mut turns {
+            let _ = crate::sessions::hydrate_attachments(&app, Some(session_id), &mut turn.attachments);
+        }
+    }
     if !last_user_has_input(&turns) {
         return Err(ChatError::EmptyMessage);
     }
@@ -2520,7 +2558,13 @@ pub async fn send_chat_message(
         mcp_tools: &mcp_tools,
     };
     log_chat_config(&provider, &input, &call);
-    let send_fut = send_message(&app, &provider, &call, Some(&on_chunk));
+    let send_fut = send_message(
+        &app,
+        &provider,
+        &call,
+        Some(&on_chunk),
+        input.session_id.as_deref(),
+    );
     tokio::pin!(send_fut);
     let output = match cancel_rx {
         Some(rx) => {

@@ -71,6 +71,8 @@
     "allow-prepare-chat-attachments",
     "allow-load-sessions",
     "allow-save-sessions",
+    "allow-read-session-attachment",
+    "allow-read-session-file-revision",
     "allow-generate-session-title",
     "allow-generate-app-content",
     "allow-run-shell-command",

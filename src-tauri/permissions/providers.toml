@@ -53,6 +53,8 @@ permissions = [
   "allow-prepare-chat-attachments",
   "allow-load-sessions",
   "allow-save-sessions",
+  "allow-read-session-attachment",
+  "allow-read-session-file-revision",
   "allow-generate-session-title",
   "allow-generate-app-content",
   "allow-run-shell-command",
@@ -342,6 +344,16 @@ commands.allow = ["load_sessions"]
 identifier = "allow-save-sessions"
 description = "Persist chat sessions."
 commands.allow = ["save_sessions"]
+
+[[permission]]
+identifier = "allow-read-session-attachment"
+description = "Read a session attachment blob from disk."
+commands.allow = ["read_session_attachment"]
+
+[[permission]]
+identifier = "allow-read-session-file-revision"
+description = "Read a write or edit file snapshot from a session folder."
+commands.allow = ["read_session_file_revision"]
 
 [[permission]]
 identifier = "allow-generate-session-title"
