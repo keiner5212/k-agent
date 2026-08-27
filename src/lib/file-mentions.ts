@@ -1,5 +1,6 @@
 import { perfLog } from "@/lib/perf-log";
 import type { WorkspaceEntry } from "@/types/workspace-files";
+import { joinWorkspacePath, toPosixPath } from "@/lib/path";
 
 export type ActiveMention = {
   start: number;
@@ -27,8 +28,6 @@ export type MentionFilterResult = {
   tooMany: boolean;
 };
 
-export const normalizeMentionPath = (value: string): string => value.replace(/\\/g, "/");
-
 export const parseActiveMention = (text: string, cursor: number): ActiveMention | null => {
   const before = text.slice(0, cursor);
   const atIndex = before.lastIndexOf("@");
@@ -43,7 +42,7 @@ export const mentionListingContext = (
   query: string,
   hasDir: (path: string) => boolean,
 ): MentionListingContext => {
-  const normalized = normalizeMentionPath(query);
+  const normalized = toPosixPath(query);
   if (!normalized) return { parentDir: ROOT_DIR, prefix: "" };
   if (normalized.endsWith("/")) {
     return { parentDir: normalized.replace(/\/+$/, ""), prefix: "" };
@@ -63,7 +62,7 @@ export const dirsToLoadForMention = (
   query: string,
   hasDir: (path: string) => boolean,
 ): string[] => {
-  const normalized = normalizeMentionPath(query);
+  const normalized = toPosixPath(query);
   const dirs = new Set<string>([ROOT_DIR]);
   if (!normalized) return [...dirs];
 
@@ -131,15 +130,8 @@ export const buildMentionPathSet = (entries: readonly WorkspaceEntry[]): Set<str
 };
 
 export const isExactMentionPath = (paths: ReadonlySet<string>, rawPath: string): boolean => {
-  const normalized = normalizeMentionPath(rawPath);
+  const normalized = toPosixPath(rawPath);
   return paths.has(normalized) || paths.has(normalized.toLowerCase());
-};
-
-export const joinWorkspacePath = (root: string, rel: string): string => {
-  const trimmedRoot = root.replace(/[\\/]+$/, "");
-  const relNorm = rel.replace(/^\/+|\/+$/g, "");
-  const sep = root.includes("\\") && !root.includes("/") ? "\\" : "/";
-  return relNorm.length > 0 ? `${trimmedRoot}${sep}${relNorm}` : trimmedRoot;
 };
 
 export const expandWorkspaceMentions = (
@@ -151,8 +143,7 @@ export const expandWorkspaceMentions = (
   if (!text.includes("@")) return text;
   const paths = buildMentionPathSet(entries);
   return text.replace(MENTION_PATH_RE, (match, raw: string) => {
-    const stripped = raw.replace(/[\\/]+$/, "");
-    const normalized = normalizeMentionPath(stripped);
+    const normalized = toPosixPath(raw).replace(/\/+$/, "");
     if (!isExactMentionPath(paths, normalized)) return match;
     return renderAbsolute(joinWorkspacePath(workspaceRoot, normalized));
   });
