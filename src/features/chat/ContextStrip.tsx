@@ -9,9 +9,10 @@ import { ChangeBar } from "./ChangeBar";
 import { useRepoInfo } from "./use-repo-info";
 
 const shortPath = (path: string): string => {
-  const home = path.includes("/home/") ? path.replace(/^\/home\/[^/]+/, "~") : path;
+  const posix = path.replace(/\\/g, "/");
+  const home = posix.includes("/home/") ? posix.replace(/^\/home\/[^/]+/, "~") : posix;
   const parts = home.split("/").filter(Boolean);
-  if (parts.length <= 3) return home;
+  if (parts.length <= 3) return path;
   return `…/${parts.slice(-2).join("/")}`;
 };
 
