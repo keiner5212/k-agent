@@ -155,36 +155,45 @@ export const ChatComposer = (): ReactNode => {
     [allowedTypes, canAttach, ingestPrepared, shellMode],
   );
 
-  const handleSend = useCallback(async () => {
-    if (busy) {
-      if (!canQueue) return;
-      if (!shellMode && matchActionSlashCommand(value)) return;
-      enqueue(value, mode, shellMode ? undefined : attachments);
-      clearComposer();
-      textareaRef.current?.focus();
-      return;
-    }
-    if (shellMode) {
-      if (!canRunShell) return;
-      const text = value;
-      clearComposer();
-      await runShell(text);
-      textareaRef.current?.focus();
-      return;
-    }
-    if (!canSend) return;
+  const handleSend = useCallback((): void => {
     const text = value;
     const pending = attachments;
-    const action = matchActionSlashCommand(text);
-    if (action) {
-      clearComposer();
-      runSlashAction(action.id);
+    const action = !shellMode ? matchActionSlashCommand(text) : null;
+    const focus = (): void => {
       textareaRef.current?.focus();
+    };
+    const consume = (): void => {
+      clearComposer();
+      focus();
+    };
+
+    if (busy) {
+      if (!canQueue) return;
+      if (action) {
+        consume();
+        return;
+      }
+      enqueue(text, mode, shellMode ? undefined : pending);
+      consume();
       return;
     }
-    const accepted = await sendMessage(text, undefined, pending);
-    if (accepted) clearComposer();
-    textareaRef.current?.focus();
+
+    if (shellMode) {
+      if (!canRunShell) return;
+      consume();
+      void runShell(text);
+      return;
+    }
+
+    if (!canSend) return;
+    if (action) {
+      consume();
+      runSlashAction(action.id);
+      return;
+    }
+
+    consume();
+    void sendMessage(text, undefined, pending);
   }, [
     attachments,
     busy,

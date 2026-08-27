@@ -123,22 +123,42 @@ export const readSessionFileRevision = (
 const isActionOk = (display: ToolDisplay | undefined): display is ToolDisplay =>
   display?.kind === "action" && display.status === "ok" && Boolean(display.path);
 
+type PathState = {
+  added: number;
+  removed: number;
+  callId: string;
+  deleted: boolean;
+};
+
 export const collectSessionChanges = (messages: ChatMessage[]): SessionChangedFile[] => {
-  const byPath = new Map<string, SessionChangedFile>();
+  const byPath = new Map<string, PathState>();
   for (const message of messages) {
     for (const round of message.toolRounds ?? []) {
       for (const call of round.calls ?? []) {
-        if (!isActionOk(call.display) || !call.display.path) continue;
+        if (!isActionOk(call.display) || !call.display.path || !call.id) continue;
         const path = call.display.path;
-        const prev = byPath.get(path);
-        byPath.set(path, {
-          path,
-          added: (prev?.added ?? 0) + (call.display.added ?? 0),
-          removed: (prev?.removed ?? 0) + (call.display.removed ?? 0),
-          callId: call.id,
-        });
+        let state = byPath.get(path);
+        if (!state) {
+          state = { added: 0, removed: 0, callId: call.id, deleted: false };
+          byPath.set(path, state);
+        }
+        if (call.name === "delete") {
+          state.removed += call.display.linesRemoved ?? 0;
+          state.deleted = true;
+        } else {
+          if (state.deleted) {
+            state.added = 0;
+            state.removed = 0;
+            state.deleted = false;
+          }
+          state.added += call.display.added ?? 0;
+          state.removed += call.display.removed ?? 0;
+        }
+        state.callId = call.id;
       }
     }
   }
-  return [...byPath.values()];
+  return [...byPath.entries()]
+    .filter(([, state]) => state.added !== state.removed)
+    .map(([path, { added, removed, callId }]) => ({ path, added, removed, callId }));
 };

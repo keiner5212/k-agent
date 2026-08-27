@@ -67,14 +67,9 @@ export const useAskUserStore = create<QuestionsStore>((set, get) => ({
       return { error: String(error) };
     }
     set((prev) => {
-      const current = prev.byCallId[callId];
-      if (!current) return prev;
-      return {
-        byCallId: {
-          ...prev.byCallId,
-          [callId]: { ...current, submitted: true },
-        },
-      };
+      if (!prev.byCallId[callId]) return prev;
+      const { [callId]: _removed, ...rest } = prev.byCallId;
+      return { byCallId: rest };
     });
     return {};
   },

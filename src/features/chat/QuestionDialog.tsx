@@ -40,14 +40,13 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
   const freeTextRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (state.submitted) return;
     const textarea = freeTextRef.current;
     if (textarea) {
       const length = textarea.value.length;
       textarea.setSelectionRange(length, length);
       textarea.focus();
     }
-  }, [activeIndex, state.submitted]);
+  }, [activeIndex]);
 
   const allAnswered = useMemo(
     () =>
@@ -62,7 +61,7 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
 
   const handleToggleOption = useCallback(
     (option: string) => {
-      if (!active || state.submitted) return;
+      if (!active) return;
       const multiSelect = active.multiSelect ?? false;
       const currentSelected = activeEntry?.selected ?? [];
       const exists = currentSelected.includes(option);
@@ -80,7 +79,7 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
       };
       setAnswer(state.callId, nextEntry);
     },
-    [active, activeEntry, setAnswer, state.callId, state.submitted],
+    [active, activeEntry, setAnswer, state.callId],
   );
 
   const handleFreeText = useCallback(
@@ -116,9 +115,8 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
   }, [state.callId, submit, submitting]);
 
   const handleCancel = useCallback(async () => {
-    if (state.submitted) return;
     await cancel(state.callId);
-  }, [cancel, state.callId, state.submitted]);
+  }, [cancel, state.callId]);
 
   if (!active) return null;
   const multiSelect = active.multiSelect ?? false;
@@ -135,7 +133,7 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
           onClick={() => {
             void handleCancel();
           }}
-          disabled={state.submitted}
+          disabled={submitting}
         >
           <X size={14} strokeWidth={1.5} />
         </IconButton>
@@ -176,7 +174,7 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
                   className={`question-dialog__option-button${checked ? " question-dialog__option-button--checked" : ""}`}
                   aria-pressed={checked}
                   onClick={() => handleToggleOption(option.label)}
-                  disabled={state.submitted}
+                  disabled={submitting}
                 >
                   <span className="question-dialog__option-marker" aria-hidden="true">
                     {checked ? <Check size={12} strokeWidth={2.5} /> : null}
@@ -209,7 +207,7 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
               value={activeEntry?.freeText ?? ""}
               onChange={handleFreeText}
               placeholder={t("chat.question.freeTextPlaceholder")}
-              disabled={state.submitted}
+              disabled={submitting}
             />
           </label>
         ) : null}
@@ -220,7 +218,7 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
           <GlassButton
             variant="secondary"
             onClick={handleBack}
-            disabled={activeIndex === 0 || state.submitted}
+            disabled={activeIndex === 0 || submitting}
           >
             <ChevronLeft size={14} strokeWidth={2} />
             {t("chat.question.back")}
@@ -234,7 +232,7 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
             onClick={() => {
               void handleSubmit();
             }}
-            disabled={state.submitted || submitting || !allAnswered}
+            disabled={submitting || !allAnswered}
           >
             <Send size={14} strokeWidth={2} />
             {submitting ? t("chat.question.submitting") : t("chat.question.submit")}
@@ -243,7 +241,7 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
           <GlassButton
             variant="primary"
             onClick={handleAdvance}
-            disabled={state.submitted || !canAdvance(active, activeEntry)}
+            disabled={submitting || !canAdvance(active, activeEntry)}
           >
             {t("chat.question.next")}
             <ChevronRight size={14} strokeWidth={2} />

@@ -152,21 +152,28 @@ const MessageBody = ({
   }
   if (message.role === "assistant") {
     const rounds = message.toolRounds;
-    if (rounds && rounds.length > 0 && !message.streaming) {
+    if (rounds && rounds.length > 0) {
+      const lastRoundIndex = rounds.length - 1;
+      const showTrailingContent =
+        !message.streaming && rounds[rounds.length - 1]?.content !== message.content;
       return (
         <>
           {rounds.map((round, index) => {
             const calls = round.calls ?? [];
+            const isLastRound = index === lastRoundIndex;
             return (
               <div key={calls[0]?.id ?? `round-${index}`}>
-                <ThinkingBlock reasoning={round.reasoning} />
+                <ThinkingBlock
+                  reasoning={round.reasoning}
+                  streaming={Boolean(message.streaming) && isLastRound}
+                  thinkingMs={!message.streaming ? round.thinkingMs : undefined}
+                />
                 <AssistantMarkdown content={round.content ?? ""} />
                 <ToolCallsBlock sessionId={sessionId} calls={calls} />
               </div>
             );
           })}
-          <ThinkingBlock reasoning={message.reasoning ?? ""} thinkingMs={message.thinkingMs} />
-          <AssistantMarkdown content={message.content} />
+          {showTrailingContent ? <AssistantMarkdown content={message.content} /> : null}
           <PendingQuestionsBlock messageId={message.id} />
           <InterruptedFooter interrupted={message.interrupted ?? false} />
         </>

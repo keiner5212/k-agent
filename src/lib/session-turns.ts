@@ -53,6 +53,7 @@ export const toChatTurns = (messages: ChatMessage[]): ChatTurn[] => {
           })),
         });
         for (const call of calls) {
+          if (!call.id || call.output === undefined) continue;
           turns.push({
             role: "user",
             content: "",

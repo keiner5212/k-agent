@@ -56,7 +56,6 @@ export type PendingQuestionState = {
   messageId: string | null;
   questions: AskUserQuestion[];
   answers: AskUserAnswerEntry[];
-  submitted: boolean;
 };
 
 export type ToolDisplay = {
@@ -129,7 +128,8 @@ export type ToolRoundTrace = {
   reasoning: string;
   reasoningSignature?: string;
   content?: string;
-  calls: PersistedToolCall[];
+  calls: ChatToolCall[];
+  thinkingMs?: number;
 };
 
 export type ChatMessage = {

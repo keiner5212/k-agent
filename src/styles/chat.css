@@ -1015,7 +1015,7 @@ button.change-bar__stat:focus-visible {
 }
 
 .chat-tools {
-  margin: 0 0 var(--space-3);
+  margin: var(--space-1) 0 var(--space-3);
   padding: 0;
   list-style: none;
 }
@@ -1029,8 +1029,16 @@ button.change-bar__stat:focus-visible {
 }
 
 .chat-tools__item::before {
-  content: "-> ";
+  content: "";
+}
+
+.chat-tools__symbol {
   color: var(--frost-fill-accent);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  width: 1em;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .chat-tools__line {

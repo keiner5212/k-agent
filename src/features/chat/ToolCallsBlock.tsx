@@ -26,11 +26,51 @@ const fileName = (path: string): string => {
   return parts[parts.length - 1] || path;
 };
 
+const TOOL_SYMBOL: Record<string, string> = {
+  skill: "\u2726 ",
+  read: "\u25CB ",
+  write: "\u270E ",
+  edit: "\u2710 ",
+  list_directory: "\u229E ",
+  ask_user: "\u25CC ",
+  create_folder: "\u25A4 ",
+  delete: "\u2715 ",
+};
+
+const READ_LINE_RE = /^(\d+): (.*)$/;
+const END_OF_FILE_RE = /^\(End of file.*\)$/;
+
+const readToolView = (raw: string): { content: string; startLine: number | undefined } => {
+  const source = yamlBlockValue(raw, "content") || raw;
+  const cleaned: string[] = [];
+  let startLine: number | undefined;
+  let sawNumbered = false;
+  for (const line of source.split("\n")) {
+    const match = line.match(READ_LINE_RE);
+    if (match) {
+      if (!sawNumbered) {
+        startLine = Number(match[1]);
+        sawNumbered = true;
+      }
+      cleaned.push(match[2] ?? "");
+    } else {
+      cleaned.push(line);
+    }
+  }
+  while (cleaned.length > 0) {
+    const last = cleaned[cleaned.length - 1] ?? "";
+    if (END_OF_FILE_RE.test(last) || last === "") {
+      cleaned.pop();
+      continue;
+    }
+    break;
+  }
+  return { content: cleaned.join("\n"), startLine };
+};
+
 const previewFromOutput = (call: ChatToolCall): string => {
   if (call.name === "skill")
     return yamlBlockValue(call.output ?? "", "body") || (call.output ?? "");
-  if (call.name === "read")
-    return yamlBlockValue(call.output ?? "", "content") || (call.output ?? "");
   if (call.name === "list_directory") {
     return yamlBlockValue(call.output ?? "", "entries") || (call.output ?? "");
   }
@@ -119,11 +159,12 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
           : call.name === "list_directory"
             ? "chat.tools.listTitle"
             : "chat.tools.outputTitle";
+    const parsedRead = call.name === "read" ? readToolView(call.output ?? "") : null;
     setPreview({
       titleKey,
-      value: previewFromOutput(call),
+      value: parsedRead?.content ?? previewFromOutput(call),
       path: display?.path,
-      startLine: call.name === "read" ? display?.startLine : undefined,
+      startLine: parsedRead ? (parsedRead.startLine ?? display?.startLine) : undefined,
     });
   };
 
@@ -147,6 +188,9 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
               className={`chat-tools__item${call.name === "skill" ? " chat-tools__item--skill" : ""}${isAction ? " chat-tools__item--action" : ""}`}
             >
               <span className="chat-tools__line">
+                <span className="chat-tools__symbol" aria-hidden="true">
+                  {TOOL_SYMBOL[call.name] ?? ""}
+                </span>
                 {canOpen ? (
                   <button
                     type="button"

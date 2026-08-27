@@ -105,6 +105,8 @@ pub struct ToolRoundTrace {
     pub content: String,
     #[serde(default)]
     pub calls: Vec<PersistedToolCall>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2001,7 +2003,9 @@ async fn send_message(
             mcp_tools: call.mcp_tools,
             parallelism: call.parallelism,
         };
+        let round_started = std::time::Instant::now();
         let output = dispatch_provider(provider, &round_call, on_chunk).await?;
+        let thinking_ms = round_started.elapsed().as_millis() as u64;
         if on_chunk.is_none() && !output.reasoning.is_empty() {
             emit_chunk(on_chunk, "reasoning", &output.reasoning);
         }
@@ -2154,6 +2158,7 @@ async fn send_message(
             reasoning_signature: output.reasoning_signature.clone(),
             content: output.content.clone(),
             calls: persisted_calls,
+            thinking_ms: Some(thinking_ms),
         });
     }
 

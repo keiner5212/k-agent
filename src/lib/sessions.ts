@@ -31,9 +31,11 @@ import {
   type AskUserQuestionChunk,
   type ChatAttachment,
   type ChatChunk,
+  type ChatChunkKind,
   type ChatMessage,
   type SelectedModel,
   type SendChatResult,
+  type ToolRoundTrace,
 } from "@/types/chat";
 import { useAskUserStore } from "@/lib/ask-user";
 import { notifyAskUser } from "@/lib/notifications";
@@ -84,26 +86,12 @@ const handleAskUserChunk = (raw: string, messageId: string): void => {
         selected: [],
         freeText: "",
       })),
-      submitted: false,
     });
     const first = questions[0];
     void notifyAskUser(questions.length, first ? first.question : null);
   } catch (error) {
     console.warn("ask_user chunk parse failed", error);
   }
-};
-
-const pruneSubmittedQuestions = (): void => {
-  const current = useAskUserStore.getState().byCallId;
-  const submittedIds = Object.entries(current)
-    .filter(([, state]) => state.submitted)
-    .map(([callId]) => callId);
-  if (submittedIds.length === 0) return;
-  useAskUserStore.setState((prev) => {
-    const next = { ...prev.byCallId };
-    for (const id of submittedIds) delete next[id];
-    return { byCallId: next };
-  });
 };
 
 const thinkingDurationMs = (
@@ -480,6 +468,33 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       );
       let thinkingStartedAt: number | undefined;
       let thinkingEndedAt: number | undefined;
+      const rounds: ToolRoundTrace[] = [];
+      let activeRoundIndex = 0;
+      // Boundary: any non-tool chunk after a tool starts a new round so
+      // reasoning/tool/reasoning/tool chains render as separate collapsibles.
+      let lastChunkKind: ChatChunkKind | null = null;
+      let roundStartedAt: number | undefined;
+      const ensureActiveRound = (): ToolRoundTrace => {
+        while (rounds.length <= activeRoundIndex) {
+          rounds.push({ reasoning: "", calls: [] });
+        }
+        return rounds[activeRoundIndex];
+      };
+      const recordRoundThinkingMs = (round: ToolRoundTrace, endedAt: number): void => {
+        if (round.thinkingMs === undefined && roundStartedAt !== undefined) {
+          round.thinkingMs = Math.max(0, endedAt - roundStartedAt);
+        }
+      };
+      const snapshotRounds = (): ToolRoundTrace[] =>
+        rounds.map((round) => {
+          const snap: ToolRoundTrace = {
+            reasoning: round.reasoning,
+            calls: [...round.calls],
+          };
+          if (round.content !== undefined) snap.content = round.content;
+          if (round.thinkingMs !== undefined) snap.thinkingMs = round.thinkingMs;
+          return snap;
+        });
       const onChunk = new Channel<ChatChunk>();
       onChunk.onmessage = (chunk) => {
         if (!chunk.text || get().sendingSessionId !== sessionId) return;
@@ -494,22 +509,38 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           handleAskUserChunk(chunk.text, assistantId);
           return;
         }
-        const toolCall = isTool ? parseToolChunkText(chunk.text) : null;
+        if (lastChunkKind === "tool" && !isTool) {
+          activeRoundIndex += 1;
+          roundStartedAt = undefined;
+        }
+        const activeRound = ensureActiveRound();
+        if (isReasoning) {
+          if (roundStartedAt === undefined) roundStartedAt = Date.now();
+          activeRound.reasoning = `${activeRound.reasoning}${chunk.text}`;
+        } else if (isTool) {
+          recordRoundThinkingMs(activeRound, Date.now());
+          roundStartedAt = undefined;
+          const toolCall = parseToolChunkText(chunk.text);
+          if (toolCall) activeRound.calls = [...activeRound.calls, toolCall];
+        } else if (chunk.kind === "content") {
+          activeRound.content = `${activeRound.content ?? ""}${chunk.text}`;
+        }
+        lastChunkKind = chunk.kind;
+        const newPreview = chunk.kind === "content" ? (activeRound.content ?? chunk.text) : null;
         const nextSessions = get().sessions.map((session) => {
           if (session.id !== sessionId) return session;
           const index = session.messages.findIndex((message) => message.id === assistantId);
           if (index < 0) {
             return {
               ...session,
-              preview: isReasoning || isTool ? session.preview : chunk.text,
+              preview: newPreview ?? session.preview,
               messages: [
                 ...session.messages,
                 {
                   id: assistantId,
                   role: "assistant" as const,
-                  content: isReasoning || isTool ? "" : chunk.text,
-                  reasoning: isReasoning ? chunk.text : undefined,
-                  toolCalls: toolCall ? [toolCall] : undefined,
+                  content: chunk.kind === "content" ? chunk.text : "",
+                  toolRounds: snapshotRounds(),
                   streaming: true,
                 },
               ],
@@ -518,16 +549,16 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           const messages = session.messages.slice();
           const current = messages[index];
           if (!current) return session;
-          const content =
-            isReasoning || isTool ? current.content : `${current.content}${chunk.text}`;
-          const reasoning = isReasoning
-            ? `${current.reasoning ?? ""}${chunk.text}`
-            : current.reasoning;
-          const toolCalls = toolCall ? [...(current.toolCalls ?? []), toolCall] : current.toolCalls;
-          messages[index] = { ...current, content, reasoning, toolCalls, streaming: true };
+          messages[index] = {
+            ...current,
+            content:
+              chunk.kind === "content" ? (activeRound.content ?? chunk.text) : current.content,
+            toolRounds: snapshotRounds(),
+            streaming: true,
+          };
           return {
             ...session,
-            preview: isReasoning || isTool ? session.preview : content,
+            preview: newPreview ?? session.preview,
             messages,
           };
         });
@@ -622,7 +653,6 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         if (finished && !finished.interrupted) {
           void notifyResponseFinished(finished.content);
         }
-        pruneSubmittedQuestions();
         get().flushQueued();
       }
       return true;
