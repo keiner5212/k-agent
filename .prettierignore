@@ -4,3 +4,4 @@
 # folders ARE prettier-checked.
 docs/example/tool-stats/**/stats.md
 docs/example/tool-stats/**/response.toon
+docs/example/tool-stats/**/input.json

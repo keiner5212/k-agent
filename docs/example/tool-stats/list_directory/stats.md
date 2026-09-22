@@ -17,13 +17,13 @@ kind: `context`  status: `ok`  call_id: `test`
 
 | Wall | User CPU | Sys CPU |
 |---|---|---|
-| 1551 us | 1356 us | 0 us |
+| 1599 us | 1262 us | 0 us |
 
 ## Memory
 
 | RSS before | RSS after | Delta | Host process peak |
 |---|---|---|---|
-| 5736 KiB | 5908 KiB | +172 KiB | 129056 KiB |
+| 5764 KiB | 6004 KiB | +240 KiB | 129280 KiB |
 
 RSS samples are taken via `/proc/self/status` (Linux) or `ps -o rss=`
 (macOS) immediately before and after the tool call. Delta is the
@@ -46,7 +46,7 @@ at runtime; see `src-tauri/src/tools/list_directory.rs`.
 
 | Bytes | Chars | Lines | Tokens (chars/4) |
 |---|---|---|---|
-| 548 | 548 | 2 | 137 |
+| 676 | 676 | 2 | 169 |
 
 ## Target
 

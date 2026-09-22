@@ -224,6 +224,13 @@ fn tool_dir(tool: &str) -> PathBuf {
     output_dir().join(tool)
 }
 
+fn write_input(tool: &str, raw_args: &str) {
+    let value: serde_json::Value =
+        serde_json::from_str(raw_args).unwrap_or_else(|_| serde_json::Value::String(raw_args.to_string()));
+    let pretty = serde_json::to_string_pretty(&value).unwrap();
+    fs::write(tool_dir(tool).join("input.json"), pretty).unwrap();
+}
+
 async fn measure<F>(future: F) -> (ProcStats, k_agent_lib::tools::ToolOutcome)
 where
     F: std::future::Future<Output = k_agent_lib::tools::ToolOutcome>,
@@ -387,10 +394,10 @@ async fn dumps_tool_examples() {
     // name here mirrors a real-world scenario so the error message is the
     // one a model would actually see.
     {
-        let (stats, outcome) = measure(async {
-            execute(SKILL_TOOL_NAME, r#"{"name":"code-review"}"#, &ctx_docs).await
-        })
-        .await;
+        let args = r#"{"name":"code-review"}"#;
+        let (stats, outcome) =
+            measure(async { execute(SKILL_TOOL_NAME, args, &ctx_docs).await }).await;
+        write_input(SKILL_TOOL_NAME, args);
         write_stats(SKILL_TOOL_NAME, &stats, &outcome, &ctx_docs);
     }
 
@@ -400,6 +407,7 @@ async fn dumps_tool_examples() {
         let args = format!(r#"{{"dirPath":"{nested_dir_path}"}}"#);
         let (stats, outcome) =
             measure(async { execute(CREATE_FOLDER_TOOL_NAME, &args, &ctx_scratch).await }).await;
+        write_input(CREATE_FOLDER_TOOL_NAME, &args);
         write_stats(CREATE_FOLDER_TOOL_NAME, &stats, &outcome, &ctx_scratch);
     }
 
@@ -412,6 +420,7 @@ async fn dumps_tool_examples() {
         );
         let (stats, outcome) =
             measure(async { execute(WRITE_TOOL_NAME, &args, &ctx_scratch).await }).await;
+        write_input(WRITE_TOOL_NAME, &args);
         write_stats(WRITE_TOOL_NAME, &stats, &outcome, &ctx_scratch);
     }
 
@@ -442,6 +451,7 @@ async fn dumps_tool_examples() {
         );
         let (stats, outcome) =
             measure(async { execute(EDIT_TOOL_NAME, &args, &ctx_scratch).await }).await;
+        write_input(EDIT_TOOL_NAME, &args);
         write_stats(EDIT_TOOL_NAME, &stats, &outcome, &ctx_scratch);
     }
 
@@ -451,6 +461,7 @@ async fn dumps_tool_examples() {
         let args = r#"{"filePath":"example/system-prompt.md","offset":1,"limit":40}"#;
         let (stats, outcome) =
             measure(async { execute(READ_TOOL_NAME, args, &ctx_docs).await }).await;
+        write_input(READ_TOOL_NAME, args);
         write_stats(READ_TOOL_NAME, &stats, &outcome, &ctx_docs);
     }
 
@@ -460,6 +471,7 @@ async fn dumps_tool_examples() {
         let args = r#"{"dirPath":"example","recursive":true,"maxDepth":3}"#;
         let (stats, outcome) =
             measure(async { execute(LIST_DIRECTORY_TOOL_NAME, args, &ctx_docs).await }).await;
+        write_input(LIST_DIRECTORY_TOOL_NAME, args);
         write_stats(LIST_DIRECTORY_TOOL_NAME, &stats, &outcome, &ctx_docs);
     }
 
@@ -469,6 +481,7 @@ async fn dumps_tool_examples() {
         let args = format!(r#"{{"path":"{realistic_path}"}}"#);
         let (stats, outcome) =
             measure(async { execute(DELETE_TOOL_NAME, &args, &ctx_scratch).await }).await;
+        write_input(DELETE_TOOL_NAME, &args);
         write_stats(DELETE_TOOL_NAME, &stats, &outcome, &ctx_scratch);
     }
 
@@ -515,6 +528,7 @@ async fn dumps_tool_examples() {
         let (stats, outcome) =
             measure(async { ask_user_execute_async(args, &ctx_docs).await }).await;
         let _ = deliver.await;
+        write_input(ASK_USER_TOOL_NAME, args);
         write_stats(ASK_USER_TOOL_NAME, &stats, &outcome, &ctx_docs);
     }
 

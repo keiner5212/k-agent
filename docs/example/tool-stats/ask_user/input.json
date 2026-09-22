@@ -1,0 +1,19 @@
+{
+  "questions": [
+    {
+      "id": "approach",
+      "header": "Approach",
+      "question": "Which approach should I take?",
+      "options": [
+        {
+          "label": "Refactor in place"
+        },
+        {
+          "label": "Extract helper"
+        }
+      ],
+      "multiSelect": false,
+      "allowFreeText": true
+    }
+  ]
+}

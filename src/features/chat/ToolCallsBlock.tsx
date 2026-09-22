@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { LineKind } from "@/components/LineEditor";
 import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
-import { diffEditorValue, readSessionFileRevision, yamlBlockValue } from "@/lib/session-files";
+import { diffEditorValue, readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
 import { skillNameFromCall, type ChatToolCall } from "@/types/chat";
 import { formatContextWindow } from "@/types/providers";
 
@@ -41,7 +41,7 @@ const READ_LINE_RE = /^(\d+): (.*)$/;
 const END_OF_FILE_RE = /^\(End of file.*\)$/;
 
 const readToolView = (raw: string): { content: string; startLine: number | undefined } => {
-  const source = yamlBlockValue(raw, "content") || raw;
+  const source = toonFieldValue(raw, "content") || raw;
   const cleaned: string[] = [];
   let startLine: number | undefined;
   let sawNumbered = false;
@@ -70,9 +70,9 @@ const readToolView = (raw: string): { content: string; startLine: number | undef
 
 const previewFromOutput = (call: ChatToolCall): string => {
   if (call.name === "skill")
-    return yamlBlockValue(call.output ?? "", "body") || (call.output ?? "");
+    return toonFieldValue(call.output ?? "", "body") || (call.output ?? "");
   if (call.name === "list_directory") {
-    return yamlBlockValue(call.output ?? "", "entries") || (call.output ?? "");
+    return toonFieldValue(call.output ?? "", "entries") || (call.output ?? "");
   }
   return call.output ?? "";
 };

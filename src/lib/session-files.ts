@@ -8,31 +8,35 @@ export type SessionChangedFile = {
   callId: string;
 };
 
-export const yamlBlockValue = (source: string, key: string): string => {
-  const markers = [`${key}: |-\n`, `${key}: |\n`];
-  let rest = "";
-  for (const marker of markers) {
-    const idx = source.indexOf(marker);
-    if (idx < 0) continue;
-    rest = source.slice(idx + marker.length);
-    break;
+const escapeRegex = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const decodeToonEscape = (raw: string): string =>
+  raw
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\r")
+    .replace(/\\t/g, "\t")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
+
+/**
+ * Extract the value of a top-level field from a TOON object body.
+ * Handles double-quoted strings (with `\n`, `\"`, `\\` escapes),
+ * single-quoted strings (no escapes), and bare scalars. Empty string
+ * when the field is missing.
+ */
+export const toonFieldValue = (source: string, key: string): string => {
+  const re = new RegExp(`(?:^|\\n)${escapeRegex(key)}:\\s*(.*)`);
+  const match = re.exec(source);
+  if (!match) return "";
+  const raw = match[1];
+  const trimmed = raw.replace(/\s+$/, "");
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) {
+    return decodeToonEscape(trimmed.slice(1, -1));
   }
-  if (!rest) return "";
-  const lines = rest.split("\n");
-  const body: string[] = [];
-  for (const line of lines) {
-    if (line.startsWith("  ")) {
-      body.push(line.slice(2));
-      continue;
-    }
-    if (line.trim() === "") {
-      body.push("");
-      continue;
-    }
-    break;
+  if (trimmed.startsWith("'") && trimmed.endsWith("'") && trimmed.length >= 2) {
+    return trimmed.slice(1, -1);
   }
-  while (body.length > 0 && body[body.length - 1] === "") body.pop();
-  return body.join("\n");
+  return trimmed;
 };
 
 export type DiffLineKind = "context" | "add" | "remove";

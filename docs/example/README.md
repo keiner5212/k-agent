@@ -11,7 +11,7 @@ This is documentation, not generated. It must be kept in sync with:
 - `src/lib/response-language.ts` (`composeSystemWithLanguage`).
 - `src-tauri/src/chat.rs` (`openai_messages`, `emit_chunk`,
   `emit_tool_call`, round loop).
-- `src-tauri/src/tools/*.rs` (`yaml_doc` outputs).
+- `src-tauri/src/tools/*.rs` (`toon_doc` outputs).
 
 ## Scenario
 
@@ -27,6 +27,6 @@ This is documentation, not generated. It must be kept in sync with:
 
 - [`system-prompt.md`](./system-prompt.md) - the exact text of the
   `system` message the frontend sends to Rust.
-- [`tool-responses.md`](./tool-responses.md) - the exact chunk text and
-  tool result YAML for every tool the model might call, plus a worked
-  example for one full round.
+- [`tool-stats/<tool>/`](./tool-stats/) - one folder per tool with its
+  `README.md` (hand-written spec), `response.toon` (a real example
+  response in the wire format), and `stats.md` (performance metrics).

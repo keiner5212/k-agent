@@ -17,13 +17,13 @@ kind: `action`  status: `ok`  call_id: `test`
 
 | Wall | User CPU | Sys CPU |
 |---|---|---|
-| 2253 us | 0 us | 718 us |
+| 826 us | 551 us | 0 us |
 
 ## Memory
 
 | RSS before | RSS after | Delta | Host process peak |
 |---|---|---|---|
-| 5632 KiB | 5700 KiB | +68 KiB | 129056 KiB |
+| 5656 KiB | 5724 KiB | +68 KiB | 129280 KiB |
 
 RSS samples are taken via `/proc/self/status` (Linux) or `ps -o rss=`
 (macOS) immediately before and after the tool call. Delta is the

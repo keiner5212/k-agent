@@ -127,13 +127,14 @@ Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then b
 
 Every tool the LLM can call is one Rust file under `src-tauri/src/tools/`. Wire output is TOON via `toon_doc` (`src-tauri/src/tools/toon.rs`), delegated to the `toon-format` crate. The LLM sees TOON, never YAML.
 
-Each tool has a dedicated folder under `docs/example/tool-stats/<tool_name>/` with three artifacts:
+Each tool has a dedicated folder under `docs/example/tool-stats/<tool_name>/` with four artifacts:
 
 - `README.md` - hand-written. The specification of the tool.
 - `stats.md` - auto-generated. Performance stats from `cargo test --test tools_examples`.
 - `response.toon` - auto-generated. A real tool response in the same TOON the LLM sees on the wire.
+- `input.json` - auto-generated. The exact JSON arguments the integration test passed to `execute()` for this run, pretty-printed.
 
-`stats.md` and `response.toon` are regenerated on every `cargo test --test tools_examples`. They are excluded from prettier in `.prettierignore` because the table widths come from Rust `format!`, not from prettier's print width. The hand-written `README.md` IS prettier-checked.
+`stats.md`, `response.toon`, and `input.json` are regenerated on every `cargo test --test tools_examples`. They are excluded from prettier in `.prettierignore` because the table widths come from Rust `format!`, not from prettier's print width. The hand-written `README.md` IS prettier-checked.
 
 ### `README.md` template
 
