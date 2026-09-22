@@ -6,8 +6,8 @@ use std::sync::{Mutex, OnceLock};
 use serde_json::{json, Value};
 
 use super::{
-    line_add_remove, yaml_doc, FileSnapshot, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec,
-    YamlValue, TOOL_KIND_ACTION,
+    line_add_remove, toon_doc, FileSnapshot, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec,
+    ToonValue, TOOL_KIND_ACTION,
 };
 
 pub const NAME: &str = "edit";
@@ -101,11 +101,11 @@ impl Tool for EditTool {
                 }
                 let (added, removed) = line_add_remove(&content_old, &replaced);
                 ToolOutcome {
-                    text: yaml_doc(&[
-                        ("path", YamlValue::Str(&rel)),
-                        ("status", YamlValue::Str("ok")),
-                        ("added", YamlValue::Int(added as i64)),
-                        ("removed", YamlValue::Int(removed as i64)),
+                    text: toon_doc(&[
+                        ("path", ToonValue::Str(&rel)),
+                        ("status", ToonValue::Str("ok")),
+                        ("added", ToonValue::Int(added as i64)),
+                        ("removed", ToonValue::Int(removed as i64)),
                     ]),
                     display: ToolDisplay {
                         kind: TOOL_KIND_ACTION.to_string(),

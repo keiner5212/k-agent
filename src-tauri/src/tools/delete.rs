@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 
 use super::{
     ask_user::{ask_user_wait, AskUserAnswer, AskUserOption, AskUserQuestion},
-    line_count, yaml_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, YamlValue,
+    line_count, toon_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, ToonValue,
     TOOL_KIND_ACTION,
 };
 
@@ -124,10 +124,10 @@ fn apply_delete(target: &DeleteTarget) -> ToolOutcome {
             );
         }
         return ToolOutcome {
-            text: yaml_doc(&[
-                ("path", YamlValue::Str(rel)),
-                ("status", YamlValue::Str("deleted")),
-                ("kind", YamlValue::Str("directory")),
+            text: toon_doc(&[
+                ("path", ToonValue::Str(rel)),
+                ("status", ToonValue::Str("deleted")),
+                ("kind", ToonValue::Str("directory")),
             ]),
             display: ToolDisplay {
                 kind: TOOL_KIND_ACTION.to_string(),
@@ -148,11 +148,11 @@ fn apply_delete(target: &DeleteTarget) -> ToolOutcome {
     }
 
     ToolOutcome {
-        text: yaml_doc(&[
-            ("path", YamlValue::Str(rel)),
-            ("status", YamlValue::Str("deleted")),
-            ("kind", YamlValue::Str("file")),
-            ("linesRemoved", YamlValue::Int(lines as i64)),
+        text: toon_doc(&[
+            ("path", ToonValue::Str(rel)),
+            ("status", ToonValue::Str("deleted")),
+            ("kind", ToonValue::Str("file")),
+            ("linesRemoved", ToonValue::Int(lines as i64)),
         ]),
         display: ToolDisplay {
             kind: TOOL_KIND_ACTION.to_string(),

@@ -1,7 +1,7 @@
 use serde_json::{json, Value};
 
 use super::{
-    yaml_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, YamlValue, TOOL_KIND_CONTEXT,
+    toon_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, ToonValue, TOOL_KIND_CONTEXT,
 };
 
 pub const NAME: &str = "skill";
@@ -42,10 +42,10 @@ impl Tool for SkillTool {
             Ok(Some(skill)) => {
                 let body = skill.body.trim();
                 ToolOutcome {
-                    text: yaml_doc(&[
-                        ("name", YamlValue::Str(name)),
-                        ("path", YamlValue::Str(&skill.path)),
-                        ("body", YamlValue::Block(body)),
+                    text: toon_doc(&[
+                        ("name", ToonValue::Str(name)),
+                        ("path", ToonValue::Str(&skill.path)),
+                        ("body", ToonValue::Block(body)),
                     ]),
                     display: ToolDisplay {
                         kind: TOOL_KIND_CONTEXT.to_string(),

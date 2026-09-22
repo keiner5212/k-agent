@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use tokio::sync::oneshot;
 
 use super::{
-    yaml_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, YamlValue, TOOL_KIND_CONTEXT,
+    toon_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, ToonValue, TOOL_KIND_CONTEXT,
 };
 use crate::chat::ChatChunk;
 
@@ -231,10 +231,10 @@ fn parse_questions(args: &Value) -> Result<Vec<AskUserQuestion>, String> {
 
 fn format_answer(questions: &[AskUserQuestion], answer: &[AskUserAnswerEntry]) -> String {
     if answer.is_empty() {
-        return yaml_doc(&[("status", YamlValue::Str("cancelled"))]);
+        return toon_doc(&[("status", ToonValue::Str("cancelled"))]);
     }
-    let mut fields: Vec<(&str, YamlValue<'_>)> = Vec::new();
-    fields.push(("status", YamlValue::Str("ok")));
+    let mut fields: Vec<(&str, ToonValue<'_>)> = Vec::new();
+    fields.push(("status", ToonValue::Str("ok")));
     let mut summary = String::new();
     for (idx, question) in questions.iter().enumerate() {
         let entry = answer.iter().find(|entry| entry.question_id == question.id);
@@ -270,8 +270,8 @@ fn format_answer(questions: &[AskUserQuestion], answer: &[AskUserAnswerEntry]) -
         }
         summary.push_str(&line);
     }
-    fields.push(("answers", YamlValue::Block(&summary)));
-    yaml_doc(&fields)
+    fields.push(("answers", ToonValue::Block(&summary)));
+    toon_doc(&fields)
 }
 
 #[tauri::command]

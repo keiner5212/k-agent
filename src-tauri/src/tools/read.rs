@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Value};
 
 use super::{
-    yaml_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, YamlValue, TOOL_KIND_CONTEXT,
+    toon_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, ToonValue, TOOL_KIND_CONTEXT,
 };
 
 pub const NAME: &str = "read";
@@ -231,11 +231,11 @@ fn render_file(path: &Path, rel: &str, offset: usize, limit: usize) -> ToolOutco
     }
     let content = content.trim_end();
     ToolOutcome {
-        text: yaml_doc(&[
-            ("path", YamlValue::Str(rel)),
-            ("startLine", YamlValue::Int(start_line as i64)),
-            ("endLine", YamlValue::Int(end_line as i64)),
-            ("content", YamlValue::Block(content)),
+        text: toon_doc(&[
+            ("path", ToonValue::Str(rel)),
+            ("startLine", ToonValue::Int(start_line as i64)),
+            ("endLine", ToonValue::Int(end_line as i64)),
+            ("content", ToonValue::Block(content)),
         ]),
         display: ToolDisplay {
             kind: TOOL_KIND_CONTEXT.to_string(),

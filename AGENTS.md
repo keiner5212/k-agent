@@ -123,6 +123,45 @@ Workspace `{workspace}/AGENTS.md`: optional workspace instruction file (fallback
 
 Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then bundled overlay. User-edited / custom models are not overwritten.
 
+## Tools
+
+Every tool the LLM can call is one Rust file under `src-tauri/src/tools/`. Wire output is TOON via `toon_doc` (`src-tauri/src/tools/toon.rs`), delegated to the `toon-format` crate. The LLM sees TOON, never YAML.
+
+Each tool has a dedicated folder under `docs/example/tool-stats/<tool_name>/` with three artifacts:
+
+- `README.md` - hand-written. The specification of the tool.
+- `stats.md` - auto-generated. Performance stats from `cargo test --test tools_examples`.
+- `response.toon` - auto-generated. A real tool response in the same TOON the LLM sees on the wire.
+
+`stats.md` and `response.toon` are regenerated on every `cargo test --test tools_examples`. They are excluded from prettier in `.prettierignore` because the table widths come from Rust `format!`, not from prettier's print width. The hand-written `README.md` IS prettier-checked.
+
+### `README.md` template
+
+Required sections, in this order, exact headings:
+
+1. `# <tool_name>` - H1 with the registered tool name.
+2. One-sentence purpose, plain English.
+3. `## Does` - concrete bulleted features. Quote real limits (`50 KB`, `2000 lines`, `min(configured, host_cpus, 16)`).
+4. `## Does not` - intentional non-goals. Each bullet redirects to the right tool with `Use <other-tool> to ...` or states "Intentional.".
+5. `## Options` - markdown table `Name | Type | Required | Default | Notes`. Pulled straight from the JSON schema in `spec()`. Nested shapes (`ask_user.options`) get a sub-table.
+6. `## Response` - table of the TOON fields this tool emits. Cross-reference `response.toon`.
+7. `## Errors` - one line per error with the literal message prefix that the tool emits.
+8. `## Source` - one line: `src-tauri/src/tools/<tool>.rs`, the entry function (`spec()` / `execute()` / `execute_async()` / `replace()`).
+
+Hard constraints:
+
+- ASCII punctuation only. Plain `-`, `:`, `|`, `...`. No smart quotes, em/en dashes, typographic arrows, or emoji.
+- Reference tone. No "you", "we", "the user". State facts.
+- 60-90 lines per README.
+
+### When adding a new tool
+
+1. Implement it under `src-tauri/src/tools/<name>.rs`, add it to `all_tools()` in `mod.rs`, and register a constant `pub const NAME: &str = "<name>";`.
+2. Add a new block to `src-tauri/tests/tools_examples.rs` driving the tool against a temp workspace and wiring the right `Target` fields.
+3. Create `docs/example/tool-stats/<name>/README.md` using the template above. No copy-paste from sibling READMEs - each tool's limits and non-goals are tool-specific.
+4. Verify `cargo test --test tools_examples` regenerates `stats.md` and `response.toon` for the new tool and that the CI checks (`pnpm format:check` etc.) still pass.
+5. The tool's `crate::tools::<NAME>_TOOL_NAME` constant is the only thing the integration test and the chat dispatcher need; the constant must be exported from `src-tauri/src/tools/mod.rs`.
+
 ## i18n
 
 - Language list: `SUPPORTED_LANGUAGES` in `src/types/settings.ts` only.

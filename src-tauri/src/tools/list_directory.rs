@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Value};
 
 use super::{
-    yaml_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, YamlValue, TOOL_KIND_CONTEXT,
+    toon_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, ToonValue, TOOL_KIND_CONTEXT,
 };
 
 pub const NAME: &str = "list_directory";
@@ -302,9 +302,9 @@ fn render_tree(
     }
     let entries = lines.join("\n");
     ToolOutcome {
-        text: yaml_doc(&[
-            ("path", YamlValue::Str(rel)),
-            ("entries", YamlValue::Block(&entries)),
+        text: toon_doc(&[
+            ("path", ToonValue::Str(rel)),
+            ("entries", ToonValue::Block(&entries)),
         ]),
         display: ToolDisplay {
             kind: TOOL_KIND_CONTEXT.to_string(),

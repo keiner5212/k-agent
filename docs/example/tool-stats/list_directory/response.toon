@@ -1,0 +1,2 @@
+path: example
+entries: "README.md\nsystem-prompt.md\ntool-stats/\n  ask_user/\n  create_folder/\n  delete/\n  edit/\n  list_directory/\n  read/\n  skill/\n  write/\n    README.md\n    response.toon\n    stats.md\n    README.md\n    response.toon\n    stats.md\n    README.md\n    response.toon\n    stats.md\n    README.md\n    response.toon\n    stats.md\n    README.md\n    response.toon\n    stats.md\n    README.md\n    response.toon\n    stats.md\n    README.md\n    response.toon\n    stats.md\n    README.md\n    response.toon\n    stats.md"

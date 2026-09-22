@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use serde_json::{json, Value};
 
 use super::{
-    line_add_remove, yaml_doc, FileSnapshot, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec,
-    YamlValue, TOOL_KIND_ACTION,
+    line_add_remove, toon_doc, FileSnapshot, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec,
+    ToonValue, TOOL_KIND_ACTION,
 };
 
 pub const NAME: &str = "write";
@@ -70,9 +70,9 @@ impl Tool for WriteTool {
             Ok(()) => {
                 let (added, removed) = line_add_remove(&before, content);
                 ToolOutcome {
-                    text: yaml_doc(&[
-                        ("path", YamlValue::Str(&rel)),
-                        ("status", YamlValue::Str("ok")),
+                    text: toon_doc(&[
+                        ("path", ToonValue::Str(&rel)),
+                        ("status", ToonValue::Str("ok")),
                     ]),
                     display: ToolDisplay {
                         kind: TOOL_KIND_ACTION.to_string(),

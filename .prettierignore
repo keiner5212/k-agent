@@ -1,0 +1,6 @@
+# Auto-generated tool example dumps. Re-emitted on every `cargo test --test tools_examples`
+# and intentionally not prettier-formatted: the table widths come from the Rust format!
+# strings, not from prettier's printWidth. Hand-written README.md files inside these
+# folders ARE prettier-checked.
+docs/example/tool-stats/**/stats.md
+docs/example/tool-stats/**/response.toon

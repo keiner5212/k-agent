@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use serde_json::{json, Value};
 
 use super::{
-    yaml_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, YamlValue, TOOL_KIND_ACTION,
+    toon_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, ToonValue, TOOL_KIND_ACTION,
 };
 
 pub const NAME: &str = "create_folder";
@@ -58,9 +58,9 @@ impl Tool for CreateFolderTool {
                     );
                 }
                 return ToolOutcome {
-                    text: yaml_doc(&[
-                        ("path", YamlValue::Str(&rel)),
-                        ("status", YamlValue::Str("created")),
+                    text: toon_doc(&[
+                        ("path", ToonValue::Str(&rel)),
+                        ("status", ToonValue::Str("created")),
                     ]),
                     display: ToolDisplay {
                         kind: TOOL_KIND_ACTION.to_string(),
@@ -81,9 +81,9 @@ impl Tool for CreateFolderTool {
 
         if metadata.is_dir() {
             return ToolOutcome {
-                text: yaml_doc(&[
-                    ("path", YamlValue::Str(&rel)),
-                    ("status", YamlValue::Str("exists")),
+                text: toon_doc(&[
+                    ("path", ToonValue::Str(&rel)),
+                    ("status", ToonValue::Str("exists")),
                 ]),
                 display: ToolDisplay {
                     kind: TOOL_KIND_ACTION.to_string(),

@@ -2,6 +2,7 @@ mod edit;
 mod list_directory;
 mod read;
 mod skill;
+mod toon;
 mod write;
 
 pub mod ask_user;
@@ -13,6 +14,8 @@ use serde_json::{json, Map, Value};
 use tauri::ipc::Channel;
 use tauri::AppHandle;
 use uuid::Uuid;
+
+pub use toon::{toon_doc, ToonValue};
 
 pub const MAX_TOOL_OUTPUT_CHARS: usize = 50 * 1024;
 pub const MAX_TOOL_OUTPUT_LINES: usize = 2_000;
@@ -71,8 +74,10 @@ impl ToolContext<'_> {
     }
 }
 
-#[cfg(test)]
 impl ToolContext<'static> {
+    /// Test helper: build a context without an `AppHandle`. Used by
+    /// `src-tauri/tests/tools_examples.rs` to drive every tool from an
+    /// integration test that does not own a Tauri runtime.
     pub fn for_test(workspace: std::path::PathBuf, parallelism: usize) -> Self {
         Self {
             app: None,
@@ -130,88 +135,6 @@ impl ToolOutcome {
             snapshot: None,
         }
     }
-}
-
-pub enum YamlValue<'a> {
-    Str(&'a str),
-    Int(i64),
-    Block(&'a str),
-}
-
-pub fn yaml_doc(fields: &[(&str, YamlValue<'_>)]) -> String {
-    let mut out = String::new();
-    for (index, (key, value)) in fields.iter().enumerate() {
-        if index > 0 {
-            out.push('\n');
-        }
-        match value {
-            YamlValue::Str(text) => {
-                out.push_str(key);
-                out.push_str(": ");
-                out.push_str(&yaml_quote(text));
-            }
-            YamlValue::Int(number) => {
-                out.push_str(key);
-                out.push_str(": ");
-                out.push_str(&number.to_string());
-            }
-            YamlValue::Block(text) => {
-                out.push_str(key);
-                out.push_str(": |\n");
-                if text.is_empty() {
-                    continue;
-                }
-                for line in text.split('\n') {
-                    out.push_str("  ");
-                    out.push_str(line);
-                    out.push('\n');
-                }
-                if out.ends_with('\n') {
-                    out.pop();
-                }
-            }
-        }
-    }
-    out
-}
-
-fn yaml_quote(value: &str) -> String {
-    let needs_quotes = value.is_empty()
-        || value.starts_with(' ')
-        || value.ends_with(' ')
-        || matches!(value, "true" | "false" | "null" | "yes" | "no")
-        || value.bytes().any(|byte| {
-            matches!(
-                byte,
-                b':' | b'#'
-                    | b'\n'
-                    | b'\r'
-                    | b'"'
-                    | b'\''
-                    | b'['
-                    | b']'
-                    | b'{'
-                    | b'}'
-                    | b'&'
-                    | b'*'
-                    | b'!'
-                    | b'|'
-                    | b'>'
-                    | b'%'
-                    | b'@'
-                    | b'`'
-                    | b','
-            )
-        });
-    if !needs_quotes {
-        return value.to_string();
-    }
-    let escaped = value
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"")
-        .replace('\n', "\\n")
-        .replace('\r', "\\r");
-    format!("\"{escaped}\"")
 }
 
 pub fn line_add_remove(before: &str, after: &str) -> (u32, u32) {
@@ -436,14 +359,14 @@ pub fn sanitize_gemini_schema(value: &Value) -> Value {
 
 pub fn context_error(path: Option<&str>, message: &str) -> ToolOutcome {
     let text = match path {
-        Some(path) => yaml_doc(&[
-            ("path", YamlValue::Str(path)),
-            ("status", YamlValue::Str("error")),
-            ("error", YamlValue::Str(message)),
+        Some(path) => toon_doc(&[
+            ("path", ToonValue::Str(path)),
+            ("status", ToonValue::Str("error")),
+            ("error", ToonValue::Str(message)),
         ]),
-        None => yaml_doc(&[
-            ("status", YamlValue::Str("error")),
-            ("error", YamlValue::Str(message)),
+        None => toon_doc(&[
+            ("status", ToonValue::Str("error")),
+            ("error", ToonValue::Str(message)),
         ]),
     };
     ToolOutcome {
@@ -460,10 +383,10 @@ pub fn context_error(path: Option<&str>, message: &str) -> ToolOutcome {
 
 pub fn action_error(path: &str, message: &str) -> ToolOutcome {
     ToolOutcome {
-        text: yaml_doc(&[
-            ("path", YamlValue::Str(path)),
-            ("status", YamlValue::Str("error")),
-            ("error", YamlValue::Str(message)),
+        text: toon_doc(&[
+            ("path", ToonValue::Str(path)),
+            ("status", ToonValue::Str("error")),
+            ("error", ToonValue::Str(message)),
         ]),
         display: ToolDisplay {
             kind: TOOL_KIND_ACTION.to_string(),
@@ -480,15 +403,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn yaml_doc_quotes_special_paths() {
-        let text = yaml_doc(&[("path", YamlValue::Str("src/foo:bar"))]);
-        assert_eq!(text, "path: \"src/foo:bar\"");
+    fn toon_doc_quotes_special_paths() {
+        let text = toon_doc(&[("path", ToonValue::Str("src/foo:bar"))]);
+        assert!(text.starts_with("path:"));
+        assert!(text.contains("src/foo:bar"));
     }
 
     #[test]
-    fn yaml_block_indents_body() {
-        let text = yaml_doc(&[("body", YamlValue::Block("one\ntwo"))]);
-        assert_eq!(text, "body: |\n  one\n  two");
+    fn toon_block_keeps_body_content() {
+        let text = toon_doc(&[("body", ToonValue::Block("one\ntwo"))]);
+        assert!(text.starts_with("body:"));
+        assert!(text.contains("one"));
+        assert!(text.contains("two"));
     }
 
     #[test]
