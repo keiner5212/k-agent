@@ -1,4 +1,4 @@
-import { normalizeMentionPath } from "@/lib/file-mentions";
+import { toPosixPath } from "@/lib/path";
 
 export type MentionEditResult = {
   next: string;
@@ -10,7 +10,7 @@ const FILE_MENTION_RE = /@([^\s@]+)/g;
 
 const trimFileMentionPath = (path: string): string | null => {
   if (!path) return null;
-  const normalized = normalizeMentionPath(path);
+  const normalized = toPosixPath(path);
   const hadTrailingSlash = normalized.endsWith("/");
   const core = hadTrailingSlash ? normalized.slice(0, -1) : normalized;
   const parts = core.split("/").filter(Boolean);

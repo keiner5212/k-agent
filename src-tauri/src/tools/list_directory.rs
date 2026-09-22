@@ -215,13 +215,6 @@ fn write_cached(dir: &Path, entries: &[DirEntry]) {
     }
 }
 
-pub(crate) fn resolve_parallel_cap(configured: usize) -> usize {
-    let hardware = thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(4);
-    hardware.min(MAX_PARALLELISM).min(configured.max(1)).max(1)
-}
-
 fn collect_entries(dir: &Path, limit: usize) -> std::io::Result<Vec<DirEntry>> {
     if let Some(cached) = read_cached(dir) {
         return Ok(cached);
@@ -267,17 +260,12 @@ fn render_tree(
     rel: &str,
     recursive: bool,
     max_depth: usize,
-    configured_parallelism: usize,
+    parallelism: usize,
 ) -> ToolOutcome {
     let mut lines: Vec<String> = Vec::new();
-    let parallelism = if recursive {
-        resolve_parallel_cap(configured_parallelism)
-    } else {
-        1
-    };
     let budget = Arc::new(Mutex::new(MAX_OUTPUT_LINES));
     if recursive {
-        walk_recursive(root, 0, max_depth, parallelism, &budget, &mut lines);
+        walk_inner(root, 0, max_depth, parallelism, &budget, &mut lines);
     } else {
         let entries = match collect_entries(root, MAX_ENTRIES_PER_DIR) {
             Ok(value) => value,
@@ -316,7 +304,7 @@ fn render_tree(
     }
 }
 
-fn walk_recursive(
+fn walk_inner(
     dir: &Path,
     depth: usize,
     max_depth: usize,
@@ -335,117 +323,87 @@ fn walk_recursive(
         Err(_) => return,
     };
     let indent = "  ".repeat(depth);
-    let subdirs: Vec<PathBuf> = entries
-        .iter()
-        .filter(|entry| entry.is_dir)
-        .map(|entry| dir.join(&entry.name))
-        .collect();
-    for entry in &entries {
-        if budget.lock().map(|g| *g).unwrap_or(0) == 0 {
-            return;
-        }
-        if entry.is_dir {
-            lines.push(format!("{indent}{}/", entry.name));
-        } else {
-            lines.push(format!("{indent}{}", entry.name));
-        }
-        if let Ok(mut g) = budget.lock() {
-            *g = g.saturating_sub(1);
-        }
-    }
-    if subdirs.is_empty() || depth + 1 >= max_depth {
-        return;
-    }
-    if parallelism <= 1 {
-        for subdir in subdirs {
-            walk_recursive(&subdir, depth + 1, max_depth, 1, budget, lines);
-            if budget.lock().map(|g| *g).unwrap_or(0) == 0 {
-                return;
-            }
-        }
-        return;
-    }
-    let collected: Arc<Mutex<Vec<Vec<String>>>> = Arc::new(Mutex::new(Vec::new()));
-    for chunk in subdirs.chunks(parallelism) {
-        if budget.lock().map(|g| *g).unwrap_or(0) == 0 {
-            return;
-        }
-        let chunk_paths: Vec<PathBuf> = chunk.to_vec();
-        let budget = Arc::clone(budget);
-        let collected = Arc::clone(&collected);
-        thread::scope(|scope| {
-            for subdir in chunk_paths {
-                let collected = Arc::clone(&collected);
-                let budget = Arc::clone(&budget);
-                scope.spawn(move || {
-                    let mut local: Vec<String> = Vec::new();
-                    walk_inner(&subdir, depth + 1, max_depth, &budget, &mut local);
-                    if let Ok(mut g) = collected.lock() {
-                        g.push(local);
-                    }
-                });
-            }
-        });
-        let mut drained: Vec<Vec<String>> = Vec::new();
-        if let Ok(mut g) = collected.lock() {
-            drained.append(&mut *g);
-        }
-        for local in drained {
-            if budget.lock().map(|g| *g).unwrap_or(0) == 0 {
-                return;
-            }
-            for line in local {
-                if budget.lock().map(|g| *g).unwrap_or(0) == 0 {
-                    lines.push(format!("... (truncated at {} lines)", MAX_OUTPUT_LINES));
-                    return;
-                }
-                lines.push(line);
-                if let Ok(mut b) = budget.lock() {
-                    *b = b.saturating_sub(1);
-                }
-            }
-        }
-    }
-}
+    let can_recurse = depth + 1 < max_depth;
 
-fn walk_inner(
-    dir: &Path,
-    depth: usize,
-    max_depth: usize,
-    budget: &Arc<Mutex<usize>>,
-    lines: &mut Vec<String>,
-) {
-    if depth >= max_depth {
-        return;
-    }
-    if budget.lock().map(|g| *g).unwrap_or(0) == 0 {
-        return;
-    }
-    let entries = match collect_entries(dir, MAX_ENTRIES_PER_DIR) {
-        Ok(value) => value,
-        Err(_) => return,
+    let subdir_trees: Vec<Vec<String>> = if can_recurse && parallelism > 1 {
+        let subdirs: Vec<PathBuf> = entries
+            .iter()
+            .filter(|entry| entry.is_dir)
+            .map(|entry| dir.join(&entry.name))
+            .collect();
+        if subdirs.is_empty() {
+            Vec::new()
+        } else {
+            thread::scope(|scope| {
+                let mut handles = Vec::with_capacity(subdirs.len());
+                for subdir in subdirs {
+                    if budget.lock().map(|g| *g).unwrap_or(0) == 0 {
+                        break;
+                    }
+                    let subdir = subdir.clone();
+                    let budget = Arc::clone(budget);
+                    handles.push(scope.spawn(move || {
+                        let mut local: Vec<String> = Vec::new();
+                        walk_inner(&subdir, depth + 1, max_depth, 1, &budget, &mut local);
+                        local
+                    }));
+                }
+                handles
+                    .into_iter()
+                    .map(|handle| handle.join().unwrap_or_default())
+                    .collect()
+            })
+        }
+    } else {
+        Vec::new()
     };
-    let indent = "  ".repeat(depth);
-    let subdirs: Vec<PathBuf> = entries
-        .iter()
-        .filter(|entry| entry.is_dir)
-        .map(|entry| dir.join(&entry.name))
-        .collect();
+
+    let mut subdir_idx = 0usize;
     for entry in &entries {
         if budget.lock().map(|g| *g).unwrap_or(0) == 0 {
+            lines.push(format!("... (truncated at {} lines)", MAX_OUTPUT_LINES));
             return;
         }
         if entry.is_dir {
             lines.push(format!("{indent}{}/", entry.name));
+            if let Ok(mut g) = budget.lock() {
+                *g = g.saturating_sub(1);
+            }
+            if can_recurse {
+                if parallelism > 1 {
+                    if let Some(tree) = subdir_trees.get(subdir_idx) {
+                        for line in tree {
+                            if budget.lock().map(|g| *g).unwrap_or(0) == 0 {
+                                lines.push(format!(
+                                    "... (truncated at {} lines)",
+                                    MAX_OUTPUT_LINES
+                                ));
+                                return;
+                            }
+                            lines.push(line.clone());
+                            if let Ok(mut b) = budget.lock() {
+                                *b = b.saturating_sub(1);
+                            }
+                        }
+                        subdir_idx += 1;
+                    }
+                } else {
+                    walk_inner(
+                        &dir.join(&entry.name),
+                        depth + 1,
+                        max_depth,
+                        1,
+                        budget,
+                        lines,
+                    );
+                }
+            }
         } else {
             lines.push(format!("{indent}{}", entry.name));
+            if let Ok(mut g) = budget.lock() {
+                *g = g.saturating_sub(1);
+            }
         }
-        if let Ok(mut g) = budget.lock() {
-            *g = g.saturating_sub(1);
-        }
-    }
-    for subdir in subdirs {
-        walk_inner(&subdir, depth + 1, max_depth, budget, lines);
     }
 }
 
@@ -459,15 +417,6 @@ mod tests {
         assert_eq!(parse_depth(&json!({"maxDepth": 0})).unwrap(), 1);
         assert_eq!(parse_depth(&json!({"maxDepth": 99})).unwrap(), 10);
         assert_eq!(parse_depth(&json!({"maxDepth": 5})).unwrap(), 5);
-    }
-
-    #[test]
-    fn parallel_cap_respects_configured_limit() {
-        assert_eq!(resolve_parallel_cap(1), 1);
-        let capped = resolve_parallel_cap(10_000);
-        assert!(capped <= MAX_PARALLELISM);
-        assert!(capped >= 1);
-        assert!(resolve_parallel_cap(2) <= 2);
     }
 
     #[test]
@@ -485,6 +434,84 @@ mod tests {
         let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
         let outcome = ListDirectoryTool.execute(&json!({"dirPath": "."}), &ctx);
         assert!(outcome.text.contains("alpha.txt"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn recursive_output_groups_children_under_parent() {
+        let dir = std::env::temp_dir().join(format!(
+            "k-agent-list-dfs-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(dir.join("child")).unwrap();
+        fs::write(dir.join("root.txt"), "r").unwrap();
+        fs::write(dir.join("child/nested.txt"), "n").unwrap();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = ListDirectoryTool.execute(
+            &json!({"dirPath": ".", "recursive": true, "maxDepth": 3}),
+            &ctx,
+        );
+        let text = &outcome.text;
+        let child_idx = text.find("child/").expect("child dir line present");
+        let nested_idx = text.find("nested.txt").expect("nested file present");
+        let root_idx = text.find("root.txt").expect("root file present");
+        assert!(
+            child_idx < nested_idx,
+            "child/ debe preceder a nested.txt (DFS); got:\n{text}"
+        );
+        assert!(
+            nested_idx < root_idx,
+            "nested.txt (bajo child/) debe preceder a root.txt (nivel 1)"
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn recursive_output_groups_children_under_parent_parallel() {
+        let dir = std::env::temp_dir().join(format!(
+            "k-agent-list-dfs-par-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(dir.join("alpha")).unwrap();
+        fs::create_dir_all(dir.join("beta")).unwrap();
+        fs::create_dir_all(dir.join("gamma")).unwrap();
+        fs::write(dir.join("root.txt"), "r").unwrap();
+        fs::write(dir.join("alpha/a.txt"), "a").unwrap();
+        fs::write(dir.join("beta/b.txt"), "b").unwrap();
+        fs::write(dir.join("gamma/c.txt"), "c").unwrap();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 4);
+        let outcome = ListDirectoryTool.execute(
+            &json!({"dirPath": ".", "recursive": true, "maxDepth": 3}),
+            &ctx,
+        );
+        let text = &outcome.text;
+        for (dir_name, child) in [("alpha", "a.txt"), ("beta", "b.txt"), ("gamma", "c.txt")] {
+            let dir_idx = text.find(&format!("{dir_name}/")).unwrap_or_else(|| {
+                panic!("{dir_name}/ missing in output:\n{text}")
+            });
+            let child_idx = text.find(child).unwrap_or_else(|| {
+                panic!("{child} missing in output:\n{text}")
+            });
+            let root_idx = text.find("root.txt").unwrap_or_else(|| {
+                panic!("root.txt missing in output:\n{text}")
+            });
+            assert!(
+                dir_idx < child_idx,
+                "{dir_name}/ debe preceder a {child} (DFS, parallel)"
+            );
+            assert!(
+                child_idx < root_idx,
+                "{child} (bajo {dir_name}/) debe preceder a root.txt (nivel 1)"
+            );
+        }
         let _ = fs::remove_dir_all(&dir);
     }
 }

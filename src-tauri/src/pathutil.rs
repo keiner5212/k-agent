@@ -126,18 +126,24 @@ pub fn resolve_tool_path(raw: &str, workspace: Option<&Path>) -> Result<PathBuf,
 }
 
 pub fn relative_to_workspace(path: &Path, workspace: Option<&Path>) -> String {
-    let unified = path.to_string_lossy().replace('\\', "/");
+    let path_str = path.to_string_lossy();
     if let Some(root) = workspace {
-        let root_unified = root.to_string_lossy().replace('\\', "/");
-        let root_trim = root_unified.trim_end_matches('/');
-        if let Some(rest) = unified.strip_prefix(root_trim) {
-            let rest = rest.trim_start_matches('/');
+        let root_str = root.to_string_lossy();
+        let root_trim = root_str.trim_end_matches(['/', '\\']);
+        if let Some(rest) = path_str.strip_prefix(&*root_str) {
+            let rest = rest.trim_start_matches(['/', '\\']);
             if !rest.is_empty() {
-                return rest.to_string();
+                return rest.to_owned();
+            }
+        }
+        if let Some(rest) = path_str.strip_prefix(root_trim) {
+            let rest = rest.trim_start_matches(['/', '\\']);
+            if !rest.is_empty() {
+                return rest.to_owned();
             }
         }
     }
-    unified
+    path_str.into_owned()
 }
 
 pub fn workspace_from_app(app: &tauri::AppHandle) -> Option<PathBuf> {
