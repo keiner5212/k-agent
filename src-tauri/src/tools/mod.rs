@@ -3,14 +3,15 @@ mod fetch_url;
 mod internet_search;
 mod list_directory;
 mod read;
-mod readable;
 mod skill;
-mod toon;
 mod write;
 
 pub mod ask_user;
 mod create_folder;
 mod delete;
+
+#[path = "tool-utils/mod.rs"]
+mod tool_utils;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -18,7 +19,7 @@ use tauri::ipc::Channel;
 use tauri::AppHandle;
 use uuid::Uuid;
 
-pub use toon::{toon_doc, ToonValue};
+pub use tool_utils::toon::{toon_doc, ToonValue};
 
 pub const MAX_TOOL_OUTPUT_CHARS: usize = 50 * 1024;
 pub const MAX_TOOL_OUTPUT_LINES: usize = 2_000;
@@ -61,6 +62,7 @@ pub struct ModelToolCall {
 pub struct ToolContext<'a> {
     pub app: Option<&'a AppHandle>,
     pub call_id: String,
+    pub session_id: Option<String>,
     pub on_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
     pub workspace: Option<std::path::PathBuf>,
     pub parallelism: usize,
@@ -91,6 +93,7 @@ impl ToolContext<'static> {
         Self {
             app: None,
             call_id: "test".into(),
+            session_id: None,
             on_chunk: None,
             workspace: Some(workspace),
             parallelism,
@@ -212,6 +215,21 @@ pub fn specs() -> Vec<ToolSpec> {
 pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
     if name == ask_user::NAME {
         return ask_user::execute_async(arguments, ctx).await;
+    }
+    if name == read::NAME {
+        return read::execute_async(arguments, ctx).await;
+    }
+    if name == write::NAME {
+        return write::execute_async(arguments, ctx).await;
+    }
+    if name == edit::NAME {
+        return edit::execute_async(arguments, ctx).await;
+    }
+    if name == list_directory::NAME {
+        return list_directory::execute_async(arguments, ctx).await;
+    }
+    if name == create_folder::NAME {
+        return create_folder::execute_async(arguments, ctx).await;
     }
     if name == delete::NAME {
         return delete::execute_async(arguments, ctx).await;

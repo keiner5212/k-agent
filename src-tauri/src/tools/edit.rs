@@ -12,7 +12,7 @@ use super::{
 
 pub const NAME: &str = "edit";
 
-const DESCRIPTION: &str = "Exact string replace in a file. Read first. Fails if oldString is missing or not unique, unless replaceAll is true. Path is absolute or workspace-relative.";
+const DESCRIPTION: &str = "Exact string replace in a file. Read first. Fails if oldString is missing or not unique, unless replaceAll is true. Path is absolute or workspace-relative. Paths outside the workspace wait for the user to allow or deny.";
 
 pub struct EditTool;
 
@@ -75,6 +75,15 @@ impl Tool for EditTool {
             Ok(value) => value,
             Err(message) => return super::action_error(trimmed_path, &message),
         };
+        if super::tool_utils::workspace::reject_if_unconfirmed(
+            &resolved,
+            ctx.workspace_path().as_deref(),
+        ) {
+            return super::action_error(
+                trimmed_path,
+                "edit outside the workspace must run on the async dispatch path.",
+            );
+        }
         let rel = ctx.relative_path(&resolved);
         let _guard = match file_lock_for(&resolved) {
             Ok(guard) => guard,
@@ -134,6 +143,17 @@ impl Tool for EditTool {
             ),
         }
     }
+}
+
+pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
+    let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
+    let raw = args
+        .get("filePath")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+    super::tool_utils::workspace::guard(ctx, raw, "Edit", true, || EditTool.execute(&args, ctx))
+        .await
 }
 
 fn resolve_path(ctx: &ToolContext<'_>, raw: &str) -> Result<PathBuf, String> {

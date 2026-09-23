@@ -722,14 +722,14 @@ impl ContentParser {
         if html.trim().is_empty() {
             return ParsedPage::default();
         }
-        super::readable::parse_with(html, base_url, FetchPolicy::public_https())
+        super::tool_utils::readable::parse_with(html, base_url, FetchPolicy::public_https())
     }
 
     pub fn parse_with(html: &str, base_url: &str, policy: FetchPolicy) -> ParsedPage {
         if html.trim().is_empty() {
             return ParsedPage::default();
         }
-        super::readable::parse_with(html, base_url, policy)
+        super::tool_utils::readable::parse_with(html, base_url, policy)
     }
 }
 

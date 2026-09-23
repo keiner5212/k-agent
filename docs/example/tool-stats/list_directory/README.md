@@ -18,7 +18,7 @@ List directory entries. Optional recursive walk with bounded depth and parallel 
 - Show hidden files or `noise/`-style directories. Both are filtered out by name.
 - Traverse further than `maxDepth` lets it. The walk stops at the depth bound.
 - Delete the recursive cache TTL. The 1-second cache is intentional; expect re-reads on every burst.
-- Walk into another workspace's tree. The walk stops at mount boundaries.
+- Walk a directory outside the workspace without an allow answer. The tool waits on that prompt.
 - Report file sizes or mtimes. The output is `name` or `name/`.
 
 ## Options

@@ -17,7 +17,7 @@ Read a file as line-numbered text. Path is absolute or workspace-relative.
 - Edit files. Use `edit` for in-place changes or `write` for full replacements.
 - Return binary content. Files whose extension is in the binary list (`.zip`, `.png`, `.so`, `.wasm`, ...) error out before reading.
 - Read directories. Use `list_directory` instead.
-- Follow symlinks outside the workspace.
+- Follow symlinks that resolve outside the workspace without an allow answer. Outside paths wait for the user.
 - Cache file contents. Every call re-reads.
 
 ## Options

@@ -3,7 +3,7 @@ use std::ops::Deref;
 
 use scraper::{ElementRef, Html, Node, Selector};
 
-use super::fetch_url::{allows_result_url_with, FetchPolicy, ParsedLink, ParsedPage};
+use crate::tools::fetch_url::{allows_result_url_with, FetchPolicy, ParsedLink, ParsedPage};
 
 const MAX_TITLE_LENGTH: usize = 300;
 const MAX_DESCRIPTION_LENGTH: usize = 500;

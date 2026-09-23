@@ -10,7 +10,7 @@ use super::{
 
 pub const NAME: &str = "write";
 
-const DESCRIPTION: &str = "Create or overwrite a file. Path is absolute or workspace-relative. Parent dirs are created. Read first when editing an existing file.";
+const DESCRIPTION: &str = "Create or overwrite a file. Path is absolute or workspace-relative. Paths outside the workspace wait for the user to allow or deny. Parent dirs are created. Read first when editing an existing file.";
 
 pub struct WriteTool;
 
@@ -51,6 +51,15 @@ impl Tool for WriteTool {
             Ok(value) => value,
             Err(message) => return super::action_error(trimmed_path, &message),
         };
+        if super::tool_utils::workspace::reject_if_unconfirmed(
+            &resolved,
+            ctx.workspace_path().as_deref(),
+        ) {
+            return super::action_error(
+                trimmed_path,
+                "write outside the workspace must run on the async dispatch path.",
+            );
+        }
         let rel = ctx.relative_path(&resolved);
         if let Some(parent) = resolved.parent() {
             if !parent.as_os_str().is_empty() {
@@ -94,6 +103,17 @@ impl Tool for WriteTool {
             ),
         }
     }
+}
+
+pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
+    let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
+    let raw = args
+        .get("filePath")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+    super::tool_utils::workspace::guard(ctx, raw, "Write", true, || WriteTool.execute(&args, ctx))
+        .await
 }
 
 fn resolve_path(ctx: &ToolContext<'_>, raw: &str) -> Result<PathBuf, String> {

@@ -21,7 +21,7 @@ When a chat message is sent, the backend receives one system string assembled on
 
 Tool JSON schemas are sent on the request `tools` field, not in the system prompt. Enabled MCP tools are merged into that list at send time (`mcp_{server}_{tool}`).
 
-Skill bodies arrive through tool results after a `skill` call. Persisted on the assistant message (`toolRounds` with per-round reasoning, calls, `output`, and `display`) in `{app_data}/sessions/{id}/session.json` and replayed on the next send. Each round is sent back as assistant tool-calls, then tool results, then the next think/answer. Do not persist a flattened `toolCalls` copy. Builtin tool `output` is TOON (see `src-tauri/src/tools/toon.rs`). User attachments are files under `sessions/{id}/attachments/` with a `file` ref on the message.
+Skill bodies arrive through tool results after a `skill` call. Persisted on the assistant message (`toolRounds` with per-round reasoning, calls, `output`, and `display`) in `{app_data}/sessions/{id}/session.json` and replayed on the next send. Each round is sent back as assistant tool-calls, then tool results, then the next think/answer. Do not persist a flattened `toolCalls` copy. Builtin tool `output` is TOON (see `src-tauri/src/tools/tool-utils/toon.rs`). User attachments are files under `sessions/{id}/attachments/` with a `file` ref on the message.
 
 ## Turn protocol (model behavior)
 

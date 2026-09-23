@@ -60,4 +60,4 @@ See `response.toon` for the concrete wire shape the LLM sees.
 
 ## Source
 
-`src-tauri/src/tools/fetch_url.rs` - entry point: `FetchUrlTool::execute()` (sync, errors out for the async path only). Async entry: `execute_async()`. Browser session in the same file. DOM reader in `src-tauri/src/tools/readable.rs`.
+`src-tauri/src/tools/fetch_url.rs` - entry point: `FetchUrlTool::execute()` (sync, errors out for the async path only). Async entry: `execute_async()`. Browser session in the same file. DOM reader in `src-tauri/src/tools/tool-utils/readable.rs`.

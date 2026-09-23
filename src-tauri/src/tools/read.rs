@@ -10,7 +10,7 @@ use super::{
 
 pub const NAME: &str = "read";
 
-const DESCRIPTION: &str = "Read a file. Path is absolute or workspace-relative. Optional offset (1-based) and limit (default 2000 lines). Output capped at 50 KB.";
+const DESCRIPTION: &str = "Read a file. Path is absolute or workspace-relative. Paths outside the workspace wait for the user to allow or deny. Optional offset (1-based) and limit (default 2000 lines). Output capped at 50 KB.";
 
 const DEFAULT_LIMIT: usize = 2000;
 const MAX_LINE_LENGTH: usize = 2000;
@@ -69,6 +69,15 @@ impl Tool for ReadTool {
             Ok(value) => value,
             Err(message) => return super::context_error(Some(trimmed), &message),
         };
+        if super::tool_utils::workspace::reject_if_unconfirmed(
+            &resolved,
+            ctx.workspace_path().as_deref(),
+        ) {
+            return super::context_error(
+                Some(trimmed),
+                "read outside the workspace must run on the async dispatch path.",
+            );
+        }
         let rel = ctx.relative_path(&resolved);
         let metadata = match fs::metadata(&resolved) {
             Ok(value) => value,
@@ -116,6 +125,17 @@ impl Tool for ReadTool {
 
         render_file(&resolved, &rel, offset, limit)
     }
+}
+
+pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
+    let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
+    let raw = args
+        .get("filePath")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+    super::tool_utils::workspace::guard(ctx, raw, "Read", false, || ReadTool.execute(&args, ctx))
+        .await
 }
 
 fn parse_usize_arg(

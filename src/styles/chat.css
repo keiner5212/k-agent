@@ -1896,13 +1896,23 @@ button.change-bar__stat:focus-visible {
   border-top-color: color-mix(in oklch, #3d9970 32%, var(--border));
 }
 
+.question-dialog .btn,
+.question-dialog .icon-button {
+  font-size: 0.875em;
+}
+
+.question-dialog .icon-button {
+  width: 2em;
+  height: 2em;
+}
+
 .composer-shell-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   padding: 2px var(--space-2);
   border-radius: var(--radius-pill);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: var(--weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2291,6 +2301,7 @@ button.change-bar__stat:focus-visible {
   border-radius: var(--radius-lg);
   background-color: var(--frost-fill);
   border: 1px solid var(--frost-border);
+  font-size: calc(var(--size-base) * var(--text-scale));
   box-shadow:
     0 0 0 1px color-mix(in oklch, var(--accent) 12%, transparent),
     0 4px 24px color-mix(in oklch, var(--shadow) 30%, transparent);
@@ -2305,7 +2316,7 @@ button.change-bar__stat:focus-visible {
 
 .question-dialog__title {
   margin: 0;
-  font-size: var(--text-md);
+  font-size: 1em;
   font-weight: var(--font-semibold);
   color: var(--text-primary);
 }
@@ -2327,7 +2338,7 @@ button.change-bar__stat:focus-visible {
   background-color: transparent;
   border: 1px solid transparent;
   color: var(--text-secondary);
-  font-size: var(--text-sm);
+  font-size: 0.875em;
   cursor: pointer;
   transition:
     background-color var(--transition-fast),
@@ -2376,7 +2387,7 @@ button.change-bar__stat:focus-visible {
 
 .question-dialog__question {
   margin: 0;
-  font-size: var(--text-md);
+  font-size: 1em;
   color: var(--text-primary);
   line-height: 1.5;
 }
@@ -2449,12 +2460,12 @@ button.change-bar__stat:focus-visible {
 }
 
 .question-dialog__option-label {
-  font-size: var(--text-sm);
+  font-size: 0.875em;
   font-weight: var(--font-semibold);
 }
 
 .question-dialog__option-description {
-  font-size: var(--text-sm);
+  font-size: 0.875em;
   color: var(--text-secondary);
 }
 
@@ -2465,7 +2476,7 @@ button.change-bar__stat:focus-visible {
   background-color: color-mix(in oklch, var(--surface) 60%, transparent);
   border: 1px solid var(--frost-border);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 0.75em;
   white-space: pre-wrap;
   overflow-x: auto;
 }
@@ -2477,7 +2488,7 @@ button.change-bar__stat:focus-visible {
 }
 
 .question-dialog__free-text-label {
-  font-size: var(--text-sm);
+  font-size: 0.875em;
   color: var(--text-secondary);
 }
 
@@ -2491,7 +2502,7 @@ button.change-bar__stat:focus-visible {
   border: 1px solid var(--frost-border);
   color: var(--text-primary);
   font-family: inherit;
-  font-size: var(--text-sm);
+  font-size: 0.875em;
 }
 
 .question-dialog__free-text-input:focus-visible {
@@ -2503,7 +2514,7 @@ button.change-bar__stat:focus-visible {
 .question-dialog__error {
   margin: 0;
   color: var(--danger);
-  font-size: var(--text-sm);
+  font-size: 0.875em;
 }
 
 .question-dialog__footer {

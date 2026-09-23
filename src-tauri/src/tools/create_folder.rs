@@ -9,7 +9,7 @@ use super::{
 
 pub const NAME: &str = "create_folder";
 
-const DESCRIPTION: &str = "Create a directory at an absolute or workspace-relative path. Parent directories are created. No-op if the directory already exists.";
+const DESCRIPTION: &str = "Create a directory at an absolute or workspace-relative path. Paths outside the workspace wait for the user to allow or deny. Parent directories are created. No-op if the directory already exists.";
 
 pub struct CreateFolderTool;
 
@@ -43,6 +43,15 @@ impl Tool for CreateFolderTool {
             Ok(value) => value,
             Err(message) => return super::action_error(trimmed, &message),
         };
+        if super::tool_utils::workspace::reject_if_unconfirmed(
+            &resolved,
+            ctx.workspace_path().as_deref(),
+        ) {
+            return super::action_error(
+                trimmed,
+                "create_folder outside the workspace must run on the async dispatch path.",
+            );
+        }
         let rel = ctx.relative_path(&resolved);
 
         let metadata = match fs::metadata(&resolved) {
@@ -103,6 +112,19 @@ impl Tool for CreateFolderTool {
             ),
         )
     }
+}
+
+pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
+    let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
+    let raw = args
+        .get("dirPath")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+    super::tool_utils::workspace::guard(ctx, raw, "Create", true, || {
+        CreateFolderTool.execute(&args, ctx)
+    })
+    .await
 }
 
 fn resolve_path(ctx: &ToolContext<'_>, raw: &str) -> Result<PathBuf, String> {

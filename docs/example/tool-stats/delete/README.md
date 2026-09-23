@@ -6,7 +6,7 @@ Delete a single file or empty directory. Captures removed line counts so the cha
 
 - Removes a regular file with `fs::remove_file`. Reports `linesRemoved` (line count of the deleted file) so the chat context counter can subtract it.
 - Removes an empty directory with `fs::remove_dir`. Refuses non-empty directories with an explicit "Directory is not empty" error.
-- For targets outside the workspace, asks the user to confirm via `ask_user` before deleting.
+- For targets outside the workspace, asks the user to deny, accept this time, or accept for the rest of this chat. Accept for this chat skips later prompts in that chat.
 - Reports the deletion kind (`file` or `directory`) in the response.
 
 ## Does not
@@ -40,7 +40,7 @@ See `response.toon` for the concrete wire shape the LLM sees.
 
 - `delete tool requires a string \`path\`.`/`delete tool \`path\` is empty.`: argument missing or blank.
 - `delete outside the workspace must run on the async dispatch path.`: sync dispatch path was used for an out-of-workspace path; only the async path handles the confirmation.
-- `User denied the destructive action.`: outside-workspace path and the user cancelled the confirmation dialog.
+- `User denied access outside the workspace.`: outside-workspace path and the user denied the confirmation.
 - `Path not found: <path>`
 - `Directory is not empty: <path> (recursive deletion is not supported)`
 - `Unable to stat \`<path>\`: <io error>`/`Unable to delete \`<path>\`: <io error>`

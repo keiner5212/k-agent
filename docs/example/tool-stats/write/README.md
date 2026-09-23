@@ -14,7 +14,7 @@ Create or fully overwrite a file. Path is absolute or workspace-relative.
 - Apply a partial edit. Use `edit` for find-and-replace changes; this tool always replaces the whole file.
 - Refuse to overwrite a non-empty file. Read first if you need to preserve existing content (`read` then `edit` or a fresh `write`).
 - Validate that `content` is a particular file type (no markdown lint, no TS parse check).
-- Write outside the workspace.
+- Write outside the workspace without an allow answer from the user. The tool waits on that prompt.
 
 ## Options
 

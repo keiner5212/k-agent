@@ -126,7 +126,7 @@ Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then b
 
 ## Tools
 
-Every tool the LLM can call is one Rust file under `src-tauri/src/tools/`. Wire output is TOON via `toon_doc` (`src-tauri/src/tools/toon.rs`), delegated to the `toon-format` crate. The LLM sees TOON, never YAML.
+Every tool the LLM can call is one Rust file under `src-tauri/src/tools/`. Wire output is TOON via `toon_doc` (`src-tauri/src/tools/tool-utils/toon.rs`), delegated to the `toon-format` crate. The LLM sees TOON, never YAML. Helpers that are not tools live in `src-tauri/src/tools/tool-utils/`.
 
 Each tool has a dedicated folder under `docs/example/tool-stats/<tool_name>/` with four artifacts:
 

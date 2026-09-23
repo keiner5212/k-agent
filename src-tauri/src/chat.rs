@@ -1976,6 +1976,7 @@ async fn send_message(
                 let tool_ctx = ToolContext {
                     app: Some(app),
                     call_id: tc.id.clone(),
+                    session_id: session_id.map(str::to_string),
                     on_chunk,
                     workspace: None,
                     parallelism: call.parallelism,

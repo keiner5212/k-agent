@@ -13,7 +13,7 @@ use super::{
 
 pub const NAME: &str = "list_directory";
 
-const DESCRIPTION: &str = "List directory entries. Path is absolute or workspace-relative (default: workspace root). recursive walks the tree; maxDepth default 3, max 10. Skips noise dirs. Capped at 5000 lines. Walks subtrees in parallel using available CPU cores with a short-lived cache.";
+const DESCRIPTION: &str = "List directory entries. Path is absolute or workspace-relative (default: workspace root). Paths outside the workspace wait for the user to allow or deny. recursive walks the tree; maxDepth default 3, max 10. Skips noise dirs. Capped at 5000 lines. Walks subtrees in parallel using available CPU cores with a short-lived cache.";
 
 const MAX_ENTRIES_PER_DIR: usize = 2_000;
 const MAX_OUTPUT_LINES: usize = 5_000;
@@ -134,6 +134,15 @@ impl Tool for ListDirectoryTool {
             Ok(value) => value,
             Err(message) => return super::context_error(Some(raw_path), &message),
         };
+        if super::tool_utils::workspace::reject_if_unconfirmed(
+            &resolved,
+            ctx.workspace_path().as_deref(),
+        ) {
+            return super::context_error(
+                Some(raw_path),
+                "list_directory outside the workspace must run on the async dispatch path.",
+            );
+        }
         let rel = ctx.relative_path(&resolved);
         let metadata = match fs::metadata(&resolved) {
             Ok(value) => value,
@@ -159,6 +168,19 @@ impl Tool for ListDirectoryTool {
 
         render_tree(&resolved, &rel, recursive, max_depth, ctx.parallelism)
     }
+}
+
+pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
+    let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
+    let raw = args
+        .get("dirPath")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+    super::tool_utils::workspace::guard(ctx, raw, "List", false, || {
+        ListDirectoryTool.execute(&args, ctx)
+    })
+    .await
 }
 
 fn parse_depth(args: &Value) -> Result<usize, String> {

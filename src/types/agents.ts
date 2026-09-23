@@ -26,15 +26,17 @@ export const PLAN_AGENT_TOOL_IDS: readonly AgentToolId[] = [
 
 export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   skill: "Load a skill by name. Returns SKILL.md body and dir.",
-  read: "Read a file. Path absolute or workspace-relative.",
-  write: "Create or overwrite a file.",
-  edit: "Exact string replace in a file. Read first.",
-  list_directory: "List directory entries. recursive/maxDepth optional.",
+  read: "Read a file. Path absolute or workspace-relative. Outside the workspace, waits for the user to allow or deny.",
+  write: "Create or overwrite a file. Outside the workspace, waits for the user to allow or deny.",
+  edit: "Exact string replace in a file. Read first. Outside the workspace, waits for the user to allow or deny.",
+  list_directory:
+    "List directory entries. recursive/maxDepth optional. Outside the workspace, waits for the user to allow or deny.",
   ask_user:
     "Ask the user up to 4 questions and block until they answer. Each question can have multiple selectable options plus an optional free-text input.",
-  create_folder: "Create a directory at an absolute or workspace-relative path. Idempotent.",
+  create_folder:
+    "Create a directory at an absolute or workspace-relative path. Outside the workspace, waits for the user to allow or deny. Idempotent.",
   delete:
-    "Delete a file or empty directory. Out-of-workspace paths require user confirmation; the deleted file's line count is subtracted from the context counter.",
+    "Delete a file or empty directory. Outside the workspace, waits for the user to allow or deny. The deleted file's line count is subtracted from the context counter.",
   fetch_url:
     "Read one public page. HTTPS by default. Public HTTP only when HTTP fetch is enabled in settings. Loopback and private hosts stay blocked. Use after internet_search, or when a URL is already known.",
   internet_search:
