@@ -15,6 +15,7 @@ mod sessions;
 mod shell;
 mod skills;
 pub mod tools;
+mod utils;
 mod workspace_files;
 
 pub const APP_CONFIG_DIR: &str = ".k-agent";

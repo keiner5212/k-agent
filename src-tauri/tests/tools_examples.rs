@@ -22,7 +22,8 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use k_agent_lib::tools::ask_user::{execute_async as ask_user_execute_async, AskUserAnswerEntry};
 use k_agent_lib::tools::{
     execute, ASK_USER_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, EDIT_TOOL_NAME,
-    LIST_DIRECTORY_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME, ToolContext, WRITE_TOOL_NAME,
+    FETCH_URL_TOOL_NAME, INTERNET_SEARCH_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME, READ_TOOL_NAME,
+    SKILL_TOOL_NAME, ToolContext, WRITE_TOOL_NAME,
 };
 
 const REALISTIC_FILE_BODY: &str = "# Draft: sample skill body\n\
@@ -228,7 +229,9 @@ fn write_input(tool: &str, raw_args: &str) {
     let value: serde_json::Value =
         serde_json::from_str(raw_args).unwrap_or_else(|_| serde_json::Value::String(raw_args.to_string()));
     let pretty = serde_json::to_string_pretty(&value).unwrap();
-    fs::write(tool_dir(tool).join("input.json"), pretty).unwrap();
+    let dir = tool_dir(tool);
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("input.json"), pretty).unwrap();
 }
 
 async fn measure<F>(future: F) -> (ProcStats, k_agent_lib::tools::ToolOutcome)
@@ -281,6 +284,11 @@ fn write_stats(
     let target_path = outcome.display.path.as_deref().unwrap_or("");
     let in_workspace = ctx.workspace.is_some() && !target_path.is_empty();
     let skill_name = outcome.display.skill_name.as_deref().unwrap_or("");
+    let wall_ms = stats.wall_ns / 1_000_000;
+    let wall_us = stats.wall_ns / 1_000;
+    let user_ms = stats.user_us / 1_000;
+    let sys_ms = stats.sys_us / 1_000;
+    let rss_delta_kb = stats.rss_after_kb as i64 - stats.rss_before_kb as i64;
     let stats_md = format!(
         "# {tool}\n\
          \n\
@@ -297,25 +305,21 @@ fn write_stats(
          |---|---|---|---|---|\n\
          | {platform} | {arch} | {kernel} | {cpus} | {brand} |\n\
          \n\
-         ## Timing\n\
+         ## Performance\n\
          \n\
-         | Wall | User CPU | Sys CPU |\n\
+         How long the tool ran, how much CPU it burned, and how much resident\n\
+         memory the host process held while it ran.\n\
+         \n\
+         | Wall time | CPU time (user + sys) | Host process RSS (during call) |\n\
          |---|---|---|\n\
-         | {wall_us} us | {user_us} us | {sys_us} us |\n\
+         | **{wall_ms} ms** ({wall_us} us) | {user_ms} ms user + {sys_ms} ms sys | before: {rss_before_kb} KiB, after: {rss_after_kb} KiB, delta: {rss_delta_kb:+} KiB, lifetime peak: {host_peak_kb} KiB |\n\
          \n\
-         ## Memory\n\
+         RSS is sampled via `/proc/self/status` on Linux or `ps -o rss=` on\n\
+         macOS, immediately before and after the call. The delta reflects\n\
+         only this call; the lifetime peak comes from `getrusage.ru_maxrss`\n\
+         and includes every shared library already loaded into the host\n\
+         process, so it is not a per-tool attribution.\n\
          \n\
-         | RSS before | RSS after | Delta | Host process peak |\n\
-         |---|---|---|---|\n\
-         | {rss_before_kb} KiB | {rss_after_kb} KiB | {delta_kb:+} KiB | {host_peak_kb} KiB |\n\
-         \n\
-         RSS samples are taken via `/proc/self/status` (Linux) or `ps -o rss=`\n\
-         (macOS) immediately before and after the tool call. Delta is the\n\
-         signed difference (`after - before`); a negative value means the\n\
-         process shed pages between samples. Host process peak is the\n\
-         lifetime high-water mark from `getrusage.ru_maxrss` and includes\n\
-         every shared library already loaded into the test binary, so it\n\
-         is not a per-tool attribution.\n\
          ## Parallelism\n\
          \n\
          | Configured for this run | Host logical CPUs |\n\
@@ -348,13 +352,14 @@ fn write_stats(
         kind = kind,
         status = status,
         call_id = ctx.call_id,
-        wall_us = stats.wall_ns / 1_000,
-        user_us = stats.user_us,
-        sys_us = stats.sys_us,
+        wall_ms = wall_ms,
+        wall_us = wall_us,
+        user_ms = user_ms,
+        sys_ms = sys_ms,
         configured = ctx.parallelism,
         rss_before_kb = stats.rss_before_kb,
         rss_after_kb = stats.rss_after_kb,
-        delta_kb = stats.rss_after_kb as i64 - stats.rss_before_kb as i64,
+        rss_delta_kb = rss_delta_kb,
         host_peak_kb = stats.host_peak_kb,
         bytes = bytes,
         chars = chars,
@@ -532,8 +537,30 @@ async fn dumps_tool_examples() {
         write_stats(ASK_USER_TOOL_NAME, &stats, &outcome, &ctx_docs);
     }
 
+    // fetch_url: real public HTTPS page. When offline the response.toon
+    // captures the SSRF / network error path so the docs still describe
+    // the wire shape.
+    {
+        let args = r#"{"url":"https://example.com/"}"#;
+        let (stats, outcome) =
+            measure(async { execute(FETCH_URL_TOOL_NAME, args, &ctx_docs).await }).await;
+        write_input(FETCH_URL_TOOL_NAME, args);
+        write_stats(FETCH_URL_TOOL_NAME, &stats, &outcome, &ctx_docs);
+    }
+
+    // internet_search: Bing first, DuckDuckGo fallback. Same offline
+    // behaviour as fetch_url - the captured response reflects the real
+    // error rather than fabricating a result.
+    {
+        let args = r#"{"query":"rust programming language","lang":"en-US"}"#;
+        let (stats, outcome) =
+            measure(async { execute(INTERNET_SEARCH_TOOL_NAME, args, &ctx_docs).await }).await;
+        write_input(INTERNET_SEARCH_TOOL_NAME, args);
+        write_stats(INTERNET_SEARCH_TOOL_NAME, &stats, &outcome, &ctx_docs);
+    }
+
     // Clean up the scratch directory so cargo test leaves docs/ tidy.
     cleanup_scratch(&scratch);
 
-    eprintln!("[tool-examples] dumped all 8 tools at {}", output_dir().display());
+    eprintln!("[tool-examples] dumped all 10 tools at {}", output_dir().display());
 }

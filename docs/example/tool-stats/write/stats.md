@@ -13,25 +13,21 @@ kind: `action`  status: `ok`  call_id: `test`
 |---|---|---|---|---|
 | linux | x86_64 | 6.12.101+deb13-amd64 | 12 | 13th Gen Intel(R) Core(TM) i5-13420H |
 
-## Timing
+## Performance
 
-| Wall | User CPU | Sys CPU |
+How long the tool ran, how much CPU it burned, and how much resident
+memory the host process held while it ran.
+
+| Wall time | CPU time (user + sys) | Host process RSS (during call) |
 |---|---|---|
-| 488 us | 347 us | 0 us |
+| **0 ms** (356 us) | 0 ms user + 0 ms sys | before: 9728 KiB, after: 9856 KiB, delta: +128 KiB, lifetime peak: 132236 KiB |
 
-## Memory
+RSS is sampled via `/proc/self/status` on Linux or `ps -o rss=` on
+macOS, immediately before and after the call. The delta reflects
+only this call; the lifetime peak comes from `getrusage.ru_maxrss`
+and includes every shared library already loaded into the host
+process, so it is not a per-tool attribution.
 
-| RSS before | RSS after | Delta | Host process peak |
-|---|---|---|---|
-| 5736 KiB | 5736 KiB | +0 KiB | 129280 KiB |
-
-RSS samples are taken via `/proc/self/status` (Linux) or `ps -o rss=`
-(macOS) immediately before and after the tool call. Delta is the
-signed difference (`after - before`); a negative value means the
-process shed pages between samples. Host process peak is the
-lifetime high-water mark from `getrusage.ru_maxrss` and includes
-every shared library already loaded into the test binary, so it
-is not a per-tool attribution.
 ## Parallelism
 
 | Configured for this run | Host logical CPUs |

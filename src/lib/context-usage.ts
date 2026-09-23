@@ -154,6 +154,41 @@ const DELETE_TOOL_PARAMETERS = {
   required: ["path"],
 } as const;
 
+const FETCH_URL_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    url: {
+      type: "string",
+      description:
+        "Public HTTPS URL. Only port 443. Credentials, IP literals, and private hostnames are refused.",
+    },
+    lang: {
+      type: "string",
+      description: "Optional BCP 47 language tag (defaults to en-US).",
+    },
+  },
+  required: ["url"],
+} as const;
+
+const INTERNET_SEARCH_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    query: {
+      type: "string",
+      description: "Search query. Trimmed to 200 characters.",
+    },
+    lang: {
+      type: "string",
+      description: "Optional BCP 47 language tag (defaults to en-US).",
+    },
+    pages: {
+      type: "number",
+      description: "Optional page count, 1 or 2.",
+    },
+  },
+  required: ["query"],
+} as const;
+
 const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   skill: SKILL_TOOL_PARAMETERS,
   read: READ_TOOL_PARAMETERS,
@@ -163,6 +198,8 @@ const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   ask_user: ASK_USER_TOOL_PARAMETERS,
   create_folder: CREATE_FOLDER_TOOL_PARAMETERS,
   delete: DELETE_TOOL_PARAMETERS,
+  fetch_url: FETCH_URL_TOOL_PARAMETERS,
+  internet_search: INTERNET_SEARCH_TOOL_PARAMETERS,
 };
 
 export const CONTEXT_CATEGORY_IDS = [

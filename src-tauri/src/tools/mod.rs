@@ -1,4 +1,6 @@
 mod edit;
+mod fetch_url;
+mod internet_search;
 mod list_directory;
 mod read;
 mod skill;
@@ -29,6 +31,8 @@ pub const LIST_DIRECTORY_TOOL_NAME: &str = list_directory::NAME;
 pub const ASK_USER_TOOL_NAME: &str = ask_user::NAME;
 pub const CREATE_FOLDER_TOOL_NAME: &str = create_folder::NAME;
 pub const DELETE_TOOL_NAME: &str = delete::NAME;
+pub const FETCH_URL_TOOL_NAME: &str = fetch_url::NAME;
+pub const INTERNET_SEARCH_TOOL_NAME: &str = internet_search::NAME;
 pub const LIST_DIRECTORY_MAX_PARALLELISM: usize = list_directory::MAX_PARALLELISM;
 
 pub const TOOL_KIND_CONTEXT: &str = "context";
@@ -191,6 +195,8 @@ fn all_tools() -> Vec<Box<dyn Tool>> {
         Box::new(ask_user::AskUserTool),
         Box::new(create_folder::CreateFolderTool),
         Box::new(delete::DeleteTool),
+        Box::new(fetch_url::FetchUrlTool),
+        Box::new(internet_search::InternetSearchTool),
     ]
 }
 
@@ -204,6 +210,12 @@ pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> Tool
     }
     if name == delete::NAME {
         return delete::execute_async(arguments, ctx).await;
+    }
+    if name == fetch_url::NAME {
+        return fetch_url::execute_async(arguments, ctx).await;
+    }
+    if name == internet_search::NAME {
+        return internet_search::execute_async(arguments, ctx).await;
     }
     let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
     for tool in all_tools() {

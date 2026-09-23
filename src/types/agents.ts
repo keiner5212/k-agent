@@ -11,6 +11,8 @@ export const AGENT_TOOL_IDS = [
   "ask_user",
   "create_folder",
   "delete",
+  "fetch_url",
+  "internet_search",
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
@@ -33,6 +35,10 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   create_folder: "Create a directory at an absolute or workspace-relative path. Idempotent.",
   delete:
     "Delete a file or empty directory. Out-of-workspace paths require user confirmation; the deleted file's line count is subtracted from the context counter.",
+  fetch_url:
+    "Fetch one public HTTPS page and return its title, description, main text, and safe outbound links. Uses a Chrome desktop profile with manual redirects and SSRF guards.",
+  internet_search:
+    "Search the public web and return titles, URLs, sites, and snippets. Bing first, DuckDuckGo fallback. Result pages are not downloaded.",
 };
 
 export const MAX_AGENT_SKILLS = 10;
