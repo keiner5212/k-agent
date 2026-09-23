@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { LineKind } from "@/components/LineEditor";
 import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
+import { TodoList } from "@/features/chat/TodoList";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import { diffEditorValue, readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
 import { skillNameFromCall, type ChatToolCall } from "@/types/chat";
@@ -35,6 +36,7 @@ const TOOL_SYMBOL: Record<string, string> = {
   ask_user: "\u25CC ",
   create_folder: "\u25A4 ",
   delete: "\u2715 ",
+  todowrite: "\u25C7 ",
 };
 
 const READ_LINE_RE = /^(\d+): (.*)$/;
@@ -158,7 +160,9 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
           ? "chat.tools.readTitle"
           : call.name === "list_directory"
             ? "chat.tools.listTitle"
-            : "chat.tools.outputTitle";
+            : call.name === "todowrite"
+              ? "chat.tools.todoTitle"
+              : "chat.tools.outputTitle";
     const parsedRead = call.name === "read" ? readToolView(call.output ?? "") : null;
     setPreview({
       titleKey,
@@ -227,6 +231,9 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
                   alt=""
                   src={`data:image/png;base64,${display.imageData}`}
                 />
+              ) : null}
+              {call.name === "todowrite" && display?.todos && display.todos.length > 0 ? (
+                <TodoList todos={display.todos} />
               ) : null}
             </li>
           );

@@ -55,7 +55,7 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   page_shot:
     "Capture a hidden view of one http or https page, including localhost. Set width and height for the viewport. Set selector to return only that element. The page is not shown. The PNG is attached for the user and the model.",
   todowrite:
-    "Replace the session todo list. Pass the full ordered list every time, with status and priority for each item. The list is shown to the user and persisted across restarts.",
+    "Update the session todo list incrementally. Each item has a stable id. Use add for new items, update to change existing ones by id, remove to delete by id, and clear: true to wipe the list. Empty args is a no-op, not a clear. Priority is numeric 0-10. The list is shown to the user and persisted across restarts.",
 };
 
 export const MAX_AGENT_SKILLS = 10;

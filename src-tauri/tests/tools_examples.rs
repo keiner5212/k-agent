@@ -411,10 +411,10 @@ async fn dumps_tool_examples() {
     }
 
     // todowrite: app handle is None, so persistence errors out. Captured so
-    // the docs show the argument validation path the model would hit when
-    // it tries to write the session todo list without a live Tauri shell.
+    // the docs show the incremental argument validation path the model would
+    // hit when it tries to write the session todo list without a live shell.
     {
-        let args = r#"{"todos":[{"content":"Investigate ask_user persistence","status":"in_progress","priority":"high"},{"content":"Wire todowrite into default agents","status":"pending","priority":"medium"},{"content":"Render todo list inline","status":"completed","priority":"low"}]}"#;
+        let args = r#"{"add":[{"id":"step-1","content":"Investigate ask_user persistence","status":"in_progress","priority":9},{"id":"step-2","content":"Wire todowrite into default agents","priority":5},{"id":"step-3","content":"Render todo list inline","status":"completed","priority":1}],"update":[{"id":"step-2","status":"in_progress"}]}"#;
         let (stats, outcome) =
             measure(async { execute(TODO_TOOL_NAME, args, &ctx_docs).await }).await;
         write_input(TODO_TOOL_NAME, args);

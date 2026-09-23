@@ -138,6 +138,8 @@ pub struct ToolDisplay {
     pub lines_removed: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image_data: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub todos: Option<Vec<crate::tools::todo::TodoItem>>,
 }
 
 #[derive(Debug, Clone)]

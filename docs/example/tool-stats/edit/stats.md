@@ -20,7 +20,7 @@ memory the host process held while it ran.
 
 | Wall time | CPU time (user + sys) | Host process RSS (during call) |
 |---|---|---|
-| **1 ms** (1187 us) | 0 ms user + 0 ms sys | before: 57108 KiB, after: 57428 KiB, delta: +320 KiB, lifetime peak: 131880 KiB |
+| **0 ms** (779 us) | 0 ms user + 0 ms sys | before: 57308 KiB, after: 57500 KiB, delta: +192 KiB, lifetime peak: 132020 KiB |
 
 RSS is sampled via `/proc/self/status` on Linux or `ps -o rss=` on
 macOS, immediately before and after the call. The delta reflects

@@ -1,4 +1,9 @@
-import type { ChatMessage, TodoItem } from "./chat";
+import type { ChatMessage, TodoDiff, TodoItem } from "./chat";
+
+export type TodoHistoryEvent = {
+  timestamp: number;
+  diff: TodoDiff;
+};
 
 export type SessionRecord = {
   id: string;
@@ -7,6 +12,7 @@ export type SessionRecord = {
   updatedAt: number;
   messages: ChatMessage[];
   todos?: TodoItem[];
+  todosHistory?: TodoHistoryEvent[];
   outsideWorkspaceAllowed?: boolean;
   httpWriteAllowed?: boolean;
 };

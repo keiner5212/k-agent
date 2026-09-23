@@ -21,12 +21,18 @@ export type ChatChunkKind = "content" | "reasoning" | "tool" | "question" | "tod
 
 export type TodoStatus = "pending" | "in_progress" | "completed" | "cancelled";
 
-export type TodoPriority = "high" | "medium" | "low";
-
 export type TodoItem = {
+  id: string;
   content: string;
   status: TodoStatus;
-  priority: TodoPriority;
+  priority: number;
+};
+
+export type TodoDiff = {
+  added?: TodoItem[];
+  updated?: TodoItem[];
+  removed?: string[];
+  cleared?: boolean;
 };
 
 export type ChatChunk = {
@@ -82,6 +88,7 @@ export type ToolDisplay = {
   skillName?: string;
   linesRemoved?: number;
   imageData?: string;
+  todos?: TodoItem[];
 };
 
 export type ChatToolCall = {

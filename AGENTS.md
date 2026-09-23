@@ -124,6 +124,22 @@ Workspace `{workspace}/AGENTS.md`: optional workspace instruction file (fallback
 
 Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then bundled overlay. User-edited / custom models are not overwritten.
 
+## Session schema migration
+
+Session files under `app_data_dir/sessions/<id>/session.json` and the thin index `sessions.json` are persistent on disk. A schema change to `SessionRecord` or any nested type must not break existing user sessions.
+
+- **Adding a field**: mark it `#[serde(default)]` on the Rust struct and make it `Option<T>` or `Vec<T>` in the TS type. Existing files parse fine; the field defaults to its empty value.
+- **Removing or renaming a field**: keep the old name as `#[serde(rename = "...", alias = "...")]` if possible, or write a migration that rewrites old files on first load.
+- **Changing a field's shape** (e.g., `priority: enum` to `priority: u8`): do not break deserialization. Add a parallel `legacy_*` parser or a `#[serde(deserialize_with = "...")]` adapter. `sanitizeSessionRecord` in `src/lib/session-turns.ts` is the canonical place to map old shapes to new ones before data reaches the UI.
+- **Renaming types or breaking the wire shape**: bump a version field on `SessionRecord`. On load, check the version and migrate or refuse with a clear error.
+- **Adding a new sibling field to the active state** (e.g., `todos_history` next to `todos`): `#[serde(default)]` on the new field, plus a default in the two places that construct a fresh `SessionRecord` (`empty_snapshot` and `read_session_record` in `src-tauri/src/sessions.rs`). The frontend sanitizer must also default the new field.
+
+For `sessions.json` (the thin index): same rules, but the index is regenerated from the per-session files on load (`load_from_session_dirs`), so a corrupt index is recoverable by deleting it.
+
+For `~/.k-agent/providers.json` and `mcp-servers.json`: same rules. User-edited, no canonical schema version yet. A change must handle both old and new shapes in one pass.
+
+When in doubt, prefer additive changes (`#[serde(default)]` + new optional fields) over migrations. Less code, less risk.
+
 ## Tools
 
 Every tool the LLM can call is one Rust file under `src-tauri/src/tools/`. Wire output is TOON via `toon_doc` (`src-tauri/src/tools/tool-utils/toon.rs`), delegated to the `toon-format` crate. The LLM sees TOON, never YAML. Helpers that are not tools live in `src-tauri/src/tools/tool-utils/`.
@@ -156,13 +172,42 @@ Hard constraints:
 - Reference tone. No "you", "we", "the user". State facts.
 - 60-90 lines per README.
 
+### Tool execution model
+
+Three flavors. Pick by what the tool does, not by what feels easy.
+
+| Flavor                   | When                                                                       | Body                                                                        | Output                                  |
+| ------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------- |
+| Sync                     | Pure CPU or memory work, finishes in ms                                    | `Tool::execute` returns `ToolOutcome`                                       | TOON in `text`                          |
+| Sync with workspace gate | Reads or writes files anywhere on disk                                     | `Tool::execute` returns `ToolOutcome` after `tool-context!` workspace check | TOON in `text`, may block on `ask_user` |
+| Async                    | Waits on user (`ask_user`) or external network (`http_request`, `graphql`) | `Tool::execute_async` future                                                | TOON in `text`, returned via chunk      |
+
+Atomicity rule: every tool is atomic. If the call contains multiple operations (add/update/remove, multi-file write, batched HTTP), build the result in memory first, validate the whole result, then commit. A failed validation in the middle of a call must leave zero side effects. Reference: `TodoTool::stage` in `src-tauri/src/tools/todo.rs` stages all changes in a `Staged` struct before any mutation or persistence.
+
+Chunk emission: tools that produce state the user can see between turns emit a `ChatChunk` through `ctx.on_chunk`. The frontend dispatches by `kind`. Registered kinds: `content`, `reasoning`, `tool`, `question`, `todo`. A new kind needs:
+
+- A `kind` string constant in the Rust tool.
+- A `parseXxxChunk` function in `src/lib/sessions.ts` that validates the JSON shape and returns the typed payload, or `null` to drop the chunk.
+- A `ChatChunkKind` literal in `src/types/chat.ts`.
+- A handler branch in the onmessage callback that updates the relevant store and persists via `persistSnapshot`.
+
+Emit a chunk when the user can scan the result in context (todo list, question options, image preview). Skip the chunk when the user only sees the result after the full call completes (file write, fetch response). A TOON-only tool still feels responsive because the assistant message finalizes on tool completion.
+
 ### When adding a new tool
 
-1. Implement it under `src-tauri/src/tools/<name>.rs`, add it to `all_tools()` in `mod.rs`, and register a constant `pub const NAME: &str = "<name>";`.
-2. Add a new block to `src-tauri/tests/tools_examples.rs` driving the tool against a temp workspace and wiring the right `Target` fields.
-3. Create `docs/example/tool-stats/<name>/README.md` using the template above. No copy-paste from sibling READMEs - each tool's limits and non-goals are tool-specific.
-4. Verify `cargo test --test tools_examples` regenerates `stats.md` and `response.toon` for the new tool and that the CI checks (`pnpm format:check` etc.) still pass.
-5. The tool's `crate::tools::<NAME>_TOOL_NAME` constant is the only thing the integration test and the chat dispatcher need; the constant must be exported from `src-tauri/src/tools/mod.rs`.
+The README template below covers docs and the `cargo test --test tools_examples` block covers the integration test. Plumbing order:
+
+1. Decide the flavor (sync, sync with workspace gate, async). See Tool execution model above.
+2. Implement under `src-tauri/src/tools/<name>.rs`. Export `pub const NAME: &str = "<name>";`.
+3. Add to `all_tools()` in `mod.rs` and export `pub const <NAME>_TOOL_NAME: &str = ...;` next to the others.
+4. Add the tool id to `AGENT_TOOL_IDS` in `src/types/agents.ts`. Decide which agents get it (build, plan, both) and add to `PLAN_AGENT_TOOL_IDS` if relevant.
+5. Add `agents.tools.<id>.label` and `agents.tools.<id>.description` in `en.json` and `es.json`. Add `chat.tools.<id>Title` if the tool gets a preview in `ToolCallsBlock`.
+6. Add `CHAT_TOOL_DESCRIPTIONS[id]` in `src/types/agents.ts` (English, sent to the LLM).
+7. If the result renders inline (like todowrite's `TodoList`), add a renderer branch to `ToolCallsBlock` and a small CSS section in `src/styles/chat.css`. If it opens a modal (like read/write), reuse `ReadOnlyEditorDialog`.
+8. Add an integration test block to `src-tauri/tests/tools_examples.rs` driving the tool against a temp workspace and wiring the right `Target` fields.
+9. Create `docs/example/tool-stats/<name>/README.md` using the template below. No copy-paste from sibling READMEs - each tool's limits and non-goals are tool-specific.
+10. Run `cargo test --test tools_examples` to regenerate `stats.md` and `response.toon` for the new tool.
+11. Run all four CI checks before commit.
 
 ## i18n
 
@@ -199,6 +244,36 @@ Also:
 - Zustand: select fields, do not subscribe to the whole store in hot views.
 - Heavy disk/CPU work (skills, agents, fonts, token estimates, workspace files, future jobs): `runJob` in `src/lib/jobs.ts`. Add a `JobName` and a `handleJob` case. Tauri IPC stays on the UI thread; the worker asks for it with `kind: "invoke"`.
 - Perf logs (`perfLog`) only for slow work. Do not log every keystroke.
+
+## CSS conventions
+
+Spacing and text sizes follow a fixed scale. Do not pick values off the top of your head.
+
+Spacing scale (`--space-0` through `--space-10`, increments of 4px):
+
+- `--space-1` (4px): tight inline gap, list gap between rows.
+- `--space-2` (8px): default gap between related elements, list padding.
+- `--space-3` (12px): panel padding, gap between sections.
+- `--space-4` (16px): outer padding of large surfaces, dialog body padding.
+- `--space-5` (20px) and up: only for major sections (chat thread padding, empty-state vertical centering).
+
+Standard gap between consecutive items in a vertical stack: `--space-2`. Between sections: `--space-3`. Block margin (between content blocks in chat messages): `--space-2`. Padding inside cards and panels: `--space-2 var(--space-3)`.
+
+Text sizes (`--text-*`):
+
+- `--text-content`: canonical body text. Use for chat messages, dialog bodies, todo list items, confirm dialog bodies, markdown headings inside messages. Scales with `--text-scale`.
+- `--text-sm` (14px): labels, table cells, inline metadata, button labels, dialog titles.
+- `--text-xs` (12px): captions, badges, hints, list-item subtitles, timestamps.
+- `--text-md` and up: only for hero text and empty-state titles.
+
+If a new component needs a body text size, use `--text-content`. If a label or caption, use `--text-sm` or `--text-xs`. If you reach for a raw `0.95em`, `1.1em`, etc., stop - those are stale values from before the scale was applied.
+
+Tool result rendering in the chat has two layouts:
+
+- **Inline** (under the tool call line, no modal): for state the user scans in context (todo list, question options, image preview). Insert a small renderer under the tool call line in `ToolCallsBlock`.
+- **Modal** (opens on click, full editor): for state the user inspects or diffs (file content, large outputs, structured diffs). Reuse `ReadOnlyEditorDialog` from `src/features/chat/ReadOnlyEditorDialog.tsx`.
+
+Pick inline when the result fits in 5-8 lines and the user reads it as part of the flow. Pick modal when the result is long, structured, or benefits from line numbers and search.
 
 ## Checks
 

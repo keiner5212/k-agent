@@ -21,6 +21,55 @@ describe("sanitizeSessionRecord", () => {
     expect(session.messages).toEqual([]);
     expect(session.messages.length).toBe(0);
   });
+
+  it("preserves session todos so the UI can restore after reload", () => {
+    const session = sanitizeSessionRecord({
+      id: "s1",
+      todos: [
+        { id: "step-1", content: "Investigate ask_user", status: "in_progress", priority: 9 },
+        { id: "step-2", content: "Wire todowrite", status: "pending", priority: 5 },
+      ],
+    });
+    expect(session.todos).toEqual([
+      { id: "step-1", content: "Investigate ask_user", status: "in_progress", priority: 9 },
+      { id: "step-2", content: "Wire todowrite", status: "pending", priority: 5 },
+    ]);
+  });
+
+  it("migrates legacy todos (no id, string priority) to the new shape", () => {
+    const session = sanitizeSessionRecord({
+      id: "s1",
+      todos: [
+        { content: "Legacy task one", status: "in_progress", priority: "high" },
+        { content: "Legacy task two", status: "pending", priority: "low" },
+        { content: "Legacy task three", status: "completed", priority: "medium" },
+      ],
+    });
+    expect(session.todos ?? []).toHaveLength(3);
+    expect(session.todos?.[0]).toMatchObject({
+      content: "Legacy task one",
+      status: "in_progress",
+      priority: 9,
+    });
+    expect(session.todos?.[1]).toMatchObject({
+      content: "Legacy task two",
+      status: "pending",
+      priority: 1,
+    });
+    expect(session.todos?.[2]).toMatchObject({
+      content: "Legacy task three",
+      status: "completed",
+      priority: 5,
+    });
+    expect(session.todos?.[0]?.id).toMatch(/^legacy-/);
+    expect(session.todos?.[0]?.id).not.toBe(session.todos?.[1]?.id);
+  });
+
+  it("defaults todos and history to empty arrays when missing", () => {
+    const session = sanitizeSessionRecord({ id: "s1" });
+    expect(session.todos).toEqual([]);
+    expect(session.todosHistory).toEqual([]);
+  });
 });
 
 describe("sanitizeSessionsSnapshot", () => {
@@ -30,6 +79,33 @@ describe("sanitizeSessionsSnapshot", () => {
       sessions: [{ id: "s1", title: "Chat" }],
     });
     expect(snapshot.sessions[0]?.messages).toEqual([]);
+  });
+
+  it("sanitizes todos_history entries without a diff field", () => {
+    const snapshot = sanitizeSessionsSnapshot({
+      activeSessionId: "s1",
+      sessions: [
+        {
+          id: "s1",
+          todosHistory: [
+            { timestamp: 1 },
+            {
+              timestamp: 2,
+              diff: { added: [{ id: "x", content: "x", status: "pending", priority: 5 }] },
+            },
+            { timestamp: 3, diff: null },
+          ],
+        },
+      ],
+    });
+    expect(snapshot.sessions[0]?.todosHistory).toEqual([
+      { timestamp: 1, diff: {} },
+      {
+        timestamp: 2,
+        diff: { added: [{ id: "x", content: "x", status: "pending", priority: 5 }] },
+      },
+      { timestamp: 3, diff: {} },
+    ]);
   });
 });
 

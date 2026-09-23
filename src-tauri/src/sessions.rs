@@ -55,6 +55,8 @@ pub struct SessionRecord {
     pub http_write_allowed: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub todos: Vec<crate::tools::todo::TodoItem>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub todos_history: Vec<crate::tools::todo::TodoHistoryEvent>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -176,6 +178,7 @@ fn empty_snapshot() -> SessionsSnapshot {
             outside_workspace_allowed: false,
             http_write_allowed: false,
             todos: Vec::new(),
+            todos_history: Vec::new(),
         }],
     }
 }
@@ -279,6 +282,7 @@ fn read_session_record(app: &AppHandle, id: &str) -> Result<SessionRecord, Sessi
             outside_workspace_allowed: false,
             http_write_allowed: false,
             todos: Vec::new(),
+            todos_history: Vec::new(),
         });
     }
     let raw = std::fs::read_to_string(&path).map_err(|e| SessionError::Io(e.to_string()))?;
@@ -504,10 +508,22 @@ pub async fn load_sessions(app: AppHandle) -> Result<SessionsSnapshot, SessionEr
     load_snapshot(&app).await
 }
 
-pub fn update_session_todos(
+pub fn read_session_todos(
+    app: &AppHandle,
+    session_id: &str,
+) -> Result<Vec<crate::tools::todo::TodoItem>, SessionError> {
+    if !is_safe_id(session_id) {
+        return Err(SessionError::Path("invalid session id".into()));
+    }
+    let session = read_session_record(app, session_id)?;
+    Ok(session.todos)
+}
+
+pub fn append_session_todo_event(
     app: &AppHandle,
     session_id: &str,
     todos: Vec<crate::tools::todo::TodoItem>,
+    event: crate::tools::todo::TodoHistoryEvent,
 ) -> Result<(), SessionError> {
     if !is_safe_id(session_id) {
         return Err(SessionError::Path("invalid session id".into()));
@@ -516,6 +532,12 @@ pub fn update_session_todos(
     std::fs::create_dir_all(&dir).map_err(|e| SessionError::Io(e.to_string()))?;
     let mut session = read_session_record(app, session_id)?;
     session.todos = todos;
+    session.todos_history.push(event);
+    let cap = crate::tools::todo::HISTORY_CAP;
+    if session.todos_history.len() > cap {
+        let drop = session.todos_history.len() - cap;
+        session.todos_history.drain(0..drop);
+    }
     session.updated_at = chrono::Utc::now().timestamp();
     write_session_record(app, &mut session)?;
     refresh_index_entry(app, &session)

@@ -13,6 +13,12 @@ const STATUS_ICON = {
   cancelled: X,
 } as const;
 
+const priorityBand = (priority: number): "high" | "medium" | "low" => {
+  if (priority >= 8) return "high";
+  if (priority >= 4) return "medium";
+  return "low";
+};
+
 const TodoList = ({ todos }: TodoListProps): React.ReactNode => {
   const { t } = useTranslation();
   if (todos.length === 0) {
@@ -26,19 +32,21 @@ const TodoList = ({ todos }: TodoListProps): React.ReactNode => {
       <header className="chat-todos__head">
         <span className="chat-todos__title">{t("chat.todos.title")}</span>
         <span className="chat-todos__count">
-          {t("chat.todos.title")} ({pendingCount}/{todos.length})
+          {pendingCount}/{todos.length}
         </span>
       </header>
       <ul className="chat-todos__list">
-        {todos.map((item, index) => {
-          const Icon = STATUS_ICON[item.status];
+        {todos.map((item) => {
+          const Icon = STATUS_ICON[item.status] ?? CircleDashed;
           const statusLabel = t(`chat.todos.status.${item.status}`);
-          const priorityLabel = t(`chat.todos.priority.${item.priority}`);
+          const band = priorityBand(item.priority);
+          const priorityLabel = t(`chat.todos.priority.${band}`);
+          const safePriority = Math.max(0, Math.min(10, Math.round(item.priority)));
           return (
             <li
-              key={`${item.content}-${index}`}
+              key={item.id}
               className={`chat-todos__item chat-todos__item--${item.status}`}
-              data-priority={item.priority}
+              data-priority-band={band}
             >
               <span className="chat-todos__icon" aria-hidden="true">
                 <Icon size={14} strokeWidth={1.75} />
@@ -46,7 +54,12 @@ const TodoList = ({ todos }: TodoListProps): React.ReactNode => {
               <span className="chat-todos__content">{item.content}</span>
               <span className="chat-todos__meta">
                 <span className="chat-todos__status">{statusLabel}</span>
-                <span className="chat-todos__priority">{priorityLabel}</span>
+                <span
+                  className="chat-todos__priority"
+                  title={`${priorityLabel} (${safePriority}/10)`}
+                >
+                  {priorityLabel} {safePriority}/10
+                </span>
               </span>
             </li>
           );

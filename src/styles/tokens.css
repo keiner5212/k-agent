@@ -29,6 +29,12 @@
   --text-lg: 1.125rem;
   --text-xl: 1.25rem;
 
+  /* Canonical body text size. Use this for chat content, dialog bodies, todo
+     list items, and any other "content text" surface so they all read at the
+     same scale. Headings, badges, and other special sections may use --text-xs
+     or --text-md+. */
+  --text-content: calc(var(--text-sm) * var(--text-scale));
+
   --control-height: 1.75rem;
   --select-item-height: 2.25rem;
 

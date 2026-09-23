@@ -35,6 +35,7 @@ import {
   type ChatMessage,
   type SelectedModel,
   type SendChatResult,
+  type TodoDiff,
   type TodoItem,
   type ToolRoundTrace,
 } from "@/types/chat";
@@ -65,18 +66,22 @@ const previewFromMessages = (messages: ChatMessage[]): string => {
   return "";
 };
 
-const parseTodoChunk = (raw: string): TodoItem[] | null => {
+const parseTodoChunk = (raw: string): { todos: TodoItem[]; diff: TodoDiff } | null => {
   try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return null;
-    const items: TodoItem[] = [];
-    for (const value of parsed) {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object") return null;
+    const rawTodos = parsed.todos;
+    const rawDiff = parsed.diff;
+    if (!Array.isArray(rawTodos)) return null;
+    const todos: TodoItem[] = [];
+    for (const value of rawTodos) {
       if (!value || typeof value !== "object") return null;
       const item = value as Record<string, unknown>;
+      const id = typeof item.id === "string" ? item.id.trim() : "";
       const content = typeof item.content === "string" ? item.content.trim() : "";
       const status = item.status;
       const priority = item.priority;
-      if (!content) return null;
+      if (!id || !content) return null;
       if (
         status !== "pending" &&
         status !== "in_progress" &&
@@ -85,12 +90,11 @@ const parseTodoChunk = (raw: string): TodoItem[] | null => {
       ) {
         return null;
       }
-      if (priority !== "high" && priority !== "medium" && priority !== "low") {
-        return null;
-      }
-      items.push({ content, status, priority });
+      if (typeof priority !== "number" || priority < 0 || priority > 10) return null;
+      todos.push({ id, content, status, priority });
     }
-    return items;
+    const diff: TodoDiff = rawDiff && typeof rawDiff === "object" ? rawDiff : {};
+    return { todos, diff };
   } catch (error) {
     console.warn("todowrite chunk parse failed", error);
     return null;
@@ -826,8 +830,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           return;
         }
         if (chunk.kind === "todo") {
-          const todos = parseTodoChunk(chunk.text);
-          if (todos) {
+          const parsed = parseTodoChunk(chunk.text);
+          if (parsed) {
+            const { todos } = parsed;
             const nextSessions = get().sessions.map((session) => {
               if (session.id !== sessionId) return session;
               const index = session.messages.findIndex((message) => message.id === assistantId);
