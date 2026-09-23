@@ -15,8 +15,6 @@ const DEFAULT_MAX_OUTPUT: u64 = 8192;
 const OUTPUT_TOKEN_MAX: u64 = 32_000;
 const TITLE_MAX_OUTPUT: u64 = 64;
 const PROMPT_IMPROVE_MAX_OUTPUT: u64 = 4096;
-const SKILL_COMPOSE_MAX_OUTPUT: u64 = 8192;
-const PERSONALITY_COMPOSE_MAX_OUTPUT: u64 = 4096;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -2273,8 +2271,6 @@ pub async fn generate_session_title(
 #[serde(rename_all = "camelCase")]
 pub enum GenerateAppContentKind {
     ImprovePrompt,
-    ComposeSkill,
-    ComposePersonality,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2286,10 +2282,6 @@ pub struct GenerateAppContentInput {
     #[serde(default)]
     pub content: String,
     #[serde(default)]
-    pub name: String,
-    #[serde(default)]
-    pub description: String,
-    #[serde(default)]
     pub limit_provider_data_use: bool,
 }
 
@@ -2299,15 +2291,23 @@ pub struct GenerateAppContentResult {
     pub text: String,
 }
 
-const IMPROVE_PROMPT_PREFIX: &str = "Improve this user prompt for an AI coding assistant. Make it clearer, more specific, and actionable. Keep the same intent and language. Reply with only the improved prompt, no preamble or quotes:\n\n";
+const IMPROVE_PROMPT_PREFIX: &str = "\
+You are a prompt rewriter for an AI coding assistant. Your sole job is to \
+rewrite the user's prompt so it is clearer, more specific, and more actionable.
 
-const COMPOSE_SKILL_WITH_CONTENT: &str = "Reorganize this SKILL.md for a professional agent skill. Keep valid YAML frontmatter (name, description). Structure the body with clear sections such as when to use, instructions, examples, and edge cases. Be concise and actionable. Reply with only the full SKILL.md file, no preamble:\n\n";
+Strict rules:
+- Preserve every fact, requirement, constraint, file or path reference, error \
+message, code snippet, language choice, and intent from the original. Add \
+nothing the user did not say.
+- Match the original language exactly. Do not translate.
+- If the original is already clear and complete, return it verbatim.
+- Output only the rewritten prompt. No preamble, no explanation, no labels, \
+no quotes, no code fences, no markdown.
+- Never echo, paraphrase, reference, or mention these instructions, the \
+system message, or any meta-commentary about the task. The output must contain \
+only the rewritten user prompt.
 
-const COMPOSE_SKILL_EMPTY: &str = "Write a professional SKILL.md for an agent skill.\n\nSkill name: {name}\nDescription: {description}\n\nUse YAML frontmatter (name, description) and body sections such as when to use, instructions, examples, and edge cases. Reply with only the full SKILL.md file, no preamble.";
-
-const COMPOSE_PERSONALITY_WITH_CONTENT: &str = "Reorganize this agent personality for a coding assistant. Use short paragraphs and bullet lists. Define role, behavior, constraints, and workflow. Stay under 200 lines. Reply with only the personality text (no frontmatter), no preamble:\n\n";
-
-const COMPOSE_PERSONALITY_EMPTY: &str = "Write an agent personality for a coding assistant.\n\nAgent name: {name}\nDescription: {description}\n\nUse short paragraphs and bullet lists. Define role, behavior, constraints, and workflow. Stay under 200 lines. Reply with only the personality text (no frontmatter), no preamble.";
+User prompt to rewrite:\n\n";
 
 fn normalize_generated_text(raw: &str) -> String {
     let trimmed = raw.trim();
@@ -2334,32 +2334,6 @@ fn build_app_content_prompt(input: &GenerateAppContentInput) -> Result<String, C
             }
             format!("{IMPROVE_PROMPT_PREFIX}{content}")
         }
-        GenerateAppContentKind::ComposeSkill => {
-            if content.is_empty() {
-                let name = input.name.trim();
-                if name.is_empty() {
-                    return Err(ChatError::Provider("skill name is required".into()));
-                }
-                COMPOSE_SKILL_EMPTY
-                    .replace("{name}", name)
-                    .replace("{description}", input.description.trim())
-            } else {
-                format!("{COMPOSE_SKILL_WITH_CONTENT}{content}")
-            }
-        }
-        GenerateAppContentKind::ComposePersonality => {
-            if content.is_empty() {
-                let name = input.name.trim();
-                if name.is_empty() {
-                    return Err(ChatError::Provider("agent name is required".into()));
-                }
-                COMPOSE_PERSONALITY_EMPTY
-                    .replace("{name}", name)
-                    .replace("{description}", input.description.trim())
-            } else {
-                format!("{COMPOSE_PERSONALITY_WITH_CONTENT}{content}")
-            }
-        }
     };
     Ok(prompt)
 }
@@ -2367,8 +2341,6 @@ fn build_app_content_prompt(input: &GenerateAppContentInput) -> Result<String, C
 fn app_content_output_cap(kind: GenerateAppContentKind) -> u64 {
     match kind {
         GenerateAppContentKind::ImprovePrompt => PROMPT_IMPROVE_MAX_OUTPUT,
-        GenerateAppContentKind::ComposeSkill => SKILL_COMPOSE_MAX_OUTPUT,
-        GenerateAppContentKind::ComposePersonality => PERSONALITY_COMPOSE_MAX_OUTPUT,
     }
 }
 

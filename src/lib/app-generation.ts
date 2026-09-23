@@ -4,13 +4,11 @@ import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "@/lib/platform";
 import { useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
 
-export type AppGenerationKind = "improvePrompt" | "composeSkill" | "composePersonality";
+export type AppGenerationKind = "improvePrompt";
 
 export type AppGenerationInput = {
   kind: AppGenerationKind;
   content?: string;
-  name?: string;
-  description?: string;
 };
 
 export const resolveAppGenerationModel = (): SelectedModel | null => {
@@ -33,8 +31,6 @@ export const generateAppContent = async (
         modelId: model.modelId,
         kind: input.kind,
         content: input.content ?? "",
-        name: input.name ?? "",
-        description: input.description ?? "",
         limitProviderDataUse: useSettingsStore.getState().limitProviderDataUse,
       },
     });

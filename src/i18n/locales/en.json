@@ -8,9 +8,7 @@
     "shortcut_hint": "Press {{shortcut}} for settings"
   },
   "appGeneration": {
-    "noModel": "Pick an app generation model in Settings.",
-    "skill": "Generate or improve skill",
-    "personality": "Generate or improve personality"
+    "noModel": "Pick an app generation model in Settings."
   },
   "window": {
     "minimize": "Minimize",

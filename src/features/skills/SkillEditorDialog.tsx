@@ -4,9 +4,7 @@ import { Loader2 } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { LineEditor } from "@/components/LineEditor";
-import { MagicGenerateButton } from "@/components/MagicGenerateButton";
 import { EDITOR_SAVE_EVENT } from "@/lib/keybindings";
-import { generateAppContent } from "@/lib/app-generation";
 import { useSkillsStore } from "@/lib/skills";
 import type { SkillInfo } from "@/types/skills";
 
@@ -58,7 +56,6 @@ const SkillEditorBody = ({ skill, onCancel, onSave }: SkillEditorBodyProps): Rea
   const [original, setOriginal] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -109,27 +106,6 @@ const SkillEditorBody = ({ skill, onCancel, onSave }: SkillEditorBodyProps): Rea
   };
 
   const dirty = content !== original;
-  const canGenerate = !loading && !submitting && !generating;
-
-  const handleGenerate = useCallback((): void => {
-    if (!canGenerate) return;
-    void (async () => {
-      setGenerating(true);
-      setError(null);
-      const result = await generateAppContent({
-        kind: "composeSkill",
-        content,
-        name: skill.name,
-        description: skill.description,
-      });
-      setGenerating(false);
-      if (result.error) {
-        setError(result.error === "noModel" ? t("appGeneration.noModel") : result.error);
-        return;
-      }
-      if (result.text) setContent(result.text);
-    })();
-  }, [canGenerate, content, skill.description, skill.name, t]);
 
   useEffect(() => {
     const onSave = (): void => {
@@ -145,12 +121,6 @@ const SkillEditorBody = ({ skill, onCancel, onSave }: SkillEditorBodyProps): Rea
         <div className="skill-editor__path" title={skill.path}>
           {skill.path}
         </div>
-        <MagicGenerateButton
-          label={t("appGeneration.skill")}
-          onClick={handleGenerate}
-          disabled={!canGenerate}
-          loading={generating}
-        />
       </div>
       {error ? (
         <div className="form-error" role="alert">
@@ -174,14 +144,14 @@ const SkillEditorBody = ({ skill, onCancel, onSave }: SkillEditorBodyProps): Rea
         <GlassButton
           variant="secondary"
           onClick={handleRevert}
-          disabled={submitting || generating || !dirty || loading}
+          disabled={submitting || !dirty || loading}
         >
           {t("skills.editor.revert")}
         </GlassButton>
         <GlassButton
           variant="secondary"
           onClick={() => void handleSave()}
-          disabled={submitting || generating || loading || !dirty}
+          disabled={submitting || loading || !dirty}
         >
           {submitting ? (
             <>
@@ -195,7 +165,7 @@ const SkillEditorBody = ({ skill, onCancel, onSave }: SkillEditorBodyProps): Rea
         <GlassButton
           variant="primary"
           onClick={() => void handleDone()}
-          disabled={submitting || generating || loading}
+          disabled={submitting || loading}
         >
           {t("skills.editor.done")}
         </GlassButton>

@@ -8,9 +8,7 @@
     "shortcut_hint": "Pulsa {{shortcut}} para abrir ajustes"
   },
   "appGeneration": {
-    "noModel": "Elige un modelo de generacion en Ajustes.",
-    "skill": "Generar o mejorar skill",
-    "personality": "Generar o mejorar personalidad"
+    "noModel": "Elige un modelo de generacion en Ajustes."
   },
   "window": {
     "minimize": "Minimizar",
