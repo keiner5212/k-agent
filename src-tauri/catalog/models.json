@@ -20730,7 +20730,6 @@
     "input": ["text"],
     "output": ["text"],
     "reasoning": true,
-    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
     "cost": {
       "input": 0.12,
       "output": 0.48
@@ -20848,7 +20847,6 @@
     "toolCall": true,
     "attachment": true,
     "multimodal": true,
-    "effortLevels": ["none", "minimal", "low", "medium", "high"],
     "aliases": [
       "MiniMaxAI/MiniMax-M3",
       "minimax/minimax-m3",

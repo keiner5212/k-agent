@@ -361,10 +361,7 @@ fn catalog_from_models_dev(key: String, model: ModelsDevModel) -> CatalogEntry {
             .map(|m| m.output.clone())
             .unwrap_or_default(),
     );
-    let mut effort_levels = effort_from_options(&model.reasoning_options);
-    if model.reasoning && effort_levels.is_empty() {
-        effort_levels = vec!["low".into(), "medium".into(), "high".into()];
-    }
+    let effort_levels = effort_from_options(&model.reasoning_options);
     CatalogEntry {
         id: model.id.unwrap_or(key),
         display_name: model.name,

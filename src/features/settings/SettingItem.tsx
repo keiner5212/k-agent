@@ -200,6 +200,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const shellProgram = useSettingsStore((state) => state.shellProgram);
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
   const workspaceMemoryEnabled = useSettingsStore((state) => state.workspaceMemoryEnabled);
+  const limitProviderDataUse = useSettingsStore((state) => state.limitProviderDataUse);
   const buildAgentEnabled = useSettingsStore((state) => state.buildAgentEnabled);
   const planAgentEnabled = useSettingsStore((state) => state.planAgentEnabled);
   const titleGenerationModel = useSettingsStore((state) => state.titleGenerationModel);
@@ -219,6 +220,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setShellProgram = useSettingsStore((state) => state.setShellProgram);
   const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
   const setWorkspaceMemoryEnabled = useSettingsStore((state) => state.setWorkspaceMemoryEnabled);
+  const setLimitProviderDataUse = useSettingsStore((state) => state.setLimitProviderDataUse);
   const setBuildAgentEnabled = useSettingsStore((state) => state.setBuildAgentEnabled);
   const setPlanAgentEnabled = useSettingsStore((state) => state.setPlanAgentEnabled);
   const setTitleGenerationModel = useSettingsStore((state) => state.setTitleGenerationModel);
@@ -314,6 +316,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               forceResponseLanguage,
               notificationsEnabled,
               workspaceMemoryEnabled,
+              limitProviderDataUse,
               buildAgentEnabled,
               planAgentEnabled,
               titleUseFirstMessage,
@@ -328,6 +331,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setForceResponseLanguage,
                 setNotificationsEnabled,
                 setWorkspaceMemoryEnabled,
+                setLimitProviderDataUse,
                 setBuildAgentEnabled,
                 setPlanAgentEnabled,
                 setTitleUseFirstMessage,
@@ -455,6 +459,7 @@ type ToggleState = {
   forceResponseLanguage: boolean;
   notificationsEnabled: boolean;
   workspaceMemoryEnabled: boolean;
+  limitProviderDataUse: boolean;
   buildAgentEnabled: boolean;
   planAgentEnabled: boolean;
   titleUseFirstMessage: boolean;
@@ -560,6 +565,8 @@ const toggleChecked = (id: string, state: ToggleState): boolean => {
       return state.notificationsEnabled;
     case "workspaceMemoryEnabled":
       return state.workspaceMemoryEnabled;
+    case "limitProviderDataUse":
+      return state.limitProviderDataUse;
     case "buildAgentEnabled":
       return state.buildAgentEnabled;
     case "planAgentEnabled":
@@ -584,6 +591,7 @@ const onToggleChange = (
     setForceResponseLanguage: (v: boolean) => void;
     setNotificationsEnabled: (v: boolean) => void;
     setWorkspaceMemoryEnabled: (v: boolean) => void;
+    setLimitProviderDataUse: (v: boolean) => void;
     setBuildAgentEnabled: (v: boolean) => void;
     setPlanAgentEnabled: (v: boolean) => void;
     setTitleUseFirstMessage: (v: boolean) => void;
@@ -611,6 +619,9 @@ const onToggleChange = (
       return;
     case "workspaceMemoryEnabled":
       setters.setWorkspaceMemoryEnabled(next);
+      return;
+    case "limitProviderDataUse":
+      setters.setLimitProviderDataUse(next);
       return;
     case "buildAgentEnabled":
       setters.setBuildAgentEnabled(next);

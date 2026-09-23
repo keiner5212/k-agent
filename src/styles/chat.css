@@ -188,17 +188,10 @@ button.change-bar__stat:focus-visible {
   text-overflow: ellipsis;
 }
 
-.effort-selector {
-  display: inline-flex;
-  align-items: center;
-}
-
-.effort-selector .select-root {
-  width: auto;
-}
-
-.effort-selector .select {
-  min-width: 7rem;
+.model-request {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .agent-selector {

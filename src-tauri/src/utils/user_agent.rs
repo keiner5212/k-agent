@@ -32,7 +32,9 @@ const OS_CONFIGS: &[OsConfig] = &[
 
 const MAJOR_VERSIONS: &[u32] = &[146, 147, 148, 149, 150];
 const MINOR_VERSIONS: &[u32] = &[0, 1, 2, 3, 4, 5];
-const PATCH_VERSIONS: &[u32] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+const PATCH_VERSIONS: &[u32] = &[
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+];
 
 #[derive(Debug, Clone)]
 pub struct UserAgentSelection {
@@ -125,7 +127,11 @@ mod tests {
         // Across 30 weeks we should see at least 3 distinct user agents
         // (some weeks will repeat with the seed pattern; we just want to
         // confirm the rotation is not stuck on one value).
-        assert!(seen.len() >= 3, "only {} distinct UAs across 30 weeks", seen.len());
+        assert!(
+            seen.len() >= 3,
+            "only {} distinct UAs across 30 weeks",
+            seen.len()
+        );
     }
 
     #[test]

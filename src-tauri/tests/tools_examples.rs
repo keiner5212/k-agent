@@ -21,9 +21,9 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use k_agent_lib::tools::ask_user::{execute_async as ask_user_execute_async, AskUserAnswerEntry};
 use k_agent_lib::tools::{
-    execute, ASK_USER_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, EDIT_TOOL_NAME,
-    FETCH_URL_TOOL_NAME, INTERNET_SEARCH_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME, READ_TOOL_NAME,
-    SKILL_TOOL_NAME, ToolContext, WRITE_TOOL_NAME,
+    execute, ToolContext, ASK_USER_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME,
+    EDIT_TOOL_NAME, FETCH_URL_TOOL_NAME, INTERNET_SEARCH_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME,
+    READ_TOOL_NAME, SKILL_TOOL_NAME, WRITE_TOOL_NAME,
 };
 
 const REALISTIC_FILE_BODY: &str = "# Draft: sample skill body\n\
@@ -127,7 +127,10 @@ fn current_rss_kb() -> u64 {
     if let Ok(out) = output {
         if out.status.success() {
             // ps on macOS reports RSS in kilobytes directly.
-            return String::from_utf8_lossy(&out.stdout).trim().parse().unwrap_or(0);
+            return String::from_utf8_lossy(&out.stdout)
+                .trim()
+                .parse()
+                .unwrap_or(0);
         }
     }
     0
@@ -226,8 +229,8 @@ fn tool_dir(tool: &str) -> PathBuf {
 }
 
 fn write_input(tool: &str, raw_args: &str) {
-    let value: serde_json::Value =
-        serde_json::from_str(raw_args).unwrap_or_else(|_| serde_json::Value::String(raw_args.to_string()));
+    let value: serde_json::Value = serde_json::from_str(raw_args)
+        .unwrap_or_else(|_| serde_json::Value::String(raw_args.to_string()));
     let pretty = serde_json::to_string_pretty(&value).unwrap();
     let dir = tool_dir(tool);
     fs::create_dir_all(&dir).unwrap();
@@ -562,5 +565,8 @@ async fn dumps_tool_examples() {
     // Clean up the scratch directory so cargo test leaves docs/ tidy.
     cleanup_scratch(&scratch);
 
-    eprintln!("[tool-examples] dumped all 10 tools at {}", output_dir().display());
+    eprintln!(
+        "[tool-examples] dumped all 10 tools at {}",
+        output_dir().display()
+    );
 }

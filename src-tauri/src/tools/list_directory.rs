@@ -374,10 +374,8 @@ fn walk_inner(
                     if let Some(tree) = subdir_trees.get(subdir_idx) {
                         for line in tree {
                             if budget.lock().map(|g| *g).unwrap_or(0) == 0 {
-                                lines.push(format!(
-                                    "... (truncated at {} lines)",
-                                    MAX_OUTPUT_LINES
-                                ));
+                                lines
+                                    .push(format!("... (truncated at {} lines)", MAX_OUTPUT_LINES));
                                 return;
                             }
                             lines.push(line.clone());
@@ -494,15 +492,15 @@ mod tests {
         );
         let text = &outcome.text;
         for (dir_name, child) in [("alpha", "a.txt"), ("beta", "b.txt"), ("gamma", "c.txt")] {
-            let dir_idx = text.find(&format!("{dir_name}/")).unwrap_or_else(|| {
-                panic!("{dir_name}/ missing in output:\n{text}")
-            });
-            let child_idx = text.find(child).unwrap_or_else(|| {
-                panic!("{child} missing in output:\n{text}")
-            });
-            let root_idx = text.find("root.txt").unwrap_or_else(|| {
-                panic!("root.txt missing in output:\n{text}")
-            });
+            let dir_idx = text
+                .find(&format!("{dir_name}/"))
+                .unwrap_or_else(|| panic!("{dir_name}/ missing in output:\n{text}"));
+            let child_idx = text
+                .find(child)
+                .unwrap_or_else(|| panic!("{child} missing in output:\n{text}"));
+            let root_idx = text
+                .find("root.txt")
+                .unwrap_or_else(|| panic!("root.txt missing in output:\n{text}"));
             assert!(
                 dir_idx < child_idx,
                 "{dir_name}/ debe preceder a {child} (DFS, parallel)"

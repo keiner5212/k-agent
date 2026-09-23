@@ -97,10 +97,7 @@ impl Tool for FetchUrlTool {
 
     fn execute(&self, args: &Value, _ctx: &ToolContext<'_>) -> ToolOutcome {
         match parse_args(args) {
-            Ok(_) => super::context_error(
-                None,
-                "fetch_url must run on the async dispatch path.",
-            ),
+            Ok(_) => super::context_error(None, "fetch_url must run on the async dispatch path."),
             Err(message) => super::context_error(None, &message),
         }
     }
@@ -183,7 +180,8 @@ pub fn canonicalize_url(raw: &str) -> Result<String, String> {
     if raw.chars().any(|c| c.is_control()) || raw.contains('\\') {
         return Err("fetch_url URL contains control characters.".into());
     }
-    let parsed = reqwest::Url::parse(trimmed).map_err(|_| "fetch_url URL is not parseable.".to_string())?;
+    let parsed =
+        reqwest::Url::parse(trimmed).map_err(|_| "fetch_url URL is not parseable.".to_string())?;
     if parsed.scheme() != "https" {
         return Err("fetch_url only accepts HTTPS URLs.".into());
     }
@@ -220,9 +218,9 @@ fn is_blocked_host(host: &str) -> bool {
     if BLOCKED_HOSTS.iter().any(|blocked| *blocked == host) {
         return true;
     }
-    BLOCKED_SUFFIXES.iter().any(|suffix| {
-        host == suffix.trim_start_matches('.') || host.ends_with(suffix)
-    })
+    BLOCKED_SUFFIXES
+        .iter()
+        .any(|suffix| host == suffix.trim_start_matches('.') || host.ends_with(suffix))
 }
 
 fn is_ip_literal(host: &str) -> bool {
@@ -344,7 +342,12 @@ impl BrowserSession {
         }
     }
 
-    pub async fn get(&self, url: &str, site: &'static str, referer: Option<String>) -> Result<FetchedPage, String> {
+    pub async fn get(
+        &self,
+        url: &str,
+        site: &'static str,
+        referer: Option<String>,
+    ) -> Result<FetchedPage, String> {
         let canonical = canonicalize_url(url)?;
         let mut current = canonical;
         let mut current_site: &'static str = site;
@@ -358,10 +361,11 @@ impl BrowserSession {
             hops += 1;
             let delay_ms: u64 = 50 + (random_ms() % 200) as u64;
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
-            let request = self
-                .client
-                .get(&current)
-                .headers(navigation_headers(current_site, current_referer.as_deref(), &self.lang));
+            let request = self.client.get(&current).headers(navigation_headers(
+                current_site,
+                current_referer.as_deref(),
+                &self.lang,
+            ));
             let response = match request.send().await {
                 Ok(resp) => resp,
                 Err(error) => {
@@ -400,7 +404,9 @@ impl BrowserSession {
                     return Err("fetch_url redirect had no Location.".into());
                 };
                 let next = reqwest::Url::parse(&location)
-                    .or_else(|_| reqwest::Url::parse(&current).and_then(|base| base.join(&location)))
+                    .or_else(|_| {
+                        reqwest::Url::parse(&current).and_then(|base| base.join(&location))
+                    })
                     .map_err(|_| "fetch_url redirect target was unparseable.")?;
                 let next_canonical = canonicalize_url(next.as_str())?;
                 let next_parsed = reqwest::Url::parse(&next_canonical)
@@ -427,7 +433,11 @@ impl BrowserSession {
                     origin.map(|origin| format!("{origin}/"))
                 };
                 current = next_canonical;
-                current_site = if same_host { "same-origin" } else { "cross-site" };
+                current_site = if same_host {
+                    "same-origin"
+                } else {
+                    "cross-site"
+                };
                 current_referer = referer;
                 continue;
             }
@@ -443,7 +453,9 @@ impl BrowserSession {
                 .and_then(|value| value.to_str().ok())
                 .unwrap_or("")
                 .to_lowercase();
-            if !content_type.contains("text/html") && !content_type.contains("application/xhtml+xml") {
+            if !content_type.contains("text/html")
+                && !content_type.contains("application/xhtml+xml")
+            {
                 return Err("fetch_url page is not HTML.".into());
             }
             let bytes = response
@@ -538,7 +550,12 @@ fn navigation_headers(
 fn ua_versions(user_agent: &str) -> (String, String) {
     let after_chrome = match user_agent.split_once("Chrome/") {
         Some((_, rest)) => rest,
-        None => return (FALLBACK_CHROME_MAJOR.to_string(), FALLBACK_CHROME_FULL_VERSION.to_string()),
+        None => {
+            return (
+                FALLBACK_CHROME_MAJOR.to_string(),
+                FALLBACK_CHROME_FULL_VERSION.to_string(),
+            )
+        }
     };
     let version = after_chrome.split_whitespace().next().unwrap_or("");
     let major = version
@@ -547,7 +564,10 @@ fn ua_versions(user_agent: &str) -> (String, String) {
         .unwrap_or(FALLBACK_CHROME_MAJOR)
         .to_string();
     if major.is_empty() {
-        (FALLBACK_CHROME_MAJOR.to_string(), FALLBACK_CHROME_FULL_VERSION.to_string())
+        (
+            FALLBACK_CHROME_MAJOR.to_string(),
+            FALLBACK_CHROME_FULL_VERSION.to_string(),
+        )
     } else {
         (major.clone(), version.to_string())
     }
@@ -594,15 +614,18 @@ fn parse_args(args: &Value) -> Result<(), String> {
 }
 
 fn parse_args_str(arguments: &str) -> Result<FetchArgs, String> {
-    let value: Value =
-        serde_json::from_str(arguments).map_err(|_| "fetch_url arguments must be a JSON object.".to_string())?;
+    let value: Value = serde_json::from_str(arguments)
+        .map_err(|_| "fetch_url arguments must be a JSON object.".to_string())?;
     parse_args(&value)?;
     let url = value
         .get("url")
         .and_then(Value::as_str)
         .ok_or_else(|| r"fetch_url requires a string `url`.".to_string())?
         .to_string();
-    let lang = value.get("lang").and_then(Value::as_str).map(str::to_string);
+    let lang = value
+        .get("lang")
+        .and_then(Value::as_str)
+        .map(str::to_string);
     Ok(FetchArgs { url, lang })
 }
 
@@ -696,7 +719,11 @@ impl ContentParser {
     fn extract_description(html: &str) -> String {
         let meta_name = meta_content(html, "name", "description");
         let meta_property = meta_content(html, "property", "og:description");
-        let meta = if meta_name.len() > meta_property.len() { meta_name } else { meta_property };
+        let meta = if meta_name.len() > meta_property.len() {
+            meta_name
+        } else {
+            meta_property
+        };
         if meta.len() > 30 {
             return truncate(&meta, MAX_DESCRIPTION_LENGTH);
         }
@@ -712,8 +739,14 @@ impl ContentParser {
 
     fn find_main_content_block(html: &str) -> String {
         let id_patterns = [
-            "main-content", "mw-content-text", "content", "article-content",
-            "post-content", "story-content", "page-content", "article",
+            "main-content",
+            "mw-content-text",
+            "content",
+            "article-content",
+            "post-content",
+            "story-content",
+            "page-content",
+            "article",
         ];
         for pattern in id_patterns {
             let regex = format!(r#"(?is)<[a-z]+[^>]+id=["']{pattern}["'][^>]*>(.*?)</[a-z]+>"#);
@@ -726,12 +759,23 @@ impl ContentParser {
             }
         }
         let class_patterns = [
-            "article-body", "article-content", "post-content", "story-content",
-            "main-content", "entry-content", "page-content", "page-body",
-            "content-body", "article", "post", "story",
+            "article-body",
+            "article-content",
+            "post-content",
+            "story-content",
+            "main-content",
+            "entry-content",
+            "page-content",
+            "page-body",
+            "content-body",
+            "article",
+            "post",
+            "story",
         ];
         for pattern in class_patterns {
-            let regex = format!(r#"(?is)<[a-z]+[^>]+class=["'][^"']*\b{pattern}\b[^"']*["'][^>]*>(.*?)</[a-z]+>"#);
+            let regex = format!(
+                r#"(?is)<[a-z]+[^>]+class=["'][^"']*\b{pattern}\b[^"']*["'][^>]*>(.*?)</[a-z]+>"#
+            );
             if let Ok(re) = regex_compile(&regex) {
                 if let Some(caps) = re.captures(html) {
                     if let Some(body) = caps.get(1) {
@@ -787,20 +831,21 @@ impl ContentParser {
     fn extract_links(html: &str, base_url: &str) -> Vec<ParsedLink> {
         // Rust's `regex` crate does not support backreferences, so we run
         // two passes: one for `href="..."` and one for `href='...'`.
-        let re_double = match regex_compile(
-            r#"(?is)<a\b[^>]*?\bhref="([^"]*)"[^>]*>([\s\S]*?)</a>"#,
-        ) {
-            Ok(re) => re,
-            Err(_) => return Vec::new(),
-        };
-        let re_single = match regex_compile(
-            r#"(?is)<a\b[^>]*?\bhref='([^']*)'[^>]*>([\s\S]*?)</a>"#,
-        ) {
-            Ok(re) => re,
-            Err(_) => return Vec::new(),
-        };
+        let re_double =
+            match regex_compile(r#"(?is)<a\b[^>]*?\bhref="([^"]*)"[^>]*>([\s\S]*?)</a>"#) {
+                Ok(re) => re,
+                Err(_) => return Vec::new(),
+            };
+        let re_single =
+            match regex_compile(r#"(?is)<a\b[^>]*?\bhref='([^']*)'[^>]*>([\s\S]*?)</a>"#) {
+                Ok(re) => re,
+                Err(_) => return Vec::new(),
+            };
         let mut seen: HashMap<String, ParsedLink> = HashMap::new();
-        for caps in re_double.captures_iter(html).chain(re_single.captures_iter(html)) {
+        for caps in re_double
+            .captures_iter(html)
+            .chain(re_single.captures_iter(html))
+        {
             let href = decode_text(caps.get(1).map(|m| m.as_str()).unwrap_or(""))
                 .trim()
                 .to_string();
@@ -939,12 +984,15 @@ fn char_from_code(code: u32) -> String {
     if !(0..=0x10ffff).contains(&code) || (0xd800..=0xdfff).contains(&code) {
         return String::new();
     }
-    char::from_u32(code).map(|c| c.to_string()).unwrap_or_default()
+    char::from_u32(code)
+        .map(|c| c.to_string())
+        .unwrap_or_default()
 }
 
 fn html_to_text(html: &str) -> String {
     let mut output = html.to_string();
-    if let Ok(re) = regex_compile(r"(?i)<(h[1-6]|p|div|article|section|li|blockquote|hr|br)[^>]*>") {
+    if let Ok(re) = regex_compile(r"(?i)<(h[1-6]|p|div|article|section|li|blockquote|hr|br)[^>]*>")
+    {
         output = re.replace_all(&output, "\n").to_string();
     }
     if let Ok(re) = regex_compile(r"(?i)</(h[1-6]|p|div|article|section|blockquote)>") {

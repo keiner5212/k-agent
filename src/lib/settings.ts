@@ -12,6 +12,7 @@ import {
   DEFAULT_FORCE_RESPONSE_LANGUAGE,
   DEFAULT_BUILD_AGENT_ENABLED,
   DEFAULT_LSP_ENABLED,
+  DEFAULT_LIMIT_PROVIDER_DATA_USE,
   DEFAULT_PLAN_AGENT_ENABLED,
   DEFAULT_MAX_WORKER_CORES,
   DEFAULT_NOTIFICATIONS_ENABLED,
@@ -223,6 +224,10 @@ const sanitizeSettings = (raw: unknown): Settings => {
       obj.workspaceMemoryEnabled,
       DEFAULT_WORKSPACE_MEMORY_ENABLED,
     ),
+    limitProviderDataUse: sanitizeBoolean(
+      obj.limitProviderDataUse,
+      DEFAULT_LIMIT_PROVIDER_DATA_USE,
+    ),
     titleGenerationModel: sanitizeModelChoice(obj.titleGenerationModel),
     titleUseFirstMessage: sanitizeBoolean(
       obj.titleUseFirstMessage,
@@ -265,6 +270,7 @@ export type SettingsStore = Settings & {
   setShellProgram: (program: string) => void;
   setNotificationsEnabled: (enabled: boolean) => void;
   setWorkspaceMemoryEnabled: (enabled: boolean) => void;
+  setLimitProviderDataUse: (enabled: boolean) => void;
   setTitleGenerationModel: (model: SelectedModel | null) => void;
   setTitleUseFirstMessage: (enabled: boolean) => void;
   setAppGenerationModel: (model: SelectedModel | null) => void;
@@ -384,6 +390,7 @@ const snapshot = (state: SettingsStore): Settings => ({
   shellProgram: state.shellProgram,
   notificationsEnabled: state.notificationsEnabled,
   workspaceMemoryEnabled: state.workspaceMemoryEnabled,
+  limitProviderDataUse: state.limitProviderDataUse,
   titleGenerationModel: state.titleGenerationModel,
   titleUseFirstMessage: state.titleUseFirstMessage,
   appGenerationModel: state.appGenerationModel,
@@ -555,6 +562,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setWorkspaceMemoryEnabled: (enabled) => {
     set({ workspaceMemoryEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setLimitProviderDataUse: (enabled) => {
+    set({ limitProviderDataUse: enabled });
     void persist(snapshot(get()));
   },
 

@@ -124,9 +124,10 @@ impl Tool for EditTool {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 super::action_error(&rel, &format!("File not found: {}", resolved.display()))
             }
-            Err(error) if error.kind() == std::io::ErrorKind::InvalidData => {
-                super::action_error(&rel, &format!("Cannot edit binary file: {}", resolved.display()))
-            }
+            Err(error) if error.kind() == std::io::ErrorKind::InvalidData => super::action_error(
+                &rel,
+                &format!("Cannot edit binary file: {}", resolved.display()),
+            ),
             Err(error) => super::action_error(
                 &rel,
                 &format!("Unable to read `{}`: {error}", resolved.display()),
@@ -778,10 +779,7 @@ mod tests {
 
     #[test]
     fn execute_requires_file_path() {
-        let dir = std::env::temp_dir().join(format!(
-            "k-agent-edit-test-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("k-agent-edit-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
         let outcome = EditTool.execute(&json!({}), &ctx);

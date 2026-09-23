@@ -122,10 +122,7 @@ mod tests {
     fn writes_file_in_workspace() {
         let dir = tempdir();
         let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
-        let outcome = WriteTool.execute(
-            &json!({"filePath": "hello.txt", "content": "hi"}),
-            &ctx,
-        );
+        let outcome = WriteTool.execute(&json!({"filePath": "hello.txt", "content": "hi"}), &ctx);
         assert_eq!(outcome.display.status.as_deref(), Some("ok"));
         assert_eq!(fs::read_to_string(dir.join("hello.txt")).unwrap(), "hi");
         let _ = fs::remove_dir_all(&dir);

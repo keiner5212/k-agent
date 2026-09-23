@@ -95,10 +95,7 @@ impl Tool for ReadTool {
 
         let file_type = metadata.file_type();
         if file_type.is_dir() {
-            return super::context_error(
-                Some(&rel),
-                "Path is a directory. Use list_directory.",
-            );
+            return super::context_error(Some(&rel), "Path is a directory. Use list_directory.");
         }
         if !file_type.is_file() {
             return super::context_error(

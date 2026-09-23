@@ -97,7 +97,10 @@ impl Tool for CreateFolderTool {
 
         super::action_error(
             &rel,
-            &format!("Path already exists and is not a directory: {}", resolved.display()),
+            &format!(
+                "Path already exists and is not a directory: {}",
+                resolved.display()
+            ),
         )
     }
 }

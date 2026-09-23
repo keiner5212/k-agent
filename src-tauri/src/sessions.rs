@@ -191,7 +191,9 @@ fn attachment_ext(name: &str, mime: &str) -> String {
         .and_then(|value| value.to_str())
         .map(|value| value.to_ascii_lowercase())
         .filter(|value| {
-            !value.is_empty() && value.len() <= 8 && value.chars().all(|ch| ch.is_ascii_alphanumeric())
+            !value.is_empty()
+                && value.len() <= 8
+                && value.chars().all(|ch| ch.is_ascii_alphanumeric())
         })
     {
         return format!(".{ext}");
@@ -302,7 +304,10 @@ fn prune_removed_session_dirs(
     Ok(())
 }
 
-fn save_snapshot_sync(app: &AppHandle, snapshot: &mut SessionsSnapshot) -> Result<(), SessionError> {
+fn save_snapshot_sync(
+    app: &AppHandle,
+    snapshot: &mut SessionsSnapshot,
+) -> Result<(), SessionError> {
     if snapshot.sessions.is_empty() {
         return Err(SessionError::Parse("sessions must not be empty".into()));
     }
@@ -313,7 +318,11 @@ fn save_snapshot_sync(app: &AppHandle, snapshot: &mut SessionsSnapshot) -> Resul
     {
         return Err(SessionError::Parse("active session id not found".into()));
     }
-    let keep: HashSet<String> = snapshot.sessions.iter().map(|session| session.id.clone()).collect();
+    let keep: HashSet<String> = snapshot
+        .sessions
+        .iter()
+        .map(|session| session.id.clone())
+        .collect();
     let previously_listed: HashSet<String> = read_thin_index(app)
         .map(|index| index.sessions.into_iter().map(|entry| entry.id).collect())
         .unwrap_or_default();
@@ -334,7 +343,9 @@ fn load_from_session_dirs(app: &AppHandle) -> Result<SessionsSnapshot, SessionEr
     let mut sessions = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|e| SessionError::Io(e.to_string()))?;
-        let file_type = entry.file_type().map_err(|e| SessionError::Io(e.to_string()))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|e| SessionError::Io(e.to_string()))?;
         if !file_type.is_dir() {
             continue;
         }
@@ -464,7 +475,10 @@ async fn load_snapshot(app: &AppHandle) -> Result<SessionsSnapshot, SessionError
         .map_err(|e| SessionError::Io(e.to_string()))?
 }
 
-async fn save_snapshot(app: &AppHandle, mut snapshot: SessionsSnapshot) -> Result<(), SessionError> {
+async fn save_snapshot(
+    app: &AppHandle,
+    mut snapshot: SessionsSnapshot,
+) -> Result<(), SessionError> {
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || save_snapshot_sync(&handle, &mut snapshot))
         .await

@@ -7,11 +7,10 @@ import { useAgentsMdStore } from "@/lib/agents-md";
 import { useAgentsStore } from "@/lib/agents";
 import { useComposerStore, type ComposerMode } from "@/lib/composer";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
-import { useProvidersStore } from "@/lib/providers";
 import { resolveOutgoingMentions } from "@/lib/resolve-outgoing-mentions";
 import { notifyResponseFinished } from "@/lib/notifications";
 import { composeSystemWithLanguage } from "@/lib/response-language";
-import { selectEffort, useSelectionStore } from "@/lib/selected-model";
+import { selectRequest, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
 import { useSkillsStore } from "@/lib/skills";
 import {
@@ -174,14 +173,16 @@ const resolveTitleModel = (): SelectedModel | null => {
   return useSelectionStore.getState().selection;
 };
 
-const resolveSendEffort = (selection: SelectedModel): string | undefined => {
-  const stored = selectEffort(useSelectionStore.getState());
-  if (stored) return stored;
-  const provider = useProvidersStore
-    .getState()
-    .providers.find((item) => item.id === selection.providerId);
-  const model = provider?.models.find((item) => item.id === selection.modelId);
-  return model?.effortLevels?.[0];
+const resolveSendRequest = () => {
+  const request = selectRequest(useSelectionStore.getState());
+  return {
+    reasoningMode: request.reasoningMode ?? null,
+    effort: request.effort ?? null,
+    serviceTier: request.serviceTier ?? null,
+    temperature: request.temperature ?? null,
+    maxOutputTokens: request.maxOutputTokens ?? null,
+    limitProviderDataUse: useSettingsStore.getState().limitProviderDataUse,
+  };
 };
 
 const generateSessionTitle = async (firstMessage: string): Promise<string> => {
@@ -197,6 +198,7 @@ const generateSessionTitle = async (firstMessage: string): Promise<string> => {
         providerId: model.providerId,
         modelId: model.modelId,
         message: firstMessage,
+        limitProviderDataUse: useSettingsStore.getState().limitProviderDataUse,
       },
     });
     const title = result.title.trim();
@@ -400,7 +402,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     });
 
     const isFirstMessage = sessionMessages(activeSession).length === 0;
-    const effort = resolveSendEffort(selection);
+    const request = resolveSendRequest();
     let content: string;
     try {
       content = await resolveUserMessageContent(trimmed);
@@ -588,7 +590,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           modelId: selection.modelId,
           messages: chatTurns,
           system: system.length > 0 ? system : null,
-          effort: effort ?? null,
+          request,
           sessionId: sessionId,
           toolNames,
           workerCores: getWorkerCoreSnapshot().limit,

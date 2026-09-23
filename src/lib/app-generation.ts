@@ -35,6 +35,7 @@ export const generateAppContent = async (
         content: input.content ?? "",
         name: input.name ?? "",
         description: input.description ?? "",
+        limitProviderDataUse: useSettingsStore.getState().limitProviderDataUse,
       },
     });
     const text = result.text.trim();

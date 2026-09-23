@@ -167,6 +167,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
     ],
     items: [
       {
+        id: "limitProviderDataUse",
+        type: "toggle",
+        titleKey: "settings.limitProviderDataUse.label",
+        descriptionKey: "settings.limitProviderDataUse.description",
+        keywords: ["privacy", "training", "data", "store", "opt-out", "privacidad"],
+      },
+      {
         id: "reminderInterval",
         type: "select",
         titleKey: "settings.reminderInterval.label",

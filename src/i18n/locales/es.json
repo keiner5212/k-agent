@@ -129,6 +129,10 @@
       "label": "Guardar notas en el espacio de trabajo",
       "description": "Guarda anotaciones útiles del chat en archivos dentro del espacio de trabajo actual."
     },
+    "limitProviderDataUse": {
+      "label": "Limitar el uso de datos del proveedor",
+      "description": "Envia un flag verificado cuando el endpoint lo documenta. Si no hay flag, la peticion no cambia y el dialogo del modelo lo indica."
+    },
     "buildAgentEnabled": {
       "label": "Agente Build",
       "description": "Muestra el agente Build integrado en el chat. Puede editar archivos y ejecutar comandos."
@@ -877,6 +881,37 @@
     },
     "effort": {
       "label": "Esfuerzo"
+    },
+    "request": {
+      "open": "Opciones de la peticion",
+      "title": "Peticion del modelo",
+      "default": "Predeterminado del proveedor",
+      "thinking": "Pensamiento",
+      "effort": "Esfuerzo",
+      "serviceTier": "Nivel de servicio",
+      "temperature": "Temperatura",
+      "maxOutput": "Tope de tokens de salida",
+      "maxOutputDefault": "Limite del modelo",
+      "contractVerified": "Contrato verificado para este endpoint y modelo.",
+      "contractUnknown": "No hay contrato verificado. Los campos no verificados no se envian.",
+      "reasoningUnknown": "Los controles de razonamiento de este modelo no estan verificados.",
+      "privacyOn": "El limite de uso de datos esta activo. {{detail}}",
+      "privacyOff": "El limite de uso de datos esta apagado. Activalo en Ajustes para enviar un flag verificado cuando exista.",
+      "note": {
+        "reasoningSplit": "Reasoning split queda activo para separar el pensamiento de la respuesta.",
+        "thinkingLocked": "Este modelo no puede apagar el pensamiento.",
+        "modelUnknown": "Los parametros especificos del modelo son desconocidos en este endpoint.",
+        "tierMayReject": "El proveedor puede rechazar un nivel que este modelo no admite.",
+        "thinkingDefaultOff": "El pensamiento queda apagado salvo que se active aqui.",
+        "alwaysThinking": "El pensamiento permanece activo en este modelo."
+      },
+      "privacy": {
+        "openai": "Envia store=false. Limita respuestas guardadas. El entrenamiento de API sigue apagado salvo opt-in del proyecto.",
+        "openrouter": "Envia provider.data_collection=deny.",
+        "accountOnly": "Este endpoint no tiene flag de peticion. El uso de datos es un ajuste de cuenta.",
+        "unsupported": "No hay un flag documentado para impedir el entrenamiento en este endpoint.",
+        "unknown": "No hay un flag verificado de uso de datos para este endpoint."
+      }
     },
     "agent": {
       "label": "Agente",

@@ -68,7 +68,10 @@ struct DeleteTarget {
 
 fn parse_target(args: &Value, ctx: &ToolContext<'_>) -> Result<DeleteTarget, ToolOutcome> {
     let Some(raw_path) = args.get("path").and_then(Value::as_str) else {
-        return Err(super::action_error("", "delete tool requires a string `path`."));
+        return Err(super::action_error(
+            "",
+            "delete tool requires a string `path`.",
+        ));
     };
     let trimmed = raw_path.trim();
     if trimmed.is_empty() {
@@ -170,7 +173,11 @@ fn resolve_path(ctx: &ToolContext<'_>, raw: &str) -> Result<PathBuf, String> {
 }
 
 async fn confirm_destructive(ctx: &ToolContext<'_>, resolved: &Path, rel: &str) -> bool {
-    let kind_label = if resolved.is_dir() { "directory" } else { "file" };
+    let kind_label = if resolved.is_dir() {
+        "directory"
+    } else {
+        "file"
+    };
     let questions = vec![AskUserQuestion {
         id: "delete_confirm".to_string(),
         header: "Confirm deletion".to_string(),

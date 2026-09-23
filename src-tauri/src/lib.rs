@@ -10,6 +10,7 @@ mod mcp_servers;
 mod pathutil;
 mod providers;
 mod repo;
+mod request_profile;
 mod secret;
 mod sessions;
 mod shell;
@@ -48,9 +49,7 @@ use providers::{
     delete_provider, delete_provider_model, list_providers, refresh_provider_models,
     refresh_single_model, save_provider, set_model_favorite, upsert_provider_model,
 };
-use sessions::{
-    load_sessions, read_session_attachment, read_session_file_revision, save_sessions,
-};
+use sessions::{load_sessions, read_session_attachment, read_session_file_revision, save_sessions};
 use shell::run_shell_command;
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
@@ -706,6 +705,7 @@ pub fn run() {
             read_session_attachment,
             read_session_file_revision,
             send_chat_message,
+            request_profile::describe_model_request,
             generate_session_title,
             generate_app_content,
             run_shell_command,

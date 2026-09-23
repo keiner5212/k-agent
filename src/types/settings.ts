@@ -53,6 +53,7 @@ export const SHELL_PROGRAM_MAX_LENGTH = 512;
 
 export const DEFAULT_NOTIFICATIONS_ENABLED = true;
 export const DEFAULT_WORKSPACE_MEMORY_ENABLED = false;
+export const DEFAULT_LIMIT_PROVIDER_DATA_USE = false;
 
 export const DEFAULT_TITLE_GENERATION_MODEL: SelectedModel | null = null;
 export const DEFAULT_TITLE_USE_FIRST_MESSAGE = false;
@@ -135,6 +136,7 @@ export type Settings = {
   shellProgram: string;
   notificationsEnabled: boolean;
   workspaceMemoryEnabled: boolean;
+  limitProviderDataUse: boolean;
   titleGenerationModel: SelectedModel | null;
   titleUseFirstMessage: boolean;
   appGenerationModel: SelectedModel | null;
@@ -166,6 +168,7 @@ export const DEFAULT_SETTINGS: Settings = {
   shellProgram: DEFAULT_SHELL_PROGRAM,
   notificationsEnabled: DEFAULT_NOTIFICATIONS_ENABLED,
   workspaceMemoryEnabled: DEFAULT_WORKSPACE_MEMORY_ENABLED,
+  limitProviderDataUse: DEFAULT_LIMIT_PROVIDER_DATA_USE,
   titleGenerationModel: DEFAULT_TITLE_GENERATION_MODEL,
   titleUseFirstMessage: DEFAULT_TITLE_USE_FIRST_MESSAGE,
   appGenerationModel: DEFAULT_APP_GENERATION_MODEL,

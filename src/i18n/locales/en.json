@@ -129,6 +129,10 @@
       "label": "Save notes to workspace memory",
       "description": "Persist useful annotations from chat into files inside the current workspace."
     },
+    "limitProviderDataUse": {
+      "label": "Limit provider data use",
+      "description": "Send a verified request flag when the endpoint documents one. Endpoints without a flag stay unchanged and say so in the model request dialog."
+    },
     "buildAgentEnabled": {
       "label": "Build agent",
       "description": "Show the built-in Build agent in chat. It can edit files and run commands."
@@ -877,6 +881,37 @@
     },
     "effort": {
       "label": "Effort"
+    },
+    "request": {
+      "open": "Model request options",
+      "title": "Model request",
+      "default": "Provider default",
+      "thinking": "Thinking",
+      "effort": "Effort",
+      "serviceTier": "Service tier",
+      "temperature": "Temperature",
+      "maxOutput": "Max output tokens",
+      "maxOutputDefault": "Model limit",
+      "contractVerified": "Verified contract for this endpoint and model.",
+      "contractUnknown": "No verified model contract. Unverified fields stay off the request.",
+      "reasoningUnknown": "Reasoning controls for this model are not verified.",
+      "privacyOn": "Data-use limit is on. {{detail}}",
+      "privacyOff": "Data-use limit is off. Turn it on in Settings to send a verified flag when one exists.",
+      "note": {
+        "reasoningSplit": "Reasoning split stays on so thinking stays outside the answer.",
+        "thinkingLocked": "This model cannot turn thinking off.",
+        "modelUnknown": "Model-specific parameters are unknown for this endpoint.",
+        "tierMayReject": "The provider may reject a tier this model cannot use.",
+        "thinkingDefaultOff": "Thinking is off unless enabled here.",
+        "alwaysThinking": "Thinking stays on for this model."
+      },
+      "privacy": {
+        "openai": "Sends store=false. This limits stored responses. API training stays off unless the project opted in.",
+        "openrouter": "Sends provider.data_collection=deny.",
+        "accountOnly": "This endpoint has no request flag. Data use is an account setting.",
+        "unsupported": "No documented request flag can stop training for this endpoint.",
+        "unknown": "No verified data-use flag for this endpoint."
+      }
     },
     "agent": {
       "label": "Agent",

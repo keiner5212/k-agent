@@ -86,10 +86,9 @@ impl Tool for InternetSearchTool {
 
     fn execute(&self, args: &Value, _ctx: &ToolContext<'_>) -> ToolOutcome {
         match parse_args(args) {
-            Ok(_) => super::context_error(
-                None,
-                "internet_search must run on the async dispatch path.",
-            ),
+            Ok(_) => {
+                super::context_error(None, "internet_search must run on the async dispatch path.")
+            }
             Err(message) => super::context_error(None, &message),
         }
     }
@@ -238,7 +237,10 @@ async fn bing_page(
         url_encode(query),
         first
     );
-    let fetched = match session.get(&url, "same-origin", Some(BING_HOME.to_string())).await {
+    let fetched = match session
+        .get(&url, "same-origin", Some(BING_HOME.to_string()))
+        .await
+    {
         Ok(fetched) => fetched,
         Err(error) => {
             if is_access_denied_error(&error) {
@@ -306,7 +308,10 @@ fn is_access_denied_error(error: &str) -> bool {
 
 fn parse_bing_results(html: &str) -> Vec<SearchResult> {
     let region = results_region(html);
-    eprintln!("DBG parse_bing_results region sample (first 400 chars):\n{}\n---", &region[..region.len().min(400)]);
+    eprintln!(
+        "DBG parse_bing_results region sample (first 400 chars):\n{}\n---",
+        &region[..region.len().min(400)]
+    );
     let mut results: Vec<SearchResult> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     let block_re = match regex::Regex::new(r"(?is)<li\b[^>]*\bb_algo\b[^>]*>") {
@@ -325,12 +330,11 @@ fn parse_bing_results(html: &str) -> Vec<SearchResult> {
         Ok(re) => re,
         Err(_) => return results,
     };
-    let snippet_re = match regex::Regex::new(
-        r#"(?is)<p[^>]*\bb_lineclamp\d?\b[^>]*>([\s\S]*?)</p>"#,
-    ) {
-        Ok(re) => re,
-        Err(_) => return results,
-    };
+    let snippet_re =
+        match regex::Regex::new(r#"(?is)<p[^>]*\bb_lineclamp\d?\b[^>]*>([\s\S]*?)</p>"#) {
+            Ok(re) => re,
+            Err(_) => return results,
+        };
     let caption_re = match regex::Regex::new(
         r#"(?is)class=["'][^"']*\bb_caption\b[^"']*[\s\S]*?<p\b[^>]*>([\s\S]*?)</p>"#,
     ) {
@@ -348,7 +352,10 @@ fn parse_bing_results(html: &str) -> Vec<SearchResult> {
 
     let blocks: Vec<&str> = block_re.split(&region).collect();
     for (i, block) in blocks.into_iter().skip(1).enumerate() {
-        let Some(caps) = link_re_double.captures(block).or_else(|| link_re_single.captures(block)) else {
+        let Some(caps) = link_re_double
+            .captures(block)
+            .or_else(|| link_re_single.captures(block))
+        else {
             eprintln!("DBG block {i}: no link match");
             continue;
         };
@@ -362,10 +369,20 @@ fn parse_bing_results(html: &str) -> Vec<SearchResult> {
             }
         };
         eprintln!("DBG block {i}: unwrapped url={url:?}");
-        let title = text_of(&decode_entities(caps.get(2).map(|m| m.as_str()).unwrap_or(""))).chars().take(200).collect::<String>();
+        let title = text_of(&decode_entities(
+            caps.get(2).map(|m| m.as_str()).unwrap_or(""),
+        ))
+        .chars()
+        .take(200)
+        .collect::<String>();
         eprintln!("DBG block {i}: title={title:?}");
         if title.is_empty() || is_bing(&url) || seen.contains(&url) {
-            eprintln!("DBG block {i}: filtered (empty={} bing={} seen={})", title.is_empty(), is_bing(&url), seen.contains(&url));
+            eprintln!(
+                "DBG block {i}: filtered (empty={} bing={} seen={})",
+                title.is_empty(),
+                is_bing(&url),
+                seen.contains(&url)
+            );
             continue;
         }
         let snippet_html = snippet_re
@@ -379,7 +396,10 @@ fn parse_bing_results(html: &str) -> Vec<SearchResult> {
             .map(|c| text_of(&decode_entities(c.get(1).map(|m| m.as_str()).unwrap_or(""))))
             .unwrap_or_default();
         let site = site.chars().take(80).collect::<String>();
-        let snippet = text_of(&decode_entities(&snippet_html)).chars().take(300).collect::<String>();
+        let snippet = text_of(&decode_entities(&snippet_html))
+            .chars()
+            .take(300)
+            .collect::<String>();
         seen.insert(url.clone());
         results.push(SearchResult {
             position: 0,
@@ -418,13 +438,20 @@ fn parse_duck_results(html: &str) -> Vec<SearchResult> {
     };
     let blocks: Vec<&str> = block_re.split(html).collect();
     for block in blocks.into_iter().skip(1) {
-        let Some(caps) = link_re.captures(block) else { continue };
+        let Some(caps) = link_re.captures(block) else {
+            continue;
+        };
         let raw_href = caps.get(2).map(|m| m.as_str()).unwrap_or("");
         let url = match unwrap_duck_url(raw_href) {
             Some(u) => u,
             None => continue,
         };
-        let title = text_of(&decode_entities(caps.get(3).map(|m| m.as_str()).unwrap_or(""))).chars().take(200).collect::<String>();
+        let title = text_of(&decode_entities(
+            caps.get(3).map(|m| m.as_str()).unwrap_or(""),
+        ))
+        .chars()
+        .take(200)
+        .collect::<String>();
         if title.is_empty() || seen.contains(&url) {
             continue;
         }
@@ -436,7 +463,11 @@ fn parse_duck_results(html: &str) -> Vec<SearchResult> {
         let site = reqwest::Url::parse(&url)
             .map(|u| u.host_str().unwrap_or("").to_string())
             .unwrap_or_default();
-        let site = site.trim_start_matches("www.").chars().take(80).collect::<String>();
+        let site = site
+            .trim_start_matches("www.")
+            .chars()
+            .take(80)
+            .collect::<String>();
         seen.insert(url.clone());
         results.push(SearchResult {
             position: 0,
@@ -453,10 +484,11 @@ fn parse_duck_results(html: &str) -> Vec<SearchResult> {
 }
 
 fn results_region(html: &str) -> &str {
-    let re = match regex::Regex::new(r#"(?is)<ol\b[^>]*\bid=["']b_results["'][^>]*>([\s\S]*?)</ol>"#) {
-        Ok(re) => re,
-        Err(_) => return html,
-    };
+    let re =
+        match regex::Regex::new(r#"(?is)<ol\b[^>]*\bid=["']b_results["'][^>]*>([\s\S]*?)</ol>"#) {
+            Ok(re) => re,
+            Err(_) => return html,
+        };
     re.captures(html)
         .and_then(|caps| caps.get(1).map(|m| m.as_str()))
         .unwrap_or(html)
@@ -509,9 +541,11 @@ fn collapse_double_ampersands(input: &str) -> String {
 
 fn unwrap_duck_url(href: &str) -> Option<String> {
     let decoded = decode_entities(href.trim());
-    let parsed = reqwest::Url::parse(&decoded)
-        .ok()
-        .or_else(|| reqwest::Url::parse(DUCK_HOME).ok().and_then(|base| base.join(&decoded).ok()))?;
+    let parsed = reqwest::Url::parse(&decoded).ok().or_else(|| {
+        reqwest::Url::parse(DUCK_HOME)
+            .ok()
+            .and_then(|base| base.join(&decoded).ok())
+    })?;
     let host = parsed.host_str().unwrap_or("").to_lowercase();
     if (host == "duckduckgo.com" || host.ends_with(".duckduckgo.com")) && parsed.path() == "/l/" {
         let target = parsed
@@ -623,19 +657,22 @@ fn decode_entities(text: &str) -> String {
     let mut output = text.to_string();
     if let Ok(re) = regex::Regex::new(r"(?i)&#x([0-9a-f]+);") {
         output = re
-            .replace_all(&output, |caps: &regex::Captures| {
-                match u32::from_str_radix(&caps[1], 16) {
+            .replace_all(
+                &output,
+                |caps: &regex::Captures| match u32::from_str_radix(&caps[1], 16) {
                     Ok(code) => char_from_code(code),
                     Err(_) => String::new(),
-                }
-            })
+                },
+            )
             .to_string();
     }
     if let Ok(re) = regex::Regex::new(r"&#(\d+);") {
         output = re
-            .replace_all(&output, |caps: &regex::Captures| match caps[1].parse::<u32>() {
-                Ok(code) => char_from_code(code),
-                Err(_) => String::new(),
+            .replace_all(&output, |caps: &regex::Captures| {
+                match caps[1].parse::<u32>() {
+                    Ok(code) => char_from_code(code),
+                    Err(_) => String::new(),
+                }
             })
             .to_string();
     }
@@ -653,7 +690,9 @@ fn char_from_code(code: u32) -> String {
     if !(0..=0x10ffff).contains(&code) || (0xd800..=0xdfff).contains(&code) {
         return String::new();
     }
-    char::from_u32(code).map(|c| c.to_string()).unwrap_or_default()
+    char::from_u32(code)
+        .map(|c| c.to_string())
+        .unwrap_or_default()
 }
 
 fn url_encode(value: &str) -> String {
@@ -690,7 +729,13 @@ fn clean_query(query: &str) -> String {
         .chars()
         .map(|c| if c.is_control() { ' ' } else { c })
         .collect();
-    trimmed.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(MAX_QUERY_LENGTH).collect()
+    trimmed
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(MAX_QUERY_LENGTH)
+        .collect()
 }
 
 fn clean_lang(value: &str) -> String {
@@ -698,7 +743,11 @@ fn clean_lang(value: &str) -> String {
     if trimmed.is_empty() {
         return String::new();
     }
-    if trimmed.len() > 35 || trimmed.chars().any(|c| c.is_control() || matches!(c, ',' | ';' | '\\')) {
+    if trimmed.len() > 35
+        || trimmed
+            .chars()
+            .any(|c| c.is_control() || matches!(c, ',' | ';' | '\\'))
+    {
         return String::new();
     }
     let primary = trimmed.split('-').next().unwrap_or(trimmed);
@@ -750,7 +799,10 @@ fn parse_args_str(arguments: &str) -> Result<SearchArgs, String> {
         .and_then(Value::as_str)
         .ok_or_else(|| "internet_search requires a string `query`.".to_string())?
         .to_string();
-    let lang = value.get("lang").and_then(Value::as_str).map(str::to_string);
+    let lang = value
+        .get("lang")
+        .and_then(Value::as_str)
+        .map(str::to_string);
     let pages = value.get("pages").and_then(Value::as_u64).map(|n| n as u32);
     Ok(SearchArgs { query, lang, pages })
 }

@@ -70,6 +70,8 @@ pub struct SendChatInput {
     #[serde(default)]
     pub effort: Option<String>,
     #[serde(default)]
+    pub request: crate::request_profile::ChatRequestOptions,
+    #[serde(default)]
     pub session_id: Option<String>,
     #[serde(default)]
     pub tool_names: Vec<String>,
@@ -178,6 +180,7 @@ struct ChatCall<'a> {
     effort: Option<&'a str>,
     max_output: u64,
     enable_reasoning: bool,
+    plan: &'a crate::request_profile::WirePlan,
     tool_names: &'a [String],
     mcp_tools: &'a [crate::mcp_client::BoundMcpTool],
     parallelism: usize,
@@ -240,65 +243,6 @@ fn stream_http_client() -> Result<reqwest::Client, ChatError> {
         .user_agent(concat!("k-agent/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|e| ChatError::Http(e.to_string()))
-}
-
-fn host_of(provider: &Provider) -> String {
-    provider.base_url.to_ascii_lowercase()
-}
-
-fn is_minimax(provider: &Provider, model: &ModelInfo) -> bool {
-    if host_of(provider).contains("minimax") {
-        return true;
-    }
-    if model.id.to_ascii_lowercase().contains("minimax") {
-        return true;
-    }
-    model
-        .family
-        .as_deref()
-        .is_some_and(|family| family.to_ascii_lowercase().contains("minimax"))
-}
-
-fn minimax_can_disable_thinking(model: &ModelInfo) -> bool {
-    let id = model.id.to_ascii_lowercase();
-    let family = model.family.as_deref().unwrap_or("").to_ascii_lowercase();
-    id.contains("m3") || family.contains("m3")
-}
-
-fn enable_minimax_thinking(model: &ModelInfo, effort: Option<&str>) -> bool {
-    match effort {
-        Some("none") | Some("minimal") | Some("off") => !minimax_can_disable_thinking(model),
-        _ => true,
-    }
-}
-
-fn model_key(model: &ModelInfo) -> String {
-    let mut key = model.id.to_ascii_lowercase();
-    if let Some(family) = &model.family {
-        key.push(' ');
-        key.push_str(&family.to_ascii_lowercase());
-    }
-    key
-}
-
-fn is_glm52(key: &str) -> bool {
-    key.contains("glm-5.2") || key.contains("glm-5-2") || key.contains("glm-5p2")
-}
-
-fn uses_max_completion_tokens(provider: &Provider, model: &ModelInfo) -> bool {
-    if model.reasoning || is_minimax(provider, model) {
-        return true;
-    }
-    let key = model_key(model);
-    key.contains("o1")
-        || key.contains("o3")
-        || key.contains("o4")
-        || key.contains("gpt-5")
-        || key.contains("codex")
-}
-
-fn omits_temperature(provider: &Provider, model: &ModelInfo) -> bool {
-    uses_max_completion_tokens(provider, model) && !is_minimax(provider, model)
 }
 
 fn token_field_error(body: &str) -> bool {
@@ -369,25 +313,6 @@ fn thought_sig(value: Option<&str>) -> String {
         .filter(|text| !text.is_empty())
         .unwrap_or("")
         .to_string()
-}
-
-fn openai_compat_skips_effort(model: &ModelInfo) -> bool {
-    let key = model_key(model);
-    if key.contains("minimax") {
-        return true;
-    }
-    if is_glm52(&key) {
-        return false;
-    }
-    key.contains("deepseek")
-        || key.contains("glm")
-        || key.contains("kimi")
-        || key.contains("k2p")
-        || key.contains("qwen")
-}
-
-fn effort_is_off(effort: Option<&str>) -> bool {
-    matches!(effort, Some("none" | "minimal" | "off"))
 }
 
 fn nonempty_text(value: Option<&str>) -> Option<&str> {
@@ -895,16 +820,6 @@ fn gemini_contents(turns: &[Turn]) -> serde_json::Value {
     json!(contents)
 }
 
-fn is_claude_host(provider: &Provider) -> bool {
-    let host = host_of(provider);
-    host.contains("anthropic.com") || host.contains("api.anthropic")
-}
-
-fn is_gemini_3(model_id: &str) -> bool {
-    let id = model_id.to_ascii_lowercase();
-    id.contains("gemini-3")
-}
-
 fn lookup_model(provider: &Provider, model_id: &str) -> ModelInfo {
     provider
         .models
@@ -912,6 +827,32 @@ fn lookup_model(provider: &Provider, model_id: &str) -> ModelInfo {
         .find(|model| model.id == model_id)
         .cloned()
         .unwrap_or_else(|| ModelInfo::detected(model_id))
+}
+
+fn request_plan(
+    provider: &Provider,
+    model: &ModelInfo,
+    options: &crate::request_profile::ChatRequestOptions,
+    max_output: u64,
+) -> crate::request_profile::WirePlan {
+    let query = crate::request_profile::quiet_query(
+        provider.kind,
+        &provider.base_url,
+        &model.id,
+        model.family.as_deref(),
+    );
+    crate::request_profile::prepare(&query, options, max_output)
+}
+
+fn quiet_request_options(
+    limit_provider_data_use: bool,
+) -> crate::request_profile::ChatRequestOptions {
+    crate::request_profile::ChatRequestOptions {
+        reasoning_mode: Some("disabled".into()),
+        effort: Some("none".into()),
+        limit_provider_data_use,
+        ..crate::request_profile::ChatRequestOptions::default()
+    }
 }
 
 fn output_tokens(model: &ModelInfo) -> u64 {
@@ -924,43 +865,6 @@ fn output_tokens(model: &ModelInfo) -> u64 {
 
 fn capped_output(model: &ModelInfo, cap: u64) -> u64 {
     output_tokens(model).min(cap).max(1)
-}
-
-fn resolve_effort(model: &ModelInfo, requested: Option<&str>) -> Option<String> {
-    if !model.reasoning && model.effort_levels.is_empty() {
-        return None;
-    }
-    if let Some(effort) = requested.map(str::trim).filter(|value| !value.is_empty()) {
-        if model.effort_levels.is_empty() || model.effort_levels.iter().any(|level| level == effort)
-        {
-            return Some(effort.to_string());
-        }
-    }
-    for preferred in ["high", "xhigh", "max", "medium"] {
-        if model.effort_levels.iter().any(|level| level == preferred) {
-            return Some(preferred.to_string());
-        }
-    }
-    if let Some(last) = model.effort_levels.last() {
-        return Some(last.clone());
-    }
-    if model.reasoning {
-        return Some("high".into());
-    }
-    None
-}
-
-fn is_effort_model(model: &ModelInfo) -> bool {
-    model.reasoning || !model.effort_levels.is_empty()
-}
-
-fn gemini_thinking_level(effort: &str) -> &'static str {
-    match effort {
-        "none" | "minimal" => "minimal",
-        "low" => "low",
-        "medium" => "medium",
-        _ => "high",
-    }
 }
 
 fn extract_think(raw: &str) -> (String, String) {
@@ -994,7 +898,7 @@ fn log_chat_config(provider: &Provider, input: &SendChatInput, call: &ChatCall<'
         base_url: provider.base_url.clone(),
         model_id: input.model_id.clone(),
         effort: call.effort.map(str::to_string),
-        temperature: DEFAULT_TEMPERATURE,
+        temperature: call.plan.temperature.unwrap_or(DEFAULT_TEMPERATURE),
         max_output_tokens: call.max_output,
         reasoning: call.enable_reasoning,
         has_system: call.system.is_some(),
@@ -1428,10 +1332,8 @@ fn gemini_delta_pair(value: &serde_json::Value) -> StreamDelta {
     let mut reasoning_signature = String::new();
     let mut tools = Vec::new();
     for part in parts {
-        let part_signature = thought_sig(
-            part.get("thoughtSignature")
-                .and_then(|item| item.as_str()),
-        );
+        let part_signature =
+            thought_sig(part.get("thoughtSignature").and_then(|item| item.as_str()));
         if !part_signature.is_empty() {
             reasoning_signature = part_signature.clone();
         }
@@ -1532,81 +1434,66 @@ async fn collect_stream(
     }
 }
 
-fn apply_openai_like_reasoning(
-    body: &mut serde_json::Value,
-    provider: &Provider,
-    call: &ChatCall<'_>,
-) {
-    if is_minimax(provider, call.model) {
-        body["top_p"] = json!(DEFAULT_TOP_P);
-        if call.enable_reasoning {
-            body["thinking"] = json!({ "type": "adaptive" });
-            body["reasoning_split"] = json!(true);
-        } else {
-            body["thinking"] = json!({ "type": "disabled" });
-        }
-        return;
+fn apply_openai_like_reasoning(body: &mut serde_json::Value, call: &ChatCall<'_>) {
+    let plan = call.plan;
+    if let Some(mode) = &plan.openai_thinking {
+        body["thinking"] = json!({ "type": mode });
     }
-    if openai_compat_skips_effort(call.model) {
-        return;
+    if plan.reasoning_split {
+        body["reasoning_split"] = json!(true);
     }
-    if let Some(effort) = call.effort {
+    if let Some(effort) = &plan.reasoning_effort {
         body["reasoning_effort"] = json!(effort);
+    }
+    if let Some(tier) = &plan.service_tier {
+        body["service_tier"] = json!(tier);
+    }
+    match plan.privacy {
+        Some(crate::request_profile::PrivacyWire::OpenAiStoreFalse) => {
+            body["store"] = json!(false);
+        }
+        Some(crate::request_profile::PrivacyWire::OpenRouterDataCollectionDeny) => {
+            body["provider"] = json!({ "data_collection": "deny" });
+        }
+        None => {}
     }
 }
 
-fn apply_anthropic_like_reasoning(
-    body: &mut serde_json::Value,
-    provider: &Provider,
-    call: &ChatCall<'_>,
-) {
-    if is_minimax(provider, call.model) {
-        body["top_p"] = json!(DEFAULT_TOP_P);
-        if call.enable_reasoning {
-            body["thinking"] = json!({ "type": "adaptive" });
-        } else {
-            body["thinking"] = json!({ "type": "disabled" });
-        }
-        return;
-    }
-    if is_claude_host(provider) && call.enable_reasoning && call.model.reasoning {
-        let budget = (call.max_output / 2).clamp(1024, 16_384);
-        let max_tokens = call.max_output.max(budget + 1024);
-        body["max_tokens"] = json!(max_tokens);
-        body["thinking"] = json!({
-            "type": "enabled",
-            "budget_tokens": budget,
-        });
-        return;
-    }
-    if call.enable_reasoning {
-        if let Some(effort) = call.effort {
-            if model_key(call.model).contains("kimi") {
-                body["thinking"] = json!({ "type": "adaptive" });
-                body["effort"] = json!(effort);
-            } else {
-                body["reasoning_effort"] = json!(effort);
+fn apply_anthropic_like_reasoning(body: &mut serde_json::Value, call: &ChatCall<'_>) {
+    let plan = call.plan;
+    if let Some(kind) = &plan.anthropic_thinking_type {
+        if kind == "enabled" {
+            if let Some(budget) = plan.anthropic_budget {
+                body["thinking"] = json!({ "type": "enabled", "budget_tokens": budget });
             }
+        } else {
+            body["thinking"] = json!({ "type": kind });
         }
     }
+    if let Some(effort) = &plan.anthropic_effort {
+        body["output_config"] = json!({ "effort": effort });
+    }
+    if let Some(tier) = &plan.service_tier {
+        body["service_tier"] = json!(tier);
+    }
+    body["max_tokens"] = json!(plan.max_output);
 }
 
 fn apply_gemini_like_reasoning(generation: &mut serde_json::Value, call: &ChatCall<'_>) {
-    if !call.enable_reasoning || !call.model.reasoning {
-        return;
-    }
-    if is_gemini_3(&call.model.id) {
-        let level = call.effort.map(gemini_thinking_level).unwrap_or("high");
+    let plan = call.plan;
+    if let Some(level) = &plan.gemini_level {
         generation["thinkingConfig"] = json!({
-            "includeThoughts": true,
+            "includeThoughts": plan.include_thoughts,
             "thinkingLevel": level,
         });
         return;
     }
-    generation["thinkingConfig"] = json!({
-        "includeThoughts": true,
-        "thinkingBudget": -1,
-    });
+    if let Some(budget) = plan.gemini_budget {
+        generation["thinkingConfig"] = json!({
+            "includeThoughts": plan.include_thoughts,
+            "thinkingBudget": budget,
+        });
+    }
 }
 
 async fn send_openai_like(
@@ -1627,16 +1514,17 @@ async fn send_openai_like(
         "messages": openai_messages(call.system, call.turns),
         "n": 1,
     });
-    if !omits_temperature(provider, call.model) {
-        body["temperature"] = json!(DEFAULT_TEMPERATURE);
+    if let Some(temperature) = call.plan.temperature {
+        body["temperature"] = json!(temperature);
     }
-    let mut completion_tokens = uses_max_completion_tokens(provider, call.model);
+    let mut completion_tokens =
+        call.plan.token_field == crate::request_profile::TokenField::MaxCompletionTokens;
     if completion_tokens {
         body["max_completion_tokens"] = json!(call.max_output);
     } else {
         body["max_tokens"] = json!(call.max_output);
     }
-    apply_openai_like_reasoning(&mut body, provider, call);
+    apply_openai_like_reasoning(&mut body, call);
     if tools_enabled(call) {
         body["tools"] = openai_tool_list(call);
     }
@@ -1672,7 +1560,7 @@ async fn send_openai_like(
                 completion_tokens = true;
             }
             let _ = completion_tokens;
-            if omits_temperature(provider, call.model) {
+            if body.get("temperature").is_none() {
                 body["temperature"] = json!(DEFAULT_TEMPERATURE);
             } else {
                 body.as_object_mut().map(|map| map.remove("temperature"));
@@ -1732,13 +1620,15 @@ async fn send_anthropic_like(
     let mut body = json!({
         "model": call.model.id,
         "max_tokens": call.max_output,
-        "temperature": DEFAULT_TEMPERATURE,
         "messages": anthropic_messages(call.turns),
     });
+    if let Some(temperature) = call.plan.temperature {
+        body["temperature"] = json!(temperature);
+    }
     if let Some(system) = nonempty_text(call.system) {
         body["system"] = json!(system);
     }
-    apply_anthropic_like_reasoning(&mut body, provider, call);
+    apply_anthropic_like_reasoning(&mut body, call);
     if tools_enabled(call) {
         body["tools"] = anthropic_tool_list(call);
     }
@@ -1750,7 +1640,7 @@ async fn send_anthropic_like(
         req = req.header(reqwest::header::ACCEPT, "text/event-stream");
     }
     req = attach_auth(req, provider);
-    if is_claude_host(provider) && call.enable_reasoning && call.model.reasoning {
+    if call.plan.anthropic_interleaved {
         req = req.header("anthropic-beta", "interleaved-thinking-2025-05-14");
     }
     let resp = req
@@ -1853,8 +1743,10 @@ async fn send_gemini_like(
     let mut generation = json!({
         "maxOutputTokens": call.max_output,
     });
-    if !is_gemini_3(&call.model.id) {
-        generation["temperature"] = json!(DEFAULT_TEMPERATURE);
+    if let Some(temperature) = call.plan.temperature {
+        generation["temperature"] = json!(temperature);
+    }
+    if call.plan.gemini_top_p {
         generation["topP"] = json!(DEFAULT_TOP_P);
     }
     apply_gemini_like_reasoning(&mut generation, call);
@@ -1865,6 +1757,9 @@ async fn send_gemini_like(
         "contents": gemini_contents(call.turns),
         "generationConfig": generation,
     });
+    if let Some(tier) = &call.plan.service_tier {
+        body["service_tier"] = json!(tier);
+    }
     if let Some(system) = nonempty_text(call.system) {
         body["systemInstruction"] = json!({
             "parts": [{ "text": system }],
@@ -1999,6 +1894,7 @@ async fn send_message(
             effort: call.effort,
             max_output: call.max_output,
             enable_reasoning: call.enable_reasoning,
+            plan: call.plan,
             tool_names: call.tool_names,
             mcp_tools: call.mcp_tools,
             parallelism: call.parallelism,
@@ -2064,55 +1960,55 @@ async fn send_message(
         let mut persisted_calls = Vec::new();
         for tc in &model_calls {
             emit_tool_call(on_chunk, tc);
-            let (raw_text, display) =
-                if let Some(mcp) = call.mcp_tools.iter().find(|item| item.wire_name == tc.name) {
-                    let args = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
-                    let text =
-                        match crate::mcp_client::call_tool(&mcp.server, &mcp.tool_name, args).await
-                        {
-                            Ok(text) => text,
-                            Err(error) => {
-                                format!("MCP tool `{}` failed: {error}", mcp.tool_name)
-                            }
-                        };
-                    (
-                        text,
-                        Some(ToolDisplay {
-                            kind: tools::TOOL_KIND_CONTEXT.to_string(),
-                            ..ToolDisplay::default()
-                        }),
-                    )
-                } else if call.tool_names.iter().any(|name| name == &tc.name) {
-                    let tool_ctx = ToolContext {
-                        app: Some(app),
-                        call_id: tc.id.clone(),
-                        on_chunk,
-                        workspace: None,
-                        parallelism: call.parallelism,
-                    };
-                    let outcome = tools::execute(&tc.name, &tc.arguments, &tool_ctx).await;
-                    if let Some(snapshot) = outcome.snapshot {
-                        if let Some(sid) = session_id {
-                            let _ = crate::sessions::write_file_revision(
-                                app,
-                                sid,
-                                &tc.id,
-                                &snapshot.before,
-                                &snapshot.after,
-                            );
+            let (raw_text, display) = if let Some(mcp) =
+                call.mcp_tools.iter().find(|item| item.wire_name == tc.name)
+            {
+                let args = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
+                let text =
+                    match crate::mcp_client::call_tool(&mcp.server, &mcp.tool_name, args).await {
+                        Ok(text) => text,
+                        Err(error) => {
+                            format!("MCP tool `{}` failed: {error}", mcp.tool_name)
                         }
-                    }
-                    (outcome.text, Some(outcome.display))
-                } else {
-                    (
-                        format!("Tool `{}` is not enabled for this agent.", tc.name),
-                        Some(ToolDisplay {
-                            kind: tools::TOOL_KIND_CONTEXT.to_string(),
-                            status: Some("error".into()),
-                            ..ToolDisplay::default()
-                        }),
-                    )
+                    };
+                (
+                    text,
+                    Some(ToolDisplay {
+                        kind: tools::TOOL_KIND_CONTEXT.to_string(),
+                        ..ToolDisplay::default()
+                    }),
+                )
+            } else if call.tool_names.iter().any(|name| name == &tc.name) {
+                let tool_ctx = ToolContext {
+                    app: Some(app),
+                    call_id: tc.id.clone(),
+                    on_chunk,
+                    workspace: None,
+                    parallelism: call.parallelism,
                 };
+                let outcome = tools::execute(&tc.name, &tc.arguments, &tool_ctx).await;
+                if let Some(snapshot) = outcome.snapshot {
+                    if let Some(sid) = session_id {
+                        let _ = crate::sessions::write_file_revision(
+                            app,
+                            sid,
+                            &tc.id,
+                            &snapshot.before,
+                            &snapshot.after,
+                        );
+                    }
+                }
+                (outcome.text, Some(outcome.display))
+            } else {
+                (
+                    format!("Tool `{}` is not enabled for this agent.", tc.name),
+                    Some(ToolDisplay {
+                        kind: tools::TOOL_KIND_CONTEXT.to_string(),
+                        status: Some("error".into()),
+                        ..ToolDisplay::default()
+                    }),
+                )
+            };
             let outcome_text = tools::truncate_output(&raw_text);
             let argument = tool_call_argument(&tc.name, &tc.arguments);
             let mut display = display;
@@ -2171,6 +2067,8 @@ pub struct GenerateSessionTitleInput {
     pub provider_id: String,
     pub model_id: String,
     pub message: String,
+    #[serde(default)]
+    pub limit_provider_data_use: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2201,19 +2099,30 @@ pub async fn generate_session_title(
     let (provider, model) = load_provider_model(&app, &input.provider_id, &input.model_id).await?;
     let prompt = format!("{TITLE_PROMPT}{}", input.message.trim());
     let turns = vec![user_turn(prompt)];
+    let options = quiet_request_options(input.limit_provider_data_use);
+    let plan = request_plan(
+        &provider,
+        &model,
+        &options,
+        capped_output(&model, TITLE_MAX_OUTPUT),
+    );
     let call = ChatCall {
         model: &model,
         turns: &turns,
         system: None,
         effort: None,
-        max_output: capped_output(&model, TITLE_MAX_OUTPUT),
-        enable_reasoning: false,
+        max_output: plan.max_output,
+        enable_reasoning: plan.enable_reasoning,
+        plan: &plan,
         tool_names: &[],
         mcp_tools: &[],
         parallelism: 1,
     };
-    let title =
-        normalize_generated_title(&send_message(&app, &provider, &call, None, None).await?.content);
+    let title = normalize_generated_title(
+        &send_message(&app, &provider, &call, None, None)
+            .await?
+            .content,
+    );
     if title.is_empty() {
         return Err(ChatError::EmptyResponse);
     }
@@ -2240,6 +2149,8 @@ pub struct GenerateAppContentInput {
     pub name: String,
     #[serde(default)]
     pub description: String,
+    #[serde(default)]
+    pub limit_provider_data_use: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2330,18 +2241,25 @@ pub async fn generate_app_content(
     let prompt = build_app_content_prompt(&input)?;
     let turns = vec![user_turn(prompt)];
     let max_output = capped_output(&model, app_content_output_cap(input.kind));
+    let options = quiet_request_options(input.limit_provider_data_use);
+    let plan = request_plan(&provider, &model, &options, max_output);
     let call = ChatCall {
         model: &model,
         turns: &turns,
         system: None,
         effort: None,
-        max_output,
-        enable_reasoning: false,
+        max_output: plan.max_output,
+        enable_reasoning: plan.enable_reasoning,
+        plan: &plan,
         tool_names: &[],
         mcp_tools: &[],
         parallelism: 1,
     };
-    let text = normalize_generated_text(&send_message(&app, &provider, &call, None, None).await?.content);
+    let text = normalize_generated_text(
+        &send_message(&app, &provider, &call, None, None)
+            .await?
+            .content,
+    );
     if text.is_empty() {
         return Err(ChatError::EmptyResponse);
     }
@@ -2551,20 +2469,23 @@ pub async fn send_chat_message(
     let mut turns = normalize_turns(&input.messages);
     if let Some(session_id) = input.session_id.as_deref() {
         for turn in &mut turns {
-            let _ = crate::sessions::hydrate_attachments(&app, Some(session_id), &mut turn.attachments);
+            let _ =
+                crate::sessions::hydrate_attachments(&app, Some(session_id), &mut turn.attachments);
         }
     }
     if !last_user_has_input(&turns) {
         return Err(ChatError::EmptyMessage);
     }
-    let effort = resolve_effort(&model, input.effort.as_deref());
-    let enable_reasoning = if is_minimax(&provider, &model) {
-        enable_minimax_thinking(&model, effort.as_deref())
-    } else if effort_is_off(effort.as_deref()) {
-        false
-    } else {
-        is_effort_model(&model)
-    };
+    let mut options = input.request.clone();
+    if options.effort.is_none() {
+        options.effort.clone_from(&input.effort);
+    }
+    let plan = request_plan(&provider, &model, &options, output_tokens(&model));
+    let effort_label = plan
+        .reasoning_effort
+        .clone()
+        .or_else(|| plan.anthropic_effort.clone())
+        .or_else(|| plan.gemini_level.clone());
     let system = nonempty_text(input.system.as_deref()).map(str::to_string);
     let registered: std::collections::HashSet<String> = tools::specs()
         .into_iter()
@@ -2581,9 +2502,10 @@ pub async fn send_chat_message(
         model: &model,
         turns: &turns,
         system: system.as_deref(),
-        effort: effort.as_deref(),
-        max_output: output_tokens(&model),
-        enable_reasoning,
+        effort: effort_label.as_deref(),
+        max_output: plan.max_output,
+        enable_reasoning: plan.enable_reasoning,
+        plan: &plan,
         tool_names: &tool_names,
         mcp_tools: &mcp_tools,
         parallelism: tool_parallelism(input.worker_cores),
