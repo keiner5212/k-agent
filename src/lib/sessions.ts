@@ -180,7 +180,6 @@ const resolveSendRequest = () => {
     effort: request.effort ?? null,
     serviceTier: request.serviceTier ?? null,
     temperature: request.temperature ?? null,
-    maxOutputTokens: request.maxOutputTokens ?? null,
     limitProviderDataUse: useSettingsStore.getState().limitProviderDataUse,
   };
 };

@@ -40,13 +40,6 @@ const sanitizeOverride = (value: unknown): ModelRequestOverride => {
   if (typeof raw.temperature === "number" && Number.isFinite(raw.temperature)) {
     next.temperature = raw.temperature;
   }
-  if (
-    typeof raw.maxOutputTokens === "number" &&
-    Number.isFinite(raw.maxOutputTokens) &&
-    raw.maxOutputTokens > 0
-  ) {
-    next.maxOutputTokens = Math.round(raw.maxOutputTokens);
-  }
   return next;
 };
 

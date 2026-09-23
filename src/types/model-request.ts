@@ -38,5 +38,4 @@ export type ModelRequestOverride = {
   effort?: string;
   serviceTier?: string;
   temperature?: number;
-  maxOutputTokens?: number;
 };

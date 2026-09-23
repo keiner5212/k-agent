@@ -897,8 +897,6 @@
       "effort": "Effort",
       "serviceTier": "Service tier",
       "temperature": "Temperature",
-      "maxOutput": "Max output tokens",
-      "maxOutputDefault": "Model limit",
       "contractVerified": "Verified contract for this endpoint and model.",
       "contractUnknown": "No verified model contract. Unverified fields stay off the request.",
       "reasoningUnknown": "Reasoning controls for this model are not verified.",

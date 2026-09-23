@@ -897,8 +897,6 @@
       "effort": "Esfuerzo",
       "serviceTier": "Nivel de servicio",
       "temperature": "Temperatura",
-      "maxOutput": "Tope de tokens de salida",
-      "maxOutputDefault": "Limite del modelo",
       "contractVerified": "Contrato verificado para este endpoint y modelo.",
       "contractUnknown": "No hay contrato verificado. Los campos no verificados no se envian.",
       "reasoningUnknown": "Los controles de razonamiento de este modelo no estan verificados.",

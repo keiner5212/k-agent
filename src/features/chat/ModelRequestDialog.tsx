@@ -73,7 +73,13 @@ export const ModelRequestButton = (): ReactNode => {
       >
         <SlidersHorizontal size={16} strokeWidth={1.5} />
       </IconButton>
-      <Dialog open={open} onOpenChange={setOpen} titleKey="chat.request.title" size="narrow">
+      <Dialog
+        open={open}
+        onOpenChange={setOpen}
+        titleKey="chat.request.title"
+        placement="center"
+        size="narrow"
+      >
         <div className="model-request">
           {error ? <p className="form-error">{error}</p> : null}
           {profile ? (
@@ -201,29 +207,6 @@ const RequestForm = ({
           />
         </div>
       ) : null}
-      <div className="field">
-        <label className="field__label" htmlFor="request-max-output">
-          {t("chat.request.maxOutput")}
-        </label>
-        <input
-          id="request-max-output"
-          className="input input--mono"
-          inputMode="numeric"
-          value={stored.maxOutputTokens ?? ""}
-          placeholder={t("chat.request.maxOutputDefault")}
-          onChange={(event) => {
-            const raw = event.target.value.trim();
-            if (!raw) {
-              onChange({ maxOutputTokens: undefined });
-              return;
-            }
-            const maxOutputTokens = Number(raw);
-            if (Number.isFinite(maxOutputTokens) && maxOutputTokens > 0) {
-              onChange({ maxOutputTokens: Math.round(maxOutputTokens) });
-            }
-          }}
-        />
-      </div>
       {profile.reasoningSplit ? (
         <p className="field__hint">{t("chat.request.note.reasoningSplit")}</p>
       ) : null}
