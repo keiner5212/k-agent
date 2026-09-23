@@ -16,7 +16,6 @@ const TITLE_MAX_OUTPUT: u64 = 64;
 const PROMPT_IMPROVE_MAX_OUTPUT: u64 = 4096;
 const SKILL_COMPOSE_MAX_OUTPUT: u64 = 8192;
 const PERSONALITY_COMPOSE_MAX_OUTPUT: u64 = 4096;
-const MAX_TOOL_ROUNDS: usize = 12;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1881,7 +1880,7 @@ async fn send_message(
     let mut turns = call.turns.to_vec();
     let mut tool_rounds: Vec<ToolRoundTrace> = Vec::new();
 
-    for _ in 0..MAX_TOOL_ROUNDS {
+    loop {
         let round_call = ChatCall {
             model: call.model,
             turns: &turns,
@@ -2052,8 +2051,6 @@ async fn send_message(
             thinking_ms: Some(thinking_ms),
         });
     }
-
-    Err(ChatError::Provider("tool loop exceeded max rounds".into()))
 }
 
 #[derive(Debug, Deserialize)]

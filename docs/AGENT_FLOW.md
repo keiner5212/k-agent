@@ -58,7 +58,7 @@ Local tools: `skill`, `read`, `write`, `edit`, `list_directory`. MCP tools are i
 2. If the model returns tool calls, emits a `tool` chunk, then executes each allowed name (local or MCP).
 3. Truncates oversized tool results before they go back to the model.
 4. Appends assistant tool-call turns (with that round's reasoning) and user/tool-result turns to the in-memory turn list.
-5. Re-requests until the model returns text only or `MAX_TOOL_ROUNDS` (12) is hit. Later rounds can think again, then answer.
+5. Re-requests until the model returns text only. No tool-round cap. Later rounds can think again, then answer. Cancel still aborts the send.
 6. Assistant text is truncated if it exceeds the output guard.
 
 Gemini function calls echo `thoughtSignature` on later rounds (required by Gemini 3 thinking + tools).

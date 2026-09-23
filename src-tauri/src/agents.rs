@@ -10,7 +10,8 @@ use crate::pathutil;
 use crate::skills::{estimate_tokens, global_skills_root, list_skills_in, parse_yaml_scalar};
 use crate::tools::{
     ASK_USER_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, EDIT_TOOL_NAME,
-    LIST_DIRECTORY_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME, WRITE_TOOL_NAME,
+    FETCH_URL_TOOL_NAME, INTERNET_SEARCH_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME, READ_TOOL_NAME,
+    SKILL_TOOL_NAME, WRITE_TOOL_NAME,
 };
 
 pub const MAX_AGENT_SKILLS: usize = 10;
@@ -27,6 +28,8 @@ const AGENT_TOOLS: &[&str] = &[
     ASK_USER_TOOL_NAME,
     CREATE_FOLDER_TOOL_NAME,
     DELETE_TOOL_NAME,
+    FETCH_URL_TOOL_NAME,
+    INTERNET_SEARCH_TOOL_NAME,
 ];
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]

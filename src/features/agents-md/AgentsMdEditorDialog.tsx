@@ -110,8 +110,10 @@ const AgentsMdEditorBody = ({ file, onCancel, onSave }: AgentsMdEditorBodyProps)
 
   return (
     <div className="skill-editor">
-      <div className="skill-editor__path" title={file.path}>
-        {file.path}
+      <div className="skill-editor__head">
+        <div className="skill-editor__path" title={file.path}>
+          {file.path}
+        </div>
       </div>
       {error ? (
         <div className="form-error" role="alert">
