@@ -7,6 +7,7 @@ type LooseSession = {
   preview?: string;
   updatedAt?: number;
   messages?: ChatMessage[] | null;
+  outsideWorkspaceAllowed?: boolean;
 };
 
 export const sessionMessages = (
@@ -19,6 +20,7 @@ export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => (
   preview: session.preview ?? "",
   updatedAt: typeof session.updatedAt === "number" ? session.updatedAt : 0,
   messages: sessionMessages(session),
+  outsideWorkspaceAllowed: session.outsideWorkspaceAllowed === true,
 });
 
 export const sanitizeSessionsSnapshot = (snapshot: {

@@ -4,6 +4,7 @@ import { Check, ChevronLeft, ChevronRight, Send, X } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { useAskUserStore } from "@/lib/ask-user";
+import { answerSummary, useSessionsStore } from "@/lib/sessions";
 import type { AskUserAnswerEntry, AskUserQuestion, PendingQuestionState } from "@/types/chat";
 
 type QuestionDialogProps = {
@@ -107,12 +108,25 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
     if (submitting) return;
     setSubmitting(true);
     setError(undefined);
+    const acceptedForChat = state.answers.some((entry) =>
+      entry.selected.includes("Accept for this chat"),
+    );
+    if (acceptedForChat && state.sessionId) {
+      useSessionsStore.getState().allowOutsideWorkspace(state.sessionId);
+    }
     const result = await submit(state.callId);
+    if (result.resume) {
+      const summary = answerSummary(state.questions, state.answers);
+      const continued = await useSessionsStore.getState().resumeAsk(state.callId, summary);
+      setSubmitting(false);
+      if (!continued) setError(t("chat.question.submitFailed"));
+      return;
+    }
     setSubmitting(false);
     if (result.error) {
       setError(result.error);
     }
-  }, [state.callId, submit, submitting]);
+  }, [state, submit, submitting, t]);
 
   const handleCancel = useCallback(async () => {
     await cancel(state.callId);

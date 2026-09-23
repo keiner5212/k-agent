@@ -42,6 +42,8 @@ export type AskUserQuestion = {
 export type AskUserQuestionChunk = {
   callId: string;
   questions: AskUserQuestion[];
+  arguments?: string;
+  thoughtSignature?: string;
 };
 
 export type AskUserAnswerEntry = {
@@ -54,6 +56,7 @@ export type AskUserAnswerEntry = {
 export type PendingQuestionState = {
   callId: string;
   messageId: string | null;
+  sessionId: string | null;
   questions: AskUserQuestion[];
   answers: AskUserAnswerEntry[];
 };
@@ -132,6 +135,11 @@ export type ToolRoundTrace = {
   thinkingMs?: number;
 };
 
+export type PendingAsk = {
+  callId: string;
+  questions: AskUserQuestion[];
+};
+
 export type ChatMessage = {
   id: string;
   role: ChatRole;
@@ -146,6 +154,7 @@ export type ChatMessage = {
   attachments?: ChatAttachment[];
   toolCalls?: ChatToolCall[];
   toolRounds?: ToolRoundTrace[];
+  pendingAsk?: PendingAsk;
 };
 
 export type ChatToolResultTurn = {

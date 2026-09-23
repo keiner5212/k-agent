@@ -172,7 +172,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
         Err(message) => return super::context_error(None, &message),
     };
     let call_id = ctx.call_id.clone();
-    let answer = ask_user_wait(ctx, &call_id, &questions).await;
+    let answer = ask_user_wait(ctx, &call_id, &questions, arguments, &ctx.thought_signature).await;
     let text = format_answer(&questions, &answer);
     ToolOutcome {
         text,
@@ -193,6 +193,8 @@ pub async fn ask_user_wait(
     ctx: &ToolContext<'_>,
     call_id: &str,
     questions: &[AskUserQuestion],
+    arguments: &str,
+    thought_signature: &str,
 ) -> AskUserAnswer {
     let (tx, rx) = oneshot::channel::<AskUserAnswer>();
     ask_user_registry().insert(call_id.to_string(), tx);
@@ -201,6 +203,8 @@ pub async fn ask_user_wait(
         let payload = json!({
             "callId": call_id,
             "questions": questions,
+            "arguments": arguments,
+            "thoughtSignature": thought_signature,
         });
         let _ = channel.send(ChatChunk {
             kind: "question".to_string(),

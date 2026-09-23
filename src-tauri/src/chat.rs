@@ -76,6 +76,8 @@ pub struct SendChatInput {
     pub tool_names: Vec<String>,
     #[serde(default)]
     pub worker_cores: Option<u32>,
+    #[serde(default)]
+    pub outside_workspace_allowed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1861,6 +1863,7 @@ async fn send_message(
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
     session_id: Option<&str>,
+    outside_workspace_allowed: bool,
 ) -> Result<ChatOutput, ChatError> {
     if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
@@ -1977,6 +1980,8 @@ async fn send_message(
                     app: Some(app),
                     call_id: tc.id.clone(),
                     session_id: session_id.map(str::to_string),
+                    thought_signature: tc.thought_signature.clone(),
+                    outside_workspace_allowed: outside_workspace_allowed,
                     on_chunk,
                     workspace: None,
                     parallelism: call.parallelism,
@@ -2112,7 +2117,7 @@ pub async fn generate_session_title(
         parallelism: 1,
     };
     let title = normalize_generated_title(
-        &send_message(&app, &provider, &call, None, None)
+        &send_message(&app, &provider, &call, None, None, false)
             .await?
             .content,
     );
@@ -2249,7 +2254,7 @@ pub async fn generate_app_content(
         parallelism: 1,
     };
     let text = normalize_generated_text(
-        &send_message(&app, &provider, &call, None, None)
+        &send_message(&app, &provider, &call, None, None, false)
             .await?
             .content,
     );
@@ -2510,6 +2515,7 @@ pub async fn send_chat_message(
         &call,
         Some(&on_chunk),
         input.session_id.as_deref(),
+        input.outside_workspace_allowed,
     );
     tokio::pin!(send_fut);
     let output = match cancel_rx {

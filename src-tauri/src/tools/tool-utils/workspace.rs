@@ -46,7 +46,7 @@ pub async fn guard(
     if !is_outside_workspace(&resolved, workspace.as_deref()) {
         return run();
     }
-    if session_granted(ctx.session_id.as_deref()) {
+    if session_granted(ctx) {
         return with_confirmed(run);
     }
     let rel = ctx.relative_path(&resolved);
@@ -78,7 +78,14 @@ fn session_grants() -> &'static Mutex<HashSet<String>> {
     GRANTS.get_or_init(|| Mutex::new(HashSet::new()))
 }
 
-fn session_granted(session_id: Option<&str>) -> bool {
+fn session_granted(ctx: &ToolContext<'_>) -> bool {
+    if ctx.outside_workspace_allowed {
+        return true;
+    }
+    session_id_granted(ctx.session_id.as_deref())
+}
+
+fn session_id_granted(session_id: Option<&str>) -> bool {
     let Some(session_id) = session_id.filter(|id| !id.is_empty()) else {
         return false;
     };
@@ -133,7 +140,7 @@ async fn confirm_outside(
         allow_free_text: false,
     }];
     let call_id = format!("outside_confirm::{}", ctx.call_id);
-    let answer = ask_user_wait(ctx, &call_id, &questions).await;
+    let answer = ask_user_wait(ctx, &call_id, &questions, "", "").await;
     let entry = answer
         .iter()
         .find(|entry| entry.question_id == "outside_confirm");
@@ -185,8 +192,8 @@ mod tests {
     #[test]
     fn session_grant_persists_for_that_chat_only() {
         grant_session(Some("chat-a"));
-        assert!(session_granted(Some("chat-a")));
-        assert!(!session_granted(Some("chat-b")));
-        assert!(!session_granted(None));
+        assert!(session_id_granted(Some("chat-a")));
+        assert!(!session_id_granted(Some("chat-b")));
+        assert!(!session_id_granted(None));
     }
 }

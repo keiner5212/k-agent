@@ -6,7 +6,7 @@ type QuestionsStore = {
   byCallId: Record<string, PendingQuestionState>;
   upsert: (state: PendingQuestionState) => void;
   setAnswer: (callId: string, answer: AskUserAnswerEntry) => void;
-  submit: (callId: string) => Promise<{ error?: string }>;
+  submit: (callId: string) => Promise<{ error?: string; resume?: boolean }>;
   cancel: (callId: string) => Promise<{ error?: string }>;
 };
 
@@ -17,7 +17,8 @@ export const useAskUserStore = create<QuestionsStore>((set, get) => ({
     set((prev) => {
       const current = prev.byCallId[state.callId];
       const messageId = state.messageId ?? current?.messageId ?? null;
-      const next = { ...state, messageId };
+      const sessionId = state.sessionId ?? current?.sessionId ?? null;
+      const next = { ...state, messageId, sessionId };
       return {
         byCallId: { ...prev.byCallId, [state.callId]: next },
       };
@@ -64,7 +65,9 @@ export const useAskUserStore = create<QuestionsStore>((set, get) => ({
     try {
       await invoke<boolean>("submit_ask_user_answer", { callId, answers });
     } catch (error) {
-      return { error: String(error) };
+      const message = String(error);
+      if (message.includes("was not pending")) return { resume: true };
+      return { error: message };
     }
     set((prev) => {
       if (!prev.byCallId[callId]) return prev;

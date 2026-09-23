@@ -26,6 +26,7 @@ import { sanitizeSessionsSnapshot, sessionMessages, toChatTurns } from "@/lib/se
 import { getWorkerCoreSnapshot } from "@/lib/worker-cores";
 import {
   parseToolChunkText,
+  type AskUserAnswerEntry,
   type AskUserQuestion,
   type AskUserQuestionChunk,
   type ChatAttachment,
@@ -63,10 +64,14 @@ const previewFromMessages = (messages: ChatMessage[]): string => {
   return "";
 };
 
-const handleAskUserChunk = (raw: string, messageId: string): void => {
+const handleAskUserChunk = (
+  raw: string,
+  messageId: string,
+  sessionId: string,
+): AskUserQuestionChunk | null => {
   try {
     const parsed = JSON.parse(raw) as Partial<AskUserQuestionChunk>;
-    if (!parsed.callId || !Array.isArray(parsed.questions)) return;
+    if (!parsed.callId || !Array.isArray(parsed.questions)) return null;
     const questions = parsed.questions.filter(
       (question): question is AskUserQuestion =>
         Boolean(question) &&
@@ -75,10 +80,11 @@ const handleAskUserChunk = (raw: string, messageId: string): void => {
         typeof question.question === "string" &&
         Array.isArray(question.options),
     );
-    if (questions.length === 0) return;
+    if (questions.length === 0) return null;
     useAskUserStore.getState().upsert({
       callId: parsed.callId,
       messageId,
+      sessionId,
       questions,
       answers: questions.map((question) => ({
         questionId: question.id,
@@ -88,10 +94,53 @@ const handleAskUserChunk = (raw: string, messageId: string): void => {
     });
     const first = questions[0];
     void notifyAskUser(questions.length, first ? first.question : null);
+    return {
+      callId: parsed.callId,
+      questions,
+      arguments: typeof parsed.arguments === "string" ? parsed.arguments : undefined,
+      thoughtSignature:
+        typeof parsed.thoughtSignature === "string" ? parsed.thoughtSignature : undefined,
+    };
   } catch (error) {
     console.warn("ask_user chunk parse failed", error);
+    return null;
   }
 };
+
+const restorePendingAsks = (sessions: SessionRecord[]): void => {
+  for (const session of sessions) {
+    for (const message of sessionMessages(session)) {
+      const pending = message.pendingAsk;
+      if (!pending?.callId || pending.questions.length === 0) continue;
+      useAskUserStore.getState().upsert({
+        callId: pending.callId,
+        messageId: message.id,
+        sessionId: session.id,
+        questions: pending.questions,
+        answers: pending.questions.map((question) => ({
+          questionId: question.id,
+          selected: [],
+          freeText: "",
+        })),
+      });
+    }
+  }
+};
+
+export const answerSummary = (
+  questions: AskUserQuestion[],
+  answers: AskUserAnswerEntry[],
+): string =>
+  questions
+    .map((question) => {
+      const entry = answers.find((item) => item.questionId === question.id);
+      if (!entry || entry.skipped) return `${question.header}: (skipped)`;
+      const parts = [entry.selected.join(", "), entry.freeText.trim()].filter(
+        (part) => part.length > 0,
+      );
+      return `${question.header}: ${parts.join(" | ") || "(no selection)"}`;
+    })
+    .join("\n");
 
 const thinkingDurationMs = (
   startedAt: number | undefined,
@@ -134,10 +183,10 @@ const persistableSnapshot = (snapshot: SessionsSnapshot): SessionsSnapshot => ({
   sessions: snapshot.sessions.map((session) => ({
     ...session,
     messages: sessionMessages(session)
-      .filter((message) => !message.streaming)
+      .filter((message) => !message.streaming || Boolean(message.pendingAsk))
       .map((message) => {
         const { toolCalls: _toolCalls, streaming: _streaming, ...rest } = message;
-        return rest;
+        return message.pendingAsk ? { ...rest, pendingAsk: message.pendingAsk } : rest;
       }),
   })),
 });
@@ -246,6 +295,8 @@ type SessionsStore = {
   select: (id: string) => void;
   remove: (id: string) => Promise<void>;
   send: (text: string, sessionId?: string, attachments?: ChatAttachment[]) => Promise<boolean>;
+  allowOutsideWorkspace: (sessionId: string) => void;
+  resumeAsk: (callId: string, text: string) => Promise<boolean>;
   runShell: (text: string, sessionId?: string) => Promise<boolean>;
   enqueue: (text: string, mode: ComposerMode, attachments?: ChatAttachment[]) => void;
   removeQueued: (id: string) => void;
@@ -292,6 +343,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         activeSessionId: ensured.activeSessionId,
         hydrated: true,
       });
+      restorePendingAsks(ensured.sessions);
     } catch (error) {
       console.warn("sessions hydrate failed", error);
       if (get().hydrated) return;
@@ -371,6 +423,37 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     });
     void persistSnapshot(snapshotFromState(sorted, nextActiveId));
     if (stopSending || stopShell) get().flushQueued();
+  },
+
+  allowOutsideWorkspace: (sessionId) => {
+    const nextSessions = get().sessions.map((session) =>
+      session.id === sessionId ? { ...session, outsideWorkspaceAllowed: true } : session,
+    );
+    set({ sessions: nextSessions });
+    void persistSnapshot(snapshotFromState(nextSessions, get().activeSessionId ?? sessionId));
+  },
+
+  resumeAsk: async (callId, text) => {
+    let sessionId: string | null = null;
+    const nextSessions = get().sessions.map((session) => ({
+      ...session,
+      messages: session.messages.map((message) => {
+        if (message.pendingAsk?.callId !== callId) return message;
+        sessionId = session.id;
+        const toolRounds = (message.toolRounds ?? []).map((round) => ({
+          ...round,
+          calls: round.calls.map((call) =>
+            call.id === callId ? { ...call, output: text } : call,
+          ),
+        }));
+        const { pendingAsk: _pending, ...rest } = message;
+        return { ...rest, toolRounds, streaming: false };
+      }),
+    }));
+    if (!sessionId) return false;
+    set({ sessions: nextSessions });
+    void persistSnapshot(snapshotFromState(nextSessions, get().activeSessionId ?? sessionId));
+    return get().send(text, sessionId);
   },
 
   send: async (text, targetSessionId, attachments) => {
@@ -514,7 +597,64 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           thinkingEndedAt = Date.now();
         }
         if (chunk.kind === "question") {
-          handleAskUserChunk(chunk.text, assistantId);
+          const pending = handleAskUserChunk(chunk.text, assistantId, sessionId);
+          if (pending) {
+            const activeRound = ensureActiveRound();
+            const calls = activeRound.calls.map((call) => ({ ...call }));
+            let index = -1;
+            for (let cursor = calls.length - 1; cursor >= 0; cursor -= 1) {
+              if (calls[cursor]?.name === "ask_user") {
+                index = cursor;
+                break;
+              }
+            }
+            const target = index >= 0 ? index : calls.length - 1;
+            const current = calls[target];
+            if (current) {
+              calls[target] = {
+                ...current,
+                id: pending.callId,
+                arguments: pending.arguments,
+                thoughtSignature: pending.thoughtSignature,
+              };
+              activeRound.calls = calls;
+            }
+          }
+          const nextSessions = get().sessions.map((session) => {
+            if (session.id !== sessionId) return session;
+            const index = session.messages.findIndex((message) => message.id === assistantId);
+            const pendingAsk = pending
+              ? { callId: pending.callId, questions: pending.questions }
+              : undefined;
+            if (index < 0) {
+              return {
+                ...session,
+                messages: [
+                  ...session.messages,
+                  {
+                    id: assistantId,
+                    role: "assistant" as const,
+                    content: "",
+                    toolRounds: snapshotRounds(),
+                    streaming: true,
+                    ...(pendingAsk ? { pendingAsk } : {}),
+                  },
+                ],
+              };
+            }
+            const messages = session.messages.slice();
+            const current = messages[index];
+            if (!current) return session;
+            messages[index] = {
+              ...current,
+              toolRounds: snapshotRounds(),
+              streaming: true,
+              ...(pendingAsk ? { pendingAsk } : {}),
+            };
+            return { ...session, messages };
+          });
+          set({ sessions: nextSessions });
+          void persistSnapshot(snapshotFromState(nextSessions, get().activeSessionId ?? sessionId));
           return;
         }
         if (lastChunkKind === "tool" && !isTool) {
@@ -598,6 +738,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           system: system.length > 0 ? system : null,
           request,
           sessionId: sessionId,
+          outsideWorkspaceAllowed: Boolean(
+            get().sessions.find((session) => session.id === sessionId)?.outsideWorkspaceAllowed,
+          ),
           toolNames,
           workerCores: getWorkerCoreSnapshot().limit,
         },

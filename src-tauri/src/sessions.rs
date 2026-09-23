@@ -34,6 +34,8 @@ pub struct SessionMessage {
     pub attachments: Vec<ChatAttachment>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_rounds: Vec<crate::chat::ToolRoundTrace>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_ask: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,6 +47,8 @@ pub struct SessionRecord {
     pub updated_at: i64,
     #[serde(default)]
     pub messages: Vec<SessionMessage>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub outside_workspace_allowed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,6 +167,7 @@ fn empty_snapshot() -> SessionsSnapshot {
             preview: String::new(),
             updated_at: chrono::Utc::now().timestamp(),
             messages: Vec::new(),
+            outside_workspace_allowed: false,
         }],
     }
 }
@@ -263,6 +268,7 @@ fn read_session_record(app: &AppHandle, id: &str) -> Result<SessionRecord, Sessi
             preview: String::new(),
             updated_at: chrono::Utc::now().timestamp(),
             messages: Vec::new(),
+            outside_workspace_allowed: false,
         });
     }
     let raw = std::fs::read_to_string(&path).map_err(|e| SessionError::Io(e.to_string()))?;

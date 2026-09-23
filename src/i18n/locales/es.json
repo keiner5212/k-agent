@@ -877,7 +877,8 @@
       "next": "Siguiente",
       "back": "Atrás",
       "submit": "Enviar",
-      "submitting": "Enviando..."
+      "submitting": "Enviando...",
+      "submitFailed": "No se pudo continuar el chat."
     },
     "fileMentions": {
       "label": "Archivos del workspace",
