@@ -835,12 +835,7 @@ fn request_plan(
     options: &crate::request_profile::ChatRequestOptions,
     max_output: u64,
 ) -> crate::request_profile::WirePlan {
-    let query = crate::request_profile::quiet_query(
-        provider.kind,
-        &provider.base_url,
-        &model.id,
-        model.family.as_deref(),
-    );
+    let query = crate::request_profile::quiet_query(provider.kind, &provider.base_url, &model.id);
     crate::request_profile::prepare(&query, options, max_output)
 }
 

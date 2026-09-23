@@ -48,6 +48,8 @@ pub struct CatalogEntry {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub effort_levels: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request: Option<ModelRequestSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cost: Option<ModelCost>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,
@@ -55,6 +57,89 @@ pub struct CatalogEntry {
 
 fn is_false(value: &bool) -> bool {
     !*value
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelRequestSpec {
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub known: bool,
+    pub native: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<ModelReasoningSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sampling: Option<ModelSamplingSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_field: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tiers: Vec<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub tier_may_reject: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub reasoning_split_openai: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub opus5_disable_limit: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub gemini_top_p: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(
+    tag = "kind",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
+pub enum ModelReasoningSpec {
+    Unsupported,
+    Unknown,
+    Thinking {
+        modes: Vec<String>,
+        default_mode: String,
+        locked_on: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        anthropic_default_mode: Option<String>,
+    },
+    Effort {
+        levels: Vec<String>,
+        default_level: String,
+    },
+    GeminiLevel {
+        levels: Vec<String>,
+        default_level: String,
+    },
+    GeminiBudget {
+        modes: Vec<String>,
+        default_mode: String,
+        locked_on: bool,
+    },
+    AnthropicExtended {
+        default_on: bool,
+        interleaved: bool,
+    },
+    Claude {
+        thinking_modes: Vec<String>,
+        default_thinking: String,
+        locked_on: bool,
+        levels: Vec<String>,
+        default_level: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum ModelSamplingSpec {
+    Fixed {
+        value: f64,
+    },
+    Range {
+        min: f64,
+        max: f64,
+        default_value: f64,
+    },
 }
 
 #[derive(Debug, Default)]
@@ -265,6 +350,17 @@ fn bundled_entries() -> &'static [CatalogEntry] {
         .as_slice()
 }
 
+pub fn bundled_lookup(model_id: &str) -> Option<&'static CatalogEntry> {
+    static INDEX: OnceLock<Catalog> = OnceLock::new();
+    INDEX
+        .get_or_init(|| {
+            let mut catalog = Catalog::default();
+            catalog.extend(bundled_entries().iter().cloned());
+            catalog
+        })
+        .lookup(model_id)
+}
+
 fn cache_path(app: &AppHandle) -> Option<PathBuf> {
     let home = app.path().home_dir().ok()?;
     Some(home.join(APP_CONFIG_DIR).join(CACHE_FILE))
@@ -379,6 +475,7 @@ fn catalog_from_models_dev(key: String, model: ModelsDevModel) -> CatalogEntry {
         attachment: model.attachment,
         attachment_types: derive_attachment_types(&input, model.attachment),
         effort_levels,
+        request: None,
         input,
         output,
         cost: model.cost.and_then(model_cost_from_dev),

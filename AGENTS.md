@@ -168,6 +168,7 @@ Hard constraints:
 - Language list: `SUPPORTED_LANGUAGES` in `src/types/settings.ts` only.
 - Every user-visible string in `en.json` and `es.json`. ASCII in authored JSON.
 - Interpolation: `{{name}}`.
+- Every entry in `AGENT_TOOL_IDS` (`src/types/agents.ts`) needs `agents.tools.<id>.label` and `agents.tools.<id>.description` in both locales. The agent form reads them via `t(\`agents.tools.${tool}.label\`)` and `t(\`agents.tools.${tool}.description\`)`; missing keys render the raw path as the toggle label. When `ToolCallsBlock` (`src/features/chat/ToolCallsBlock.tsx`) shows a preview for the tool, also add a `chat.tools.<idTitle>Title` entry in both locales. `CHAT_TOOL_DESCRIPTIONS` stays English: it is sent to the LLM, not rendered.
 
 ## Errors and edges
 

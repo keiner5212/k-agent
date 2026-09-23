@@ -383,11 +383,6 @@
       "familyHint": "Agrupa modos del mismo modelo, p.ej. MiniMax-M2.7.",
       "tokenHint": "Cantidades de tokens. Acepta sufijos k y M, p.ej. 512k o 1M.",
       "multimodalHint": "El modelo acepta imagen u otra entrada no textual.",
-      "effortLevels": {
-        "label": "Niveles de esfuerzo",
-        "placeholder": "bajo, medio, alto",
-        "hint": "Lista separada por comas de modos de esfuerzo admitidos. Vacía si no aplica."
-      },
       "saving": "Guardando",
       "errors": {
         "required": "El id del modelo es obligatorio.",
@@ -668,6 +663,14 @@
       "delete": {
         "label": "Eliminar archivos",
         "description": "Eliminar un archivo o un directorio vacio. Las rutas fuera del workspace piden confirmacion."
+      },
+      "fetch_url": {
+        "label": "Obtener URLs",
+        "description": "Obtener una pagina HTTPS publica y devolver su titulo, descripcion, texto principal y enlaces seguros."
+      },
+      "internet_search": {
+        "label": "Buscar en la web",
+        "description": "Buscar en la web publica y devolver titulos, URLs, sitios y fragmentos."
       }
     },
     "delete": {

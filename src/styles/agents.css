@@ -127,9 +127,13 @@
   display: none;
 }
 
-.agent-selector .select-item {
-  white-space: normal;
-  align-items: flex-start;
+.select-item:has(.agent-option) {
   height: auto;
   min-height: 28px;
+  white-space: normal;
+  align-items: flex-start;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
 }

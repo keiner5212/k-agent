@@ -383,11 +383,6 @@
       "familyHint": "Group modes of the same model, e.g. MiniMax-M2.7.",
       "tokenHint": "Token counts. k and M suffixes work, e.g. 512k or 1M.",
       "multimodalHint": "Model accepts image or other non-text input.",
-      "effortLevels": {
-        "label": "Effort levels",
-        "placeholder": "low, medium, high",
-        "hint": "Comma-separated list of supported reasoning effort modes. Leave empty if not applicable."
-      },
       "saving": "Saving",
       "errors": {
         "required": "Model id is required.",
@@ -668,6 +663,14 @@
       "delete": {
         "label": "Delete files",
         "description": "Delete a file or empty directory. Paths outside the workspace ask for confirmation."
+      },
+      "fetch_url": {
+        "label": "Fetch URLs",
+        "description": "Fetch a public HTTPS page and return its title, description, main text, and safe links."
+      },
+      "internet_search": {
+        "label": "Web search",
+        "description": "Search the public web and return titles, URLs, sites, and snippets."
       }
     },
     "delete": {

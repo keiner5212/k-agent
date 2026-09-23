@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::catalog::{ModelReasoningSpec, ModelRequestSpec, ModelSamplingSpec};
 use crate::providers::ProviderKind;
 
 const OUTPUT_TOKEN_MAX: u64 = 32_000;
@@ -10,8 +11,6 @@ pub struct DescribeModelRequest {
     pub kind: ProviderKind,
     pub base_url: String,
     pub model_id: String,
-    #[serde(default)]
-    pub family: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -134,7 +133,6 @@ struct Query<'a> {
     kind: ProviderKind,
     base_url: &'a str,
     model_id: &'a str,
-    family: Option<&'a str>,
 }
 
 #[derive(Clone, Copy)]
@@ -148,45 +146,11 @@ enum Sampling {
     },
 }
 
-enum ReasoningContract {
-    Unsupported,
-    Unknown,
-    Thinking {
-        modes: &'static [&'static str],
-        default_mode: &'static str,
-        locked_on: bool,
-    },
-    Effort {
-        levels: &'static [&'static str],
-        default_level: &'static str,
-    },
-    GeminiLevel {
-        levels: &'static [&'static str],
-        default_level: &'static str,
-    },
-    GeminiBudget {
-        modes: &'static [&'static str],
-        default_mode: &'static str,
-        locked_on: bool,
-    },
-    AnthropicExtended {
-        default_on: bool,
-        interleaved: bool,
-    },
-    Claude {
-        thinking_modes: &'static [&'static str],
-        default_thinking: &'static str,
-        locked_on: bool,
-        levels: &'static [&'static str],
-        default_level: &'static str,
-    },
-}
-
 struct Contract {
     vendor: &'static str,
     model_known: bool,
-    reasoning: ReasoningContract,
-    tiers: &'static [&'static str],
+    reasoning: ModelReasoningSpec,
+    tiers: Vec<String>,
     sampling: Sampling,
     privacy_support: &'static str,
     privacy_detail_key: &'static str,
@@ -204,7 +168,6 @@ pub fn describe_model_request(query: DescribeModelRequest) -> ModelRequestView {
         kind: query.kind,
         base_url: &query.base_url,
         model_id: &query.model_id,
-        family: query.family.as_deref(),
     })
 }
 
@@ -217,22 +180,15 @@ pub fn prepare(
         kind: query.kind,
         base_url: &query.base_url,
         model_id: &query.model_id,
-        family: query.family.as_deref(),
     });
     plan_for(&contract, choices, max_output)
 }
 
-pub fn quiet_query(
-    kind: ProviderKind,
-    base_url: &str,
-    model_id: &str,
-    family: Option<&str>,
-) -> DescribeModelRequest {
+pub fn quiet_query(kind: ProviderKind, base_url: &str, model_id: &str) -> DescribeModelRequest {
     DescribeModelRequest {
         kind,
         base_url: base_url.to_string(),
         model_id: model_id.to_string(),
-        family: family.map(str::to_string),
     }
 }
 
@@ -246,11 +202,7 @@ fn describe(query: &Query<'_>) -> ModelRequestView {
             "unknown".into()
         },
         reasoning: view_reasoning(&contract.reasoning),
-        service_tiers: contract
-            .tiers
-            .iter()
-            .map(|item| (*item).to_string())
-            .collect(),
+        service_tiers: contract.tiers.clone(),
         sampling: view_sampling(contract.sampling),
         privacy_support: contract.privacy_support.to_string(),
         privacy_detail_key: contract.privacy_detail_key.to_string(),
@@ -274,7 +226,7 @@ fn plan_for(contract: &Contract, choices: &ChatRequestOptions, max_output: u64) 
         gemini_level: None,
         gemini_budget: None,
         include_thoughts: false,
-        service_tier: allowed(choices.service_tier.as_deref(), contract.tiers),
+        service_tier: allowed(choices.service_tier.as_deref(), &contract.tiers),
         temperature: temperature_for(contract.sampling, choices.temperature),
         gemini_top_p: contract.gemini_top_p,
         token_field: contract.token_field,
@@ -299,23 +251,24 @@ fn max_output_ceiling(choices: &ChatRequestOptions, caller_max: u64) -> u64 {
 
 fn apply_reasoning(contract: &Contract, choices: &ChatRequestOptions, plan: &mut WirePlan) {
     match &contract.reasoning {
-        ReasoningContract::Unsupported | ReasoningContract::Unknown => {}
-        ReasoningContract::Thinking {
+        ModelReasoningSpec::Unsupported | ModelReasoningSpec::Unknown => {}
+        ModelReasoningSpec::Thinking {
             modes,
             default_mode,
             locked_on,
+            ..
         } => {
             let mode = if *locked_on {
                 "adaptive".to_string()
             } else {
                 allowed(choices.reasoning_mode.as_deref(), modes)
-                    .unwrap_or_else(|| (*default_mode).to_string())
+                    .unwrap_or_else(|| default_mode.clone())
             };
             plan.enable_reasoning = mode != "disabled";
             plan.openai_thinking = Some(mode.clone());
             plan.anthropic_thinking_type = Some(mode);
         }
-        ReasoningContract::Effort {
+        ModelReasoningSpec::Effort {
             levels,
             default_level,
         } => {
@@ -323,7 +276,7 @@ fn apply_reasoning(contract: &Contract, choices: &ChatRequestOptions, plan: &mut
                 if default_level.is_empty() {
                     None
                 } else {
-                    Some((*default_level).to_string())
+                    Some(default_level.clone())
                 }
             });
             if let Some(effort) = effort {
@@ -335,17 +288,17 @@ fn apply_reasoning(contract: &Contract, choices: &ChatRequestOptions, plan: &mut
                 }
             }
         }
-        ReasoningContract::GeminiLevel {
+        ModelReasoningSpec::GeminiLevel {
             levels,
             default_level,
         } => {
-            let level = allowed(choices.effort.as_deref(), levels)
-                .unwrap_or_else(|| (*default_level).to_string());
+            let level =
+                allowed(choices.effort.as_deref(), levels).unwrap_or_else(|| default_level.clone());
             plan.gemini_level = Some(level.to_ascii_uppercase());
             plan.include_thoughts = true;
             plan.enable_reasoning = true;
         }
-        ReasoningContract::GeminiBudget {
+        ModelReasoningSpec::GeminiBudget {
             modes,
             default_mode,
             locked_on,
@@ -354,20 +307,20 @@ fn apply_reasoning(contract: &Contract, choices: &ChatRequestOptions, plan: &mut
                 "dynamic".to_string()
             } else {
                 allowed(choices.reasoning_mode.as_deref(), modes)
-                    .unwrap_or_else(|| (*default_mode).to_string())
+                    .unwrap_or_else(|| default_mode.clone())
             };
             let mode = mode.as_str();
             plan.gemini_budget = Some(if mode == "disabled" { 0 } else { -1 });
             plan.include_thoughts = mode != "disabled";
             plan.enable_reasoning = mode != "disabled";
         }
-        ReasoningContract::AnthropicExtended {
+        ModelReasoningSpec::AnthropicExtended {
             default_on,
             interleaved,
         } => {
             apply_extended_thinking(plan, choices, *default_on, *interleaved);
         }
-        ReasoningContract::Claude {
+        ModelReasoningSpec::Claude {
             thinking_modes,
             default_thinking,
             locked_on,
@@ -378,14 +331,14 @@ fn apply_reasoning(contract: &Contract, choices: &ChatRequestOptions, plan: &mut
                 if default_level.is_empty() {
                     None
                 } else {
-                    Some((*default_level).to_string())
+                    Some(default_level.clone())
                 }
             });
             let mut mode = if *locked_on {
                 "adaptive".to_string()
             } else {
                 allowed(choices.reasoning_mode.as_deref(), thinking_modes)
-                    .unwrap_or_else(|| (*default_thinking).to_string())
+                    .unwrap_or_else(|| default_thinking.clone())
             };
             if contract.opus5_disable_limit
                 && mode == "disabled"
@@ -425,59 +378,60 @@ fn apply_extended_thinking(
     plan.enable_reasoning = true;
 }
 
-fn view_reasoning(reasoning: &ReasoningContract) -> ReasoningView {
+fn view_reasoning(reasoning: &ModelReasoningSpec) -> ReasoningView {
     match reasoning {
-        ReasoningContract::Unsupported => ReasoningView::Unsupported,
-        ReasoningContract::Unknown => ReasoningView::Unknown,
-        ReasoningContract::Thinking {
+        ModelReasoningSpec::Unsupported => ReasoningView::Unsupported,
+        ModelReasoningSpec::Unknown => ReasoningView::Unknown,
+        ModelReasoningSpec::Thinking {
             modes,
             default_mode,
             locked_on,
+            ..
         } => ReasoningView::Thinking {
-            modes: owned(modes),
-            default_mode: (*default_mode).to_string(),
+            modes: modes.clone(),
+            default_mode: default_mode.clone(),
             locked_on: *locked_on,
         },
-        ReasoningContract::Effort {
+        ModelReasoningSpec::Effort {
             levels,
             default_level,
         } => ReasoningView::Effort {
-            levels: owned(levels),
-            default_level: (*default_level).to_string(),
+            levels: levels.clone(),
+            default_level: default_level.clone(),
         },
-        ReasoningContract::GeminiLevel {
+        ModelReasoningSpec::GeminiLevel {
             levels,
             default_level,
         } => ReasoningView::GeminiLevel {
-            levels: owned(levels),
-            default_level: (*default_level).to_string(),
+            levels: levels.clone(),
+            default_level: default_level.clone(),
         },
-        ReasoningContract::GeminiBudget {
+        ModelReasoningSpec::GeminiBudget {
             modes,
             default_mode,
             locked_on,
         } => ReasoningView::GeminiBudget {
-            modes: owned(modes),
-            default_mode: (*default_mode).to_string(),
+            modes: modes.clone(),
+            default_mode: default_mode.clone(),
             locked_on: *locked_on,
         },
-        ReasoningContract::AnthropicExtended { default_on, .. } => ReasoningView::Thinking {
+        ModelReasoningSpec::AnthropicExtended { default_on, .. } => ReasoningView::Thinking {
             modes: vec!["disabled".into(), "enabled".into()],
             default_mode: if *default_on { "enabled" } else { "disabled" }.into(),
             locked_on: false,
         },
-        ReasoningContract::Claude {
+        ModelReasoningSpec::Claude {
             thinking_modes,
             default_thinking,
             locked_on,
             levels,
             default_level,
         } => ReasoningView::Claude {
-            thinking_modes: owned(thinking_modes),
-            default_thinking: (*default_thinking).to_string(),
+            thinking_modes: thinking_modes.clone(),
+            default_thinking: default_thinking.clone(),
             locked_on: *locked_on,
-            levels: owned(levels),
-            default_level: (*default_level).to_string(),
+            levels: levels.clone(),
+            default_level: default_level.clone(),
         },
     }
 }
@@ -518,24 +472,24 @@ fn temperature_for(sampling: Sampling, requested: Option<f64>) -> Option<f64> {
     }
 }
 
-fn allowed(choice: Option<&str>, values: &[&str]) -> Option<String> {
+fn allowed(choice: Option<&str>, values: &[String]) -> Option<String> {
     let choice = choice.map(str::trim).filter(|value| !value.is_empty())?;
     values
         .iter()
-        .find(|value| **value == choice)
-        .map(|value| (*value).to_string())
+        .find(|value| value.as_str() == choice)
+        .cloned()
 }
 
-fn owned(values: &[&str]) -> Vec<String> {
+fn strings(values: &[&str]) -> Vec<String> {
     values.iter().map(|value| (*value).to_string()).collect()
 }
 
 fn contract(query: &Query<'_>) -> Contract {
-    match vendor(query.base_url) {
-        Vendor::MiniMax => minimax_contract(query),
-        Vendor::OpenAi => openai_contract(query),
-        Vendor::Anthropic => anthropic_contract(query),
-        Vendor::Gemini => gemini_contract(query),
+    let mut contract = match vendor(query.base_url) {
+        Vendor::MiniMax => minimax_shell(),
+        Vendor::OpenAi => openai_shell(),
+        Vendor::Anthropic => anthropic_shell(),
+        Vendor::Gemini => gemini_shell(),
         Vendor::OpenRouter => provider_shell(
             "openrouter",
             "request-flag",
@@ -585,7 +539,11 @@ fn contract(query: &Query<'_>) -> Contract {
             None,
             &[],
         ),
+    };
+    if let Some(spec) = active_spec(query) {
+        apply_spec(&mut contract, &spec, query.kind);
     }
+    contract
 }
 
 fn provider_shell(
@@ -602,8 +560,8 @@ fn provider_shell(
     Contract {
         vendor,
         model_known: false,
-        reasoning: ReasoningContract::Unknown,
-        tiers,
+        reasoning: ModelReasoningSpec::Unknown,
+        tiers: strings(tiers),
         sampling: Sampling::Omit,
         privacy_support,
         privacy_detail_key,
@@ -616,292 +574,158 @@ fn provider_shell(
     }
 }
 
-fn minimax_contract(query: &Query<'_>) -> Contract {
-    let blob = blob(query);
-    let official = is_minimax_m3(&blob) || is_minimax_m2(&blob);
-    let locked_on = official && !is_minimax_m3(&blob);
-    let default_mode = if query.kind == ProviderKind::AnthropicLike && is_minimax_m3(&blob) {
-        "disabled"
-    } else {
-        "adaptive"
-    };
-    let modes: &'static [&'static str] = if locked_on {
-        &["adaptive"]
-    } else if official {
-        &["adaptive", "disabled"]
-    } else {
-        &[]
-    };
-    let mut notes = Vec::new();
-    if query.kind == ProviderKind::OpenAiLike && official {
-        notes.push("chat.request.note.reasoningSplit");
-    }
-    if locked_on {
-        notes.push("chat.request.note.thinkingLocked");
-    }
-    if !official {
-        notes.push("chat.request.note.modelUnknown");
-    }
-    Contract {
-        vendor: "minimax",
-        model_known: official,
-        reasoning: if official {
-            ReasoningContract::Thinking {
-                modes,
-                default_mode,
-                locked_on,
-            }
-        } else {
-            ReasoningContract::Unknown
-        },
-        tiers: if official {
-            &["standard", "priority"]
-        } else {
-            &[]
-        },
-        sampling: if official {
-            Sampling::Range {
-                min: 0.0,
-                max: 2.0,
-                default_value: 1.0,
-            }
-        } else {
-            Sampling::Omit
-        },
-        privacy_support: "unsupported",
-        privacy_detail_key: "chat.request.privacy.unsupported",
-        privacy_wire: None,
-        reasoning_split: query.kind == ProviderKind::OpenAiLike && official,
-        token_field: TokenField::MaxCompletionTokens,
-        gemini_top_p: false,
-        notes,
-        opus5_disable_limit: false,
-    }
+fn minimax_shell() -> Contract {
+    let mut contract = provider_shell(
+        "minimax",
+        "unsupported",
+        "chat.request.privacy.unsupported",
+        None,
+        &[],
+    );
+    contract.token_field = TokenField::MaxCompletionTokens;
+    contract
 }
 
-fn openai_contract(query: &Query<'_>) -> Contract {
-    let blob = blob(query);
-    let mut contract = provider_shell(
+fn openai_shell() -> Contract {
+    provider_shell(
         "openai",
         "request-flag",
         "chat.request.privacy.openai",
         Some(PrivacyWire::OpenAiStoreFalse),
         &["auto", "default", "flex", "priority"],
-    );
-    contract.vendor = "openai";
-    if query.kind != ProviderKind::OpenAiLike {
-        return contract;
-    }
-    if has(&blob, "gpt-6") {
-        return effort_contract(
-            contract,
-            &["low", "medium", "high", "xhigh", "max"],
-            "",
-            true,
-        );
-    }
-    if has(&blob, "gpt-5-6") {
-        return effort_contract(
-            contract,
-            &["none", "low", "medium", "high", "xhigh", "max"],
-            "medium",
-            true,
-        );
-    }
-    if has(&blob, "gpt-5-5") {
-        return effort_contract(
-            contract,
-            &["none", "low", "medium", "high", "xhigh"],
-            "medium",
-            true,
-        );
-    }
-    if has(&blob, "gpt-5-4") {
-        return effort_contract(
-            contract,
-            &["none", "low", "medium", "high", "xhigh"],
-            "none",
-            true,
-        );
-    }
-    if has(&blob, "gpt-5") {
-        return effort_contract(contract, &["minimal", "low", "medium", "high"], "", true);
-    }
-    if has_token(&blob, "o3") || has_token(&blob, "o4") || has_token(&blob, "o1") {
-        contract.sampling = Sampling::Omit;
-        contract.token_field = TokenField::MaxCompletionTokens;
-        contract
-            .notes
-            .retain(|note| *note != "chat.request.note.modelUnknown");
-        contract.model_known = false;
-        contract.reasoning = ReasoningContract::Unknown;
-        return contract;
-    }
-    if has(&blob, "gpt-4-1") || has(&blob, "gpt-4o") || has(&blob, "gpt-4-o") {
-        contract.model_known = true;
-        contract.reasoning = ReasoningContract::Unsupported;
-        contract.sampling = Sampling::Range {
-            min: 0.0,
-            max: 2.0,
-            default_value: 1.0,
-        };
-        contract.token_field = TokenField::MaxTokens;
-        contract
-            .notes
-            .retain(|note| *note != "chat.request.note.modelUnknown");
-    }
-    contract
+    )
 }
 
-fn anthropic_contract(query: &Query<'_>) -> Contract {
-    let mut contract = provider_shell(
+fn anthropic_shell() -> Contract {
+    provider_shell(
         "anthropic",
         "account-only",
         "chat.request.privacy.accountOnly",
         None,
         &["auto", "standard_only"],
-    );
-    if query.kind != ProviderKind::AnthropicLike {
-        return contract;
-    }
-    let blob = blob(query);
-    let Some(kind) = claude_kind(&blob) else {
-        return contract;
-    };
-    contract.model_known = true;
-    contract
-        .notes
-        .retain(|note| *note != "chat.request.note.modelUnknown");
-    contract.sampling = Sampling::Fixed(1.0);
-    match kind {
-        ClaudeKind::AlwaysAdaptive {
-            levels,
-            default_level,
-        } => {
-            contract.reasoning = ReasoningContract::Claude {
-                thinking_modes: &["adaptive"],
-                default_thinking: "adaptive",
-                locked_on: true,
-                levels,
-                default_level,
-            };
-            contract.notes.push("chat.request.note.thinkingLocked");
-        }
-        ClaudeKind::Adaptive {
-            levels,
-            default_level,
-            default_on,
-            opus5_limit,
-        } => {
-            contract.reasoning = ReasoningContract::Claude {
-                thinking_modes: &["adaptive", "disabled"],
-                default_thinking: if default_on { "adaptive" } else { "disabled" },
-                locked_on: false,
-                levels,
-                default_level,
-            };
-            contract.opus5_disable_limit = opus5_limit;
-            if !default_on {
-                contract.notes.push("chat.request.note.thinkingDefaultOff");
-            }
-        }
-        ClaudeKind::Extended {
-            default_on,
-            interleaved,
-        } => {
-            contract.reasoning = ReasoningContract::AnthropicExtended {
-                default_on,
-                interleaved,
-            };
-        }
-    }
-    contract
+    )
 }
 
-fn gemini_contract(query: &Query<'_>) -> Contract {
-    let mut contract = provider_shell(
+fn gemini_shell() -> Contract {
+    provider_shell(
         "gemini",
         "account-only",
         "chat.request.privacy.accountOnly",
         None,
         &[],
-    );
-    if query.kind != ProviderKind::GeminiLike {
-        return contract;
-    }
-    let blob = blob(query);
-    let Some(kind) = gemini_kind(&blob) else {
-        return contract;
-    };
-    contract.model_known = true;
-    contract
-        .notes
-        .retain(|note| *note != "chat.request.note.modelUnknown");
-    contract.tiers = &["standard", "flex", "priority"];
-    contract.notes.push("chat.request.note.tierMayReject");
-    match kind {
-        GeminiKind::Level {
-            levels,
-            default_level,
-        } => {
-            contract.reasoning = ReasoningContract::GeminiLevel {
-                levels,
-                default_level,
-            };
-            contract.sampling = Sampling::Omit;
-        }
-        GeminiKind::Budget {
-            can_disable,
-            default_off,
-        } => {
-            contract.reasoning = if can_disable {
-                ReasoningContract::GeminiBudget {
-                    modes: &["disabled", "dynamic"],
-                    default_mode: if default_off { "disabled" } else { "dynamic" },
-                    locked_on: false,
-                }
-            } else {
-                ReasoningContract::GeminiBudget {
-                    modes: &["dynamic"],
-                    default_mode: "dynamic",
-                    locked_on: true,
-                }
-            };
-            if !can_disable {
-                contract.notes.push("chat.request.note.thinkingLocked");
-            }
-            contract.sampling = Sampling::Range {
-                min: 0.0,
-                max: 2.0,
-                default_value: 1.0,
-            };
-            contract.gemini_top_p = true;
-        }
-    }
-    contract
+    )
 }
 
-fn effort_contract(
-    mut contract: Contract,
-    levels: &'static [&'static str],
-    default_level: &'static str,
-    completion_tokens: bool,
-) -> Contract {
-    contract.model_known = true;
-    contract.reasoning = ReasoningContract::Effort {
-        levels,
-        default_level,
+fn active_spec(query: &Query<'_>) -> Option<ModelRequestSpec> {
+    let native = match vendor(query.base_url) {
+        Vendor::MiniMax => "minimax",
+        Vendor::OpenAi if query.kind == ProviderKind::OpenAiLike => "openai",
+        Vendor::Anthropic if query.kind == ProviderKind::AnthropicLike => "anthropic",
+        Vendor::Gemini if query.kind == ProviderKind::GeminiLike => "gemini",
+        _ => return None,
     };
-    contract.sampling = Sampling::Omit;
-    contract.token_field = if completion_tokens {
-        TokenField::MaxCompletionTokens
+    let spec = crate::catalog::bundled_lookup(query.model_id)?
+        .request
+        .clone()?;
+    if spec.native.iter().any(|name| name == native) {
+        Some(spec)
     } else {
-        TokenField::MaxTokens
-    };
+        None
+    }
+}
+
+fn apply_spec(contract: &mut Contract, spec: &ModelRequestSpec, kind: ProviderKind) {
+    contract.model_known = spec.known;
     contract
         .notes
         .retain(|note| *note != "chat.request.note.modelUnknown");
-    contract
+    if !spec.tiers.is_empty() {
+        contract.tiers = spec.tiers.clone();
+    }
+    if spec.tier_may_reject
+        && !contract
+            .notes
+            .iter()
+            .any(|note| *note == "chat.request.note.tierMayReject")
+    {
+        contract.notes.push("chat.request.note.tierMayReject");
+    }
+    contract.reasoning_split = spec.reasoning_split_openai && kind == ProviderKind::OpenAiLike;
+    if contract.reasoning_split {
+        contract.notes.push("chat.request.note.reasoningSplit");
+    }
+    if let Some(reasoning) = &spec.reasoning {
+        push_reasoning_notes(contract, reasoning);
+        contract.reasoning = reasoning_from_spec(reasoning, kind);
+    }
+    if let Some(sampling) = &spec.sampling {
+        contract.sampling = match sampling {
+            ModelSamplingSpec::Fixed { value } => Sampling::Fixed(*value),
+            ModelSamplingSpec::Range {
+                min,
+                max,
+                default_value,
+            } => Sampling::Range {
+                min: *min,
+                max: *max,
+                default_value: *default_value,
+            },
+        };
+    }
+    if spec.token_field.as_deref() == Some("maxCompletionTokens") {
+        contract.token_field = TokenField::MaxCompletionTokens;
+    } else if spec.token_field.as_deref() == Some("maxTokens") {
+        contract.token_field = TokenField::MaxTokens;
+    }
+    contract.opus5_disable_limit = spec.opus5_disable_limit;
+    contract.gemini_top_p = spec.gemini_top_p;
+}
+
+fn push_reasoning_notes(contract: &mut Contract, reasoning: &ModelReasoningSpec) {
+    let locked = match reasoning {
+        ModelReasoningSpec::Thinking { locked_on, .. }
+        | ModelReasoningSpec::GeminiBudget { locked_on, .. }
+        | ModelReasoningSpec::Claude { locked_on, .. } => *locked_on,
+        _ => false,
+    };
+    if locked {
+        contract.notes.push("chat.request.note.thinkingLocked");
+    }
+    if let ModelReasoningSpec::Claude {
+        default_thinking,
+        locked_on,
+        ..
+    } = reasoning
+    {
+        if !locked_on && default_thinking == "disabled" {
+            contract.notes.push("chat.request.note.thinkingDefaultOff");
+        }
+    }
+}
+
+fn reasoning_from_spec(spec: &ModelReasoningSpec, kind: ProviderKind) -> ModelReasoningSpec {
+    let ModelReasoningSpec::Thinking {
+        modes,
+        default_mode,
+        locked_on,
+        anthropic_default_mode,
+    } = spec
+    else {
+        return spec.clone();
+    };
+    let default_mode = if kind == ProviderKind::AnthropicLike {
+        anthropic_default_mode
+            .clone()
+            .unwrap_or_else(|| default_mode.clone())
+    } else {
+        default_mode.clone()
+    };
+    ModelReasoningSpec::Thinking {
+        modes: modes.clone(),
+        default_mode,
+        locked_on: *locked_on,
+        anthropic_default_mode: None,
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -995,183 +819,6 @@ fn vendor_name(vendor: Vendor) -> &'static str {
     }
 }
 
-fn blob(query: &Query<'_>) -> String {
-    format!(
-        "{} {}",
-        norm(query.model_id),
-        query.family.map(norm).unwrap_or_default()
-    )
-}
-
-fn norm(value: &str) -> String {
-    value.trim().to_ascii_lowercase().replace('.', "-")
-}
-
-fn has(blob: &str, needle: &str) -> bool {
-    blob.contains(needle)
-}
-
-fn has_token(blob: &str, token: &str) -> bool {
-    blob.split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '-'))
-        .any(|part| part == token || part.starts_with(&format!("{token}-")))
-}
-
-fn is_minimax_m3(blob: &str) -> bool {
-    has(blob, "minimax-m3") || has(blob, "minimax/m3") || has_token(blob, "m3")
-}
-
-fn is_minimax_m2(blob: &str) -> bool {
-    has(blob, "minimax-m2")
-}
-
-enum ClaudeKind {
-    AlwaysAdaptive {
-        levels: &'static [&'static str],
-        default_level: &'static str,
-    },
-    Adaptive {
-        levels: &'static [&'static str],
-        default_level: &'static str,
-        default_on: bool,
-        opus5_limit: bool,
-    },
-    Extended {
-        default_on: bool,
-        interleaved: bool,
-    },
-}
-
-fn claude_kind(blob: &str) -> Option<ClaudeKind> {
-    const ALL: &[&str] = &["low", "medium", "high", "xhigh", "max"];
-    const NO_XHIGH: &[&str] = &["low", "medium", "high", "max"];
-    if has(blob, "fable-5") || has(blob, "mythos-5") || has(blob, "opus-5-5") {
-        return Some(ClaudeKind::AlwaysAdaptive {
-            levels: ALL,
-            default_level: if has(blob, "opus-5-5") {
-                "medium"
-            } else {
-                "high"
-            },
-        });
-    }
-    if has(blob, "mythos-preview") {
-        return Some(ClaudeKind::AlwaysAdaptive {
-            levels: NO_XHIGH,
-            default_level: "high",
-        });
-    }
-    if has(blob, "opus-5") {
-        return Some(ClaudeKind::Adaptive {
-            levels: ALL,
-            default_level: "high",
-            default_on: true,
-            opus5_limit: true,
-        });
-    }
-    if has(blob, "sonnet-5") {
-        return Some(ClaudeKind::Adaptive {
-            levels: ALL,
-            default_level: "high",
-            default_on: true,
-            opus5_limit: false,
-        });
-    }
-    if has(blob, "opus-4-8") || has(blob, "opus-4-7") {
-        return Some(ClaudeKind::Adaptive {
-            levels: ALL,
-            default_level: "high",
-            default_on: false,
-            opus5_limit: false,
-        });
-    }
-    if has(blob, "opus-4-6") || has(blob, "sonnet-4-6") {
-        return Some(ClaudeKind::Adaptive {
-            levels: NO_XHIGH,
-            default_level: "high",
-            default_on: false,
-            opus5_limit: false,
-        });
-    }
-    if has(blob, "haiku-4-5") {
-        return Some(ClaudeKind::Extended {
-            default_on: false,
-            interleaved: false,
-        });
-    }
-    if has(blob, "opus-4-5") || has(blob, "sonnet-4-5") {
-        return Some(ClaudeKind::Extended {
-            default_on: false,
-            interleaved: true,
-        });
-    }
-    None
-}
-
-enum GeminiKind {
-    Level {
-        levels: &'static [&'static str],
-        default_level: &'static str,
-    },
-    Budget {
-        can_disable: bool,
-        default_off: bool,
-    },
-}
-
-fn gemini_kind(blob: &str) -> Option<GeminiKind> {
-    const FULL: &[&str] = &["minimal", "low", "medium", "high"];
-    const NO_MIN: &[&str] = &["low", "medium", "high"];
-    if has(blob, "gemini-3-8") || has(blob, "gemini-3-7") {
-        return Some(GeminiKind::Level {
-            levels: NO_MIN,
-            default_level: "medium",
-        });
-    }
-    if has(blob, "gemini-3-1-pro") {
-        return Some(GeminiKind::Level {
-            levels: NO_MIN,
-            default_level: "high",
-        });
-    }
-    if has(blob, "flash-lite") && has(blob, "gemini-3") {
-        return Some(GeminiKind::Level {
-            levels: FULL,
-            default_level: "minimal",
-        });
-    }
-    if has(blob, "gemini-3-6") || has(blob, "gemini-3-5") {
-        return Some(GeminiKind::Level {
-            levels: FULL,
-            default_level: "medium",
-        });
-    }
-    if has(blob, "gemini-3") {
-        return Some(GeminiKind::Level {
-            levels: FULL,
-            default_level: "high",
-        });
-    }
-    if has(blob, "gemini-2-5-pro") {
-        return Some(GeminiKind::Budget {
-            can_disable: false,
-            default_off: false,
-        });
-    }
-    if has(blob, "gemini-2-5-flash-lite") {
-        return Some(GeminiKind::Budget {
-            can_disable: true,
-            default_off: true,
-        });
-    }
-    if has(blob, "gemini-2-5-flash") {
-        return Some(GeminiKind::Budget {
-            can_disable: true,
-            default_off: false,
-        });
-    }
-    None
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1181,7 +828,6 @@ mod tests {
             kind,
             base_url: base.into(),
             model_id: model.into(),
-            family: None,
         }
     }
 
@@ -1254,5 +900,23 @@ mod tests {
         };
         let plan = prepare(&query, &choices, 4096);
         assert!(plan.reasoning_effort.is_none());
+    }
+
+    #[test]
+    fn openai_effort_comes_from_catalog() {
+        let query = query(
+            ProviderKind::OpenAiLike,
+            "https://api.openai.com/v1",
+            "gpt-5.4-pro",
+        );
+        let view = describe_model_request(query.clone());
+        assert!(matches!(view.reasoning, ReasoningView::Effort { .. }));
+        let choices = ChatRequestOptions {
+            effort: Some("high".into()),
+            ..ChatRequestOptions::default()
+        };
+        let plan = prepare(&query, &choices, 4096);
+        assert_eq!(plan.reasoning_effort.as_deref(), Some("high"));
+        assert_eq!(plan.token_field, TokenField::MaxCompletionTokens);
     }
 }

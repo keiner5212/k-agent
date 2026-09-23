@@ -68,6 +68,7 @@
     "allow-refresh-mcp-server-tools",
     "allow-set-mcp-server-enabled",
     "allow-send-chat-message",
+    "allow-describe-model-request",
     "allow-prepare-chat-attachments",
     "allow-load-sessions",
     "allow-save-sessions",

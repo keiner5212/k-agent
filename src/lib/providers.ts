@@ -169,7 +169,6 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
           contextWindow: draft.contextWindow ?? null,
           maxOutputTokens: draft.maxOutputTokens ?? null,
           multimodal: draft.multimodal,
-          effortLevels: draft.effortLevels ?? null,
         },
       });
       set((state) => ({ providers: replaceProvider(state.providers, provider) }));

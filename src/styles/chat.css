@@ -247,6 +247,10 @@ button.change-bar__stat:focus-visible {
   overflow: hidden;
 }
 
+.app-shell[data-sidebar-open="false"] .sessions-sidebar__foot {
+  display: none;
+}
+
 .sessions-sidebar__head {
   display: flex;
   align-items: center;

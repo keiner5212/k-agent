@@ -72,7 +72,6 @@ export type ModelDraft = {
   contextWindow?: number;
   maxOutputTokens?: number;
   multimodal: boolean;
-  effortLevels?: string[];
 };
 
 export type Provider = {

@@ -42,7 +42,6 @@ export const ModelRequestButton = (): ReactNode => {
         kind: providers.find((item) => item.id === selection.providerId)?.kind,
         baseUrl: providers.find((item) => item.id === selection.providerId)?.baseUrl,
         modelId: model.id,
-        family: model.family ?? null,
       },
     })
       .then((next) => {

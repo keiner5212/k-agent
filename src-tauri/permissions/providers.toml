@@ -50,6 +50,7 @@ permissions = [
   "allow-save-mcp-server",
   "allow-delete-mcp-server",
   "allow-send-chat-message",
+  "allow-describe-model-request",
   "allow-prepare-chat-attachments",
   "allow-load-sessions",
   "allow-save-sessions",
@@ -329,6 +330,11 @@ commands.allow = ["set_mcp_server_enabled"]
 identifier = "allow-send-chat-message"
 description = "Send a simple chat message to the selected model."
 commands.allow = ["send_chat_message"]
+
+[[permission]]
+identifier = "allow-describe-model-request"
+description = "Describe the catalog request contract for the selected model."
+commands.allow = ["describe_model_request"]
 
 [[permission]]
 identifier = "allow-prepare-chat-attachments"
