@@ -29,7 +29,7 @@ export const composeSystemWithLanguage = (
   rules = "",
 ): string => {
   const parts: string[] = [];
-  if (force) parts.push(DIRECTIVE[language]);
+  if (force) parts.push(`<language>\n${DIRECTIVE[language]}\n</language>`);
   const trimmedRules = rules.replace(/\n+$/, "");
   if (trimmedRules.length > 0) parts.push(trimmedRules);
   const trimmed = base.replace(/\n+$/, "");

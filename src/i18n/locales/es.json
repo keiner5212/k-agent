@@ -621,6 +621,8 @@
       "skills": "Habilidades",
       "skillsCount": "{{count}} / {{max}}",
       "skillsHintGlobal": "Un agente global solo puede cargar habilidades globales. Maximo 10.",
+      "skillsPlaceholder": "Agregar habilidad",
+      "skillsRemove": "Quitar {{name}}",
       "skillsEmpty": "No hay habilidades disponibles para esta ubicacion.",
       "tools": "Herramientas",
       "toolsHint": "Herramientas que el agente puede llamar en el chat. Solo se listan herramientas locales registradas.",
@@ -767,10 +769,15 @@
       "confirm": "Retroceder"
     },
     "thinking": {
-      "label": "Pensamiento",
+      "label": "Pensando",
       "duration_one": "Pensó {{count}} segundo",
       "duration_other": "Pensó {{count}} segundos",
       "durationMs": "Pensó {{count}} ms"
+    },
+    "mermaid": {
+      "fullscreenLabel": "Expandir diagrama",
+      "fullscreenTitle": "Diagrama",
+      "unavailable": "Fuente del diagrama no disponible."
     },
     "waiting": {
       "phrases": [

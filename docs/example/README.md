@@ -15,18 +15,16 @@ This is documentation, not generated. It must be kept in sync with:
 
 ## Scenario
 
-- Workspace has one agent-bound skill (`code-review`, in
-  `~/.k-agent/skills/`) and one workspace skill (`commit`, in
-  `.agents/skills/`).
-- `~/.k-agent/AGENTS.md` and `<workspace>/AGENTS.md` are both empty.
-- `forceResponseLanguage` is off.
-- User message: `What does the foo function do?`
-- Selected agent: `build` (default built-in).
+- Force-response-language is on (`en`).
+- `~/.k-agent/AGENTS.md` and `<workspace>/AGENTS.md` both have text.
+- Agent `build` has global skills `code-review` and `tauri-v2`.
+- The workspace has a local skill `commit`.
+- None of those skills are loaded yet.
 
 ## Files
 
-- [`system-prompt.md`](./system-prompt.md) - the exact text of the
-  `system` message the frontend sends to Rust.
+- [`system-prompt.md`](./system-prompt.md) - the exact `system` text.
+- [`system-prompt.html`](./system-prompt.html) - the same text, each block marked with its source.
 - [`tool-stats/<tool>/`](./tool-stats/) - one folder per tool with its
   `README.md` (hand-written spec), `response.toon` (a real example
   response in the wire format), and `stats.md` (performance metrics).

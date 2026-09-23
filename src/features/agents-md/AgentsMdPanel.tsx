@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
+import { LineEditor } from "@/components/LineEditor";
 import { highlightMatch } from "@/lib/highlight";
 import { useAgentsMdStore } from "@/lib/agents-md";
 import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
@@ -175,7 +176,13 @@ const AgentsMdFileView = ({
         )}
       </div>
       {file.exists ? (
-        <pre className="agents-md__body">{file.content}</pre>
+        <LineEditor
+          value={file.content}
+          onChange={() => undefined}
+          readOnly
+          language="markdown"
+          path={file.path}
+        />
       ) : (
         <p className="skill-context__empty">{t("agentsMd.empty")}</p>
       )}

@@ -126,6 +126,7 @@ const AgentPersonalityBody = ({
         onChange={(next) => setContent(clampPersonality(next))}
         maxLines={MAX_AGENT_PERSONALITY_LINES}
         readOnly={readOnly}
+        language="markdown"
       />
       <div className="skill-editor__meta">
         <span className="agent-form__count">

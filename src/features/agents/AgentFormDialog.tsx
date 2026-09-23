@@ -1,8 +1,9 @@
 import { useCallback, useState, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
+import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import type { AgentWriteInput } from "@/lib/agents";
 import {
@@ -84,14 +85,19 @@ const AgentFormBody = ({
   const [error, setError] = useState<string | null>(null);
 
   const atSkillCap = skills.length >= MAX_AGENT_SKILLS;
+  const remainingSkills = availableSkills.filter(
+    (skill) => !skills.some((item) => skillRefKey(item) === skillRefKey(skill)),
+  );
 
-  const toggleSkill = (skill: AgentSkillRef, checked: boolean): void => {
-    if (checked) {
-      if (atSkillCap) return;
-      if (skills.some((item) => skillRefKey(item) === skillRefKey(skill))) return;
-      setSkills([...skills, skill]);
-      return;
-    }
+  const addSkill = (key: string): void => {
+    if (atSkillCap) return;
+    const skill = availableSkills.find((item) => skillRefKey(item) === key);
+    if (!skill) return;
+    if (skills.some((item) => skillRefKey(item) === key)) return;
+    setSkills([...skills, skill]);
+  };
+
+  const removeSkill = (skill: AgentSkillRef): void => {
     setSkills(skills.filter((item) => skillRefKey(item) !== skillRefKey(skill)));
   };
 
@@ -244,26 +250,41 @@ const AgentFormBody = ({
           {availableSkills.length === 0 ? (
             <p className="agent-form__empty">{t("agents.form.skillsEmpty")}</p>
           ) : (
-            <ul className="agent-pick">
-              {availableSkills.map((skill) => {
-                const key = skillRefKey(skill);
-                const checked = skills.some((item) => skillRefKey(item) === key);
-                const disabled = !checked && atSkillCap;
-                return (
-                  <li key={key}>
-                    <label className="agent-pick__row" data-disabled={disabled ? "true" : "false"}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        disabled={readOnly || disabled}
-                        onChange={(event) => toggleSkill(skill, event.target.checked)}
-                      />
-                      <span className="agent-pick__id">{skill.id}</span>
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="agent-skill-picker">
+              {readOnly ? null : (
+                <Select
+                  id="agent-skills"
+                  value=""
+                  onChange={addSkill}
+                  options={remainingSkills.map((skill) => ({
+                    value: skillRefKey(skill),
+                    label: skill.id,
+                  }))}
+                  placeholder={t("agents.form.skillsPlaceholder")}
+                  ariaLabel={t("agents.form.skills")}
+                  disabled={atSkillCap || remainingSkills.length === 0}
+                />
+              )}
+              {skills.length > 0 ? (
+                <ul className="agent-skill-chips">
+                  {skills.map((skill) => (
+                    <li key={skillRefKey(skill)} className="agent-skill-chip">
+                      <span className="agent-skill-chip__label">{skill.id}</span>
+                      {readOnly ? null : (
+                        <button
+                          type="button"
+                          className="agent-skill-chip__remove"
+                          aria-label={t("agents.form.skillsRemove", { name: skill.id })}
+                          onClick={() => removeSkill(skill)}
+                        >
+                          <X size={12} strokeWidth={1.5} aria-hidden="true" />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
           )}
         </fieldset>
         <fieldset className="field agent-form__fieldset">

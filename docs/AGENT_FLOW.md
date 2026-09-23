@@ -1,88 +1,29 @@
-# Agent flow
+# System instruction
 
-How k-agent builds the model system prompt and how the agent should behave on each turn.
+One string, built when a chat message is sent, passed as `system`.
 
-## System prompt order
+OpenCode personalities use markdown headings, `IMPORTANT` lines, and `<example>` blocks. That mix has no formal spec name. The tag part is XML-tagged prompting (the same layout as the prompt improver). k-agent wraps each source in a tag so those headings stay inside `<personality>`.
 
-When a chat message is sent, the backend receives one system string assembled on the frontend:
+## Order
 
-1. **Language rule** (optional). When `forceResponseLanguage` is on, the language directive is first. It overrides conflicting language instructions but not behavior.
-2. **Global rules** from `~/.k-agent/AGENTS.md` when that file exists.
-3. **Workspace rules** from `{workspace}/AGENTS.md` when that file exists.
-4. **Agent system** from `composeAgentSystem()`:
-   - **1. Agent flow** - numbered turn protocol.
-   - **2. Agent skill loading** - turn-1 batch `skill` calls when the agent has bound global skills not already in context.
-   - **3. Agent skills** - names and descriptions only (global skills bound to the agent).
+Empty blocks are omitted.
 
-- **4. Workspace skills** - names and descriptions for workspace-local skills.
-- **5. Personality** - agent persona markdown body only.
+1. `<language>` - only when force-response-language is on. `src/lib/response-language.ts`.
+2. `<global-rules>` - text from `~/.k-agent/AGENTS.md`.
+3. `<workspace-rules>` - text from `{workspace}/AGENTS.md`.
+4. `<agent-flow>` - turn order. `composeAgentSystem()` in `src/lib/agent-system.ts`.
+5. `<agent-skills>` - global skills bound to the agent that are not already loaded.
+6. `<workspace-skills>` - skills under `{workspace}/.agents/skills/` that are not already loaded.
+7. `<clarify>` - call `ask_user` when the request is not fully clear. Omitted when the agent has no `ask_user` tool.
+8. `<todos>` - call `todowrite` whenever a step starts, finishes, drops, or changes. Omitted when the agent has no `todowrite` tool.
+9. `<personality>` - the agent persona body, unchanged.
+10. `<rendering>` - how chat markdown is shown.
+11. `<app-context>` - extra app notes. Omitted while that list is empty.
 
-5. **App context** (optional). Extra app-level notes when configured.
+Tool JSON schemas go on the request `tools` field, not in this string. A skill body arrives later, as the result of a `skill` call.
 
-Tool JSON schemas are sent on the request `tools` field, not in the system prompt. Enabled MCP tools are merged into that list at send time (`mcp_{server}_{tool}`).
+## Turn 1
 
-Skill bodies arrive through tool results after a `skill` call. Persisted on the assistant message (`toolRounds` with per-round reasoning, calls, `output`, and `display`) in `{app_data}/sessions/{id}/session.json` and replayed on the next send. Each round is sent back as assistant tool-calls, then tool results, then the next think/answer. Do not persist a flattened `toolCalls` copy. Builtin tool `output` is TOON (see `src-tauri/src/tools/tool-utils/toon.rs`). User attachments are files under `sessions/{id}/attachments/` with a `file` ref on the message.
+If `<agent-skills>` is present, the first model turn is one batch of `skill` calls and no prose. After that, load a workspace skill only when the task needs it. Then answer with the personality.
 
-## Turn protocol (model behavior)
-
-The model is instructed to follow this sequence:
-
-| Phase  | Action                                                                               |
-| ------ | ------------------------------------------------------------------------------------ |
-| Turn 1 | If the agent has bound skills, one batch of `skill` calls for those names. No prose. |
-| Next   | Load matching workspace skills with `skill` when they are listed and relevant.       |
-| Tools  | Call only advertised tools (local + MCP). Do not invent tool names.                  |
-| Answer | Reply using agent personality.                                                       |
-
-Turn 1 batch list omits skills already loaded in the session. Section 2 is omitted when every bound skill is already in context.
-
-## Agent skills vs workspace skills
-
-- **Agent skills** are global skills selected on the agent. Rust `sanitize_skills` only keeps `kind: global`. UI skill picker shows global skills only.
-- **Workspace skills** live under `{workspace}/.agents/skills/`. Listed in the system prompt for discovery; loaded on demand via `skill`.
-- Session agents are global (`~/.k-agent/agents/`) or builtin. There are no workspace agents.
-
-## Tools
-
-Tools are implemented in `src-tauri/src/tools/`. Each tool is one module; `tools/mod.rs` registers specs and dispatches execution. Workspace paths go through `pathutil` (OS separators, `~`, Windows drive prefixes). App data and `~/.k-agent` paths go through `paths`. `fetch_url` reads public HTTPS. Public HTTP is allowed only when `httpFetchEnabled` is on. Loopback stays blocked.
-
-The chat request includes tools enabled on the selected agent plus enabled MCP tools. Tool names that are not registered or not enabled are dropped. A model call to a disabled tool returns an error string instead of running.
-
-Local tools: `skill`, `read`, `write`, `edit`, `list_directory`. MCP tools are invoked via `tools/call` on stdio or HTTP servers.
-
-### Chat tool loop
-
-`send_chat_message` sends `toolNames` from the selected agent and loads MCP tools on the backend. `send_message` in `chat.rs`:
-
-1. Calls the provider with those tool definitions when the list is not empty. Each provider turn streams tokens when a UI channel is attached, including tool rounds.
-2. If the model returns tool calls, emits a `tool` chunk, then executes each allowed name (local or MCP).
-3. Truncates oversized tool results before they go back to the model.
-4. Appends assistant tool-call turns (with that round's reasoning) and user/tool-result turns to the in-memory turn list.
-5. Re-requests until the model returns text only. No tool-round cap. Later rounds can think again, then answer. Cancel still aborts the send.
-6. Assistant text is truncated if it exceeds the output guard.
-
-Gemini function calls echo `thoughtSignature` on later rounds (required by Gemini 3 thinking + tools).
-
-Provider message shapes:
-
-- OpenAI-compatible: `tool_calls` on assistant, `role: tool` results. Prior `reasoning_content` is echoed on later rounds.
-- Anthropic: `tool_use` / `tool_result` content blocks. Thinking blocks are echoed on later rounds.
-- Gemini: `functionCall` / `functionResponse` parts, plus thought signatures when present.
-
-## Token accounting
-
-- **Personality** alone drives `estimatedTokens` on `AgentMeta` in Rust and builtin agents in the UI.
-- **Context usage** is 0 until the first message in the session. After that it splits language, AGENTS.md rules, agent system, tool JSON schemas, MCP tools, skill tool outputs, conversation (user/assistant text, attachments, round content, non-skill tool I/O, skill names/args), and reasoning. Cost treats tool results as input, tool-call args and assistant text as output, and thinking at the reasoning rate when the catalog has one. One walk owns the split so skill bodies are not also counted in conversation.
-
-## Related files
-
-| Area                  | Path                           |
-| --------------------- | ------------------------------ |
-| System prompt builder | `src/lib/agent-system.ts`      |
-| Language + compose    | `src/lib/response-language.ts` |
-| Send path             | `src/lib/sessions.ts`          |
-| Path sanitization     | `src-tauri/src/pathutil.rs`    |
-| Tool registry         | `src-tauri/src/tools/mod.rs`   |
-| MCP client            | `src-tauri/src/mcp_client.rs`  |
-| Chat + tool loop      | `src-tauri/src/chat.rs`        |
-| Agent skill sanitize  | `src-tauri/src/agents.rs`      |
+Annotated example: [system-prompt.html](example/system-prompt.html). Plain text of that same string: [system-prompt.md](example/system-prompt.md).

@@ -1,7 +1,8 @@
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type UIEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useUndoRedoKeydown } from "@/lib/use-undo-redo-keydown";
 import { useUndoableText } from "@/lib/undoable-text";
 import { useSettingsStore } from "@/lib/settings";
+import { highlightLine, highlightLines, resolveLanguage } from "@/lib/syntax-highlight";
 
 export type LineKind = "context" | "add" | "remove";
 
@@ -14,6 +15,8 @@ type LineEditorProps = {
   startLine?: number;
   lineNumbers?: number[];
   lineKinds?: LineKind[];
+  language?: string;
+  path?: string;
 };
 
 const originLine = (startLine: number | undefined): number =>
@@ -34,8 +37,11 @@ export const LineEditor = ({
   startLine,
   lineNumbers,
   lineKinds,
+  language,
+  path,
 }: LineEditorProps): ReactNode => {
   const gutterInnerRef = useRef<HTMLDivElement>(null);
+  const highlightRef = useRef<HTMLPreElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const keybindings = useSettingsStore((state) => state.keybindings);
@@ -44,6 +50,7 @@ export const LineEditor = ({
   const [measureTick, setMeasureTick] = useState(0);
   const rowMode = Boolean(lineKinds && lineKinds.length > 0);
   const origin = originLine(startLine);
+  const resolvedLanguage = resolveLanguage(language, path, value);
 
   useUndoRedoKeydown(textareaRef, keybindings, undo, redo, !readOnly && !rowMode);
 
@@ -52,20 +59,39 @@ export const LineEditor = ({
     return value.split("\n");
   }, [value]);
 
-  const syncGutter = (top: number): void => {
-    const inner = gutterInnerRef.current;
-    if (!inner) return;
-    inner.style.transform = `translateY(${-top}px)`;
+  const highlightedLines = useMemo(() => {
+    if (!resolvedLanguage) return null;
+    return highlightLines(value, resolvedLanguage);
+  }, [value, resolvedLanguage]);
+
+  const syncOverlay = (): void => {
+    const textarea = textareaRef.current;
+    const top = textarea?.scrollTop ?? 0;
+    const gutter = gutterInnerRef.current;
+    if (gutter) gutter.style.transform = `translateY(${-top}px)`;
+    const highlight = highlightRef.current;
+    if (!textarea || !highlight) return;
+    const styles = window.getComputedStyle(textarea);
+    highlight.style.width = `${textarea.clientWidth}px`;
+    highlight.style.paddingTop = styles.paddingTop;
+    highlight.style.paddingRight = styles.paddingRight;
+    highlight.style.paddingBottom = styles.paddingBottom;
+    highlight.style.paddingLeft = styles.paddingLeft;
+    highlight.style.fontFamily = styles.fontFamily;
+    highlight.style.fontSize = styles.fontSize;
+    highlight.style.lineHeight = styles.lineHeight;
+    highlight.style.letterSpacing = styles.letterSpacing;
+    highlight.style.transform = `translateY(${-top}px)`;
   };
 
-  const onScroll = (event: UIEvent<HTMLTextAreaElement>): void => {
-    syncGutter(event.currentTarget.scrollTop);
+  const onScroll = (): void => {
+    syncOverlay();
   };
 
   useLayoutEffect(() => {
     if (rowMode) return;
-    syncGutter(textareaRef.current?.scrollTop ?? 0);
-  }, [rowMode, value, logicalLines.length, lineHeights]);
+    syncOverlay();
+  }, [rowMode, value, logicalLines.length, lineHeights, highlightedLines]);
 
   useLayoutEffect(() => {
     if (rowMode) return;
@@ -104,6 +130,7 @@ export const LineEditor = ({
     const textarea = textareaRef.current;
     if (!textarea) return;
     const observer = new ResizeObserver(() => {
+      syncOverlay();
       setMeasureTick((tick) => tick + 1);
     });
     observer.observe(textarea);
@@ -116,13 +143,18 @@ export const LineEditor = ({
         {logicalLines.map((text, index) => {
           const kind = lineKinds[index] ?? "context";
           const number = lineNumbers?.[index] ?? origin + index;
+          const lineHtml = highlightedLines?.[index] ?? highlightLine(text, null);
           return (
             <div key={index} className="line-editor__row" data-kind={kind}>
               <span className="line-editor__gutter-line">{number}</span>
               <span className="line-editor__mark" aria-hidden="true">
                 {markForKind(kind)}
               </span>
-              <span className="line-editor__code">{text.length === 0 ? " " : text}</span>
+              <span
+                className="line-editor__code"
+                data-language={resolvedLanguage ?? undefined}
+                dangerouslySetInnerHTML={{ __html: lineHtml }}
+              />
             </div>
           );
         })}
@@ -131,7 +163,7 @@ export const LineEditor = ({
   }
 
   return (
-    <div className="line-editor">
+    <div className="line-editor" data-language={resolvedLanguage ?? undefined}>
       <div className="line-editor__gutter" aria-hidden="true">
         <div ref={gutterInnerRef} className="line-editor__gutter-inner">
           {logicalLines.map((_, index) => (
@@ -149,6 +181,7 @@ export const LineEditor = ({
         ref={textareaRef}
         id={id}
         className="line-editor__textarea"
+        data-overlay={highlightedLines ? "true" : undefined}
         value={value}
         onChange={(event) => {
           let next = event.target.value;
@@ -166,6 +199,18 @@ export const LineEditor = ({
         readOnly={readOnly}
         wrap="soft"
       />
+      {highlightedLines ? (
+        <div className="line-editor__highlight" aria-hidden="true">
+          <pre ref={highlightRef} className="line-editor__highlight-inner">
+            <code
+              className={`hljs language-${resolvedLanguage}`}
+              dangerouslySetInnerHTML={{
+                __html: highlightedLines.join("\n"),
+              }}
+            />
+          </pre>
+        </div>
+      ) : null}
       <div ref={measureRef} className="line-editor__measure" aria-hidden="true" />
     </div>
   );

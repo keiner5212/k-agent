@@ -1,26 +1,70 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FileText, Film, Sparkles } from "lucide-react";
 import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
 import { useAskUserStore } from "@/lib/ask-user";
 import { renderMarkdown } from "@/lib/markdown";
+import {
+  decodeMermaidSource,
+  fillMermaidPlaceholders,
+  resetMermaidTheme,
+} from "@/lib/mermaid-render";
 import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import type { ChatAttachment, ChatMessage } from "@/types/chat";
 import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
 import { ChatWaitingLine } from "./ChatWaitingLine";
 import { MessageActions } from "./MessageActions";
+import { MermaidFullscreenDialog } from "./MermaidFullscreenDialog";
 import { QuestionDialog } from "./QuestionDialog";
 import { TodoList } from "./TodoList";
 import { ToolCallsBlock } from "./ToolCallsBlock";
 
-const AssistantMarkdown = ({ content }: { content: string }): ReactNode => {
+const AssistantMarkdown = ({
+  content,
+  streaming,
+  themeEpoch,
+  onFullscreenMermaid,
+}: {
+  content: string;
+  streaming?: boolean;
+  themeEpoch: number;
+  onFullscreenMermaid: (source: string) => void;
+}): ReactNode => {
   const { t } = useTranslation();
   const html = useMemo(() => renderMarkdown(content, t("links.openInBrowserHint")), [content, t]);
+  const fullscreenLabel = t("chat.mermaid.fullscreenLabel");
+  const [viewHtml, setViewHtml] = useState(html);
+  const [readyKey, setReadyKey] = useState("");
+  const renderKey = `${themeEpoch}\n${fullscreenLabel}\n${html}`;
+
+  useEffect(() => {
+    if (streaming) return;
+    let cancelled = false;
+    void fillMermaidPlaceholders(html, fullscreenLabel).then((next) => {
+      if (cancelled) return;
+      setViewHtml(next);
+      setReadyKey(renderKey);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [html, streaming, fullscreenLabel, themeEpoch, renderKey]);
+
+  const onClick = (event: MouseEvent<HTMLDivElement>): void => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest(".mermaid-placeholder__fullscreen");
+    if (!button) return;
+    const encoded = button.closest(".mermaid-placeholder")?.getAttribute("data-source") ?? "";
+    onFullscreenMermaid(decodeMermaidSource(encoded));
+  };
+
   if (content.length === 0) return null;
   return (
     <div
       className="chat-message__content chat-message__markdown"
-      dangerouslySetInnerHTML={{ __html: html }}
+      onClick={onClick}
+      dangerouslySetInnerHTML={{ __html: !streaming && readyKey === renderKey ? viewHtml : html }}
     />
   );
 };
@@ -139,9 +183,13 @@ const PendingQuestionsBlock = ({ messageId }: { messageId: string }): ReactNode 
 const MessageBody = ({
   message,
   sessionId,
+  themeEpoch,
+  onFullscreenMermaid,
 }: {
   message: ChatMessage;
   sessionId: string | null;
+  themeEpoch: number;
+  onFullscreenMermaid: (source: string) => void;
 }): ReactNode => {
   if (message.kind === "shell") {
     return (
@@ -172,12 +220,24 @@ const MessageBody = ({
                   streaming={Boolean(message.streaming) && isLastRound}
                   thinkingMs={!message.streaming ? round.thinkingMs : undefined}
                 />
-                <AssistantMarkdown content={round.content ?? ""} />
+                <AssistantMarkdown
+                  content={round.content ?? ""}
+                  streaming={Boolean(message.streaming) && isLastRound}
+                  themeEpoch={themeEpoch}
+                  onFullscreenMermaid={onFullscreenMermaid}
+                />
                 <ToolCallsBlock sessionId={sessionId} calls={calls} />
               </div>
             );
           })}
-          {showTrailingContent ? <AssistantMarkdown content={message.content} /> : null}
+          {showTrailingContent ? (
+            <AssistantMarkdown
+              content={message.content}
+              streaming={Boolean(message.streaming)}
+              themeEpoch={themeEpoch}
+              onFullscreenMermaid={onFullscreenMermaid}
+            />
+          ) : null}
           <PendingQuestionsBlock messageId={message.id} />
           <InterruptedFooter interrupted={message.interrupted ?? false} />
         </>
@@ -193,7 +253,11 @@ const MessageBody = ({
         />
         <ToolCallsBlock sessionId={sessionId} calls={message.toolCalls ?? []} />
         <PendingQuestionsBlock messageId={message.id} />
-        <AssistantMarkdown content={message.content} />
+        <AssistantMarkdown
+          content={message.content}
+          themeEpoch={themeEpoch}
+          onFullscreenMermaid={onFullscreenMermaid}
+        />
         <InterruptedFooter interrupted={message.interrupted ?? false} />
       </>
     );
@@ -241,10 +305,27 @@ export const ChatThread = (): ReactNode => {
   const sendingSessionId = useSessionsStore((state) => state.sendingSessionId);
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
   const error = useSessionsStore((state) => state.error);
+  const [fullscreenSource, setFullscreenSource] = useState<string | null>(null);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [mermaidTheme, setMermaidTheme] = useState(0);
+
+  useEffect(() => {
+    const node = document.documentElement;
+    const observer = new MutationObserver(() => {
+      resetMermaidTheme();
+      setMermaidTheme((value) => value + 1);
+    });
+    observer.observe(node, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
   const waiting =
     sending &&
     sendingSessionId === activeSessionId &&
     !messages.some((message) => message.streaming);
+  const openFullscreenMermaid = useCallback((source: string): void => {
+    setFullscreenSource(source);
+    setFullscreenOpen(true);
+  }, []);
 
   if (messages.length === 0 && !error) {
     return (
@@ -267,7 +348,12 @@ export const ChatThread = (): ReactNode => {
             className={`chat-message chat-message--${message.role}${message.kind === "shell" ? " chat-message--shell" : ""}${message.streaming ? " chat-message--streaming" : ""}${message.interrupted ? " chat-message--interrupted" : ""}`}
             data-role={message.role}
           >
-            <MessageBody message={message} sessionId={activeSessionId} />
+            <MessageBody
+              message={message}
+              sessionId={activeSessionId}
+              themeEpoch={mermaidTheme}
+              onFullscreenMermaid={openFullscreenMermaid}
+            />
             <MessageActions message={message} />
           </article>
         ))}
@@ -275,6 +361,11 @@ export const ChatThread = (): ReactNode => {
         <InterruptHint />
         {error ? <p className="chat-thread__error">{error}</p> : null}
       </div>
+      <MermaidFullscreenDialog
+        source={fullscreenSource}
+        open={fullscreenOpen}
+        onOpenChange={setFullscreenOpen}
+      />
     </section>
   );
 };

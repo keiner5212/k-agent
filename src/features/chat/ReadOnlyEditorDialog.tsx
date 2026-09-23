@@ -17,6 +17,7 @@ type ReadOnlyEditorDialogProps = {
   startLine?: number;
   lineNumbers?: number[];
   lineKinds?: LineKind[];
+  language?: string;
   onOpenChange: (open: boolean) => void;
 };
 
@@ -28,6 +29,7 @@ export const ReadOnlyEditorDialog = ({
   startLine,
   lineNumbers,
   lineKinds,
+  language,
   onOpenChange,
 }: ReadOnlyEditorDialogProps): ReactNode => {
   const { t } = useTranslation();
@@ -55,6 +57,8 @@ export const ReadOnlyEditorDialog = ({
             startLine={startLine}
             lineNumbers={lineNumbers}
             lineKinds={lineKinds}
+            path={path}
+            language={language}
           />
           <div className="form-actions">
             <GlassButton variant="secondary" onClick={() => onOpenChange(false)}>

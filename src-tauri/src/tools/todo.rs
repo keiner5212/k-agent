@@ -250,41 +250,47 @@ struct Staged {
 }
 
 fn stage(args: TodoWriteArgs, current: Vec<TodoItem>) -> Result<Staged, String> {
-    let clear = args.clear;
-    let added = build_additions(args.add, &current)?;
-    let updates = plan_updates(args.update, &current)?;
     let remove_ids = sanitize_remove_ids(args.remove);
-
-    let mut diff = TodoDiff::default();
     let mut next = current;
-    if clear && !next.is_empty() {
+    let mut diff = TodoDiff::default();
+
+    if args.clear && !next.is_empty() {
         diff.removed = next.iter().map(|item| item.id.clone()).collect();
         diff.cleared = true;
         next.clear();
     }
-    for update in &updates {
-        if let Some(target) = next.iter().find(|item| item.id == update.id) {
-            diff.updated.push(apply_update_to_snapshot(target, update));
-        }
-    }
-    for item in &added {
-        diff.added.push(item.clone());
-    }
-    diff.removed.extend(
-        remove_ids
-            .iter()
-            .filter(|id| next.iter().any(|item| &item.id == *id))
-            .cloned(),
-    );
-    diff.removed.sort();
-    diff.removed.dedup();
 
-    next.extend(added);
+    let removed_now: Vec<String> = remove_ids
+        .iter()
+        .filter(|id| next.iter().any(|item| &item.id == *id))
+        .cloned()
+        .collect();
+    if !removed_now.is_empty() {
+        next.retain(|item| !remove_ids.iter().any(|id| id == &item.id));
+        diff.removed.extend(removed_now);
+        diff.removed.sort();
+        diff.removed.dedup();
+    }
+
+    let updates = plan_updates(args.update, &next)?;
+    let added = build_additions(args.add, &next)?;
+
+    for update in &updates {
+        let Some(target) = next.iter().find(|item| item.id == update.id) else {
+            return Err(format!(
+                "todowrite: cannot update unknown id `{}`.",
+                update.id
+            ));
+        };
+        diff.updated.push(apply_update_to_snapshot(target, update));
+    }
     for update in updates {
-        let target = next
-            .iter_mut()
-            .find(|item| item.id == update.id)
-            .expect("validated above");
+        let Some(target) = next.iter_mut().find(|item| item.id == update.id) else {
+            return Err(format!(
+                "todowrite: cannot update unknown id `{}`.",
+                update.id
+            ));
+        };
         if let Some(value) = update.content {
             target.content = value;
         }
@@ -295,7 +301,10 @@ fn stage(args: TodoWriteArgs, current: Vec<TodoItem>) -> Result<Staged, String> 
             target.priority = priority;
         }
     }
-    next.retain(|item| !remove_ids.iter().any(|id| id == &item.id));
+    for item in &added {
+        diff.added.push(item.clone());
+    }
+    next.extend(added);
 
     if next.len() > MAX_TODO_ITEMS {
         return Err(format!(
@@ -314,7 +323,7 @@ fn build_additions(raw: Vec<TodoAdd>, current: &[TodoItem]) -> Result<Vec<TodoIt
     for entry in raw {
         let item = TodoItem {
             id: entry.id.trim().to_string(),
-            content: entry.content,
+            content: entry.content.trim().to_string(),
             status: entry.status.unwrap_or(TodoStatus::Pending),
             priority: entry.priority.unwrap_or(PRIORITY_DEFAULT),
         };
@@ -351,8 +360,9 @@ fn plan_updates(raw: Vec<TodoUpdate>, current: &[TodoItem]) -> Result<Vec<Resolv
         if !current.iter().any(|item| item.id == id) {
             return Err(format!("todowrite: cannot update unknown id `{id}`."));
         }
-        if let Some(value) = &entry.content {
-            if value.trim().is_empty() {
+        let content = entry.content.map(|value| value.trim().to_string());
+        if let Some(value) = &content {
+            if value.is_empty() {
                 return Err("todowrite update content cannot be empty.".into());
             }
             if value.chars().count() > MAX_TODO_CONTENT_CHARS {
@@ -370,7 +380,7 @@ fn plan_updates(raw: Vec<TodoUpdate>, current: &[TodoItem]) -> Result<Vec<Resolv
         }
         resolved.push(ResolvedUpdate {
             id,
-            content: entry.content,
+            content,
             status: entry.status,
             priority: entry.priority,
         });
@@ -462,7 +472,8 @@ fn persist_with_event(
         timestamp: chrono::Utc::now().timestamp(),
         diff,
     };
-    sessions::append_session_todo_event(app, session_id, todos, event).map_err(|error| error.to_string())
+    sessions::append_session_todo_event(app, session_id, todos, event)
+        .map_err(|error| error.to_string())
 }
 
 fn build_summary(todos: &[TodoItem]) -> String {
@@ -598,12 +609,7 @@ mod tests {
     #[test]
     fn stage_adds_new_items_atomically() {
         let current = vec![item("existing", "old", TodoStatus::Pending, 5)];
-        let args = todo_write_args(
-            &[("new-1", "one", 5), ("new-2", "two", 5)],
-            &[],
-            &[],
-            false,
-        );
+        let args = todo_write_args(&[("new-1", "one", 5), ("new-2", "two", 5)], &[], &[], false);
         let staged = stage(args, current).expect("stage");
         assert_eq!(staged.final_todos.len(), 3);
         assert_eq!(staged.diff.added.len(), 2);
@@ -614,12 +620,7 @@ mod tests {
     #[test]
     fn stage_rolls_back_when_add_duplicate_id() {
         let current = vec![item("dup", "old", TodoStatus::Pending, 5)];
-        let args = todo_write_args(
-            &[("dup", "new", 5)],
-            &[],
-            &[],
-            false,
-        );
+        let args = todo_write_args(&[("dup", "new", 5)], &[], &[], false);
         let err = stage(args, current).expect_err("should reject duplicate");
         assert!(err.contains("already exists"));
     }
@@ -627,12 +628,7 @@ mod tests {
     #[test]
     fn stage_rolls_back_when_add_duplicate_within_same_call() {
         let current: Vec<TodoItem> = vec![];
-        let args = todo_write_args(
-            &[("dup", "one", 5), ("dup", "two", 5)],
-            &[],
-            &[],
-            false,
-        );
+        let args = todo_write_args(&[("dup", "one", 5), ("dup", "two", 5)], &[], &[], false);
         let err = stage(args, current).expect_err("should reject duplicate");
         assert!(err.contains("duplicate id"));
     }
@@ -640,7 +636,12 @@ mod tests {
     #[test]
     fn stage_rolls_back_when_update_unknown_id() {
         let current = vec![item("real", "x", TodoStatus::Pending, 5)];
-        let args = todo_write_args(&[], &[("ghost", None, Some(TodoStatus::Completed), None)], &[], false);
+        let args = todo_write_args(
+            &[],
+            &[("ghost", None, Some(TodoStatus::Completed), None)],
+            &[],
+            false,
+        );
         let err = stage(args, current).expect_err("should reject unknown id");
         assert!(err.contains("cannot update unknown id"));
     }
@@ -708,7 +709,11 @@ mod tests {
         let staged = stage(args, current).expect("stage");
         assert_eq!(staged.final_todos.len(), 2);
         assert!(staged.diff.added.iter().any(|item| item.id == "new"));
-        assert!(staged.diff.updated.iter().any(|item| item.id == "keep" && item.status == TodoStatus::InProgress));
+        assert!(staged
+            .diff
+            .updated
+            .iter()
+            .any(|item| item.id == "keep" && item.status == TodoStatus::InProgress));
         assert_eq!(staged.diff.removed, vec!["drop".to_string()]);
     }
 

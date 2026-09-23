@@ -132,6 +132,11 @@
   min-height: 0;
 }
 
+.skill-context .line-editor {
+  flex: 1;
+  min-height: 240px;
+}
+
 .skill-context:hover {
   border-color: var(--border-strong);
 }
@@ -270,22 +275,22 @@
 /* ========== Skill editor + line editor ========== */
 
 .line-editor {
-  display: flex;
-  align-items: stretch;
+  position: relative;
+  display: block;
   height: 420px;
   min-height: 0;
-  position: relative;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background-color: var(--background);
-  overflow: hidden;
 }
 
 .line-editor__gutter {
-  flex-shrink: 0;
-  align-self: stretch;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
   width: 2.75rem;
-  min-height: 0;
   padding: var(--space-2) 0;
   background-color: var(--surface);
   border-right: 1px solid var(--border);
@@ -296,6 +301,7 @@
   text-align: right;
   user-select: none;
   overflow: hidden;
+  z-index: 2;
 }
 
 .line-editor__gutter-inner {
@@ -318,10 +324,14 @@
 }
 
 .line-editor__textarea {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2.75rem;
+  right: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
   padding: var(--space-2) var(--space-3);
   background-color: transparent;
   border: none;
@@ -335,10 +345,175 @@
   overflow-x: hidden;
   overflow-y: auto;
   word-break: break-word;
+  box-sizing: border-box;
+  z-index: 1;
 }
 
 .line-editor__textarea:focus {
   outline: none;
+}
+
+.line-editor__highlight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2.75rem;
+  right: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.line-editor__highlight-inner {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  background: transparent;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.line-editor__highlight-inner code {
+  display: block;
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  font-style: normal;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  background: transparent;
+  white-space: inherit;
+  word-break: inherit;
+}
+
+.line-editor__highlight .hljs,
+.line-editor__highlight .hljs * {
+  font-style: normal;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+}
+
+.line-editor__textarea[data-overlay="true"] {
+  color: transparent;
+  caret-color: var(--text-primary);
+  background-color: transparent;
+}
+
+.line-editor__textarea[data-overlay="true"]::selection {
+  background-color: color-mix(in oklch, var(--accent) 35%, transparent);
+  color: transparent;
+}
+
+.line-editor__textarea[data-overlay="true"] *::selection {
+  background-color: color-mix(in oklch, var(--accent) 35%, transparent);
+}
+
+/* highlight.js token theme. Adapts to our dark/light color tokens. */
+.hljs {
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--syntax-comment);
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-link,
+.hljs-tag {
+  color: var(--syntax-keyword);
+}
+
+.hljs-string,
+.hljs-attr,
+.hljs-template-tag,
+.hljs-regexp,
+.hljs-symbol {
+  color: var(--syntax-string);
+}
+
+.hljs-number,
+.hljs-bullet,
+.hljs-meta-number {
+  color: var(--syntax-number);
+}
+
+.hljs-title,
+.hljs-title.function_,
+.hljs-title.class_,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--syntax-function);
+}
+
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-type,
+.hljs-class .hljs-title {
+  color: var(--syntax-type);
+}
+
+.hljs-variable,
+.hljs-template-variable,
+.hljs-attribute {
+  color: var(--syntax-variable);
+}
+
+.hljs-meta,
+.hljs-meta-keyword,
+.hljs-meta-string {
+  color: var(--syntax-meta);
+}
+
+.hljs-operator,
+.hljs-punctuation {
+  color: var(--syntax-operator);
+}
+
+.hljs-emphasis {
+  color: var(--syntax-emphasis);
+}
+
+.hljs-strong {
+  color: var(--syntax-strong);
+}
+
+.hljs-deletion {
+  color: var(--syntax-deletion);
+  background-color: color-mix(in oklch, var(--danger) 18%, transparent);
+}
+
+.hljs-addition {
+  color: var(--syntax-addition);
+  background-color: color-mix(in oklch, var(--success) 18%, transparent);
+}
+
+.hljs-doctag {
+  color: var(--syntax-function);
+}
+
+.hljs-params {
+  color: var(--syntax-variable);
+}
+
+.hljs-property {
+  color: var(--syntax-function);
+}
+
+.hljs-subst {
+  color: var(--text-primary);
 }
 
 .line-editor--rows {
@@ -473,8 +648,7 @@
 
 .skill-editor .line-editor {
   flex: 1;
-  min-height: 0;
-  height: auto;
+  min-height: 240px;
 }
 
 .delete-skill {

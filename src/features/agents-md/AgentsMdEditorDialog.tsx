@@ -120,7 +120,7 @@ const AgentsMdEditorBody = ({ file, onCancel, onSave }: AgentsMdEditorBodyProps)
           {error}
         </div>
       ) : null}
-      <LineEditor value={content} onChange={setContent} />
+      <LineEditor value={content} onChange={setContent} language="markdown" />
       <div className="skill-editor__meta">
         <span className="agent-form__count">
           {t("agentsMd.tokens", { value: formatContextWindow(tokens) })}

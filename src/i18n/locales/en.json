@@ -621,6 +621,8 @@
       "skills": "Skills",
       "skillsCount": "{{count}} / {{max}}",
       "skillsHintGlobal": "Global agents can only load global skills. Up to 10.",
+      "skillsPlaceholder": "Add a skill",
+      "skillsRemove": "Remove {{name}}",
       "skillsEmpty": "No skills available for this location.",
       "tools": "Tools",
       "toolsHint": "Tools the agent may call during chat. Only registered local tools are listed.",
@@ -771,6 +773,11 @@
       "duration_one": "Thought for {{count}} second",
       "duration_other": "Thought for {{count}} seconds",
       "durationMs": "Thought for {{count}} ms"
+    },
+    "mermaid": {
+      "fullscreenLabel": "Expand diagram",
+      "fullscreenTitle": "Diagram",
+      "unavailable": "Diagram source unavailable."
     },
     "waiting": {
       "phrases": [

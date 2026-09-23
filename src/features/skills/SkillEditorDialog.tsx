@@ -133,7 +133,7 @@ const SkillEditorBody = ({ skill, onCancel, onSave }: SkillEditorBodyProps): Rea
           <span>{t("skills.editor.loading")}</span>
         </div>
       ) : (
-        <LineEditor value={content} onChange={setContent} />
+        <LineEditor value={content} onChange={setContent} language="markdown" />
       )}
       <div className="skill-editor__meta">
         <span className="skill-editor__dirty" data-dirty={dirty ? "true" : "false"}>

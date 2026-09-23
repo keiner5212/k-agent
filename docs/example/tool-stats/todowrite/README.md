@@ -4,7 +4,7 @@ Update the session todo list incrementally. Each item has a stable id so it can 
 
 ## Does
 
-- Apply one or more operations in a single call: `add` new items, `update` existing items by id, `remove` items by id, or `clear: true` to wipe the list.
+- Apply one or more operations in a single call: `add` new items, `update` existing items by id, `remove` items by id, or `clear: true` to wipe the list. `clear` and `remove` run first, so a later `add` in the same call can reuse a dropped id.
 - Validate every item: non-empty `id` (max 64 chars) and `content` (max 200 chars), `status` in `pending` / `in_progress` / `completed` / `cancelled`, `priority` in `0`-`10` (defaults to `5`).
 - Cap the active list at `64` items. Excess returns an error rather than truncating.
 - Persist the new state and append one `todos_history` event (capped at 50) per non-no-op call. The history survives restarts and is what makes "was the clear done?" answerable after reload.
@@ -15,7 +15,7 @@ Update the session todo list incrementally. Each item has a stable id so it can 
 ## Does not
 
 - Replace or rewrite the whole list. Use `clear: true` followed by `add: [...]` when you really need to start over.
-- Edit files or run shell commands. Use `edit` / `write` / `bash`.
+- Edit files. Use `edit` or `write`.
 - Track per-message todos. The active list is session-scoped, the history is session-scoped.
 - Expose the list to other sessions.
 - Require user confirmation. The tool always runs and persists.

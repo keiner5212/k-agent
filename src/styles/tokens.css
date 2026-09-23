@@ -16,6 +16,22 @@
   --warning: #fbbf24;
   --focus-ring: #5eb6cc;
 
+  /* Syntax highlight palette. Tuned for the dark theme; light overrides below. */
+  --syntax-keyword: #c084fc;
+  --syntax-string: #6ee7a8;
+  --syntax-number: #fbbf24;
+  --syntax-comment: #6e7681;
+  --syntax-function: #5eb6cc;
+  --syntax-type: #f47272;
+  --syntax-variable: #e6eaf2;
+  --syntax-operator: #a8b0bd;
+  --syntax-builtin: #fbbf24;
+  --syntax-meta: #8b94a3;
+  --syntax-emphasis: var(--text-primary);
+  --syntax-strong: var(--text-primary);
+  --syntax-deletion: var(--danger);
+  --syntax-addition: var(--success);
+
   --font-sans:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono:
@@ -114,6 +130,17 @@
   --success: #15803d;
   --warning: #b45309;
   --focus-ring: #2a7a8e;
+
+  --syntax-keyword: #7c3aed;
+  --syntax-string: #15803d;
+  --syntax-number: #b45309;
+  --syntax-comment: #6e7681;
+  --syntax-function: #1f6275;
+  --syntax-type: #b91c1c;
+  --syntax-variable: #0e1116;
+  --syntax-operator: #4a5260;
+  --syntax-builtin: #b45309;
+  --syntax-meta: #4a5260;
 
   --shadow-sm: 0 1px 2px rgba(15, 17, 22, 0.06);
   --shadow-md: 0 2px 6px rgba(15, 17, 22, 0.08), 0 1px 2px rgba(15, 17, 22, 0.06);
