@@ -22,19 +22,19 @@ Fetch one public HTTPS page and return its title, description, main text, and sa
 
 ## Options
 
-| Name   | Type   | Required | Default | Notes                                                                                                         |
-| ------ | ------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------- |
+| Name   | Type   | Required | Default | Notes                                                                                                                                                                     |
+| ------ | ------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `url`  | string | yes      | -       | Public URL. HTTPS and port 443 by default. Public HTTP on port 80 only when HTTP fetch is enabled. Credentials, IP literals, loopback, and private hostnames are refused. |
-| `lang` | string | no       | `en-US` | Optional BCP 47 language tag. Sets the `Accept-Language` header and adjusts `Accept-Language` quality values. |
+| `lang` | string | no       | `en-US` | Optional BCP 47 language tag. Sets the `Accept-Language` header and adjusts `Accept-Language` quality values.                                                             |
 
 ## Response
 
-| Field         | Type   | Notes                                                                                                                   |
-| ------------- | ------ | ----------------------------------------------------------------------------------------------------------------------- |
-| `url`         | string | Canonical URL after redirects.                                                                                          |
-| `title`       | string | Up to 300 chars; prefers `og:title`, falls back to `<title>` then `<h1>`.                                               |
-| `description` | string | Up to 500 chars; prefers `meta description` / `og:description`, falls back to first paragraph over 80 chars.            |
-| `content`     | string | Up to 16 000 chars; stripped of navigation, footer, and other noise. Multi-line block.                                  |
+| Field         | Type   | Notes                                                                                                                                              |
+| ------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`         | string | Canonical URL after redirects.                                                                                                                     |
+| `title`       | string | Up to 300 chars; prefers `og:title`, falls back to `<title>` then `<h1>`.                                                                          |
+| `description` | string | Up to 500 chars; prefers `meta description` / `og:description`, falls back to first paragraph over 80 chars.                                       |
+| `content`     | string | Up to 16 000 chars; stripped of navigation, footer, and other noise. Multi-line block.                                                             |
 | `links`       | string | Up to 20 article links, formatted as `- text (url)` lines. Skips `javascript:`, `http://`, image files, and chrome labels such as `Enlarge Image`. |
 
 See `response.toon` for the concrete wire shape the LLM sees.

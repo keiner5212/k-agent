@@ -84,14 +84,49 @@ export type ChatToolCall = {
   display?: ToolDisplay;
 };
 
-export const parseToolChunkText = (text: string): ChatToolCall => {
-  const nl = text.indexOf("\n");
-  if (nl < 0) {
-    const name = text.trim();
-    return { name };
+const toolCallFromRecord = (parsed: {
+  id?: unknown;
+  name?: unknown;
+  argument?: unknown;
+  arguments?: unknown;
+  thoughtSignature?: unknown;
+}): ChatToolCall | null => {
+  if (typeof parsed.name !== "string" || parsed.name.trim().length === 0) return null;
+  const call: ChatToolCall = { name: parsed.name.trim() };
+  if (typeof parsed.id === "string" && parsed.id.length > 0) call.id = parsed.id;
+  if (typeof parsed.argument === "string" && parsed.argument.length > 0) {
+    call.argument = parsed.argument;
   }
-  const name = text.slice(0, nl).trim();
-  const argument = text.slice(nl + 1).trim();
+  if (typeof parsed.arguments === "string" && parsed.arguments.length > 0) {
+    call.arguments = parsed.arguments;
+  }
+  if (typeof parsed.thoughtSignature === "string" && parsed.thoughtSignature.length > 0) {
+    call.thoughtSignature = parsed.thoughtSignature;
+  }
+  return call;
+};
+
+export const parseToolChunkText = (text: string): ChatToolCall => {
+  const trimmed = text.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed) as {
+        id?: unknown;
+        name?: unknown;
+        argument?: unknown;
+        arguments?: unknown;
+        thoughtSignature?: unknown;
+      };
+      const call = toolCallFromRecord(parsed);
+      if (call) return call;
+    } catch {
+      // Older chunks are `name` or `name\\nargument`.
+    }
+  }
+  const nl = trimmed.indexOf("\n");
+  if (nl < 0) return { name: trimmed };
+  const name = trimmed.slice(0, nl).trim();
+  const argument = trimmed.slice(nl + 1).trim();
   return argument.length > 0 ? { name, argument } : { name };
 };
 
@@ -156,6 +191,7 @@ export type ChatMessage = {
   toolCalls?: ChatToolCall[];
   toolRounds?: ToolRoundTrace[];
   pendingAsk?: PendingAsk;
+  resumeTools?: boolean;
 };
 
 export type ChatToolResultTurn = {

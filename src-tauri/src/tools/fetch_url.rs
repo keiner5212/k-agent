@@ -185,6 +185,7 @@ pub fn fetch_policy(app: Option<&tauri::AppHandle>) -> FetchPolicy {
     FetchPolicy { allow_http }
 }
 
+#[cfg(test)]
 pub fn canonicalize_url(raw: &str) -> Result<String, String> {
     canonicalize_url_with(raw, FetchPolicy::public_https())
 }
@@ -719,6 +720,7 @@ pub struct ParsedLink {
 }
 
 impl ContentParser {
+    #[cfg(test)]
     pub fn parse(html: &str, base_url: &str) -> ParsedPage {
         if html.trim().is_empty() {
             return ParsedPage::default();

@@ -4,7 +4,8 @@ import { Check, ChevronLeft, ChevronRight, Send, X } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { useAskUserStore } from "@/lib/ask-user";
-import { answerSummary, useSessionsStore } from "@/lib/sessions";
+import { invoke } from "@tauri-apps/api/core";
+import { answerSummary, confirmChoiceFrom, useSessionsStore } from "@/lib/sessions";
 import type { AskUserAnswerEntry, AskUserQuestion, PendingQuestionState } from "@/types/chat";
 
 type QuestionDialogProps = {
@@ -119,13 +120,41 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
     if (state.sessionId && grantForChat("http_write_confirm")) {
       useSessionsStore.getState().allowHttpWrite(state.sessionId);
     }
-    const result = await submit(state.callId);
-    if (result.resume) {
-      const summary = answerSummary(state.questions, state.answers);
-      const continued = await useSessionsStore.getState().resumeAsk(state.callId, summary);
+    const summary = answerSummary(state.questions, state.answers);
+    const choice = confirmChoiceFrom(state.questions, state.answers);
+    const sessions = useSessionsStore.getState();
+    const live = Boolean(state.sessionId) && sessions.sendingSessionId === state.sessionId;
+    if (!live) {
+      if (state.sessionId) {
+        try {
+          await invoke("cancel_running_task", { sessionId: state.sessionId });
+        } catch {
+          // Stale confirm has no running task after reload.
+        }
+      }
+      useAskUserStore.getState().dismiss(state.callId);
+      const continued = await sessions.resumeAsk(state.callId, summary, choice);
       setSubmitting(false);
       if (!continued) setError(t("chat.question.submitFailed"));
       return;
+    }
+    const result = await submit(state.callId);
+    if (result.resume) {
+      if (state.sessionId) {
+        try {
+          await invoke("cancel_running_task", { sessionId: state.sessionId });
+        } catch {
+          // The waiting tool is already gone.
+        }
+      }
+      useSessionsStore.setState({ sending: false, sendingSessionId: null });
+      const continued = await useSessionsStore.getState().resumeAsk(state.callId, summary, choice);
+      setSubmitting(false);
+      if (!continued) setError(t("chat.question.submitFailed"));
+      return;
+    }
+    if (!result.error) {
+      useSessionsStore.getState().clearPendingAsk(state.callId);
     }
     setSubmitting(false);
     if (result.error) {

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
+import { ipcErrorMessage } from "@/lib/platform";
 import type { AskUserAnswerEntry, AskUserQuestion, PendingQuestionState } from "@/types/chat";
 
 type QuestionsStore = {
@@ -7,6 +8,7 @@ type QuestionsStore = {
   upsert: (state: PendingQuestionState) => void;
   setAnswer: (callId: string, answer: AskUserAnswerEntry) => void;
   submit: (callId: string) => Promise<{ error?: string; resume?: boolean }>;
+  dismiss: (callId: string) => void;
   cancel: (callId: string) => Promise<{ error?: string }>;
 };
 
@@ -65,7 +67,7 @@ export const useAskUserStore = create<QuestionsStore>((set, get) => ({
     try {
       await invoke<boolean>("submit_ask_user_answer", { callId, answers });
     } catch (error) {
-      const message = String(error);
+      const message = ipcErrorMessage(error);
       if (message.includes("was not pending")) return { resume: true };
       return { error: message };
     }
@@ -75,6 +77,14 @@ export const useAskUserStore = create<QuestionsStore>((set, get) => ({
       return { byCallId: rest };
     });
     return {};
+  },
+
+  dismiss: (callId) => {
+    set((prev) => {
+      if (!prev.byCallId[callId]) return prev;
+      const { [callId]: _removed, ...rest } = prev.byCallId;
+      return { byCallId: rest };
+    });
   },
 
   cancel: async (callId) => {

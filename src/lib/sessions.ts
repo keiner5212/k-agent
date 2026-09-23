@@ -183,7 +183,10 @@ const persistableSnapshot = (snapshot: SessionsSnapshot): SessionsSnapshot => ({
   sessions: snapshot.sessions.map((session) => ({
     ...session,
     messages: sessionMessages(session)
-      .filter((message) => !message.streaming || Boolean(message.pendingAsk))
+      .filter(
+        (message) =>
+          !message.streaming || Boolean(message.pendingAsk) || Boolean(message.resumeTools),
+      )
       .map((message) => {
         const { toolCalls: _toolCalls, streaming: _streaming, ...rest } = message;
         return message.pendingAsk ? { ...rest, pendingAsk: message.pendingAsk } : rest;
@@ -279,6 +282,61 @@ const ensureSession = (
   return { sessions: sortSessions([session, ...sessions]), activeSessionId: session.id };
 };
 
+export type ConfirmChoice = "deny" | "once" | "session" | "answer";
+
+type ReplayAsk = {
+  assistantId: string;
+  resumeConfirmed: boolean;
+};
+
+const withoutAskFlags = (message: ChatMessage): ChatMessage => {
+  const { pendingAsk: _pending, resumeTools: _resume, ...rest } = message;
+  return rest;
+};
+
+export const confirmChoiceFrom = (
+  questions: AskUserQuestion[],
+  answers: AskUserAnswerEntry[],
+): ConfirmChoice => {
+  const confirm = questions.find(
+    (question) => question.id === "outside_confirm" || question.id === "http_write_confirm",
+  );
+  if (!confirm) return "answer";
+  const entry = answers.find((item) => item.questionId === confirm.id);
+  if (!entry || entry.skipped) return "deny";
+  if (entry.selected.includes("Accept for this chat")) return "session";
+  if (entry.selected.includes("Accept this time")) return "once";
+  return "deny";
+};
+
+let sendEpoch = 0;
+
+const continueResumedTools = (sessions: SessionRecord[]): void => {
+  if (!isTauri()) return;
+  for (const session of sessions) {
+    for (const message of sessionMessages(session)) {
+      if (!message.resumeTools || message.pendingAsk) continue;
+      const calls = (message.toolRounds ?? []).flatMap((round) => round.calls ?? []);
+      const missingOutput = calls.some((call) => call.output === undefined);
+      const hasReply = message.content.trim().length > 0 && !missingOutput;
+      if (hasReply || calls.length === 0) continue;
+      const sessionId = session.id;
+      const assistantId = message.id;
+      void (async () => {
+        try {
+          await invoke("cancel_running_task", { sessionId });
+        } catch (error) {
+          console.warn("cancel_running_task failed", error);
+        }
+        await useSessionsStore.getState().send("", sessionId, undefined, {
+          assistantId,
+          resumeConfirmed: missingOutput,
+        });
+      })();
+    }
+  }
+};
+
 type SessionsStore = {
   sessions: SessionRecord[];
   activeSessionId: string | null;
@@ -294,10 +352,16 @@ type SessionsStore = {
   create: () => void;
   select: (id: string) => void;
   remove: (id: string) => Promise<void>;
-  send: (text: string, sessionId?: string, attachments?: ChatAttachment[]) => Promise<boolean>;
+  send: (
+    text: string,
+    sessionId?: string,
+    attachments?: ChatAttachment[],
+    replay?: ReplayAsk,
+  ) => Promise<boolean>;
   allowOutsideWorkspace: (sessionId: string) => void;
   allowHttpWrite: (sessionId: string) => void;
-  resumeAsk: (callId: string, text: string) => Promise<boolean>;
+  clearPendingAsk: (callId: string) => void;
+  resumeAsk: (callId: string, text: string, choice: ConfirmChoice) => Promise<boolean>;
   runShell: (text: string, sessionId?: string) => Promise<boolean>;
   enqueue: (text: string, mode: ComposerMode, attachments?: ChatAttachment[]) => void;
   removeQueued: (id: string) => void;
@@ -345,6 +409,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         hydrated: true,
       });
       restorePendingAsks(ensured.sessions);
+      continueResumedTools(ensured.sessions);
     } catch (error) {
       console.warn("sessions hydrate failed", error);
       if (get().hydrated) return;
@@ -442,31 +507,61 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     void persistSnapshot(snapshotFromState(nextSessions, get().activeSessionId ?? sessionId));
   },
 
-  resumeAsk: async (callId, text) => {
+  clearPendingAsk: (callId) => {
     let sessionId: string | null = null;
     const nextSessions = get().sessions.map((session) => ({
       ...session,
       messages: session.messages.map((message) => {
         if (message.pendingAsk?.callId !== callId) return message;
         sessionId = session.id;
-        const toolRounds = (message.toolRounds ?? []).map((round) => ({
-          ...round,
-          calls: round.calls.map((call) => (call.id === callId ? { ...call, output: text } : call)),
-        }));
         const { pendingAsk: _pending, ...rest } = message;
-        return { ...rest, toolRounds, streaming: false };
+        return { ...rest, resumeTools: true };
       }),
     }));
-    if (!sessionId) return false;
+    if (!sessionId) return;
     set({ sessions: nextSessions });
     void persistSnapshot(snapshotFromState(nextSessions, get().activeSessionId ?? sessionId));
-    return get().send(text, sessionId);
   },
 
-  send: async (text, targetSessionId, attachments) => {
-    const trimmed = text.trim();
+  resumeAsk: async (callId, text, choice) => {
+    let sessionId: string | null = null;
+    let assistantId: string | null = null;
+    const denyText = callId.startsWith("http_write_confirm::")
+      ? "User denied the HTTP write."
+      : "User denied access outside the workspace.";
+    const nextSessions = get().sessions.map((session) => ({
+      ...session,
+      messages: session.messages.map((message) => {
+        if (message.pendingAsk?.callId !== callId) return message;
+        sessionId = session.id;
+        assistantId = message.id;
+        const toolRounds = (message.toolRounds ?? []).map((round) => ({
+          ...round,
+          calls: round.calls.map((call) => {
+            if (choice === "answer" && call.id === callId) return { ...call, output: text };
+            if (choice === "deny" && call.output === undefined) {
+              return { ...call, output: denyText };
+            }
+            return call;
+          }),
+        }));
+        return { ...withoutAskFlags(message), toolRounds, streaming: false };
+      }),
+    }));
+    if (!sessionId || !assistantId) return false;
+    set({ sessions: nextSessions });
+    void persistSnapshot(snapshotFromState(nextSessions, get().activeSessionId ?? sessionId));
+    return get().send("", sessionId, undefined, {
+      assistantId,
+      resumeConfirmed: choice === "once" || choice === "session",
+    });
+  },
+
+  send: async (text, targetSessionId, attachments, replay) => {
+    const trimmed = replay ? "" : text.trim();
     const pending = attachments ?? [];
-    if ((!trimmed && pending.length === 0) || get().sending || get().shellRunning) return false;
+    if (get().sending || get().shellRunning) return false;
+    if (!replay && !trimmed && pending.length === 0) return false;
     if (!get().hydrated) return false;
 
     const selection = useSelectionStore.getState().selection;
@@ -490,6 +585,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     if (!activeSession) return false;
 
     const stickActive = get().activeSessionId === sessionId || get().activeSessionId === null;
+    const epoch = ++sendEpoch;
     set({
       sending: true,
       sendingSessionId: sessionId,
@@ -497,19 +593,21 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       ...(stickActive ? { activeSessionId: sessionId } : {}),
     });
 
-    const isFirstMessage = sessionMessages(activeSession).length === 0;
+    const isFirstMessage = !replay && sessionMessages(activeSession).length === 0;
     const request = resolveSendRequest();
-    let content: string;
-    try {
-      content = await resolveUserMessageContent(trimmed);
-    } catch (error) {
-      set({
-        sending: false,
-        sendingSessionId: null,
-        error: ipcErrorMessage(error),
-      });
-      get().flushQueued();
-      return true;
+    let content = "";
+    if (!replay) {
+      try {
+        content = await resolveUserMessageContent(trimmed);
+      } catch (error) {
+        set({
+          sending: false,
+          sendingSessionId: null,
+          error: ipcErrorMessage(error),
+        });
+        get().flushQueued();
+        return true;
+      }
     }
     if (get().sendingSessionId !== sessionId) return true;
     const latest = get().sessions.find((session) => session.id === sessionId);
@@ -518,26 +616,32 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       get().flushQueued();
       return true;
     }
-    const userMessage: ChatMessage = {
-      id: nextId(),
-      role: "user",
-      content,
-      ...(pending.length > 0 ? { attachments: pending } : {}),
-    };
     const now = Date.now();
-    const withUser = sortSessions(
-      patchActiveSession(get().sessions, sessionId, (session) => ({
-        ...session,
-        preview: content.trim() || pending[0]?.name || content,
-        updatedAt: now,
-        messages: [...sessionMessages(session), userMessage],
-      })),
-    );
-    set({
-      sessions: withUser,
-      ...(stickActive ? { activeSessionId: sessionId } : {}),
-    });
-    void persistSnapshot(snapshotFromState(withUser, get().activeSessionId ?? sessionId));
+    const withUser = replay
+      ? get().sessions
+      : sortSessions(
+          patchActiveSession(get().sessions, sessionId, (session) => ({
+            ...session,
+            preview: content.trim() || pending[0]?.name || content,
+            updatedAt: now,
+            messages: [
+              ...sessionMessages(session),
+              {
+                id: nextId(),
+                role: "user" as const,
+                content,
+                ...(pending.length > 0 ? { attachments: pending } : {}),
+              },
+            ],
+          })),
+        );
+    if (!replay) {
+      set({
+        sessions: withUser,
+        ...(stickActive ? { activeSessionId: sessionId } : {}),
+      });
+      void persistSnapshot(snapshotFromState(withUser, get().activeSessionId ?? sessionId));
+    }
 
     const applyTitle = (title: string): void => {
       const nextSessions = sortSessions(
@@ -560,7 +664,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     }
 
     try {
-      const assistantId = nextId();
+      const assistantId = replay?.assistantId ?? nextId();
       const chatTurns = toChatTurns(
         sessionMessages(withUser.find((session) => session.id === sessionId)),
       );
@@ -615,14 +719,13 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
                 break;
               }
             }
-            const target = index >= 0 ? index : calls.length - 1;
-            const current = calls[target];
-            if (current) {
-              calls[target] = {
+            const current = index >= 0 ? calls[index] : undefined;
+            if (current && index >= 0) {
+              calls[index] = {
                 ...current,
                 id: pending.callId,
-                arguments: pending.arguments,
-                thoughtSignature: pending.thoughtSignature,
+                arguments: pending.arguments || current.arguments,
+                thoughtSignature: pending.thoughtSignature || current.thoughtSignature,
               };
               activeRound.calls = calls;
             }
@@ -751,11 +854,13 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           httpWriteAllowed: Boolean(
             get().sessions.find((session) => session.id === sessionId)?.httpWriteAllowed,
           ),
+          resumeConfirmed: Boolean(replay?.resumeConfirmed),
           toolNames,
           workerCores: getWorkerCoreSnapshot().limit,
         },
         onChunk,
       });
+      if (epoch !== sendEpoch) return true;
       const replyAt = Date.now();
       const duration = thinkingDurationMs(thinkingStartedAt, thinkingEndedAt ?? replyAt);
       const withAssistant = get().sessions.map((session) => {
@@ -784,7 +889,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         const current = messages[index];
         if (!current) return session;
         messages[index] = {
-          ...current,
+          ...withoutAskFlags(current),
           content: result.content || current.content,
           reasoning: result.reasoning,
           reasoningSignature: result.reasoningSignature || current.reasoningSignature,
@@ -818,6 +923,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       }
       return true;
     } catch (error) {
+      if (epoch !== sendEpoch) return true;
       if (get().sendingSessionId === sessionId) {
         const cancelled = ipcErrorMessage(error).toLowerCase().includes("interrupted by user");
         const nextSessions = get().sessions.map((session) => {
@@ -826,7 +932,11 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
             ...session,
             messages: session.messages.map((message) =>
               message.streaming
-                ? { ...message, streaming: false, interrupted: cancelled || message.interrupted }
+                ? {
+                    ...withoutAskFlags(message),
+                    streaming: false,
+                    interrupted: cancelled || message.interrupted,
+                  }
                 : message,
             ),
           };

@@ -36,6 +36,8 @@ pub struct SessionMessage {
     pub tool_rounds: Vec<crate::chat::ToolRoundTrace>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_ask: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub resume_tools: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -83,6 +83,8 @@ pub struct SendChatInput {
     pub outside_workspace_allowed: bool,
     #[serde(default)]
     pub http_write_allowed: bool,
+    #[serde(default)]
+    pub resume_confirmed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -378,6 +380,18 @@ fn tool_arguments_json(name: &str, argument: Option<&str>, arguments: Option<&st
     if name == tools::SKILL_TOOL_NAME {
         return json!({ "name": raw }).to_string();
     }
+    if name == tools::READ_TOOL_NAME
+        || name == tools::LIST_DIRECTORY_TOOL_NAME
+        || name == tools::CREATE_FOLDER_TOOL_NAME
+        || name == tools::DELETE_TOOL_NAME
+    {
+        let mut map = serde_json::Map::new();
+        map.insert(
+            name_for_path_field(name).to_string(),
+            serde_json::Value::String(raw.to_string()),
+        );
+        return serde_json::Value::Object(map).to_string();
+    }
     "{}".to_string()
 }
 
@@ -433,7 +447,7 @@ fn name_for_path_field(name: &str) -> &'static str {
     }
 }
 
-fn normalize_turns(input: &[ChatTurn]) -> Vec<Turn> {
+fn normalize_turns(input: &[ChatTurn], keep_trailing_tools: bool) -> Vec<Turn> {
     let mut turns: Vec<Turn> = Vec::new();
     for item in input {
         let assistant = item.role.eq_ignore_ascii_case("assistant");
@@ -527,7 +541,9 @@ fn normalize_turns(input: &[ChatTurn]) -> Vec<Turn> {
     while turns.first().is_some_and(|turn| turn.assistant) {
         turns.remove(0);
     }
-    while turns.last().is_some_and(|turn| turn.assistant) {
+    while turns.last().is_some_and(|turn| {
+        turn.assistant && !(keep_trailing_tools && !turn.tool_calls.is_empty())
+    }) {
         turns.pop();
     }
     turns
@@ -1104,11 +1120,14 @@ fn emit_chunk(on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>, kind: &str, tex
 
 fn emit_tool_call(on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>, call: &ModelToolCall) {
     let argument = tool_call_argument(&call.name, &call.arguments);
-    let text = if argument.is_empty() {
-        call.name.clone()
-    } else {
-        format!("{}\n{argument}", call.name)
-    };
+    let text = json!({
+        "id": call.id,
+        "name": call.name,
+        "argument": argument,
+        "arguments": call.arguments,
+        "thoughtSignature": call.thought_signature,
+    })
+    .to_string();
     emit_chunk(on_chunk, "tool", &text);
 }
 
@@ -1913,6 +1932,117 @@ async fn dispatch_provider(
     }
 }
 
+async fn commit_tool_calls(
+    app: &AppHandle,
+    call: &ChatCall<'_>,
+    on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
+    session_id: Option<&str>,
+    outside_workspace_allowed: bool,
+    http_write_allowed: bool,
+    turns: &mut Vec<Turn>,
+    model_calls: &[ModelToolCall],
+    emit: bool,
+) -> Vec<PersistedToolCall> {
+    let mut persisted_calls = Vec::new();
+    for tc in model_calls {
+        if emit {
+            emit_tool_call(on_chunk, tc);
+        }
+        let (raw_text, display, image_png) = if let Some(mcp) =
+            call.mcp_tools.iter().find(|item| item.wire_name == tc.name)
+        {
+            let args = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
+            let text = match crate::mcp_client::call_tool(&mcp.server, &mcp.tool_name, args).await {
+                Ok(text) => text,
+                Err(error) => format!("MCP tool `{}` failed: {error}", mcp.tool_name),
+            };
+            (
+                text,
+                Some(ToolDisplay {
+                    kind: tools::TOOL_KIND_CONTEXT.to_string(),
+                    ..ToolDisplay::default()
+                }),
+                None,
+            )
+        } else if call.tool_names.iter().any(|name| name == &tc.name) {
+            let tool_ctx = ToolContext {
+                app: Some(app),
+                call_id: tc.id.clone(),
+                session_id: session_id.map(str::to_string),
+                thought_signature: tc.thought_signature.clone(),
+                outside_workspace_allowed,
+                http_write_allowed,
+                on_chunk,
+                workspace: None,
+                parallelism: call.parallelism,
+            };
+            let outcome = tools::execute(&tc.name, &tc.arguments, &tool_ctx).await;
+            if let Some(snapshot) = outcome.snapshot {
+                if let Some(sid) = session_id {
+                    let _ = crate::sessions::write_file_revision(
+                        app,
+                        sid,
+                        &tc.id,
+                        &snapshot.before,
+                        &snapshot.after,
+                    );
+                }
+            }
+            (outcome.text, Some(outcome.display), outcome.image_png)
+        } else {
+            (
+                format!("Tool `{}` is not enabled for this agent.", tc.name),
+                Some(ToolDisplay {
+                    kind: tools::TOOL_KIND_CONTEXT.to_string(),
+                    status: Some("error".into()),
+                    ..ToolDisplay::default()
+                }),
+                None,
+            )
+        };
+        let outcome_text = tools::truncate_output(&raw_text);
+        let argument = tool_call_argument(&tc.name, &tc.arguments);
+        let mut display = display;
+        if tc.name == tools::SKILL_TOOL_NAME && !argument.is_empty() {
+            let meta = display.get_or_insert_with(|| ToolDisplay {
+                kind: tools::TOOL_KIND_CONTEXT.to_string(),
+                ..ToolDisplay::default()
+            });
+            if meta.skill_name.as_deref().unwrap_or("").is_empty() {
+                meta.skill_name = Some(argument.clone());
+            }
+        }
+        persisted_calls.push(PersistedToolCall {
+            id: tc.id.clone(),
+            name: tc.name.clone(),
+            argument: if argument.is_empty() {
+                None
+            } else {
+                Some(argument)
+            },
+            arguments: nonempty_text(Some(&tc.arguments)).map(str::to_string),
+            thought_signature: nonempty_text(Some(&tc.thought_signature)).map(str::to_string),
+            output: outcome_text.clone(),
+            display,
+        });
+        turns.push(Turn {
+            assistant: false,
+            content: String::new(),
+            reasoning: String::new(),
+            reasoning_signature: String::new(),
+            attachments: Vec::new(),
+            tool_calls: Vec::new(),
+            tool_result: Some(ToolResultTurn {
+                call_id: tc.id.clone(),
+                name: tc.name.clone(),
+                content: outcome_text,
+                image_png,
+            }),
+        });
+    }
+    persisted_calls
+}
+
 async fn send_message(
     app: &AppHandle,
     provider: &Provider,
@@ -1921,6 +2051,7 @@ async fn send_message(
     session_id: Option<&str>,
     outside_workspace_allowed: bool,
     http_write_allowed: bool,
+    resume_confirmed: bool,
 ) -> Result<ChatOutput, ChatError> {
     if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
@@ -1941,6 +2072,42 @@ async fn send_message(
     let mut tool_rounds: Vec<ToolRoundTrace> = Vec::new();
 
     loop {
+        if resume_confirmed {
+            let pending = turns.last().and_then(|last| {
+                if last.assistant && !last.tool_calls.is_empty() {
+                    Some((
+                        last.tool_calls.clone(),
+                        last.reasoning.clone(),
+                        last.reasoning_signature.clone(),
+                        last.content.clone(),
+                    ))
+                } else {
+                    None
+                }
+            });
+            if let Some((model_calls, reasoning, reasoning_signature, content)) = pending {
+                let persisted_calls = commit_tool_calls(
+                    app,
+                    call,
+                    on_chunk,
+                    session_id,
+                    true,
+                    true,
+                    &mut turns,
+                    &model_calls,
+                    false,
+                )
+                .await;
+                tool_rounds.push(ToolRoundTrace {
+                    reasoning,
+                    reasoning_signature,
+                    content,
+                    calls: persisted_calls,
+                    thinking_ms: None,
+                });
+                continue;
+            }
+        }
         let round_call = ChatCall {
             model: call.model,
             turns: &turns,
@@ -2011,104 +2178,18 @@ async fn send_message(
             tool_result: None,
         });
 
-        let mut persisted_calls = Vec::new();
-        for tc in &model_calls {
-            emit_tool_call(on_chunk, tc);
-            let (raw_text, display, image_png) = if let Some(mcp) =
-                call.mcp_tools.iter().find(|item| item.wire_name == tc.name)
-            {
-                let args = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
-                let text =
-                    match crate::mcp_client::call_tool(&mcp.server, &mcp.tool_name, args).await {
-                        Ok(text) => text,
-                        Err(error) => {
-                            format!("MCP tool `{}` failed: {error}", mcp.tool_name)
-                        }
-                    };
-                (
-                    text,
-                    Some(ToolDisplay {
-                        kind: tools::TOOL_KIND_CONTEXT.to_string(),
-                        ..ToolDisplay::default()
-                    }),
-                    None,
-                )
-            } else if call.tool_names.iter().any(|name| name == &tc.name) {
-                let tool_ctx = ToolContext {
-                    app: Some(app),
-                    call_id: tc.id.clone(),
-                    session_id: session_id.map(str::to_string),
-                    thought_signature: tc.thought_signature.clone(),
-                    outside_workspace_allowed,
-                    http_write_allowed,
-                    on_chunk,
-                    workspace: None,
-                    parallelism: call.parallelism,
-                };
-                let outcome = tools::execute(&tc.name, &tc.arguments, &tool_ctx).await;
-                if let Some(snapshot) = outcome.snapshot {
-                    if let Some(sid) = session_id {
-                        let _ = crate::sessions::write_file_revision(
-                            app,
-                            sid,
-                            &tc.id,
-                            &snapshot.before,
-                            &snapshot.after,
-                        );
-                    }
-                }
-                (outcome.text, Some(outcome.display), outcome.image_png)
-            } else {
-                (
-                    format!("Tool `{}` is not enabled for this agent.", tc.name),
-                    Some(ToolDisplay {
-                        kind: tools::TOOL_KIND_CONTEXT.to_string(),
-                        status: Some("error".into()),
-                        ..ToolDisplay::default()
-                    }),
-                    None,
-                )
-            };
-            let outcome_text = tools::truncate_output(&raw_text);
-            let argument = tool_call_argument(&tc.name, &tc.arguments);
-            let mut display = display;
-            if tc.name == tools::SKILL_TOOL_NAME && !argument.is_empty() {
-                let meta = display.get_or_insert_with(|| ToolDisplay {
-                    kind: tools::TOOL_KIND_CONTEXT.to_string(),
-                    ..ToolDisplay::default()
-                });
-                if meta.skill_name.as_deref().unwrap_or("").is_empty() {
-                    meta.skill_name = Some(argument.clone());
-                }
-            }
-            persisted_calls.push(PersistedToolCall {
-                id: tc.id.clone(),
-                name: tc.name.clone(),
-                argument: if argument.is_empty() {
-                    None
-                } else {
-                    Some(argument)
-                },
-                arguments: nonempty_text(Some(&tc.arguments)).map(str::to_string),
-                thought_signature: nonempty_text(Some(&tc.thought_signature)).map(str::to_string),
-                output: outcome_text.clone(),
-                display,
-            });
-            turns.push(Turn {
-                assistant: false,
-                content: String::new(),
-                reasoning: String::new(),
-                reasoning_signature: String::new(),
-                attachments: Vec::new(),
-                tool_calls: Vec::new(),
-                tool_result: Some(ToolResultTurn {
-                    call_id: tc.id.clone(),
-                    name: tc.name.clone(),
-                    content: outcome_text,
-                    image_png,
-                }),
-            });
-        }
+        let persisted_calls = commit_tool_calls(
+            app,
+            call,
+            on_chunk,
+            session_id,
+            outside_workspace_allowed,
+            http_write_allowed,
+            &mut turns,
+            &model_calls,
+            true,
+        )
+        .await;
 
         tool_rounds.push(ToolRoundTrace {
             reasoning: output.reasoning.clone(),
@@ -2178,7 +2259,7 @@ pub async fn generate_session_title(
         parallelism: 1,
     };
     let title = normalize_generated_title(
-        &send_message(&app, &provider, &call, None, None, false, false)
+        &send_message(&app, &provider, &call, None, None, false, false, false)
             .await?
             .content,
     );
@@ -2315,7 +2396,7 @@ pub async fn generate_app_content(
         parallelism: 1,
     };
     let text = normalize_generated_text(
-        &send_message(&app, &provider, &call, None, None, false, false)
+        &send_message(&app, &provider, &call, None, None, false, false, false)
             .await?
             .content,
     );
@@ -2525,7 +2606,7 @@ pub async fn send_chat_message(
         None => (None, None),
     };
     let (provider, model) = load_provider_model(&app, &input.provider_id, &input.model_id).await?;
-    let mut turns = normalize_turns(&input.messages);
+    let mut turns = normalize_turns(&input.messages, input.resume_confirmed);
     if let Some(session_id) = input.session_id.as_deref() {
         for turn in &mut turns {
             let _ =
@@ -2578,6 +2659,7 @@ pub async fn send_chat_message(
         input.session_id.as_deref(),
         input.outside_workspace_allowed,
         input.http_write_allowed,
+        input.resume_confirmed,
     );
     tokio::pin!(send_fut);
     let output = match cancel_rx {
@@ -2644,7 +2726,7 @@ mod tests {
                 tool_calls: Vec::new(),
                 tool_result: None,
             },
-        ]);
+        ], false);
         assert_eq!(turns.len(), 1);
         assert!(!turns[0].assistant);
         assert_eq!(turns[0].content, "hello");
