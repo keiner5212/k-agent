@@ -274,6 +274,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         keywords: ["agent", "plan", "builtin", "agente", "planificar"],
       },
       {
+        id: "defaultAgent",
+        type: "select",
+        titleKey: "settings.defaultAgent.label",
+        descriptionKey: "settings.defaultAgent.description",
+        keywords: ["agent", "default", "agente", "predeterminado"],
+      },
+      {
         id: "maxWorkerCores",
         type: "select",
         titleKey: "settings.maxWorkerCores.label",

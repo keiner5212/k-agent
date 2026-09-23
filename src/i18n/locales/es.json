@@ -141,6 +141,10 @@
       "label": "Agente Plan",
       "description": "Muestra el agente Plan integrado en el chat. Explora y planifica sin hacer cambios."
     },
+    "defaultAgent": {
+      "label": "Agente predeterminado",
+      "description": "Agente elegido al abrir el chat. El ultimo agente usado en una sesion no se guarda."
+    },
     "translucency": {
       "label": "Desactivar transparencia",
       "description": "Las superficies usan un desenfoque tipo cristal por defecto. Activa esto para superficies sólidas."

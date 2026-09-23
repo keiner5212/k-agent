@@ -21,6 +21,7 @@ type AgentsStore = {
   contexts: AgentContext[];
   workspacePath: string | null;
   loading: boolean;
+  hydrated: boolean;
   error?: string;
   load: () => Promise<void>;
   refresh: () => Promise<{ error?: string; payload?: FetchPayload }>;
@@ -43,18 +44,19 @@ export const useAgentsStore = create<AgentsStore>((set, get) => ({
   contexts: [],
   workspacePath: null,
   loading: false,
+  hydrated: false,
 
   load: async () => {
     set({ loading: true, error: undefined });
     if (!isTauri()) {
-      set({ contexts: [], workspacePath: null, loading: false });
+      set({ contexts: [], workspacePath: null, loading: false, hydrated: true });
       return;
     }
     try {
       const payload = await fetchPayload();
-      set({ ...payload, loading: false });
+      set({ ...payload, loading: false, hydrated: true });
     } catch (error) {
-      set({ loading: false, error: ipcErrorMessage(error) });
+      set({ loading: false, hydrated: true, error: ipcErrorMessage(error) });
     }
   },
 
@@ -62,7 +64,7 @@ export const useAgentsStore = create<AgentsStore>((set, get) => ({
     if (!isTauri()) return { error: DESKTOP_REQUIRED };
     try {
       const payload = await fetchPayload();
-      set({ ...payload, error: undefined });
+      set({ ...payload, error: undefined, hydrated: true });
       return { payload };
     } catch (error) {
       const message = ipcErrorMessage(error);

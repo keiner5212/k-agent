@@ -10,6 +10,7 @@ import {
   DEFAULT_CHAT_BACKGROUND_OPACITY,
   DEFAULT_FONT_FAMILY,
   DEFAULT_FORCE_RESPONSE_LANGUAGE,
+  DEFAULT_AGENT,
   DEFAULT_BUILD_AGENT_ENABLED,
   DEFAULT_LSP_ENABLED,
   DEFAULT_LIMIT_PROVIDER_DATA_USE,
@@ -169,6 +170,12 @@ const sanitizeShellProgram = (value: unknown): string => {
   return trimmed;
 };
 
+const sanitizeDefaultAgent = (value: unknown): string => {
+  if (typeof value !== "string") return DEFAULT_AGENT;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : DEFAULT_AGENT;
+};
+
 const sanitizeModelChoice = (value: unknown): SelectedModel | null => {
   if (value === null || value === undefined) return null;
   if (typeof value === "object") {
@@ -242,6 +249,7 @@ const sanitizeSettings = (raw: unknown): Settings => {
     ),
     buildAgentEnabled: sanitizeBoolean(obj.buildAgentEnabled, DEFAULT_BUILD_AGENT_ENABLED),
     planAgentEnabled: sanitizeBoolean(obj.planAgentEnabled, DEFAULT_PLAN_AGENT_ENABLED),
+    defaultAgent: sanitizeDefaultAgent(obj.defaultAgent),
     chatBackgroundImage: sanitizeChatBackgroundImage(obj.chatBackgroundImage),
     chatBackgroundOpacity: sanitizeChatBackgroundOpacity(obj.chatBackgroundOpacity),
   };
@@ -279,6 +287,7 @@ export type SettingsStore = Settings & {
   setSessionSidebarOpen: (open: boolean) => void;
   setBuildAgentEnabled: (enabled: boolean) => void;
   setPlanAgentEnabled: (enabled: boolean) => void;
+  setDefaultAgent: (agent: string) => void;
   setChatBackgroundImage: (filename: string | null, url: string | null) => void;
   setChatBackgroundOpacity: (opacity: number) => void;
   resetKeybindings: () => void;
@@ -399,6 +408,7 @@ const snapshot = (state: SettingsStore): Settings => ({
   sessionSidebarOpen: state.sessionSidebarOpen,
   buildAgentEnabled: state.buildAgentEnabled,
   planAgentEnabled: state.planAgentEnabled,
+  defaultAgent: state.defaultAgent,
   chatBackgroundImage: state.chatBackgroundImage,
   chatBackgroundOpacity: state.chatBackgroundOpacity,
 });
@@ -608,6 +618,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setPlanAgentEnabled: (enabled) => {
     set({ planAgentEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setDefaultAgent: (agent) => {
+    set({ defaultAgent: sanitizeDefaultAgent(agent) });
     void persist(snapshot(get()));
   },
 

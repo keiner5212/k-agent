@@ -65,6 +65,7 @@ export const DEFAULT_SESSION_SIDEBAR_OPEN = true;
 
 export const DEFAULT_BUILD_AGENT_ENABLED = true;
 export const DEFAULT_PLAN_AGENT_ENABLED = true;
+export const DEFAULT_AGENT = "builtin:build";
 
 export const CHAT_BACKGROUND_FILENAME_PATTERN = /^chat-background\.(png|jpg|jpeg|webp)$/;
 
@@ -145,6 +146,7 @@ export type Settings = {
   sessionSidebarOpen: boolean;
   buildAgentEnabled: boolean;
   planAgentEnabled: boolean;
+  defaultAgent: string;
   chatBackgroundImage: string | null;
   chatBackgroundOpacity: number;
 };
@@ -177,6 +179,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sessionSidebarOpen: DEFAULT_SESSION_SIDEBAR_OPEN,
   buildAgentEnabled: DEFAULT_BUILD_AGENT_ENABLED,
   planAgentEnabled: DEFAULT_PLAN_AGENT_ENABLED,
+  defaultAgent: DEFAULT_AGENT,
   chatBackgroundImage: DEFAULT_CHAT_BACKGROUND_IMAGE,
   chatBackgroundOpacity: DEFAULT_CHAT_BACKGROUND_OPACITY,
 };

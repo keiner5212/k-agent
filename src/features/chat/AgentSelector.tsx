@@ -6,7 +6,7 @@ import {
   listEnabledBuiltinAgents,
   type BuiltinAgentId,
 } from "@/lib/builtin-agents";
-import { listComposerAgentKeys } from "@/lib/composer-agents";
+import { listComposerAgentKeys, resolveDefaultComposerAgent } from "@/lib/composer-agents";
 import { useAgentsStore } from "@/lib/agents";
 import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { useComposerStore } from "@/lib/composer";
@@ -16,11 +16,17 @@ import { agentKey } from "@/types/agents";
 export const AgentSelector = (): ReactNode => {
   const { t } = useTranslation();
   const selectedAgent = useComposerStore((state) => state.selectedAgent);
-  const agentHydrated = useComposerStore((state) => state.agentHydrated);
   const setSelectedAgent = useComposerStore((state) => state.setSelectedAgent);
   const contexts = useAgentsStore((state) => state.contexts);
+  const agentsHydrated = useAgentsStore((state) => state.hydrated);
+  const agentsError = useAgentsStore((state) => state.error);
+  const settingsHydrated = useSettingsStore((state) => state.hydrated);
   const buildAgentEnabled = useSettingsStore((state) => state.buildAgentEnabled);
   const planAgentEnabled = useSettingsStore((state) => state.planAgentEnabled);
+  const defaultAgent = useSettingsStore((state) => state.defaultAgent);
+  const setBuildAgentEnabled = useSettingsStore((state) => state.setBuildAgentEnabled);
+  const setPlanAgentEnabled = useSettingsStore((state) => state.setPlanAgentEnabled);
+  const setDefaultAgent = useSettingsStore((state) => state.setDefaultAgent);
 
   useEffect(() => {
     void hydrateWorkspaceConfig();
@@ -59,19 +65,39 @@ export const AgentSelector = (): ReactNode => {
     build: buildAgentEnabled,
     plan: planAgentEnabled,
   }).join("|");
+  const userAgentCount = contexts.reduce(
+    (count, context) => count + (context.kind === "builtin" ? 0 : context.agents.length),
+    0,
+  );
   const options = [...builtinOptions, ...userOptions];
 
   useEffect(() => {
-    if (!agentHydrated) return;
-    const values = optionValues.length === 0 ? [] : optionValues.split("|");
-    if (values.length === 0) {
-      if (selectedAgent !== "") setSelectedAgent("");
+    if (!settingsHydrated || !agentsHydrated) return;
+    if (!agentsError && !buildAgentEnabled && !planAgentEnabled && userAgentCount === 0) {
+      const build = builtinAgentKey("build");
+      setBuildAgentEnabled(true);
+      setPlanAgentEnabled(true);
+      setDefaultAgent(build);
+      setSelectedAgent(build);
       return;
     }
-    if (!values.includes(selectedAgent)) {
-      setSelectedAgent(values[0] ?? "");
-    }
-  }, [agentHydrated, optionValues, selectedAgent, setSelectedAgent]);
+    const keys = optionValues.length === 0 ? [] : optionValues.split("|");
+    const next = resolveDefaultComposerAgent(defaultAgent, keys);
+    if (useComposerStore.getState().selectedAgent !== next) setSelectedAgent(next);
+  }, [
+    agentsError,
+    agentsHydrated,
+    buildAgentEnabled,
+    defaultAgent,
+    optionValues,
+    planAgentEnabled,
+    setBuildAgentEnabled,
+    setDefaultAgent,
+    setPlanAgentEnabled,
+    setSelectedAgent,
+    settingsHydrated,
+    userAgentCount,
+  ]);
 
   return (
     <div className="agent-selector">

@@ -141,6 +141,10 @@
       "label": "Plan agent",
       "description": "Show the built-in Plan agent in chat. It explores and plans without making changes."
     },
+    "defaultAgent": {
+      "label": "Default agent",
+      "description": "Agent selected when chat opens. The last agent used in a session is not saved."
+    },
     "translucency": {
       "label": "Disable translucency",
       "description": "Surfaces use a frosted, glass-like blur by default. Turn this on for solid surfaces."

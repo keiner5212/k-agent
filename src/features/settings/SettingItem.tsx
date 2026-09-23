@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -7,6 +8,10 @@ import { GlassButton } from "@/components/GlassButton";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@/lib/platform";
 import { highlightMatch } from "@/lib/highlight";
+import { useAgentsStore } from "@/lib/agents";
+import { resolveAgentMeta } from "@/lib/builtin-agents";
+import { listComposerAgentKeys } from "@/lib/composer-agents";
+import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { useSettingsStore } from "@/lib/settings";
 import { useProvidersStore } from "@/lib/providers";
 import { listSystemFonts } from "@/lib/system-fonts";
@@ -203,6 +208,8 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const limitProviderDataUse = useSettingsStore((state) => state.limitProviderDataUse);
   const buildAgentEnabled = useSettingsStore((state) => state.buildAgentEnabled);
   const planAgentEnabled = useSettingsStore((state) => state.planAgentEnabled);
+  const defaultAgent = useSettingsStore((state) => state.defaultAgent);
+  const agentContexts = useAgentsStore((state) => state.contexts);
   const titleGenerationModel = useSettingsStore((state) => state.titleGenerationModel);
   const titleUseFirstMessage = useSettingsStore((state) => state.titleUseFirstMessage);
   const appGenerationModel = useSettingsStore((state) => state.appGenerationModel);
@@ -223,6 +230,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setLimitProviderDataUse = useSettingsStore((state) => state.setLimitProviderDataUse);
   const setBuildAgentEnabled = useSettingsStore((state) => state.setBuildAgentEnabled);
   const setPlanAgentEnabled = useSettingsStore((state) => state.setPlanAgentEnabled);
+  const setDefaultAgent = useSettingsStore((state) => state.setDefaultAgent);
   const setTitleGenerationModel = useSettingsStore((state) => state.setTitleGenerationModel);
   const setTitleUseFirstMessage = useSettingsStore((state) => state.setTitleUseFirstMessage);
   const setAppGenerationModel = useSettingsStore((state) => state.setAppGenerationModel);
@@ -245,6 +253,11 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
     return () => {
       cancelled = true;
     };
+  }, [item.id]);
+
+  useEffect(() => {
+    if (item.id !== "defaultAgent") return;
+    void hydrateWorkspaceConfig();
   }, [item.id]);
 
   useEffect(() => {
@@ -275,6 +288,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               maxWorkerCores,
               reminderInterval,
               responseLanguage,
+              defaultAgent,
             })}
             onChange={(next) =>
               onSelectChange(item.id, next, {
@@ -285,9 +299,17 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setMaxWorkerCores,
                 setReminderInterval,
                 setResponseLanguage,
+                setDefaultAgent,
               })
             }
-            options={selectOptions(item, t, { systemFonts, fontFamily })}
+            options={selectOptions(item, t, {
+              systemFonts,
+              fontFamily,
+              defaultAgent,
+              agentContexts,
+              buildAgentEnabled,
+              planAgentEnabled,
+            })}
           />
         ) : null}
 
@@ -399,9 +421,29 @@ type ResponseLangState = { responseLanguage: AppLanguage };
 
 const selectOptions = (
   item: SettingItemDef,
-  t: (key: string) => string,
-  extras: { systemFonts: string[]; fontFamily: string },
+  t: TFunction,
+  extras: {
+    systemFonts: string[];
+    fontFamily: string;
+    defaultAgent: string;
+    agentContexts: ReturnType<typeof useAgentsStore.getState>["contexts"];
+    buildAgentEnabled: boolean;
+    planAgentEnabled: boolean;
+  },
 ): { value: string; label: ReactNode }[] => {
+  if (item.id === "defaultAgent") {
+    const keys = listComposerAgentKeys(t, extras.agentContexts, {
+      build: extras.buildAgentEnabled,
+      plan: extras.planAgentEnabled,
+    });
+    const values = keys.includes(extras.defaultAgent) ? keys : [extras.defaultAgent, ...keys];
+    return values
+      .filter((value) => value.length > 0)
+      .map((value) => ({
+        value,
+        label: resolveAgentMeta(value, extras.agentContexts, t)?.name ?? value,
+      }));
+  }
   if (item.id === "maxWorkerCores") {
     const options = [{ value: "0", label: t("settings.maxWorkerCores.options.auto") }];
     const max = hardwareThreadCount();
@@ -485,7 +527,7 @@ const selectValue = (
     FontState &
     CoresState &
     ReminderState &
-    ResponseLangState,
+    ResponseLangState & { defaultAgent: string },
 ): string => {
   switch (id) {
     case "language":
@@ -502,6 +544,8 @@ const selectValue = (
       return String(state.reminderInterval);
     case "responseLanguage":
       return state.responseLanguage;
+    case "defaultAgent":
+      return state.defaultAgent;
     default:
       return "";
   }
@@ -518,6 +562,7 @@ const onSelectChange = (
     setMaxWorkerCores: (n: number) => void;
     setReminderInterval: (n: number) => void;
     setResponseLanguage: (l: AppLanguage) => void;
+    setDefaultAgent: (agent: string) => void;
   },
 ): void => {
   switch (id) {
@@ -545,6 +590,9 @@ const onSelectChange = (
       if ((SUPPORTED_LANGUAGES as readonly string[]).includes(next)) {
         setters.setResponseLanguage(next as AppLanguage);
       }
+      return;
+    case "defaultAgent":
+      setters.setDefaultAgent(next);
       return;
   }
 };

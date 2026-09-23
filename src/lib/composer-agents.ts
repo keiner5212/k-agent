@@ -25,9 +25,17 @@ export const listComposerAgentKeys = (
     builtinAgentKey(agent.id as BuiltinAgentId),
   );
   const user = contexts
-    .filter((context) => context.kind === "global")
-    .flatMap((context) => context.agents.map((agent) => agentKey("global", agent.id)));
+    .filter((context) => context.kind !== "builtin")
+    .flatMap((context) => context.agents.map((agent) => agentKey(context.kind, agent.id)));
   return [...builtin, ...user];
+};
+
+export const resolveDefaultComposerAgent = (
+  defaultAgent: string,
+  keys: readonly string[],
+): string => {
+  if (keys.includes(defaultAgent)) return defaultAgent;
+  return keys[0] ?? "";
 };
 
 export const cycleComposerAgent = (

@@ -14,7 +14,13 @@ let chain: Promise<void> = Promise.resolve();
 
 const applyEmpty = (): void => {
   useSkillsStore.setState({ contexts: [], workspacePath: null, loading: false, error: undefined });
-  useAgentsStore.setState({ contexts: [], workspacePath: null, loading: false, error: undefined });
+  useAgentsStore.setState({
+    contexts: [],
+    workspacePath: null,
+    loading: false,
+    hydrated: true,
+    error: undefined,
+  });
   useAgentsMdStore.setState({ files: [], workspacePath: null, loading: false, error: undefined });
 };
 
@@ -47,6 +53,7 @@ const hydrateOnce = async (force: boolean): Promise<void> => {
       contexts: bundle.agents,
       workspacePath: bundle.workspacePath,
       loading: false,
+      hydrated: true,
       error: undefined,
     });
     useAgentsMdStore.setState({
@@ -66,7 +73,7 @@ const hydrateOnce = async (force: boolean): Promise<void> => {
   } catch (error) {
     const message = ipcErrorMessage(error);
     useSkillsStore.setState({ loading: false, error: message });
-    useAgentsStore.setState({ loading: false, error: message });
+    useAgentsStore.setState({ loading: false, hydrated: true, error: message });
     useAgentsMdStore.setState({ loading: false, error: message });
   } finally {
     lease.release();

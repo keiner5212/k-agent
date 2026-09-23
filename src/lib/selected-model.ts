@@ -22,7 +22,9 @@ const effortKey = (selection: SelectedModel): string =>
 const requestKey = (selection: SelectedModel): string =>
   `${KEY_REQUEST_PREFIX}${selection.providerId}:${selection.modelId}`;
 
-const emptyOverride = (): ModelRequestOverride => ({});
+const EMPTY_REQUEST: ModelRequestOverride = Object.freeze({});
+
+const emptyOverride = (): ModelRequestOverride => EMPTY_REQUEST;
 
 const sanitizeOverride = (value: unknown): ModelRequestOverride => {
   if (!value || typeof value !== "object") return emptyOverride();
