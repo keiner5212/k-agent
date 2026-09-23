@@ -1,5 +1,5 @@
 url: "https://example.com/"
 title: Example Domain
 description: This domain is for use in documentation examples without needing permission. Avoid use in operations.
-content: "Example Domain\n\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\n\nLearn more"
+content: "Example Domain\nThis domain is for use in documentation examples without needing permission. Avoid use in operations.\nLearn more"
 links: "- Learn more (https://iana.org/domains/example)"

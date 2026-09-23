@@ -1,4 +1,4 @@
-import type { ChatMessage } from "./chat";
+import type { ChatMessage, TodoItem } from "./chat";
 
 export type SessionRecord = {
   id: string;
@@ -6,6 +6,7 @@ export type SessionRecord = {
   preview: string;
   updatedAt: number;
   messages: ChatMessage[];
+  todos?: TodoItem[];
   outsideWorkspaceAllowed?: boolean;
   httpWriteAllowed?: boolean;
 };

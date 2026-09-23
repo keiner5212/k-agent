@@ -24,7 +24,7 @@ use k_agent_lib::tools::{
     execute, ToolContext, ASK_USER_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME,
     EDIT_TOOL_NAME, FETCH_URL_TOOL_NAME, GRAPHQL_TOOL_NAME, HTTP_REQUEST_TOOL_NAME,
     INTERNET_SEARCH_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME, PAGE_SHOT_TOOL_NAME, READ_TOOL_NAME,
-    SKILL_TOOL_NAME, WRITE_TOOL_NAME,
+    SKILL_TOOL_NAME, TODO_TOOL_NAME, WRITE_TOOL_NAME,
 };
 
 const REALISTIC_FILE_BODY: &str = "# Draft: sample skill body\n\
@@ -408,6 +408,17 @@ async fn dumps_tool_examples() {
             measure(async { execute(SKILL_TOOL_NAME, args, &ctx_docs).await }).await;
         write_input(SKILL_TOOL_NAME, args);
         write_stats(SKILL_TOOL_NAME, &stats, &outcome, &ctx_docs);
+    }
+
+    // todowrite: app handle is None, so persistence errors out. Captured so
+    // the docs show the argument validation path the model would hit when
+    // it tries to write the session todo list without a live Tauri shell.
+    {
+        let args = r#"{"todos":[{"content":"Investigate ask_user persistence","status":"in_progress","priority":"high"},{"content":"Wire todowrite into default agents","status":"pending","priority":"medium"},{"content":"Render todo list inline","status":"completed","priority":"low"}]}"#;
+        let (stats, outcome) =
+            measure(async { execute(TODO_TOOL_NAME, args, &ctx_docs).await }).await;
+        write_input(TODO_TOOL_NAME, args);
+        write_stats(TODO_TOOL_NAME, &stats, &outcome, &ctx_docs);
     }
 
     // create_folder: builds a nested path under scratch so write/edit/delete

@@ -16,6 +16,7 @@ export const AGENT_TOOL_IDS = [
   "http_request",
   "graphql",
   "page_shot",
+  "todowrite",
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
@@ -25,6 +26,9 @@ export const PLAN_AGENT_TOOL_IDS: readonly AgentToolId[] = [
   "read",
   "list_directory",
   "ask_user",
+  "todowrite",
+  "internet_search",
+  "fetch_url",
 ];
 
 export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
@@ -50,6 +54,8 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
     "Send one GraphQL request. POST by default with query, optional variables, operation name, and headers. GET does not ask. POST and any other method wait for the user to deny, allow once, or allow for this chat.",
   page_shot:
     "Capture a hidden view of one http or https page, including localhost. Set width and height for the viewport. Set selector to return only that element. The page is not shown. The PNG is attached for the user and the model.",
+  todowrite:
+    "Replace the session todo list. Pass the full ordered list every time, with status and priority for each item. The list is shown to the user and persisted across restarts.",
 };
 
 export const MAX_AGENT_SKILLS = 10;

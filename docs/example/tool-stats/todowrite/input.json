@@ -1,0 +1,19 @@
+{
+  "todos": [
+    {
+      "content": "Investigate ask_user persistence",
+      "status": "in_progress",
+      "priority": "high"
+    },
+    {
+      "content": "Wire todowrite into default agents",
+      "status": "pending",
+      "priority": "medium"
+    },
+    {
+      "content": "Render todo list inline",
+      "status": "completed",
+      "priority": "low"
+    }
+  ]
+}

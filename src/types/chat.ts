@@ -17,7 +17,17 @@ export type ChatAttachment = {
   file?: string;
 };
 
-export type ChatChunkKind = "content" | "reasoning" | "tool" | "question";
+export type ChatChunkKind = "content" | "reasoning" | "tool" | "question" | "todo";
+
+export type TodoStatus = "pending" | "in_progress" | "completed" | "cancelled";
+
+export type TodoPriority = "high" | "medium" | "low";
+
+export type TodoItem = {
+  content: string;
+  status: TodoStatus;
+  priority: TodoPriority;
+};
 
 export type ChatChunk = {
   kind: ChatChunkKind;
@@ -191,6 +201,7 @@ export type ChatMessage = {
   toolCalls?: ChatToolCall[];
   toolRounds?: ToolRoundTrace[];
   pendingAsk?: PendingAsk;
+  todos?: TodoItem[];
   resumeTools?: boolean;
 };
 

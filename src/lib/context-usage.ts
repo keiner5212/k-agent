@@ -252,6 +252,39 @@ const PAGE_SHOT_TOOL_PARAMETERS = {
   required: ["url"],
 } as const;
 
+const TODO_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    todos: {
+      type: "array",
+      minItems: 0,
+      maxItems: 64,
+      description: "Full ordered list. Empty array clears the list.",
+      items: {
+        type: "object",
+        properties: {
+          content: {
+            type: "string",
+            description: "Short description of the task.",
+          },
+          status: {
+            type: "string",
+            enum: ["pending", "in_progress", "completed", "cancelled"],
+            description: "Current status of the task.",
+          },
+          priority: {
+            type: "string",
+            enum: ["high", "medium", "low"],
+            description: "Priority of the task.",
+          },
+        },
+        required: ["content", "status", "priority"],
+      },
+    },
+  },
+  required: ["todos"],
+} as const;
+
 const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   skill: SKILL_TOOL_PARAMETERS,
   read: READ_TOOL_PARAMETERS,
@@ -266,6 +299,7 @@ const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   http_request: HTTP_REQUEST_TOOL_PARAMETERS,
   graphql: GRAPHQL_TOOL_PARAMETERS,
   page_shot: PAGE_SHOT_TOOL_PARAMETERS,
+  todowrite: TODO_TOOL_PARAMETERS,
 };
 
 export const CONTEXT_CATEGORY_IDS = [

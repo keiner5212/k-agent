@@ -10,6 +10,7 @@ import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
 import { ChatWaitingLine } from "./ChatWaitingLine";
 import { MessageActions } from "./MessageActions";
 import { QuestionDialog } from "./QuestionDialog";
+import { TodoList } from "./TodoList";
 import { ToolCallsBlock } from "./ToolCallsBlock";
 
 const AssistantMarkdown = ({ content }: { content: string }): ReactNode => {
@@ -152,12 +153,15 @@ const MessageBody = ({
   }
   if (message.role === "assistant") {
     const rounds = message.toolRounds;
+    const todoList =
+      message.todos && message.todos.length > 0 ? <TodoList todos={message.todos} /> : null;
     if (rounds && rounds.length > 0) {
       const lastRoundIndex = rounds.length - 1;
       const showTrailingContent =
         !message.streaming && rounds[rounds.length - 1]?.content !== message.content;
       return (
         <>
+          {todoList}
           {rounds.map((round, index) => {
             const calls = round.calls ?? [];
             const isLastRound = index === lastRoundIndex;
@@ -181,6 +185,7 @@ const MessageBody = ({
     }
     return (
       <>
+        {todoList}
         <ThinkingBlock
           reasoning={message.reasoning ?? ""}
           streaming={message.streaming}

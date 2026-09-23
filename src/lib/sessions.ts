@@ -35,6 +35,7 @@ import {
   type ChatMessage,
   type SelectedModel,
   type SendChatResult,
+  type TodoItem,
   type ToolRoundTrace,
 } from "@/types/chat";
 import { useAskUserStore } from "@/lib/ask-user";
@@ -62,6 +63,38 @@ const previewFromMessages = (messages: ChatMessage[]): string => {
     if (content && content.length > 0) return content;
   }
   return "";
+};
+
+const parseTodoChunk = (raw: string): TodoItem[] | null => {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return null;
+    const items: TodoItem[] = [];
+    for (const value of parsed) {
+      if (!value || typeof value !== "object") return null;
+      const item = value as Record<string, unknown>;
+      const content = typeof item.content === "string" ? item.content.trim() : "";
+      const status = item.status;
+      const priority = item.priority;
+      if (!content) return null;
+      if (
+        status !== "pending" &&
+        status !== "in_progress" &&
+        status !== "completed" &&
+        status !== "cancelled"
+      ) {
+        return null;
+      }
+      if (priority !== "high" && priority !== "medium" && priority !== "low") {
+        return null;
+      }
+      items.push({ content, status, priority });
+    }
+    return items;
+  } catch (error) {
+    console.warn("todowrite chunk parse failed", error);
+    return null;
+  }
 };
 
 const handleAskUserChunk = (
@@ -193,6 +226,30 @@ const persistableSnapshot = (snapshot: SessionsSnapshot): SessionsSnapshot => ({
       }),
   })),
 });
+
+const restoreTodos = (sessions: SessionRecord[]): void => {
+  // Todos are session-scoped. Restore the latest snapshot into each session
+  // message so the UI can show the most recent list inline.
+  for (const session of sessions) {
+    const stored = session.todos;
+    if (!stored || stored.length === 0) continue;
+    const messages = session.messages;
+    let attached = false;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (!message || message.role !== "assistant") continue;
+      if (!message.todos || message.todos.length === 0) {
+        message.todos = stored.map((item) => ({ ...item }));
+        attached = true;
+      }
+      break;
+    }
+    if (!attached && messages.length > 0) {
+      const last = messages[messages.length - 1];
+      if (last) last.todos = stored.map((item) => ({ ...item }));
+    }
+  }
+};
 
 const HYDRATE_TIMEOUT_MS = 8000;
 
@@ -409,6 +466,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         hydrated: true,
       });
       restorePendingAsks(ensured.sessions);
+      restoreTodos(ensured.sessions);
       continueResumedTools(ensured.sessions);
     } catch (error) {
       console.warn("sessions hydrate failed", error);
@@ -766,6 +824,26 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           set({ sessions: nextSessions });
           void persistSnapshot(snapshotFromState(nextSessions, get().activeSessionId ?? sessionId));
           return;
+        }
+        if (chunk.kind === "todo") {
+          const todos = parseTodoChunk(chunk.text);
+          if (todos) {
+            const nextSessions = get().sessions.map((session) => {
+              if (session.id !== sessionId) return session;
+              const index = session.messages.findIndex((message) => message.id === assistantId);
+              if (index < 0) return session;
+              const messages = session.messages.slice();
+              const current = messages[index];
+              if (!current) return session;
+              messages[index] = { ...current, todos };
+              return { ...session, messages, todos };
+            });
+            set({ sessions: nextSessions });
+            void persistSnapshot(
+              snapshotFromState(nextSessions, get().activeSessionId ?? sessionId),
+            );
+            return;
+          }
         }
         if (lastChunkKind === "tool" && !isTool) {
           activeRoundIndex += 1;

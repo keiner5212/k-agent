@@ -53,6 +53,8 @@ pub struct SessionRecord {
     pub outside_workspace_allowed: bool,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub http_write_allowed: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub todos: Vec<crate::tools::todo::TodoItem>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -173,6 +175,7 @@ fn empty_snapshot() -> SessionsSnapshot {
             messages: Vec::new(),
             outside_workspace_allowed: false,
             http_write_allowed: false,
+            todos: Vec::new(),
         }],
     }
 }
@@ -275,6 +278,7 @@ fn read_session_record(app: &AppHandle, id: &str) -> Result<SessionRecord, Sessi
             messages: Vec::new(),
             outside_workspace_allowed: false,
             http_write_allowed: false,
+            todos: Vec::new(),
         });
     }
     let raw = std::fs::read_to_string(&path).map_err(|e| SessionError::Io(e.to_string()))?;
@@ -498,6 +502,62 @@ async fn save_snapshot(
 #[tauri::command]
 pub async fn load_sessions(app: AppHandle) -> Result<SessionsSnapshot, SessionError> {
     load_snapshot(&app).await
+}
+
+pub fn update_session_todos(
+    app: &AppHandle,
+    session_id: &str,
+    todos: Vec<crate::tools::todo::TodoItem>,
+) -> Result<(), SessionError> {
+    if !is_safe_id(session_id) {
+        return Err(SessionError::Path("invalid session id".into()));
+    }
+    let dir = session_dir(app, session_id)?;
+    std::fs::create_dir_all(&dir).map_err(|e| SessionError::Io(e.to_string()))?;
+    let mut session = read_session_record(app, session_id)?;
+    session.todos = todos;
+    session.updated_at = chrono::Utc::now().timestamp();
+    write_session_record(app, &mut session)?;
+    refresh_index_entry(app, &session)
+}
+
+fn refresh_index_entry(app: &AppHandle, session: &SessionRecord) -> Result<(), SessionError> {
+    let path = sessions_index_path(app)?;
+    let mut index = match std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|raw| serde_json::from_str::<SessionsIndex>(&raw).ok())
+    {
+        Some(existing) => existing,
+        None => SessionsIndex {
+            active_session_id: session.id.clone(),
+            sessions: Vec::new(),
+        },
+    };
+    let mut replaced = false;
+    for entry in index.sessions.iter_mut() {
+        if entry.id == session.id {
+            entry.title = session.title.clone();
+            entry.preview = session.preview.clone();
+            entry.updated_at = session.updated_at;
+            replaced = true;
+            break;
+        }
+    }
+    if !replaced {
+        index.sessions.push(SessionIndexEntry {
+            id: session.id.clone(),
+            title: session.title.clone(),
+            preview: session.preview.clone(),
+            updated_at: session.updated_at,
+        });
+    }
+    let json = serde_json::to_string_pretty(&index)
+        .map_err(|e| SessionError::Parse(e.to_string()))?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| SessionError::Io(e.to_string()))?;
+    }
+    std::fs::write(&path, json).map_err(|e| SessionError::Io(e.to_string()))?;
+    Ok(())
 }
 
 #[tauri::command]

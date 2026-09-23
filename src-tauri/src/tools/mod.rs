@@ -12,6 +12,7 @@ mod write;
 pub mod ask_user;
 mod create_folder;
 mod delete;
+pub mod todo;
 
 #[path = "tool-utils/mod.rs"]
 mod tool_utils;
@@ -41,6 +42,7 @@ pub const INTERNET_SEARCH_TOOL_NAME: &str = internet_search::NAME;
 pub const HTTP_REQUEST_TOOL_NAME: &str = http_request::NAME;
 pub const GRAPHQL_TOOL_NAME: &str = graphql::NAME;
 pub const PAGE_SHOT_TOOL_NAME: &str = page_shot::NAME;
+pub const TODO_TOOL_NAME: &str = todo::NAME;
 pub const LIST_DIRECTORY_MAX_PARALLELISM: usize = list_directory::MAX_PARALLELISM;
 
 pub const TOOL_KIND_CONTEXT: &str = "context";
@@ -224,6 +226,7 @@ fn all_tools() -> Vec<Box<dyn Tool>> {
         Box::new(http_request::HttpRequestTool),
         Box::new(graphql::GraphqlTool),
         Box::new(page_shot::PageShotTool),
+        Box::new(todo::TodoTool),
     ]
 }
 
