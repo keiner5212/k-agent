@@ -87,29 +87,26 @@ export const Dialog = ({
   return createPortal(
     <div className="dialog-root">
       <div className="dialog-overlay" onClick={() => onOpenChange(false)} />
-      <div
-        className="dialog-surface"
-        data-size={size}
-        data-placement={placement}
-        style={surfaceStyle}
-      >
-        <div
-          ref={panelRef}
-          className="dialog-panel"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={titleId}
-        >
-          <div className="dialog-header">
-            <h2 id={titleId} className="dialog-title">
-              {t(titleKey)}
-            </h2>
-            <IconButton label={t("settings.close")} onClick={() => onOpenChange(false)}>
-              <X size={14} strokeWidth={1.5} />
-            </IconButton>
+      <div className="dialog-slot" data-size={size} data-placement={placement} style={surfaceStyle}>
+        <div className="dialog-surface">
+          <div
+            ref={panelRef}
+            className="dialog-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+          >
+            <div className="dialog-header">
+              <h2 id={titleId} className="dialog-title">
+                {t(titleKey)}
+              </h2>
+              <IconButton label={t("settings.close")} onClick={() => onOpenChange(false)}>
+                <X size={14} strokeWidth={1.5} />
+              </IconButton>
+            </div>
+            <div className="dialog-body">{children}</div>
+            {footer ? <div className="dialog-footer">{footer}</div> : null}
           </div>
-          <div className="dialog-body">{children}</div>
-          {footer ? <div className="dialog-footer">{footer}</div> : null}
         </div>
       </div>
     </div>,

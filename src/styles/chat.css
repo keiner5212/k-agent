@@ -203,6 +203,10 @@ button.change-bar__stat:focus-visible {
   width: auto;
 }
 
+.model-request .select-root {
+  width: 100%;
+}
+
 .agent-selector .select {
   min-width: 10rem;
 }
@@ -364,19 +368,17 @@ button.change-bar__stat:focus-visible {
 }
 
 .sessions-sidebar__item-title--reveal {
-  animation: session-title-reveal var(--duration-enter) var(--ease-out) both;
+  animation: session-title-reveal var(--duration-base) var(--ease-out) backwards;
 }
 
 @keyframes session-title-reveal {
   from {
     clip-path: inset(0 100% 0 0);
     opacity: 0.45;
-    transform: translateX(-0.4rem);
   }
   to {
     clip-path: inset(0 0 0 0);
     opacity: 1;
-    transform: none;
   }
 }
 
@@ -945,13 +947,13 @@ button.change-bar__stat:focus-visible {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background-color: var(--surface-elevated);
-  animation: chat-message-in 0.32s var(--ease-out) both;
+  transform-origin: center;
+  animation: chat-message-in var(--duration-base) var(--ease-out) backwards;
 }
 
 .chat-message--user {
   align-self: flex-end;
   border-color: color-mix(in oklch, var(--accent) 28%, var(--border));
-  animation-name: chat-message-in-end;
 }
 
 .chat-message--user.chat-message--shell {
@@ -961,7 +963,6 @@ button.change-bar__stat:focus-visible {
 
 .chat-message--assistant {
   align-self: flex-start;
-  animation-name: chat-message-in-start;
 }
 
 .chat-thinking {
@@ -1100,8 +1101,8 @@ button.change-bar__stat:focus-visible {
     0 0 0 1px color-mix(in oklch, var(--accent) 14%, transparent),
     0 0 18px color-mix(in oklch, var(--accent) 16%, transparent);
   animation:
-    chat-message-in-start 0.32s var(--ease-out) both,
-    chat-waiting-glow 2.4s var(--ease-standard) 0.32s infinite;
+    chat-message-in var(--duration-base) var(--ease-out) backwards,
+    chat-waiting-glow 2.4s var(--ease-standard) var(--duration-base) infinite;
   contain: layout paint;
 }
 
@@ -1133,39 +1134,18 @@ button.change-bar__stat:focus-visible {
 
 .chat-waiting__phrase {
   display: inline-block;
-  animation: chat-waiting-phrase 0.42s var(--ease-out) both;
+  transform-origin: center;
+  animation: chat-waiting-phrase var(--duration-base) var(--ease-out) backwards;
 }
 
 @keyframes chat-message-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    scale: 0.98;
   }
   to {
     opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes chat-message-in-start {
-  from {
-    opacity: 0;
-    transform: translate3d(-10px, 6px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes chat-message-in-end {
-  from {
-    opacity: 0;
-    transform: translate3d(10px, 6px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: none;
+    scale: 1;
   }
 }
 
@@ -1217,11 +1197,11 @@ button.change-bar__stat:focus-visible {
 @keyframes chat-waiting-phrase {
   from {
     opacity: 0;
-    transform: translateY(7px);
+    scale: 0.98;
   }
   to {
     opacity: 1;
-    transform: none;
+    scale: 1;
   }
 }
 
@@ -1434,7 +1414,7 @@ button.change-bar__stat:focus-visible {
   border: 1px solid color-mix(in oklch, var(--danger) 35%, var(--border));
   border-radius: var(--radius-sm);
   background-color: color-mix(in oklch, var(--danger) 12%, var(--surface-elevated));
-  animation: chat-message-in 0.28s var(--ease-out) both;
+  animation: chat-message-in var(--duration-base) var(--ease-out) backwards;
 }
 
 /* ========== Interrupt hint and interrupted footer ========== */
@@ -1451,7 +1431,7 @@ button.change-bar__stat:focus-visible {
   background-color: color-mix(in oklch, var(--accent) 14%, var(--surface-elevated));
   border: 1px solid color-mix(in oklch, var(--accent) 38%, var(--border));
   border-radius: 999px;
-  animation: chat-message-in 0.18s var(--ease-out) both;
+  animation: chat-message-in var(--duration-fast) var(--ease-out) backwards;
 }
 
 .chat-interrupt-hint__dot {
@@ -1938,20 +1918,21 @@ button.change-bar__stat:focus-visible {
 }
 
 .composer-shell-chip--enter {
-  animation: composer-shell-enter 0.36s var(--ease-out);
+  transform-origin: center;
+  animation: composer-shell-enter var(--duration-enter) var(--ease-out);
 }
 
 @keyframes composer-shell-enter {
   0% {
-    transform: scaleY(1);
+    scale: 1 1;
     opacity: 1;
   }
-  45% {
-    transform: scaleY(0.12);
-    opacity: 0.45;
+  40% {
+    scale: 1 0.35;
+    opacity: 0.55;
   }
   100% {
-    transform: scaleY(1);
+    scale: 1 1;
     opacity: 1;
   }
 }

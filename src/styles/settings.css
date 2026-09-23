@@ -98,7 +98,8 @@
   min-height: 0;
   gap: var(--space-4);
   overflow-y: auto;
-  animation: pane-in var(--duration-enter) var(--ease-out);
+  transform-origin: top center;
+  animation: pane-in var(--duration-base) var(--ease-out) backwards;
 }
 
 .settings-pane--dense {

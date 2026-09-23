@@ -113,11 +113,12 @@
   box-shadow:
     var(--shadow-md),
     inset 0 1px 0 color-mix(in oklch, var(--text-primary) 5%, transparent);
-  animation: popover-in var(--duration-enter) var(--ease-out);
+  transform-origin: top center;
+  animation: popover-in var(--duration-base) var(--ease-out) backwards;
 }
 
 .select-menu[data-placement="up"] {
-  animation-name: popover-in-up;
+  transform-origin: bottom center;
 }
 
 .select-menu::-webkit-scrollbar {
