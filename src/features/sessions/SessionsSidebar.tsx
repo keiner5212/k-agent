@@ -42,7 +42,7 @@ export const SessionsSidebar = (): ReactNode => {
               preview={session.preview}
               active={session.id === activeSessionId}
               onSelect={() => select(session.id)}
-              onDelete={() => remove(session.id)}
+              onDelete={() => void remove(session.id)}
             />
           ))}
         </ul>

@@ -95,14 +95,15 @@ Window min size is 720x480 in `src/types/settings.ts` and `src-tauri/src/lib.rs`
 
 ## Rust disk layout
 
-Secrets and UI settings live in the Tauri app data dir (`app.path().app_data_dir()`). Model and context files live under `~/.k-agent/` (`APP_CONFIG_DIR`). Workspace files live under `{workspace}/.agents/` (`WORKSPACE_AGENTS_DIR`).
+Secrets and UI settings live in the Tauri app data dir (`app.path().app_data_dir()`). Model and context files live under `~/.k-agent/` (`APP_CONFIG_DIR`). Both locations are built in `src-tauri/src/paths.rs` (`config_dir`, `config_file`, `app_data_dir`, `app_data_file`, `tool_cache_dir`). Do not assemble those paths again. Workspace files live under `{workspace}/.agents/` (`WORKSPACE_AGENTS_DIR`).
 
 App data dir:
 
-- `settings.json` (plugin-store; keys `settings`, `selectedModel`, `selectedAgent`, `modelEffort:*`)
+- `settings.json` (plugin-store; keys `settings`, `selectedModel`, `selectedAgent`, `modelEffort:*`, `modelRequest:*`)
 - `master.key` (mode 0600) via `secret.rs`
 - `provider-keys.json` (`enc:v1:` blobs keyed by provider id, mode 0600)
 - `mcp-secrets.json` (`enc:v1:` blobs keyed by MCP server id, mode 0600)
+- `cache/fetch-url/` and `cache/internet-search/` (tool HTTP cache, 1 hour TTL)
 - `sessions.json` (thin index: `activeSessionId` plus `{id,title,preview,updatedAt}`)
 - `sessions/{id}/session.json` (messages; no attachment blobs; `toolRounds` only)
 - `sessions/{id}/attachments/{attachmentId}{ext}` (raw attachment bytes)

@@ -13,6 +13,7 @@ import {
   DEFAULT_AGENT,
   DEFAULT_BUILD_AGENT_ENABLED,
   DEFAULT_LSP_ENABLED,
+  DEFAULT_HTTP_FETCH_ENABLED,
   DEFAULT_LIMIT_PROVIDER_DATA_USE,
   DEFAULT_PLAN_AGENT_ENABLED,
   DEFAULT_MAX_WORKER_CORES,
@@ -242,6 +243,7 @@ const sanitizeSettings = (raw: unknown): Settings => {
     ),
     appGenerationModel: sanitizeModelChoice(obj.appGenerationModel),
     lspEnabled: sanitizeBoolean(obj.lspEnabled, DEFAULT_LSP_ENABLED),
+    httpFetchEnabled: sanitizeBoolean(obj.httpFetchEnabled, DEFAULT_HTTP_FETCH_ENABLED),
     keybindings: sanitizeKeybindings(obj.keybindings),
     sessionSidebarOpen: sanitizeBoolean(
       obj.sessionSidebarOpen,
@@ -283,6 +285,7 @@ export type SettingsStore = Settings & {
   setTitleUseFirstMessage: (enabled: boolean) => void;
   setAppGenerationModel: (model: SelectedModel | null) => void;
   setLspEnabled: (enabled: boolean) => void;
+  setHttpFetchEnabled: (enabled: boolean) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
   setSessionSidebarOpen: (open: boolean) => void;
   setBuildAgentEnabled: (enabled: boolean) => void;
@@ -404,6 +407,7 @@ const snapshot = (state: SettingsStore): Settings => ({
   titleUseFirstMessage: state.titleUseFirstMessage,
   appGenerationModel: state.appGenerationModel,
   lspEnabled: state.lspEnabled,
+  httpFetchEnabled: state.httpFetchEnabled,
   keybindings: state.keybindings,
   sessionSidebarOpen: state.sessionSidebarOpen,
   buildAgentEnabled: state.buildAgentEnabled,
@@ -597,6 +601,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setLspEnabled: (enabled) => {
     set({ lspEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setHttpFetchEnabled: (enabled) => {
+    set({ httpFetchEnabled: enabled });
     void persist(snapshot(get()));
   },
 

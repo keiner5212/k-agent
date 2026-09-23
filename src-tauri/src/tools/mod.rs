@@ -3,6 +3,7 @@ mod fetch_url;
 mod internet_search;
 mod list_directory;
 mod read;
+mod readable;
 mod skill;
 mod toon;
 mod write;
@@ -76,6 +77,10 @@ impl ToolContext<'_> {
     pub fn relative_path(&self, path: &std::path::Path) -> String {
         crate::pathutil::relative_to_workspace(path, self.workspace_path().as_deref())
     }
+}
+
+pub(crate) fn tool_cache_dir(app: Option<&AppHandle>, name: &str) -> Option<std::path::PathBuf> {
+    crate::paths::tool_cache_dir(app?, name).ok()
 }
 
 impl ToolContext<'static> {

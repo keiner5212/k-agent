@@ -390,3 +390,8 @@ commands.allow = ["submit_ask_user_answer"]
 identifier = "allow-cancel-ask-user-answer"
 description = "Cancel a pending ask_user tool prompt."
 commands.allow = ["cancel_ask_user_answer"]
+
+[[permission]]
+identifier = "allow-clear-app-cache"
+description = "Clear tool caches and drop leftover secrets for removed providers, MCP servers, and model prefs."
+commands.allow = ["clear_app_cache"]

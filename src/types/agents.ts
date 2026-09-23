@@ -36,9 +36,9 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   delete:
     "Delete a file or empty directory. Out-of-workspace paths require user confirmation; the deleted file's line count is subtracted from the context counter.",
   fetch_url:
-    "Fetch one public HTTPS page and return its title, description, main text, and safe outbound links. Uses a Chrome desktop profile with manual redirects and SSRF guards.",
+    "Read one public page. HTTPS by default. Public HTTP only when HTTP fetch is enabled in settings. Loopback and private hosts stay blocked. Use after internet_search, or when a URL is already known.",
   internet_search:
-    "Search the public web and return titles, URLs, sites, and snippets. Bing first, DuckDuckGo fallback. Result pages are not downloaded.",
+    "Find current public URLs. Returns titles, URLs, and short snippets only. Snippets are not the page. Call fetch_url on a chosen URL to read it. HTTPS results by default; public HTTP results appear only when HTTP fetch is enabled. Off-topic results are dropped.",
 };
 
 export const MAX_AGENT_SKILLS = 10;

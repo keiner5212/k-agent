@@ -4,10 +4,9 @@ use std::sync::OnceLock;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use crate::providers::{derive_attachment_types, ModelCost, ModelInfo};
-use crate::APP_CONFIG_DIR;
 
 const CACHE_FILE: &str = "models-dev-cache.json";
 const MODELS_DEV_URL: &str = "https://models.dev/api.json";
@@ -362,8 +361,7 @@ pub fn bundled_lookup(model_id: &str) -> Option<&'static CatalogEntry> {
 }
 
 fn cache_path(app: &AppHandle) -> Option<PathBuf> {
-    let home = app.path().home_dir().ok()?;
-    Some(home.join(APP_CONFIG_DIR).join(CACHE_FILE))
+    crate::paths::config_file(app, CACHE_FILE).ok()
 }
 
 async fn load_remote_or_cache(app: &AppHandle) -> Result<Vec<CatalogEntry>, String> {

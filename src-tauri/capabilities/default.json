@@ -79,6 +79,7 @@
     "allow-run-shell-command",
     "allow-cancel-running-task",
     "allow-submit-ask-user-answer",
-    "allow-cancel-ask-user-answer"
+    "allow-cancel-ask-user-answer",
+    "allow-clear-app-cache"
   ]
 }

@@ -77,6 +77,13 @@
       "label": "Recordar tamaño de ventana",
       "description": "Al iniciar, restaura el último tamaño y si la ventana estaba maximizada."
     },
+    "cache": {
+      "label": "Limpiar cache",
+      "description": "Borra la cache de herramientas y del catalogo. Tambien elimina secretos huerfanos de proveedores, servidores MCP y preferencias de modelos que ya no estan en disco.",
+      "action": "Limpiar",
+      "running": "Limpiando",
+      "done": "Listo"
+    },
     "maxWorkerCores": {
       "label": "Núcleos máximos de trabajo",
       "description": "Límite de núcleos de CPU para trabajo interno. Auto usa todos los núcleos disponibles.",
@@ -132,6 +139,10 @@
     "limitProviderDataUse": {
       "label": "Limitar el uso de datos del proveedor",
       "description": "Envia un flag verificado cuando el endpoint lo documenta. Si no hay flag, la peticion no cambia y el dialogo del modelo lo indica."
+    },
+    "httpFetchEnabled": {
+      "label": "Permitir fetch HTTP",
+      "description": "Permite que fetch_url e internet_search usen URLs http:// publicas. Localhost y redes privadas siguen bloqueados. Apagado deja solo HTTPS."
     },
     "buildAgentEnabled": {
       "label": "Agente Build",

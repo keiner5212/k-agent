@@ -122,7 +122,7 @@ fn absolute_root(expanded: PathBuf) -> Result<PathBuf, SkillError> {
 }
 
 pub(crate) fn global_skills_root(home: &Path) -> PathBuf {
-    home.join(crate::APP_CONFIG_DIR).join("skills")
+    crate::paths::config_root(home).join("skills")
 }
 
 pub(crate) fn local_skills_root(workspace: &Path) -> PathBuf {

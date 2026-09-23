@@ -63,6 +63,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         descriptionKey: "settings.windowSize.description",
         keywords: ["resize", "window", "size", "persist", "tamano", "ventana"],
       },
+      {
+        id: "clearAppCache",
+        type: "action",
+        titleKey: "settings.cache.label",
+        descriptionKey: "settings.cache.description",
+        keywords: ["cache", "clear", "limpiar", "secrets", "orphans"],
+      },
     ],
   },
   {
@@ -166,6 +173,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
       "comandos",
     ],
     items: [
+      {
+        id: "httpFetchEnabled",
+        type: "toggle",
+        titleKey: "settings.httpFetchEnabled.label",
+        descriptionKey: "settings.httpFetchEnabled.description",
+        keywords: ["http", "https", "insecure", "fetch", "url"],
+      },
       {
         id: "limitProviderDataUse",
         type: "toggle",

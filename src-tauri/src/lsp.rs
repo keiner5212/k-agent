@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 
@@ -168,11 +168,9 @@ fn spec_by_id(id: &str) -> Result<&'static LanguageServerSpec, LspError> {
 }
 
 fn install_root(app: &AppHandle) -> Result<PathBuf, LspError> {
-    let home = app
-        .path()
-        .home_dir()
-        .map_err(|error| LspError::Io(error.to_string()))?;
-    Ok(home.join(crate::APP_CONFIG_DIR).join(INSTALL_ROOT))
+    Ok(crate::paths::config_dir(app)
+        .map_err(LspError::Io)?
+        .join(INSTALL_ROOT))
 }
 
 pub(crate) fn install_dir(app: &AppHandle, spec: &LanguageServerSpec) -> Result<PathBuf, LspError> {

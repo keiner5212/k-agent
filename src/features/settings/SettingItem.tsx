@@ -188,6 +188,7 @@ const ChatBackgroundOpacitySlider = (): ReactNode => {
 
 export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const { t } = useTranslation();
+  const [cacheState, setCacheState] = useState<"idle" | "running" | "done">("idle");
   const language = useSettingsStore((state) => state.language);
   const theme = useSettingsStore((state) => state.theme);
   const textScale = useSettingsStore((state) => state.textScale);
@@ -214,6 +215,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const titleUseFirstMessage = useSettingsStore((state) => state.titleUseFirstMessage);
   const appGenerationModel = useSettingsStore((state) => state.appGenerationModel);
   const lspEnabled = useSettingsStore((state) => state.lspEnabled);
+  const httpFetchEnabled = useSettingsStore((state) => state.httpFetchEnabled);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const setTextScale = useSettingsStore((state) => state.setTextScale);
@@ -235,6 +237,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setTitleUseFirstMessage = useSettingsStore((state) => state.setTitleUseFirstMessage);
   const setAppGenerationModel = useSettingsStore((state) => state.setAppGenerationModel);
   const setLspEnabled = useSettingsStore((state) => state.setLspEnabled);
+  const setHttpFetchEnabled = useSettingsStore((state) => state.setHttpFetchEnabled);
   const providers = useProvidersStore((state) => state.providers);
   const providersLoading = useProvidersStore((state) => state.loading);
   const loadProviders = useProvidersStore((state) => state.load);
@@ -343,6 +346,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               planAgentEnabled,
               titleUseFirstMessage,
               lspEnabled,
+              httpFetchEnabled,
             })}
             onChange={(next) =>
               onToggleChange(item.id, next, {
@@ -358,6 +362,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setPlanAgentEnabled,
                 setTitleUseFirstMessage,
                 setLspEnabled,
+                setHttpFetchEnabled,
               })
             }
             label={titleText}
@@ -370,8 +375,36 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
         ) : null}
 
         {item.type === "action" ? (
-          <GlassButton variant="secondary" onClick={() => runSettingAction(item.id)}>
-            {t("settings.debug.devtools.action")}
+          <GlassButton
+            variant="secondary"
+            disabled={item.id === "clearAppCache" && cacheState === "running"}
+            onClick={() => {
+              if (item.id === "clearAppCache") {
+                if (!isTauri()) {
+                  console.warn("clear_app_cache skipped: not running in Tauri");
+                  return;
+                }
+                setCacheState("running");
+                void invoke("clear_app_cache")
+                  .then(() => setCacheState("done"))
+                  .catch((error: unknown) => {
+                    console.warn("clear_app_cache failed", error);
+                    setCacheState("idle");
+                  });
+                return;
+              }
+              runSettingAction(item.id);
+            }}
+          >
+            {item.id === "clearAppCache"
+              ? t(
+                  cacheState === "running"
+                    ? "settings.cache.running"
+                    : cacheState === "done"
+                      ? "settings.cache.done"
+                      : "settings.cache.action",
+                )
+              : t("settings.debug.devtools.action")}
           </GlassButton>
         ) : null}
 
@@ -506,6 +539,7 @@ type ToggleState = {
   planAgentEnabled: boolean;
   titleUseFirstMessage: boolean;
   lspEnabled: boolean;
+  httpFetchEnabled: boolean;
 };
 
 const runSettingAction = (id: string): void => {
@@ -623,6 +657,8 @@ const toggleChecked = (id: string, state: ToggleState): boolean => {
       return state.titleUseFirstMessage;
     case "lspEnabled":
       return state.lspEnabled;
+    case "httpFetchEnabled":
+      return state.httpFetchEnabled;
     default:
       return false;
   }
@@ -644,6 +680,7 @@ const onToggleChange = (
     setPlanAgentEnabled: (v: boolean) => void;
     setTitleUseFirstMessage: (v: boolean) => void;
     setLspEnabled: (v: boolean) => void;
+    setHttpFetchEnabled: (v: boolean) => void;
   },
 ): void => {
   switch (id) {
@@ -682,6 +719,9 @@ const onToggleChange = (
       return;
     case "lspEnabled":
       setters.setLspEnabled(next);
+      return;
+    case "httpFetchEnabled":
+      setters.setHttpFetchEnabled(next);
       return;
   }
 };

@@ -77,6 +77,13 @@
       "label": "Remember window size",
       "description": "Restore the last window size and maximized state when the app starts."
     },
+    "cache": {
+      "label": "Clear cache",
+      "description": "Clears tool and catalog caches. Also drops leftover secrets for providers, MCP servers, and model prefs that are no longer on disk.",
+      "action": "Clear",
+      "running": "Clearing",
+      "done": "Cleared"
+    },
     "maxWorkerCores": {
       "label": "Max worker cores",
       "description": "Upper limit on CPU cores for internal work. Auto uses every available core.",
@@ -132,6 +139,10 @@
     "limitProviderDataUse": {
       "label": "Limit provider data use",
       "description": "Send a verified request flag when the endpoint documents one. Endpoints without a flag stay unchanged and say so in the model request dialog."
+    },
+    "httpFetchEnabled": {
+      "label": "Allow HTTP fetch",
+      "description": "Lets fetch_url and internet_search use public http:// URLs. Loopback and private hosts stay blocked. Off keeps HTTPS only."
     },
     "buildAgentEnabled": {
       "label": "Build agent",

@@ -5,8 +5,10 @@ mod catalog;
 mod chat;
 mod lsp;
 mod lsp_client;
+mod maintenance;
 mod mcp_client;
 mod mcp_servers;
+mod paths;
 mod pathutil;
 mod providers;
 mod repo;
@@ -19,7 +21,7 @@ pub mod tools;
 mod utils;
 mod workspace_files;
 
-pub const APP_CONFIG_DIR: &str = ".k-agent";
+pub use paths::APP_CONFIG_DIR;
 pub const WORKSPACE_AGENTS_DIR: &str = ".agents";
 
 pub(crate) fn serialize_error<E, S>(error: &E, serializer: S) -> Result<S::Ok, S::Error>
@@ -204,7 +206,7 @@ fn apply_bounds_to_window(
 }
 
 pub(crate) fn load_ui_settings(app: &tauri::AppHandle) -> Option<serde_json::Value> {
-    let dir = app.path().app_data_dir().ok()?;
+    let dir = paths::app_data_dir(app).ok()?;
     let raw = std::fs::read_to_string(dir.join("settings.json")).ok()?;
     let parsed: serde_json::Value = serde_json::from_str(&raw).ok()?;
     let settings = parsed.get("settings")?;
@@ -714,13 +716,13 @@ pub fn run() {
             cancel_running_task,
             tools::ask_user::submit_ask_user_answer,
             tools::ask_user::cancel_ask_user_answer,
+            maintenance::clear_app_cache,
         ])
         .setup(|app| {
-            if let Ok(home) = app.path().home_dir() {
-                let config_dir = home.join(APP_CONFIG_DIR);
+            if let Ok(config_dir) = paths::config_dir(app.handle()) {
                 let _ = std::fs::create_dir_all(&config_dir);
             }
-            if let Ok(secrets_dir) = app.path().app_data_dir() {
+            if let Ok(secrets_dir) = paths::app_data_dir(app.handle()) {
                 let _ = std::fs::create_dir_all(&secrets_dir);
                 if let Err(error) = crate::secret::ensure_master_key(&secrets_dir) {
                     eprintln!("k-agent master key: {error}");

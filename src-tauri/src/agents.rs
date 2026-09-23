@@ -143,7 +143,7 @@ fn absolute_root(expanded: PathBuf) -> Result<PathBuf, AgentError> {
 }
 
 fn global_agents_root(home: &Path) -> PathBuf {
-    home.join(crate::APP_CONFIG_DIR).join("agents")
+    crate::paths::config_root(home).join("agents")
 }
 
 fn ensure_dir(path: &Path) -> Result<PathBuf, AgentError> {

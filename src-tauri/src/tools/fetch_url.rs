@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::time::Duration;
 
@@ -11,20 +10,15 @@ use super::{toon_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, Too
 
 pub const NAME: &str = "fetch_url";
 
-const DESCRIPTION: &str = "Fetch one public HTTPS page and return its title, description, main text, and safe outbound links. Uses a stable Chrome desktop profile (Chrome 153) with realistic pacing, manual redirect handling, host-only cookies, and SSRF guards.";
+const DESCRIPTION: &str = "Read one public page. HTTPS by default. Public HTTP is allowed only when HTTP fetch is enabled in settings. Loopback and private hosts stay blocked. Use after internet_search, or when a URL is already known. This does not search the web.";
 
 const FALLBACK_CHROME_MAJOR: &str = "153";
 const FALLBACK_CHROME_FULL_VERSION: &str = "153.0.6903.58";
 
 const MAX_BYTES: usize = 1_500_000;
-const MAX_TITLE_LENGTH: usize = 300;
-const MAX_DESCRIPTION_LENGTH: usize = 500;
-const MAX_CONTENT_LENGTH: usize = 16_000;
-const MAX_LINK_TEXT_LENGTH: usize = 200;
-const MAX_LINKS: usize = 20;
 const TIMEOUT_MS: u64 = 12_000;
 const MAX_HOPS: usize = 4;
-const CACHE_TTL_SECS: u64 = 7 * 86_400;
+const CACHE_TTL_SECS: u64 = 3_600;
 
 const ACCESS_DENIED_STATUS: &[u16] = &[401, 402, 403, 407, 451];
 const RETRYABLE_STATUS: &[u16] = &[408, 429, 500, 502, 503, 504];
@@ -83,7 +77,7 @@ impl Tool for FetchUrlTool {
                 "properties": {
                     "url": {
                         "type": "string",
-                        "description": "Public HTTPS URL to fetch. Only port 443 is accepted. Credentials, IP literals, and private or metadata hostnames are refused."
+                        "description": "Public URL to fetch. HTTPS by default. Public HTTP is accepted only when HTTP fetch is enabled in settings. Default ports only. Credentials, IP literals, loopback, and private or metadata hostnames are refused."
                     },
                     "lang": {
                         "type": "string",
@@ -121,14 +115,15 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     }
 }
 
-async fn fetch(args: &FetchArgs, _ctx: &ToolContext<'_>) -> Result<String, String> {
-    let canonical = canonicalize_url(&args.url)?;
-    if let Some(cached) = read_cache(&canonical) {
+async fn fetch(args: &FetchArgs, ctx: &ToolContext<'_>) -> Result<String, String> {
+    let policy = fetch_policy(ctx.app);
+    let canonical = canonicalize_url_with(&args.url, policy)?;
+    if let Some(cached) = read_cache(ctx.app, &canonical) {
         return Ok(render(&canonical, &cached));
     }
-    let session = BrowserSession::new(args.lang.as_deref().unwrap_or("en-US"));
+    let session = BrowserSession::with_policy(args.lang.as_deref().unwrap_or("en-US"), policy);
     let fetched = session.get(&canonical, "none", None).await?;
-    let parsed = ContentParser::parse(&fetched.html, &fetched.final_url);
+    let parsed = ContentParser::parse_with(&fetched.html, &fetched.final_url, policy);
     let cached = CachedResponse {
         title: parsed.title.clone(),
         description: parsed.description.clone(),
@@ -143,7 +138,7 @@ async fn fetch(args: &FetchArgs, _ctx: &ToolContext<'_>) -> Result<String, Strin
             .collect(),
         cached_at_secs: now_secs(),
     };
-    write_cache(&canonical, &cached);
+    write_cache(ctx.app, &canonical, &cached);
     Ok(render(&canonical, &cached))
 }
 
@@ -166,7 +161,34 @@ fn render(url: &str, body: &CachedResponse) -> String {
     toon_doc(&fields)
 }
 
+#[derive(Clone, Copy)]
+pub struct FetchPolicy {
+    pub allow_http: bool,
+}
+
+impl FetchPolicy {
+    pub fn public_https() -> Self {
+        Self { allow_http: false }
+    }
+}
+
+pub fn fetch_policy(app: Option<&tauri::AppHandle>) -> FetchPolicy {
+    let allow_http = app
+        .and_then(crate::load_ui_settings)
+        .and_then(|settings| {
+            settings
+                .get("httpFetchEnabled")
+                .and_then(|value| value.as_bool())
+        })
+        .unwrap_or(false);
+    FetchPolicy { allow_http }
+}
+
 pub fn canonicalize_url(raw: &str) -> Result<String, String> {
+    canonicalize_url_with(raw, FetchPolicy::public_https())
+}
+
+pub fn canonicalize_url_with(raw: &str, policy: FetchPolicy) -> Result<String, String> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return Err(r"fetch_url requires a non-empty `url`.".into());
@@ -182,14 +204,19 @@ pub fn canonicalize_url(raw: &str) -> Result<String, String> {
     }
     let parsed =
         reqwest::Url::parse(trimmed).map_err(|_| "fetch_url URL is not parseable.".to_string())?;
-    if parsed.scheme() != "https" {
-        return Err("fetch_url only accepts HTTPS URLs.".into());
+    match parsed.scheme() {
+        "https" => {}
+        "http" if policy.allow_http => {}
+        "http" => {
+            return Err("fetch_url HTTP is disabled. Enable HTTP fetch in settings.".into());
+        }
+        _ => return Err("fetch_url only accepts HTTP and HTTPS URLs.".into()),
     }
     if !parsed.username().is_empty() || parsed.password().is_some() {
         return Err("fetch_url URL must not carry credentials.".into());
     }
     if parsed.port().is_some() {
-        return Err("fetch_url only accepts the default HTTPS port (443).".into());
+        return Err("fetch_url only accepts the default port (443 for HTTPS, 80 for HTTP).".into());
     }
     let host = bare_host(parsed.host_str().unwrap_or(""));
     if host.is_empty() || host.contains('%') {
@@ -308,8 +335,8 @@ fn is_private_v6(ip: Ipv6Addr) -> bool {
     false
 }
 
-pub fn allows_result_url(raw: &str) -> bool {
-    canonicalize_url(raw).is_ok()
+pub fn allows_result_url_with(raw: &str, policy: FetchPolicy) -> bool {
+    canonicalize_url_with(raw, policy).is_ok()
 }
 
 #[derive(Debug)]
@@ -321,10 +348,15 @@ pub struct FetchedPage {
 pub struct BrowserSession {
     client: reqwest::Client,
     lang: String,
+    policy: FetchPolicy,
 }
 
 impl BrowserSession {
     pub fn new(lang: &str) -> Self {
+        Self::with_policy(lang, FetchPolicy::public_https())
+    }
+
+    pub fn with_policy(lang: &str, policy: FetchPolicy) -> Self {
         let user_agent = user_agent_for_week(std::time::SystemTime::now());
         let client = reqwest::Client::builder()
             .user_agent(user_agent)
@@ -339,6 +371,7 @@ impl BrowserSession {
         Self {
             client,
             lang: lang.to_string(),
+            policy,
         }
     }
 
@@ -348,7 +381,7 @@ impl BrowserSession {
         site: &'static str,
         referer: Option<String>,
     ) -> Result<FetchedPage, String> {
-        let canonical = canonicalize_url(url)?;
+        let canonical = canonicalize_url_with(url, self.policy)?;
         let mut current = canonical;
         let mut current_site: &'static str = site;
         let mut current_referer = referer;
@@ -408,7 +441,7 @@ impl BrowserSession {
                         reqwest::Url::parse(&current).and_then(|base| base.join(&location))
                     })
                     .map_err(|_| "fetch_url redirect target was unparseable.")?;
-                let next_canonical = canonicalize_url(next.as_str())?;
+                let next_canonical = canonicalize_url_with(next.as_str(), self.policy)?;
                 let next_parsed = reqwest::Url::parse(&next_canonical)
                     .map_err(|_| "fetch_url redirect target URL.".to_string())?;
                 let host = bare_host(
@@ -637,11 +670,8 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
-fn cache_root() -> Option<std::path::PathBuf> {
-    let home = std::env::var_os("HOME").map(std::path::PathBuf::from)?;
-    let path = home.join(".k-agent").join("cache").join("fetch-url");
-    let _ = std::fs::create_dir_all(&path);
-    Some(path)
+fn cache_root(app: Option<&tauri::AppHandle>) -> Option<std::path::PathBuf> {
+    super::tool_cache_dir(app, "fetch-url")
 }
 
 fn cache_key(canonical: &str) -> String {
@@ -652,8 +682,8 @@ fn cache_key(canonical: &str) -> String {
     format!("{:016x}.json", hasher.finish())
 }
 
-fn read_cache(canonical: &str) -> Option<CachedResponse> {
-    let root = cache_root()?;
+fn read_cache(app: Option<&tauri::AppHandle>, canonical: &str) -> Option<CachedResponse> {
+    let root = cache_root(app)?;
     let path = root.join(cache_key(canonical));
     let raw = std::fs::read_to_string(&path).ok()?;
     let cached: CachedResponse = serde_json::from_str(&raw).ok()?;
@@ -663,8 +693,8 @@ fn read_cache(canonical: &str) -> Option<CachedResponse> {
     Some(cached)
 }
 
-fn write_cache(canonical: &str, cached: &CachedResponse) {
-    let Some(root) = cache_root() else { return };
+fn write_cache(app: Option<&tauri::AppHandle>, canonical: &str, cached: &CachedResponse) {
+    let Some(root) = cache_root(app) else { return };
     let path = root.join(cache_key(canonical));
     if let Ok(text) = serde_json::to_string(cached) {
         let _ = std::fs::write(&path, text);
@@ -692,370 +722,15 @@ impl ContentParser {
         if html.trim().is_empty() {
             return ParsedPage::default();
         }
-        let title = Self::extract_title(html);
-        let description = Self::extract_description(html);
-        let cleaned = Self::remove_noise_elements(html);
-        let content = Self::extract_main_content(&cleaned);
-        let links = Self::extract_links(&cleaned, base_url);
-        ParsedPage {
-            title,
-            description,
-            content,
-            links,
+        super::readable::parse_with(html, base_url, FetchPolicy::public_https())
+    }
+
+    pub fn parse_with(html: &str, base_url: &str, policy: FetchPolicy) -> ParsedPage {
+        if html.trim().is_empty() {
+            return ParsedPage::default();
         }
+        super::readable::parse_with(html, base_url, policy)
     }
-
-    fn extract_title(html: &str) -> String {
-        let social = meta_content(html, "property", "og:title");
-        if !social.is_empty() {
-            return truncate(&decode_text(&social), MAX_TITLE_LENGTH);
-        }
-        let from_tag = capture(html, "<title[^>]*>", "</title>")
-            .or_else(|| capture(html, "<h1[^>]*>", "</h1>"))
-            .unwrap_or_default();
-        truncate(&html_to_text(&from_tag), MAX_TITLE_LENGTH)
-    }
-
-    fn extract_description(html: &str) -> String {
-        let meta_name = meta_content(html, "name", "description");
-        let meta_property = meta_content(html, "property", "og:description");
-        let meta = if meta_name.len() > meta_property.len() {
-            meta_name
-        } else {
-            meta_property
-        };
-        if meta.len() > 30 {
-            return truncate(&meta, MAX_DESCRIPTION_LENGTH);
-        }
-        let cleaned = Self::remove_noise_elements(html);
-        for paragraph in capture_all(&cleaned, "<p[^>]*>", "</p>") {
-            let text = html_to_text(&paragraph).trim().to_string();
-            if text.chars().count() >= 80 {
-                return truncate(&text, MAX_DESCRIPTION_LENGTH);
-            }
-        }
-        String::new()
-    }
-
-    fn find_main_content_block(html: &str) -> String {
-        let id_patterns = [
-            "main-content",
-            "mw-content-text",
-            "content",
-            "article-content",
-            "post-content",
-            "story-content",
-            "page-content",
-            "article",
-        ];
-        for pattern in id_patterns {
-            let regex = format!(r#"(?is)<[a-z]+[^>]+id=["']{pattern}["'][^>]*>(.*?)</[a-z]+>"#);
-            if let Ok(re) = regex_compile(&regex) {
-                if let Some(caps) = re.captures(html) {
-                    if caps.get(1).map(|m| m.as_str().len()).unwrap_or(0) > 500 {
-                        return caps[1].to_string();
-                    }
-                }
-            }
-        }
-        let class_patterns = [
-            "article-body",
-            "article-content",
-            "post-content",
-            "story-content",
-            "main-content",
-            "entry-content",
-            "page-content",
-            "page-body",
-            "content-body",
-            "article",
-            "post",
-            "story",
-        ];
-        for pattern in class_patterns {
-            let regex = format!(
-                r#"(?is)<[a-z]+[^>]+class=["'][^"']*\b{pattern}\b[^"']*["'][^>]*>(.*?)</[a-z]+>"#
-            );
-            if let Ok(re) = regex_compile(&regex) {
-                if let Some(caps) = re.captures(html) {
-                    if let Some(body) = caps.get(1) {
-                        if body.as_str().len() > 500 {
-                            return body.as_str().to_string();
-                        }
-                    }
-                }
-            }
-        }
-        capture(html, "<body[^>]*>", "</body>").unwrap_or_else(|| html.to_string())
-    }
-
-    fn extract_main_content(html: &str) -> String {
-        let mut content = Self::find_main_content_block(html);
-        for pattern in [
-            r"(?is)<table[^>]*>.*?</table>",
-            r"(?is)<figure[^>]*>.*?</figure>",
-            r#"(?is)<div[^>]+class=["'][^"']*(?:hatnote|thumb|navbox|metadata|toc|rellink|gallery|ambox|refbegin|portal|infobox)[^"']*["'][^>]*>.*?</div>"#,
-            r"(?is)<aside[^>]*>.*?</aside>",
-            r#"(?is)<section[^>]+class=["'][^"']*(?:related|recommended|sidebar|comments)[^"']*["'][^>]*>.*?</section>"#,
-        ] {
-            if let Ok(re) = regex_compile(pattern) {
-                content = re.replace_all(&content, "").to_string();
-            }
-        }
-        truncate(&html_to_text(&content), MAX_CONTENT_LENGTH)
-    }
-
-    fn remove_noise_elements(html: &str) -> String {
-        let mut output = html.to_string();
-        let patterns: &[&str] = &[
-            r"(?s)<!--.*?-->",
-            r"(?is)<script[^>]*>.*?</script>",
-            r"(?is)<style[^>]*>.*?</style>",
-            r"(?is)<noscript[^>]*>.*?</noscript>",
-            r"(?is)<template[^>]*>.*?</template>",
-            r"(?is)<nav[^>]*>.*?</nav>",
-            r"(?is)<footer[^>]*>.*?</footer>",
-            r"(?is)<header[^>]*>.*?</header>",
-            r"(?is)<iframe[^>]*>.*?</iframe>",
-            r#"(?is)<(div|section)[^>]+class=["'][^"']*(?:ad|ads|advert|advertisement|banner|popup|modal)[^"']*["'][^>]*>.*?</\1>"#,
-            r"<[^>]+\bdata-[a-z-]+[^>]*>",
-        ];
-        for pattern in patterns {
-            if let Ok(re) = regex_compile(pattern) {
-                output = re.replace_all(&output, "").to_string();
-            }
-        }
-        output
-    }
-
-    fn extract_links(html: &str, base_url: &str) -> Vec<ParsedLink> {
-        // Rust's `regex` crate does not support backreferences, so we run
-        // two passes: one for `href="..."` and one for `href='...'`.
-        let re_double =
-            match regex_compile(r#"(?is)<a\b[^>]*?\bhref="([^"]*)"[^>]*>([\s\S]*?)</a>"#) {
-                Ok(re) => re,
-                Err(_) => return Vec::new(),
-            };
-        let re_single =
-            match regex_compile(r#"(?is)<a\b[^>]*?\bhref='([^']*)'[^>]*>([\s\S]*?)</a>"#) {
-                Ok(re) => re,
-                Err(_) => return Vec::new(),
-            };
-        let mut seen: HashMap<String, ParsedLink> = HashMap::new();
-        for caps in re_double
-            .captures_iter(html)
-            .chain(re_single.captures_iter(html))
-        {
-            let href = decode_text(caps.get(1).map(|m| m.as_str()).unwrap_or(""))
-                .trim()
-                .to_string();
-            let text = html_to_text(caps.get(2).map(|m| m.as_str()).unwrap_or(""));
-            if href.is_empty() || href.starts_with('#') {
-                continue;
-            }
-            if text.chars().count() < 3 {
-                continue;
-            }
-            let resolved = if base_url.is_empty() {
-                reqwest::Url::parse(&href).ok()
-            } else {
-                reqwest::Url::parse(base_url)
-                    .ok()
-                    .and_then(|base| base.join(&href).ok())
-            };
-            let Some(mut parsed) = resolved else { continue };
-            parsed.set_fragment(None);
-            if !allows_result_url(parsed.as_str()) {
-                continue;
-            }
-            let entry = seen
-                .entry(parsed.as_str().to_string())
-                .or_insert_with(|| ParsedLink {
-                    href: parsed.as_str().to_string(),
-                    text: truncate(&text, MAX_LINK_TEXT_LENGTH),
-                });
-            if entry.text.chars().count() < text.chars().count() {
-                entry.text = truncate(&text, MAX_LINK_TEXT_LENGTH);
-            }
-            if seen.len() >= MAX_LINKS {
-                break;
-            }
-        }
-        seen.into_values().collect()
-    }
-}
-
-fn regex_compile(pattern: &str) -> Result<regex::Regex, regex::Error> {
-    regex::Regex::new(pattern)
-}
-
-fn meta_content(html: &str, attribute: &str, value: &str) -> String {
-    let needle = value.to_lowercase();
-    let tag_regex = match regex_compile(r"(?i)<meta\b[^>]*>") {
-        Ok(re) => re,
-        Err(_) => return String::new(),
-    };
-    for tag in tag_regex.find_iter(html) {
-        let tag_str = tag.as_str();
-        if tag_attribute(tag_str, attribute).to_lowercase() == needle {
-            return tag_attribute(tag_str, "content");
-        }
-    }
-    String::new()
-}
-
-fn tag_attribute(tag: &str, name: &str) -> String {
-    let pattern = format!(r#"(?i)\b{name}\s*=\s*(["'])(.*?)\1"#);
-    let re = match regex_compile(&pattern) {
-        Ok(re) => re,
-        Err(_) => return String::new(),
-    };
-    re.captures(tag)
-        .and_then(|caps| caps.get(2))
-        .map(|m| decode_text(m.as_str()).trim().to_string())
-        .unwrap_or_default()
-}
-
-fn capture(html: &str, open: &str, close: &str) -> Option<String> {
-    let pattern = format!("(?is){open}(.*?){close}");
-    let re = regex_compile(&pattern).ok()?;
-    re.captures(html)
-        .and_then(|caps| caps.get(1).map(|m| m.as_str().to_string()))
-}
-
-fn capture_all(html: &str, open: &str, close: &str) -> Vec<String> {
-    let pattern = format!("(?is){open}(.*?){close}");
-    let re = match regex_compile(&pattern) {
-        Ok(re) => re,
-        Err(_) => return Vec::new(),
-    };
-    re.captures_iter(html)
-        .filter_map(|caps| caps.get(1).map(|m| m.as_str().to_string()))
-        .collect()
-}
-
-fn decode_text(text: &str) -> String {
-    let mut output = text.to_string();
-    output = decode_numeric_entities(&output);
-    output = output.replace("&nbsp;", " ");
-    output = output.replace("&lt;", "<");
-    output = output.replace("&gt;", ">");
-    output = output.replace("&quot;", "\"");
-    output = output.replace("&ldquo;", "\"");
-    output = output.replace("&rdquo;", "\"");
-    output = output.replace("&#39;", "'");
-    output = output.replace("&apos;", "'");
-    output = output.replace("&lsquo;", "'");
-    output = output.replace("&rsquo;", "'");
-    output = output.replace("&ndash;", "-");
-    output = output.replace("&mdash;", "-");
-    output = output.replace("&amp;", "&");
-    output.retain(|c| !(c.is_control() && c != '\n' && c != '\t'));
-    output
-}
-
-fn decode_numeric_entities(input: &str) -> String {
-    let Ok(hex_re) = regex_compile(r"(?i)&#x([0-9a-f]+);") else {
-        return input.to_string();
-    };
-    let Ok(dec_re) = regex_compile(r"&#(\d+);") else {
-        return input.to_string();
-    };
-    let mut output = hex_re
-        .replace_all(input, |caps: &regex::Captures| {
-            match u32::from_str_radix(&caps[1], 16) {
-                Ok(code) => char_from_code(code),
-                Err(_) => String::new(),
-            }
-        })
-        .to_string();
-    output = dec_re
-        .replace_all(&output, |caps: &regex::Captures| {
-            match caps[1].parse::<u32>() {
-                Ok(code) => char_from_code(code),
-                Err(_) => String::new(),
-            }
-        })
-        .to_string();
-    output
-}
-
-fn char_from_code(code: u32) -> String {
-    if !(0..=0x10ffff).contains(&code) || (0xd800..=0xdfff).contains(&code) {
-        return String::new();
-    }
-    char::from_u32(code)
-        .map(|c| c.to_string())
-        .unwrap_or_default()
-}
-
-fn html_to_text(html: &str) -> String {
-    let mut output = html.to_string();
-    if let Ok(re) = regex_compile(r"(?i)<(h[1-6]|p|div|article|section|li|blockquote|hr|br)[^>]*>")
-    {
-        output = re.replace_all(&output, "\n").to_string();
-    }
-    if let Ok(re) = regex_compile(r"(?i)</(h[1-6]|p|div|article|section|blockquote)>") {
-        output = re.replace_all(&output, "\n").to_string();
-    }
-    if let Ok(re) = regex_compile(r"(?i)<li[^>]*>") {
-        output = re.replace_all(&output, "\n- ").to_string();
-    }
-    if let Ok(re) = regex_compile(r"(?i)</li>") {
-        output = re.replace_all(&output, "").to_string();
-    }
-    if let Ok(re) = regex_compile(r"(?i)</[^>]*>") {
-        output = re.replace_all(&output, "").to_string();
-    }
-    if let Ok(re) = regex_compile(r"(?i)<[^>]*>") {
-        output = re.replace_all(&output, "").to_string();
-    }
-    let decoded = decode_text(&output);
-    collapse_whitespace(&decoded).trim().to_string()
-}
-
-fn collapse_whitespace(text: &str) -> String {
-    let mut output = String::with_capacity(text.len());
-    let mut prev_newline = false;
-    let mut prev_space = false;
-    let mut consecutive_newlines = 0;
-    for ch in text.chars() {
-        match ch {
-            '\n' => {
-                output.push('\n');
-                prev_newline = true;
-                prev_space = false;
-                consecutive_newlines += 1;
-            }
-            c if c.is_whitespace() => {
-                if !prev_space {
-                    output.push(' ');
-                }
-                prev_space = true;
-                prev_newline = false;
-                consecutive_newlines = 0;
-            }
-            c => {
-                if prev_newline && consecutive_newlines >= 4 {
-                    output.push('\n');
-                }
-                output.push(c);
-                prev_newline = false;
-                prev_space = false;
-                consecutive_newlines = 0;
-            }
-        }
-    }
-    output
-}
-
-fn truncate(text: &str, max_chars: usize) -> String {
-    if text.chars().count() <= max_chars {
-        return text.to_string();
-    }
-    let mut output: String = text.chars().take(max_chars).collect();
-    output.push_str("...");
-    output
 }
 
 #[cfg(test)]
@@ -1066,6 +741,18 @@ mod tests {
     fn canonicalize_url_rejects_non_https() {
         assert!(canonicalize_url("http://example.com").is_err());
         assert!(canonicalize_url("ftp://example.com").is_err());
+    }
+
+    #[test]
+    fn http_public_urls_need_the_setting() {
+        let policy = FetchPolicy { allow_http: true };
+        assert_eq!(
+            canonicalize_url_with("http://example.com/a", policy).unwrap(),
+            "http://example.com/a"
+        );
+        assert!(canonicalize_url_with("http://localhost:3000/", policy).is_err());
+        assert!(canonicalize_url_with("http://127.0.0.1/", policy).is_err());
+        assert!(canonicalize_url_with("https://10.0.0.1/", policy).is_err());
     }
 
     #[test]
@@ -1136,18 +823,33 @@ mod tests {
     }
 
     #[test]
-    fn html_to_text_decodes_entities_and_strips_tags() {
-        let html = "<p>Hello &amp; goodbye &lt;world&gt;</p>";
-        let text = html_to_text(html);
-        assert_eq!(text, "Hello & goodbye <world>");
-    }
-
-    #[test]
-    fn decode_text_handles_numeric_and_named_entities() {
-        assert_eq!(decode_text("&#x2014;"), "\u{2014}");
-        assert_eq!(decode_text("&#8212;"), "\u{2014}");
-        assert_eq!(decode_text("&amp;"), "&");
-        assert_eq!(decode_text("&nbsp;"), " ");
+    fn keeps_article_text_past_the_first_closing_tag() {
+        let html = r#"<!DOCTYPE html><html><head>
+            <title>What Is Cancer? - NCI</title>
+            <meta property="og:title" content="What Is Cancer?">
+            <meta name="description" content="Explanations about what cancer is, how cancer cells differ from normal cells, and genetic changes that cause cancer to grow and spread.">
+        </head><body>
+        <header><nav><a href="https://www.cancer.gov/about-cancer">About Cancer</a></nav></header>
+        <main id="main-content"><article>
+            <h1>What Is Cancer?</h1>
+            <div class="cgdp-embed-image"><p>A dividing breast cancer cell.</p>
+            <a href="https://www.cancer.gov/sites/a.jpg">Enlarge Image</a></div>
+            <p>Cancer is a disease in which some of the body's cells grow uncontrollably and spread to other parts of the body.</p>
+            <p>Cancer can start almost anywhere in the human body, which is made up of trillions of cells.</p>
+            <a href="https://www.cancer.gov/about-cancer/understanding/statistics">Cancer Statistics</a>
+        </article></main>
+        </body></html>"#;
+        let parsed = ContentParser::parse(
+            html,
+            "https://www.cancer.gov/about-cancer/understanding/what-is-cancer",
+        );
+        assert_eq!(parsed.title, "What Is Cancer?");
+        assert!(parsed.description.contains("how cancer cells differ"));
+        assert!(parsed.content.contains("grow uncontrollably"));
+        assert!(!parsed.content.contains("dividing breast cancer cell"));
+        let hrefs: Vec<&str> = parsed.links.iter().map(|link| link.href.as_str()).collect();
+        assert!(hrefs.iter().any(|href| href.contains("statistics")));
+        assert!(hrefs.iter().all(|href| !href.ends_with(".jpg")));
     }
 
     #[test]
@@ -1160,5 +862,25 @@ mod tests {
         assert!(headers.contains_key("accept-encoding"));
         assert!(headers.contains_key("priority"));
         assert!(headers.contains_key("user-agent"));
+    }
+
+    #[test]
+    #[ignore]
+    fn parses_probed_cancer_page() {
+        let html = std::fs::read_to_string("/tmp/k-agent-probe/cancer.html").expect("probe html");
+        let parsed = ContentParser::parse(
+            &html,
+            "https://www.cancer.gov/about-cancer/understanding/what-is-cancer",
+        );
+        assert!(
+            parsed.content.contains("grow uncontrollably"),
+            "{:.400}",
+            parsed.content
+        );
+        assert!(parsed.content.len() > 800, "{}", parsed.content.len());
+        assert!(parsed
+            .links
+            .iter()
+            .all(|link| !link.text.eq_ignore_ascii_case("Enlarge Image")));
     }
 }

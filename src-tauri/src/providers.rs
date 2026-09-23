@@ -4,11 +4,9 @@ use std::time::Duration;
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use thiserror::Error;
 use uuid::Uuid;
-
-use crate::APP_CONFIG_DIR;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -399,11 +397,7 @@ struct GeminiModel {
 }
 
 fn providers_path(app: &AppHandle) -> Result<PathBuf, ProviderError> {
-    let home = app
-        .path()
-        .home_dir()
-        .map_err(|e| ProviderError::Path(e.to_string()))?;
-    Ok(home.join(APP_CONFIG_DIR).join(PROVIDERS_FILE))
+    crate::paths::config_file(app, PROVIDERS_FILE).map_err(ProviderError::Path)
 }
 
 async fn load(path: &Path) -> Result<Vec<Provider>, ProviderError> {
@@ -449,18 +443,12 @@ async fn save_keys(path: &Path, keys: &HashMap<String, String>) -> Result<(), Pr
     tokio::fs::write(path, json)
         .await
         .map_err(|e| ProviderError::Io(e.to_string()))?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
-    }
+    crate::paths::set_user_private(path);
     Ok(())
 }
 
 fn secrets_dir(app: &AppHandle) -> Result<PathBuf, ProviderError> {
-    app.path()
-        .app_data_dir()
-        .map_err(|e| ProviderError::Path(e.to_string()))
+    crate::paths::app_data_dir(app).map_err(ProviderError::Path)
 }
 
 fn keys_path(app: &AppHandle) -> Result<PathBuf, ProviderError> {

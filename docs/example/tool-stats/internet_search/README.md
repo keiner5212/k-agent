@@ -5,18 +5,20 @@ Search the public web and return titles, URLs, sites, and snippets. Bing is trie
 ## Does
 
 - Calls Bing with the same Chrome 153 navigation profile used by `fetch_url`, including a warm-up GET to `bing.com` so the search request carries a `Referer`, host cookies, and `sec-fetch-site: same-origin`.
-- Falls back to DuckDuckGo HTML when Bing's results fail the relevance check, when Bing returns an `unusual traffic` or captcha response, or when Bing's network call errors.
-- Unwraps Bing's `/ck/a` redirects (base64 + `-` / `_` substitution) and DuckDuckGo's `/l/?uddg=` redirects so result URLs are the canonical target.
-- Filters every result URL through the same HTTPS + SSRF guard used by `fetch_url`. Tracker links, IPs, and unsafe schemes are removed.
-- Runs a relevance check on Bing's first page before falling back: requires 60 percent term coverage across results and at least 2 strong matches (terms in title or URL). Common stop words (`the`, `and`, `with`, ...) are ignored when picking the meaningful terms.
+- Falls back to DuckDuckGo HTML when Bing's results fail the relevance check, when Bing returns an `unusual traffic` or captcha response, or when Bing's network call errors. A separate browser session is used for DuckDuckGo so Bing cookies are not sent there.
+- Unwraps Bing's `/ck/a` redirects (base64 + `-` / `_` substitution, including the `?!&&` query form) and DuckDuckGo's `/l/?uddg=` redirects, including protocol-relative `//duckduckgo.com` links, so result URLs are the canonical target.
+- Drops tracker query params (`utm_*`, `fbclid`, `gclid`, `mc_eid`, `yclid`) from result URLs.
+- Filters every result URL through the same guard used by `fetch_url`. With HTTP fetch off, only `https://` on port 443 is kept. With it on, public `http://` on port 80 is kept too. Loopback, private hosts, IP literals, and tracker params are removed.
+- Runs a relevance check before accepting a page: requires 60 percent term coverage across results and at least 2 strong matches (terms in title or URL). Common stop words (`the`, `and`, `with`, ...) are ignored when picking the meaningful terms. If both engines fail that check, the page is dropped. Decoy SERPs are not returned.
 - Caps pages at 2, results per page at 10. Pauses 1.5 to 3.5 s between pages.
-- Persists every successful search to `~/.k-agent/cache/internet-search/{hash}.json` with a 1-hour TTL keyed by query, language, and page count.
+- Persists a non-empty relevant search to the app data `cache/internet-search/{hash}.json` with a 1-hour TTL keyed by query, language, and page count. Empty and off-topic searches are not cached.
 
 ## Does not
 
 - Run JavaScript on search-result pages. SPA-only engines (Ecosia live results, etc.) are not parsed.
-- Fetch the result pages. The tool returns snippets only; use `fetch_url` to read a chosen URL.
-- Return URLs without the `https://` scheme. `http://` results are dropped at the parser.
+- Fetch the result pages. The tool returns snippets only. Call `fetch_url` on a chosen URL to read the page. Snippets are not a substitute for that fetch.
+- Return off-topic results. Bing sometimes answers a different query; those rows are dropped instead of shown.
+- Return loopback, private, or IP-literal URLs. Intentional.
 - Retry on access denial or captcha. Those errors end the search so the next call does not compound the rate limit.
 - Sort results across pages. Within a page the order is the engine's natural order; across pages, dedup keeps the first occurrence per URL.
 

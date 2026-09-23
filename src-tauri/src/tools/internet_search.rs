@@ -4,17 +4,17 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use super::fetch_url::{allows_result_url, BrowserSession};
+use super::fetch_url::{allows_result_url_with, BrowserSession, FetchPolicy};
 use super::{toon_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, ToonValue};
 
 pub const NAME: &str = "internet_search";
 
-const DESCRIPTION: &str = "Search the public web and return titles, URLs, sites, and snippets. Bing is tried first; if results look off-topic or Bing refuses, DuckDuckGo HTML is used as a fallback. Result pages are not downloaded; only search-result snippets are returned.";
+const DESCRIPTION: &str = "Find current public URLs. Returns titles, URLs, and short snippets only. Snippets are not the page. Call fetch_url on a chosen URL to read it. HTTPS by default; public HTTP results appear only when HTTP fetch is enabled in settings. Off-topic engine results are dropped.";
 
 const MAX_PAGES: usize = 2;
 const MAX_QUERY_LENGTH: usize = 200;
 const MAX_RESULTS_PER_PAGE: usize = 10;
-const CACHE_TTL_SECS: u64 = 7 * 86_400;
+const CACHE_TTL_SECS: u64 = 3_600;
 const PAGE_PAUSE_MIN_MS: u64 = 1_500;
 const PAGE_PAUSE_SPAN_MS: u64 = 2_000;
 
@@ -66,7 +66,7 @@ impl Tool for InternetSearchTool {
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query. Trimmed to 200 characters; control characters and quotes are stripped."
+                        "description": "Search query used only to find current https URLs. Trimmed to 200 characters. Read a result with fetch_url; do not treat snippets as the page."
                     },
                     "lang": {
                         "type": "string",
@@ -112,7 +112,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     }
 }
 
-async fn search(args: &SearchArgs, _ctx: &ToolContext<'_>) -> Result<String, String> {
+async fn search(args: &SearchArgs, ctx: &ToolContext<'_>) -> Result<String, String> {
     let query = clean_query(&args.query);
     if query.is_empty() {
         return Err("internet_search requires a non-empty `query`.".into());
@@ -123,18 +123,18 @@ async fn search(args: &SearchArgs, _ctx: &ToolContext<'_>) -> Result<String, Str
     }
     let pages = page_count(args.pages);
 
-    if let Some(cached) = read_cache(&query, &lang, pages) {
+    let policy = super::fetch_url::fetch_policy(ctx.app);
+    if let Some(cached) = read_cache(ctx.app, &query, &lang, pages) {
         return Ok(render_cached(&query, &lang, pages, &cached));
     }
 
     let mut session = BrowserSession::new(&lang);
-    if let Err(error) = session.get(BING_HOME, "none", None).await {
-        // Warm-up failure should not block the search; Bing sometimes
-        // serves the home page from a different host. Continue and let
-        // the search GET succeed or fall back to DuckDuckGo.
-        eprintln!("internet_search: bing warm-up failed: {error}");
+    if session.get(BING_HOME, "none", None).await.is_err() {
+        // Warm-up failure should not block the search. Bing sometimes
+        // serves the home page from a different host.
     }
 
+    let mut duck_session: Option<BrowserSession> = None;
     let mut all_results: Vec<SearchResult> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     for page in 0..pages {
@@ -142,17 +142,13 @@ async fn search(args: &SearchArgs, _ctx: &ToolContext<'_>) -> Result<String, Str
             let pause = PAGE_PAUSE_MIN_MS + (random_ms() as u64 % PAGE_PAUSE_SPAN_MS);
             tokio::time::sleep(Duration::from_millis(pause)).await;
         }
-        let batch = match bing_page(&mut session, &query, page).await {
+        let bing = bing_page(&mut session, &query, page, policy).await;
+        let batch = match bing {
             Ok(batch) if has_relevant_results(&query, &batch) => batch,
-            Ok(batch) => match duck_page(&mut session, &query, page).await {
-                Ok(duck_batch) if has_relevant_results(&query, &duck_batch) => duck_batch,
-                Ok(_) => batch,
-                Err(_) => batch,
-            },
-            Err(bing_error) => match duck_page(&mut session, &query, page).await {
-                Ok(duck_batch) => duck_batch,
-                Err(_) => return Err(bing_error),
-            },
+            bing => {
+                let duck = duck_session.get_or_insert_with(|| BrowserSession::new(&lang));
+                pick_results(&query, bing, duck_page(duck, &query, page, policy).await)?
+            }
         };
         if batch.is_empty() {
             break;
@@ -167,16 +163,36 @@ async fn search(args: &SearchArgs, _ctx: &ToolContext<'_>) -> Result<String, Str
         }
     }
 
-    let cached = CachedSearch {
-        query: query.clone(),
-        lang: lang.clone(),
-        pages: pages as u32,
-        results: all_results.clone(),
-        cached_at_secs: now_secs(),
-    };
-    write_cache(&query, &lang, pages, &cached);
+    if !all_results.is_empty() {
+        let cached = CachedSearch {
+            query: query.clone(),
+            lang: lang.clone(),
+            pages: pages as u32,
+            results: all_results.clone(),
+            cached_at_secs: now_secs(),
+        };
+        write_cache(ctx.app, &query, &lang, pages, &cached);
+    }
 
     Ok(render_results(&query, &lang, pages, &all_results))
+}
+
+fn pick_results(
+    query: &str,
+    bing: Result<Vec<SearchResult>, String>,
+    duck: Result<Vec<SearchResult>, String>,
+) -> Result<Vec<SearchResult>, String> {
+    if let Ok(batch) = &duck {
+        if has_relevant_results(query, batch) {
+            return Ok(batch.clone());
+        }
+    }
+    match (bing, duck) {
+        (Err(error), Err(_)) => Err(error),
+        (Err(error), Ok(batch)) if batch.is_empty() => Err(error),
+        (Ok(_), Err(error)) if is_access_denied_error(&error) => Err(error),
+        _ => Ok(Vec::new()),
+    }
 }
 
 fn render_cached(query: &str, lang: &str, usize_pages: usize, cached: &CachedSearch) -> String {
@@ -230,6 +246,7 @@ async fn bing_page(
     session: &mut BrowserSession,
     query: &str,
     page: usize,
+    policy: FetchPolicy,
 ) -> Result<Vec<SearchResult>, String> {
     let first = page * 10 + 1;
     let url = format!(
@@ -249,21 +266,17 @@ async fn bing_page(
             return Ok(Vec::new());
         }
     };
-    eprintln!("DBG bing page html len: {}", fetched.html.len());
-    eprintln!("DBG region len: {}", results_region(&fetched.html).len());
-    let block_re = regex::Regex::new(r"(?is)<li\b[^>]*\bb_algo\b[^>]*>").unwrap();
-    let block_count = block_re.find_iter(results_region(&fetched.html)).count();
-    eprintln!("DBG b_algo blocks: {block_count}");
     if let Some(status) = detect_block_status(&fetched.html) {
         return Err(format!("Search blocked ({status})"));
     }
-    Ok(parse_bing_results(&fetched.html))
+    Ok(parse_bing_results(&fetched.html, policy))
 }
 
 async fn duck_page(
     session: &mut BrowserSession,
     query: &str,
     page: usize,
+    policy: FetchPolicy,
 ) -> Result<Vec<SearchResult>, String> {
     let url = if page == 0 {
         format!("{}html/?q={}", DUCK_HOME, url_encode(query))
@@ -279,10 +292,17 @@ async fn duck_page(
             return Ok(Vec::new());
         }
     };
-    if regex_match(r"(?i)anomaly|challenge|bots use duckduckgo", &fetched.html) {
+    if duck_blocked(&fetched.html) {
         return Err("Search blocked".to_string());
     }
-    Ok(parse_duck_results(&fetched.html))
+    Ok(parse_duck_results(&fetched.html, policy))
+}
+
+fn duck_blocked(html: &str) -> bool {
+    if regex_match(r"(?i)\bresult__a\b", html) {
+        return false;
+    }
+    regex_match(r"(?i)anomaly|bots use duckduckgo", html)
 }
 
 fn detect_block_status(html: &str) -> Option<u16> {
@@ -306,12 +326,8 @@ fn is_access_denied_error(error: &str) -> bool {
         || error.starts_with("Search blocked")
 }
 
-fn parse_bing_results(html: &str) -> Vec<SearchResult> {
+fn parse_bing_results(html: &str, policy: FetchPolicy) -> Vec<SearchResult> {
     let region = results_region(html);
-    eprintln!(
-        "DBG parse_bing_results region sample (first 400 chars):\n{}\n---",
-        &region[..region.len().min(400)]
-    );
     let mut results: Vec<SearchResult> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     let block_re = match regex::Regex::new(r"(?is)<li\b[^>]*\bb_algo\b[^>]*>") {
@@ -351,38 +367,25 @@ fn parse_bing_results(html: &str) -> Vec<SearchResult> {
     };
 
     let blocks: Vec<&str> = block_re.split(&region).collect();
-    for (i, block) in blocks.into_iter().skip(1).enumerate() {
+    for block in blocks.into_iter().skip(1) {
         let Some(caps) = link_re_double
             .captures(block)
             .or_else(|| link_re_single.captures(block))
         else {
-            eprintln!("DBG block {i}: no link match");
             continue;
         };
         let raw_href = caps.get(1).map(|m| m.as_str()).unwrap_or("");
-        eprintln!("DBG block {i}: raw_href={raw_href:?}");
-        let url = match unwrap_bing_url(raw_href) {
+        let url = match unwrap_bing_url(raw_href, policy) {
             Some(u) => u,
-            None => {
-                eprintln!("DBG block {i}: unwrap_bing_url returned None for {raw_href:?}");
-                continue;
-            }
+            None => continue,
         };
-        eprintln!("DBG block {i}: unwrapped url={url:?}");
         let title = text_of(&decode_entities(
             caps.get(2).map(|m| m.as_str()).unwrap_or(""),
         ))
         .chars()
         .take(200)
         .collect::<String>();
-        eprintln!("DBG block {i}: title={title:?}");
         if title.is_empty() || is_bing(&url) || seen.contains(&url) {
-            eprintln!(
-                "DBG block {i}: filtered (empty={} bing={} seen={})",
-                title.is_empty(),
-                is_bing(&url),
-                seen.contains(&url)
-            );
             continue;
         }
         let snippet_html = snippet_re
@@ -415,7 +418,7 @@ fn parse_bing_results(html: &str) -> Vec<SearchResult> {
     results
 }
 
-fn parse_duck_results(html: &str) -> Vec<SearchResult> {
+fn parse_duck_results(html: &str, policy: FetchPolicy) -> Vec<SearchResult> {
     let mut results: Vec<SearchResult> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     let block_re = match regex::Regex::new(
@@ -425,7 +428,7 @@ fn parse_duck_results(html: &str) -> Vec<SearchResult> {
         Err(_) => return results,
     };
     let link_re = match regex::Regex::new(
-        r#"(?is)<a\b(?=[^>]*class=["'][^"']*\bresult__a\b[^"']*["'])[^>]*\bhref=(["'])([^"']+)\1[^>]*>([\s\S]*?)</a>"#,
+        r#"(?is)<a\b[^>]*\bclass=["'][^"']*\bresult__a\b[^"']*["'][^>]*\bhref=["']([^"']+)["'][^>]*>([\s\S]*?)</a>"#,
     ) {
         Ok(re) => re,
         Err(_) => return results,
@@ -441,13 +444,13 @@ fn parse_duck_results(html: &str) -> Vec<SearchResult> {
         let Some(caps) = link_re.captures(block) else {
             continue;
         };
-        let raw_href = caps.get(2).map(|m| m.as_str()).unwrap_or("");
-        let url = match unwrap_duck_url(raw_href) {
+        let raw_href = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+        let url = match unwrap_duck_url(raw_href, policy) {
             Some(u) => u,
             None => continue,
         };
         let title = text_of(&decode_entities(
-            caps.get(3).map(|m| m.as_str()).unwrap_or(""),
+            caps.get(2).map(|m| m.as_str()).unwrap_or(""),
         ))
         .chars()
         .take(200)
@@ -494,7 +497,7 @@ fn results_region(html: &str) -> &str {
         .unwrap_or(html)
 }
 
-fn unwrap_bing_url(href: &str) -> Option<String> {
+fn unwrap_bing_url(href: &str, policy: FetchPolicy) -> Option<String> {
     let decoded = decode_entities(href.trim());
     let decoded = collapse_double_ampersands(&decoded);
     let parsed = reqwest::Url::parse(&decoded).ok()?;
@@ -511,13 +514,13 @@ fn unwrap_bing_url(href: &str) -> Option<String> {
             return None;
         }
         let candidate = base64_decode(&token)?;
-        if allows_result_url(&candidate) {
-            return Some(candidate);
+        if allows_result_url_with(&candidate, policy) {
+            return Some(clean_result_url(&candidate));
         }
         return None;
     }
-    if allows_result_url(parsed.as_str()) {
-        Some(parsed.as_str().to_string())
+    if allows_result_url_with(parsed.as_str(), policy) {
+        Some(clean_result_url(parsed.as_str()))
     } else {
         None
     }
@@ -539,8 +542,13 @@ fn collapse_double_ampersands(input: &str) -> String {
     output
 }
 
-fn unwrap_duck_url(href: &str) -> Option<String> {
+fn unwrap_duck_url(href: &str, policy: FetchPolicy) -> Option<String> {
     let decoded = decode_entities(href.trim());
+    let decoded = if let Some(rest) = decoded.strip_prefix("//") {
+        format!("https://{rest}")
+    } else {
+        decoded
+    };
     let parsed = reqwest::Url::parse(&decoded).ok().or_else(|| {
         reqwest::Url::parse(DUCK_HOME)
             .ok()
@@ -552,16 +560,39 @@ fn unwrap_duck_url(href: &str) -> Option<String> {
             .query_pairs()
             .find(|(name, _)| name == "uddg")
             .map(|(_, value)| value.into_owned())?;
-        if allows_result_url(&target) {
-            return Some(target);
+        if allows_result_url_with(&target, policy) {
+            return Some(clean_result_url(&target));
         }
         return None;
     }
-    if allows_result_url(parsed.as_str()) {
-        Some(parsed.as_str().to_string())
+    if allows_result_url_with(parsed.as_str(), policy) {
+        Some(clean_result_url(parsed.as_str()))
     } else {
         None
     }
+}
+
+fn clean_result_url(raw: &str) -> String {
+    let Ok(mut parsed) = reqwest::Url::parse(raw) else {
+        return raw.to_string();
+    };
+    let kept: Vec<(String, String)> = parsed
+        .query_pairs()
+        .filter(|(name, _)| !is_tracker_param(name))
+        .map(|(name, value)| (name.into_owned(), value.into_owned()))
+        .collect();
+    if kept.is_empty() {
+        parsed.set_query(None);
+    } else {
+        parsed.query_pairs_mut().clear().extend_pairs(&kept);
+    }
+    parsed.set_fragment(None);
+    parsed.to_string()
+}
+
+fn is_tracker_param(name: &str) -> bool {
+    let name = name.to_ascii_lowercase();
+    name.starts_with("utm_") || matches!(name.as_str(), "fbclid" | "gclid" | "mc_eid" | "yclid")
 }
 
 fn is_bing(url: &str) -> bool {
@@ -815,11 +846,8 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
-fn cache_root() -> Option<std::path::PathBuf> {
-    let home = std::env::var_os("HOME").map(std::path::PathBuf::from)?;
-    let path = home.join(".k-agent").join("cache").join("internet-search");
-    let _ = std::fs::create_dir_all(&path);
-    Some(path)
+fn cache_root(app: Option<&tauri::AppHandle>) -> Option<std::path::PathBuf> {
+    super::tool_cache_dir(app, "internet-search")
 }
 
 fn cache_key(query: &str, lang: &str, pages: usize) -> String {
@@ -832,8 +860,13 @@ fn cache_key(query: &str, lang: &str, pages: usize) -> String {
     format!("{:016x}.json", hasher.finish())
 }
 
-fn read_cache(query: &str, lang: &str, pages: usize) -> Option<CachedSearch> {
-    let root = cache_root()?;
+fn read_cache(
+    app: Option<&tauri::AppHandle>,
+    query: &str,
+    lang: &str,
+    pages: usize,
+) -> Option<CachedSearch> {
+    let root = cache_root(app)?;
     let path = root.join(cache_key(query, lang, pages));
     let raw = std::fs::read_to_string(&path).ok()?;
     let cached: CachedSearch = serde_json::from_str(&raw).ok()?;
@@ -843,8 +876,14 @@ fn read_cache(query: &str, lang: &str, pages: usize) -> Option<CachedSearch> {
     Some(cached)
 }
 
-fn write_cache(query: &str, lang: &str, pages: usize, cached: &CachedSearch) {
-    let Some(root) = cache_root() else { return };
+fn write_cache(
+    app: Option<&tauri::AppHandle>,
+    query: &str,
+    lang: &str,
+    pages: usize,
+    cached: &CachedSearch,
+) {
+    let Some(root) = cache_root(app) else { return };
     let path = root.join(cache_key(query, lang, pages));
     if let Ok(text) = serde_json::to_string(cached) {
         let _ = std::fs::write(&path, text);
@@ -862,7 +901,7 @@ mod tests {
         <p class="b_lineclamp2 b_algoSlug">Snippet text describing the article.</p>
         <div class="b_tptt">example.com</div>
         </li></ol>"#;
-        let results = parse_bing_results(html);
+        let results = parse_bing_results(html, FetchPolicy::public_https());
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].title, "Example Article");
         assert_eq!(results[0].url, "https://example.com/article");
@@ -884,13 +923,14 @@ mod tests {
 
     #[test]
     fn unwrap_bing_url_passes_through_non_redirect() {
-        let url = unwrap_bing_url("https://example.com/article").unwrap();
+        let url =
+            unwrap_bing_url("https://example.com/article", FetchPolicy::public_https()).unwrap();
         assert_eq!(url, "https://example.com/article");
     }
 
     #[test]
     fn unwrap_bing_url_rejects_private_host() {
-        assert!(unwrap_bing_url("https://localhost/path").is_none());
+        assert!(unwrap_bing_url("https://localhost/path", FetchPolicy::public_https()).is_none());
     }
 
     #[test]
@@ -958,9 +998,103 @@ mod tests {
     }
 
     #[test]
+    fn pick_results_drops_bing_decoy_when_duck_matches() {
+        let decoy = vec![SearchResult {
+            position: 1,
+            title: "Reebok Official Site".into(),
+            url: "https://www.reebok.com/".into(),
+            site: "reebok.com".into(),
+            snippet: "Athletic shoes and apparel.".into(),
+        }];
+        let real = vec![SearchResult {
+            position: 1,
+            title: "What Is Cancer? - NCI".into(),
+            url: "https://www.cancer.gov/about-cancer/understanding/what-is-cancer".into(),
+            site: "cancer.gov".into(),
+            snippet: "Cancer is a disease in which some of the body's cells grow uncontrollably."
+                .into(),
+        }];
+        let picked = pick_results(
+            "cancer NCI NIH overview disease cells",
+            Ok(decoy),
+            Ok(real.clone()),
+        )
+        .unwrap();
+        assert_eq!(picked[0].url, real[0].url);
+    }
+
+    #[test]
+    fn pick_results_returns_empty_when_both_are_off_topic() {
+        let decoy = vec![SearchResult {
+            position: 1,
+            title: "OpenCode Zen".into(),
+            url: "https://opencode.ai/docs/zen/".into(),
+            site: "opencode.ai".into(),
+            snippet: "Tested models for coding agents.".into(),
+        }];
+        let picked = pick_results(
+            "cancer NCI NIH overview disease cells",
+            Ok(decoy.clone()),
+            Ok(decoy),
+        )
+        .unwrap();
+        assert!(picked.is_empty());
+    }
+
+    #[test]
+    fn unwrap_bing_ck_with_empty_query_key() {
+        let href = "https://www.bing.com/ck/a?!&&p=abc&u=a1aHR0cHM6Ly93d3cuY2FuY2VyLmdvdi8&ntb=1";
+        let url = unwrap_bing_url(href, FetchPolicy::public_https()).unwrap();
+        assert_eq!(url, "https://www.cancer.gov/");
+    }
+
+    #[test]
+    fn parses_duck_result_without_lookahead() {
+        let html = r#"<div class="result results_links results_links_deep web-result ">
+            <h2 class="result__title"><a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.cancer.gov%2Fabout-cancer%2Funderstanding%2Fwhat-is-cancer&amp;rut=abc">What Is Cancer? - NCI</a></h2>
+            <a class="result__snippet" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.cancer.gov%2Fabout-cancer">Cancer is a disease in which cells grow.</a>
+        </div>"#;
+        let results = parse_duck_results(html, FetchPolicy::public_https());
+        assert_eq!(results.len(), 1, "{results:?}");
+        assert_eq!(
+            results[0].url,
+            "https://www.cancer.gov/about-cancer/understanding/what-is-cancer"
+        );
+        assert!(results[0].snippet.contains("disease"));
+        assert!(!duck_blocked(html));
+        assert!(!duck_blocked(
+            "health-challenges in a url and result__a still present <a class=\"result__a\"></a>"
+        ));
+    }
+
+    #[test]
+    fn unwrap_duck_protocol_relative_redirect() {
+        let href = "//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.cancer.gov%2Fabout-cancer%2Funderstanding%2Fwhat-is-cancer&rut=abc";
+        let url = unwrap_duck_url(href, FetchPolicy::public_https()).unwrap();
+        assert_eq!(
+            url,
+            "https://www.cancer.gov/about-cancer/understanding/what-is-cancer"
+        );
+    }
+
+    #[test]
     fn base64_decode_pads_short_input() {
         let encoded = "aHR0cHM6Ly9ydXN0LWxhbmcub3JnLw";
         let decoded = base64_decode(encoded).unwrap();
         assert_eq!(decoded, "https://rust-lang.org/");
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn live_cancer_query_prefers_relevant_urls() {
+        let ctx = super::ToolContext::for_test(std::env::temp_dir(), 1);
+        let outcome = execute_async(
+            r#"{"query":"cancer NCI NIH overview disease cells","lang":"en-US","pages":1}"#,
+            &ctx,
+        )
+        .await;
+        assert!(outcome.text.contains("cancer.gov"), "{}", outcome.text);
+        assert!(!outcome.text.to_ascii_lowercase().contains("opencode"));
+        assert!(!outcome.text.to_ascii_lowercase().contains("reebok"));
     }
 }

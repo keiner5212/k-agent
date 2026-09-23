@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -108,9 +108,7 @@ impl Serialize for SessionError {
 }
 
 fn app_data_dir(app: &AppHandle) -> Result<PathBuf, SessionError> {
-    app.path()
-        .app_data_dir()
-        .map_err(|e| SessionError::Path(e.to_string()))
+    crate::paths::app_data_dir(app).map_err(SessionError::Path)
 }
 
 fn sessions_index_path(app: &AppHandle) -> Result<PathBuf, SessionError> {

@@ -44,7 +44,7 @@ Turn 1 batch list omits skills already loaded in the session. Section 2 is omitt
 
 ## Tools
 
-Tools are implemented in `src-tauri/src/tools/`. Each tool is one module; `tools/mod.rs` registers specs and dispatches execution. Paths go through `pathutil` (OS separators, `~`, Windows drive prefixes).
+Tools are implemented in `src-tauri/src/tools/`. Each tool is one module; `tools/mod.rs` registers specs and dispatches execution. Workspace paths go through `pathutil` (OS separators, `~`, Windows drive prefixes). App data and `~/.k-agent` paths go through `paths`. `fetch_url` reads public HTTPS. Public HTTP is allowed only when `httpFetchEnabled` is on. Loopback stays blocked.
 
 The chat request includes tools enabled on the selected agent plus enabled MCP tools. Tool names that are not registered or not enabled are dropped. A model call to a disabled tool returns an error string instead of running.
 

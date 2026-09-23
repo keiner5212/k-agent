@@ -60,13 +60,7 @@ fn resolve_workspace(app: &AppHandle) -> Option<PathBuf> {
 
 fn resolve_dir(app: &AppHandle, kind: AgentsMdKind) -> Result<PathBuf, AgentsMdError> {
     match kind {
-        AgentsMdKind::Global => {
-            let home = app
-                .path()
-                .home_dir()
-                .map_err(|error| AgentsMdError::Io(error.to_string()))?;
-            Ok(home.join(crate::APP_CONFIG_DIR))
-        }
+        AgentsMdKind::Global => crate::paths::config_dir(app).map_err(AgentsMdError::Io),
         AgentsMdKind::Local => resolve_workspace(app).ok_or(AgentsMdError::NoWorkspace),
     }
 }

@@ -4,11 +4,11 @@ Fetch one public HTTPS page and return its title, description, main text, and sa
 
 ## Does
 
-- Reads one HTTPS URL with port 443 only, refollowing up to 4 redirects.
-- Returns the canonical URL plus title (max 300 chars), description (max 500), main content (max 16 000), and up to 20 outbound links.
-- Decodes HTML entities (`&amp;`, `&#x2014;`, numeric entities) and strips nav, footer, header, script, style, iframe, comments, and `data-*` tags before extracting main content.
-- Picks the main block by matching common id or class names (`main-content`, `article`, `article-body`, `content`, etc.). Falls back to `<body>` when no candidate is large enough.
-- Persists every successful fetch to `~/.k-agent/cache/fetch-url/{hash}.json` with a 1-hour TTL. Subsequent calls hit the cache before touching the network.
+- Reads one public URL. HTTPS and port 443 by default. Public HTTP on port 80 is accepted only when `httpFetchEnabled` is on. Loopback, private hosts, and IP literals stay refused.
+- Returns the canonical URL plus title (max 300 chars), description (max 500), main content (max 16 000), and up to 20 outbound links. Outbound links follow the same HTTP policy as the fetch.
+- Decodes HTML entities and walks the DOM. Drops nav, footer, header, script, style, figures, and embed images before reading text.
+- Picks the main block from `main`, `article`, or common article containers, then walks the DOM. Nested tags stay intact. Drops nav, footer, figures, embed images, and other chrome before reading text.
+- Persists every successful fetch to the app data `cache/fetch-url/{hash}.json` with a 1-hour TTL. Subsequent calls hit the cache before touching the network.
 - Jitters 50 to 250 ms before each GET so requests are not perfectly periodic. Retries one transient response (`408`, `429`, `500`, `502`, `503`, `504`).
 
 ## Does not
@@ -24,7 +24,7 @@ Fetch one public HTTPS page and return its title, description, main text, and sa
 
 | Name   | Type   | Required | Default | Notes                                                                                                         |
 | ------ | ------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------- |
-| `url`  | string | yes      | -       | Public HTTPS URL. Only port 443. Credentials, IP literals, private and metadata hostnames are refused.        |
+| `url`  | string | yes      | -       | Public URL. HTTPS and port 443 by default. Public HTTP on port 80 only when HTTP fetch is enabled. Credentials, IP literals, loopback, and private hostnames are refused. |
 | `lang` | string | no       | `en-US` | Optional BCP 47 language tag. Sets the `Accept-Language` header and adjusts `Accept-Language` quality values. |
 
 ## Response
@@ -35,7 +35,7 @@ Fetch one public HTTPS page and return its title, description, main text, and sa
 | `title`       | string | Up to 300 chars; prefers `og:title`, falls back to `<title>` then `<h1>`.                                               |
 | `description` | string | Up to 500 chars; prefers `meta description` / `og:description`, falls back to first paragraph over 80 chars.            |
 | `content`     | string | Up to 16 000 chars; stripped of navigation, footer, and other noise. Multi-line block.                                  |
-| `links`       | string | Up to 20 outbound links, formatted as `- text (url)` lines. Filters `javascript:`, `http://`, and other unsafe schemes. |
+| `links`       | string | Up to 20 article links, formatted as `- text (url)` lines. Skips `javascript:`, `http://`, image files, and chrome labels such as `Enlarge Image`. |
 
 See `response.toon` for the concrete wire shape the LLM sees.
 
@@ -45,7 +45,9 @@ See `response.toon` for the concrete wire shape the LLM sees.
 - `fetch_url URL exceeds 2048 chars.`
 - `fetch_url URL has leading or trailing whitespace.`
 - `fetch_url URL contains control characters.`
-- `fetch_url only accepts HTTPS URLs.` / `Only the default HTTPS port (443) is accepted.`
+- `fetch_url only accepts HTTP and HTTPS URLs.`
+- `fetch_url HTTP is disabled. Enable HTTP fetch in settings.`
+- `fetch_url only accepts the default port (443 for HTTPS, 80 for HTTP).`
 - `fetch_url URL must not carry credentials.`
 - `fetch_url refused: internal or private hostname.` / `IP literals are not allowed.`
 - `fetch_url exceeded the redirect hop limit.`
@@ -58,4 +60,4 @@ See `response.toon` for the concrete wire shape the LLM sees.
 
 ## Source
 
-`src-tauri/src/tools/fetch_url.rs` - entry point: `FetchUrlTool::execute()` (sync, errors out for the async path only). Async entry: `execute_async()`. Browser session in the same file. Anti-bot header set, manual redirect loop, HTML parser, persistent cache.
+`src-tauri/src/tools/fetch_url.rs` - entry point: `FetchUrlTool::execute()` (sync, errors out for the async path only). Async entry: `execute_async()`. Browser session in the same file. DOM reader in `src-tauri/src/tools/readable.rs`.

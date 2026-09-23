@@ -244,7 +244,7 @@ type SessionsStore = {
   hydrate: () => Promise<void>;
   create: () => void;
   select: (id: string) => void;
-  remove: (id: string) => void;
+  remove: (id: string) => Promise<void>;
   send: (text: string, sessionId?: string, attachments?: ChatAttachment[]) => Promise<boolean>;
   runShell: (text: string, sessionId?: string) => Promise<boolean>;
   enqueue: (text: string, mode: ComposerMode, attachments?: ChatAttachment[]) => void;
@@ -325,11 +325,18 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     void persistSnapshot(snapshotFromState(get().sessions, id));
   },
 
-  remove: (id) => {
+  remove: async (id) => {
     const { sessions, activeSessionId, sendingSessionId, shellRunningSessionId } = get();
     const nextSessions = sessions.filter((session) => session.id !== id);
     const stopSending = sendingSessionId === id;
     const stopShell = shellRunningSessionId === id;
+    if (stopSending || stopShell) {
+      try {
+        await invoke<boolean>("cancel_running_task", { sessionId: id });
+      } catch (error) {
+        console.warn("cancel_running_task failed", error);
+      }
+    }
     if (nextSessions.length === 0) {
       const session = emptySession();
       const seeded = [session];

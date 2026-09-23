@@ -61,6 +61,8 @@ export const DEFAULT_APP_GENERATION_MODEL: SelectedModel | null = null;
 
 export const DEFAULT_LSP_ENABLED = false;
 
+export const DEFAULT_HTTP_FETCH_ENABLED = false;
+
 export const DEFAULT_SESSION_SIDEBAR_OPEN = true;
 
 export const DEFAULT_BUILD_AGENT_ENABLED = true;
@@ -142,6 +144,7 @@ export type Settings = {
   titleUseFirstMessage: boolean;
   appGenerationModel: SelectedModel | null;
   lspEnabled: boolean;
+  httpFetchEnabled: boolean;
   keybindings: Keybindings;
   sessionSidebarOpen: boolean;
   buildAgentEnabled: boolean;
@@ -175,6 +178,7 @@ export const DEFAULT_SETTINGS: Settings = {
   titleUseFirstMessage: DEFAULT_TITLE_USE_FIRST_MESSAGE,
   appGenerationModel: DEFAULT_APP_GENERATION_MODEL,
   lspEnabled: DEFAULT_LSP_ENABLED,
+  httpFetchEnabled: DEFAULT_HTTP_FETCH_ENABLED,
   keybindings: DEFAULT_KEYBINDINGS,
   sessionSidebarOpen: DEFAULT_SESSION_SIDEBAR_OPEN,
   buildAgentEnabled: DEFAULT_BUILD_AGENT_ENABLED,

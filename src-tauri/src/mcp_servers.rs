@@ -3,11 +3,9 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use thiserror::Error;
 use uuid::Uuid;
-
-use crate::APP_CONFIG_DIR;
 
 const MCP_SERVERS_FILE: &str = "mcp-servers.json";
 const MCP_SECRETS_FILE: &str = "mcp-secrets.json";
@@ -149,17 +147,11 @@ impl From<crate::secret::SecretError> for McpServerError {
 }
 
 fn servers_path(app: &AppHandle) -> Result<PathBuf, McpServerError> {
-    let home = app
-        .path()
-        .home_dir()
-        .map_err(|e| McpServerError::Path(e.to_string()))?;
-    Ok(home.join(APP_CONFIG_DIR).join(MCP_SERVERS_FILE))
+    crate::paths::config_file(app, MCP_SERVERS_FILE).map_err(McpServerError::Path)
 }
 
 fn secrets_dir(app: &AppHandle) -> Result<PathBuf, McpServerError> {
-    app.path()
-        .app_data_dir()
-        .map_err(|e| McpServerError::Path(e.to_string()))
+    crate::paths::app_data_dir(app).map_err(McpServerError::Path)
 }
 
 fn secrets_path(app: &AppHandle) -> Result<PathBuf, McpServerError> {
@@ -211,11 +203,7 @@ async fn save_secret_blobs(
     tokio::fs::write(path, json)
         .await
         .map_err(|e| McpServerError::Io(e.to_string()))?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
-    }
+    crate::paths::set_user_private(path);
     Ok(())
 }
 
