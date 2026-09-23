@@ -194,6 +194,7 @@ fn shoot(
     use std::rc::Rc;
 
     use gtk::prelude::*;
+    use gtk::prelude::WidgetExtManual;
     use webkit2gtk::WebViewExt;
     use webkit2gtk::{LoadEvent, WebView};
 
@@ -214,6 +215,13 @@ fn shoot(
         _window: window,
         tx: Some(tx),
     })));
+    let cleanup_state = state.clone();
+    glib::timeout_add_local(Duration::from_secs(25), move || {
+        if let Some(shot) = cleanup_state.borrow_mut().take() {
+            unsafe { shot._window.destroy() };
+        }
+        glib::ControlFlow::Break
+    });
     let started = std::cell::Cell::new(false);
     view.connect_load_changed(move |view, event| {
         if event != LoadEvent::Finished || started.get() {
@@ -305,7 +313,9 @@ fn deliver(
     state: &std::rc::Rc<std::cell::RefCell<Option<ShotState>>>,
     result: Result<Vec<u8>, String>,
 ) {
+    use gtk::prelude::WidgetExtManual;
     if let Some(mut shot) = state.borrow_mut().take() {
+        unsafe { shot._window.destroy() };
         if let Some(tx) = shot.tx.take() {
             let _ = tx.send(result);
         }
