@@ -128,6 +128,7 @@ impl Tool for EditTool {
                         before: content_old,
                         after: replaced,
                     }),
+                    image_png: None,
                 }
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {

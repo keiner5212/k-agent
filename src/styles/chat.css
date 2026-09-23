@@ -1022,8 +1022,15 @@ button.change-bar__stat:focus-visible {
   font-size: var(--text-xs);
   line-height: var(--leading-normal);
   color: var(--text-muted);
-  opacity: 0.72;
   font-family: var(--font-mono);
+}
+
+.chat-tools__shot {
+  display: block;
+  max-width: min(100%, 42rem);
+  height: auto;
+  margin-top: var(--space-2);
+  border-radius: var(--radius-sm);
 }
 
 .chat-tools__item::before {
@@ -1044,6 +1051,7 @@ button.change-bar__stat:focus-visible {
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+  opacity: 0.72;
 }
 
 .chat-tools__tokens {

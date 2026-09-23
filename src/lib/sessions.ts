@@ -296,6 +296,7 @@ type SessionsStore = {
   remove: (id: string) => Promise<void>;
   send: (text: string, sessionId?: string, attachments?: ChatAttachment[]) => Promise<boolean>;
   allowOutsideWorkspace: (sessionId: string) => void;
+  allowHttpWrite: (sessionId: string) => void;
   resumeAsk: (callId: string, text: string) => Promise<boolean>;
   runShell: (text: string, sessionId?: string) => Promise<boolean>;
   enqueue: (text: string, mode: ComposerMode, attachments?: ChatAttachment[]) => void;
@@ -433,6 +434,14 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     void persistSnapshot(snapshotFromState(nextSessions, get().activeSessionId ?? sessionId));
   },
 
+  allowHttpWrite: (sessionId) => {
+    const nextSessions = get().sessions.map((session) =>
+      session.id === sessionId ? { ...session, httpWriteAllowed: true } : session,
+    );
+    set({ sessions: nextSessions });
+    void persistSnapshot(snapshotFromState(nextSessions, get().activeSessionId ?? sessionId));
+  },
+
   resumeAsk: async (callId, text) => {
     let sessionId: string | null = null;
     const nextSessions = get().sessions.map((session) => ({
@@ -442,9 +451,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         sessionId = session.id;
         const toolRounds = (message.toolRounds ?? []).map((round) => ({
           ...round,
-          calls: round.calls.map((call) =>
-            call.id === callId ? { ...call, output: text } : call,
-          ),
+          calls: round.calls.map((call) => (call.id === callId ? { ...call, output: text } : call)),
         }));
         const { pendingAsk: _pending, ...rest } = message;
         return { ...rest, toolRounds, streaming: false };
@@ -740,6 +747,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           sessionId: sessionId,
           outsideWorkspaceAllowed: Boolean(
             get().sessions.find((session) => session.id === sessionId)?.outsideWorkspaceAllowed,
+          ),
+          httpWriteAllowed: Boolean(
+            get().sessions.find((session) => session.id === sessionId)?.httpWriteAllowed,
           ),
           toolNames,
           workerCores: getWorkerCoreSnapshot().limit,

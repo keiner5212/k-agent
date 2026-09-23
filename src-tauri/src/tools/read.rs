@@ -263,6 +263,7 @@ fn render_file(path: &Path, rel: &str, offset: usize, limit: usize) -> ToolOutco
             ..ToolDisplay::default()
         },
         snapshot: None,
+        image_png: None,
     }
 }
 

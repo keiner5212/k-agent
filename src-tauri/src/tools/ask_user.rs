@@ -186,6 +186,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
             ..ToolDisplay::default()
         },
         snapshot: None,
+        image_png: None,
     }
 }
 

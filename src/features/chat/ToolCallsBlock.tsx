@@ -221,6 +221,13 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
                   <span className="chat-tools__tokens">~{formatContextWindow(tokens)}</span>
                 ) : null}
               </span>
+              {display?.imageData ? (
+                <img
+                  className="chat-tools__shot"
+                  alt=""
+                  src={`data:image/png;base64,${display.imageData}`}
+                />
+              ) : null}
             </li>
           );
         })}

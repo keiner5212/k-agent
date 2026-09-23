@@ -1,3 +1,4 @@
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::AppHandle;
@@ -37,6 +38,8 @@ pub struct ChatToolResultTurn {
     pub call_id: String,
     pub name: String,
     pub content: String,
+    #[serde(default)]
+    pub image_data: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,6 +81,8 @@ pub struct SendChatInput {
     pub worker_cores: Option<u32>,
     #[serde(default)]
     pub outside_workspace_allowed: bool,
+    #[serde(default)]
+    pub http_write_allowed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -144,6 +149,7 @@ struct ToolResultTurn {
     call_id: String,
     name: String,
     content: String,
+    image_png: Option<Vec<u8>>,
 }
 
 #[derive(Clone)]
@@ -446,6 +452,7 @@ fn normalize_turns(input: &[ChatTurn]) -> Vec<Turn> {
                     call_id: result.call_id.clone(),
                     name: result.name.clone(),
                     content: result.content.clone(),
+                    image_png: decode_png(result.image_data.as_deref()),
                 }),
             });
             continue;
@@ -673,6 +680,63 @@ fn openai_assistant_message(turn: &Turn) -> serde_json::Value {
     serde_json::Value::Object(message)
 }
 
+fn decode_png(data: Option<&str>) -> Option<Vec<u8>> {
+    let data = data.filter(|value| !value.is_empty())?;
+    base64::engine::general_purpose::STANDARD.decode(data).ok()
+}
+
+fn png_base64(png: &[u8]) -> String {
+    base64::engine::general_purpose::STANDARD.encode(png)
+}
+
+fn openai_tool_content(result: &ToolResultTurn) -> serde_json::Value {
+    let Some(png) = &result.image_png else {
+        return json!(result.content);
+    };
+    json!([
+        { "type": "text", "text": result.content },
+        {
+            "type": "image_url",
+            "image_url": { "url": format!("data:image/png;base64,{}", png_base64(png)) }
+        }
+    ])
+}
+
+fn anthropic_tool_content(result: &ToolResultTurn) -> serde_json::Value {
+    let Some(png) = &result.image_png else {
+        return json!(result.content);
+    };
+    json!([
+        { "type": "text", "text": result.content },
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": png_base64(png),
+            }
+        }
+    ])
+}
+
+fn gemini_tool_result(result: &ToolResultTurn) -> serde_json::Value {
+    let mut parts = vec![json!({
+        "functionResponse": {
+            "name": result.name,
+            "response": { "output": result.content },
+        }
+    })];
+    if let Some(png) = &result.image_png {
+        parts.push(json!({
+            "inlineData": {
+                "mimeType": "image/png",
+                "data": png_base64(png),
+            }
+        }));
+    }
+    json!({ "role": "user", "parts": parts })
+}
+
 fn openai_messages(system: Option<&str>, turns: &[Turn]) -> serde_json::Value {
     let mut messages = Vec::with_capacity(turns.len() + 1);
     if let Some(system) = nonempty_text(system) {
@@ -683,7 +747,7 @@ fn openai_messages(system: Option<&str>, turns: &[Turn]) -> serde_json::Value {
             messages.push(json!({
                 "role": "tool",
                 "tool_call_id": result.call_id,
-                "content": result.content,
+                "content": openai_tool_content(result),
             }));
             continue;
         }
@@ -705,7 +769,7 @@ fn anthropic_messages(turns: &[Turn]) -> serde_json::Value {
                 "content": [{
                     "type": "tool_result",
                     "tool_use_id": result.call_id,
-                    "content": result.content,
+                    "content": anthropic_tool_content(result),
                 }],
             }));
             continue;
@@ -757,15 +821,7 @@ fn gemini_contents(turns: &[Turn]) -> serde_json::Value {
     let mut contents = Vec::with_capacity(turns.len());
     for turn in turns {
         if let Some(result) = &turn.tool_result {
-            contents.push(json!({
-                "role": "user",
-                "parts": [{
-                    "functionResponse": {
-                        "name": result.name,
-                        "response": { "output": result.content },
-                    }
-                }],
-            }));
+            contents.push(gemini_tool_result(result));
             continue;
         }
         if turn.assistant {
@@ -1864,6 +1920,7 @@ async fn send_message(
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
     session_id: Option<&str>,
     outside_workspace_allowed: bool,
+    http_write_allowed: bool,
 ) -> Result<ChatOutput, ChatError> {
     if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
@@ -1957,7 +2014,7 @@ async fn send_message(
         let mut persisted_calls = Vec::new();
         for tc in &model_calls {
             emit_tool_call(on_chunk, tc);
-            let (raw_text, display) = if let Some(mcp) =
+            let (raw_text, display, image_png) = if let Some(mcp) =
                 call.mcp_tools.iter().find(|item| item.wire_name == tc.name)
             {
                 let args = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
@@ -1974,6 +2031,7 @@ async fn send_message(
                         kind: tools::TOOL_KIND_CONTEXT.to_string(),
                         ..ToolDisplay::default()
                     }),
+                    None,
                 )
             } else if call.tool_names.iter().any(|name| name == &tc.name) {
                 let tool_ctx = ToolContext {
@@ -1981,7 +2039,8 @@ async fn send_message(
                     call_id: tc.id.clone(),
                     session_id: session_id.map(str::to_string),
                     thought_signature: tc.thought_signature.clone(),
-                    outside_workspace_allowed: outside_workspace_allowed,
+                    outside_workspace_allowed,
+                    http_write_allowed,
                     on_chunk,
                     workspace: None,
                     parallelism: call.parallelism,
@@ -1998,7 +2057,7 @@ async fn send_message(
                         );
                     }
                 }
-                (outcome.text, Some(outcome.display))
+                (outcome.text, Some(outcome.display), outcome.image_png)
             } else {
                 (
                     format!("Tool `{}` is not enabled for this agent.", tc.name),
@@ -2007,6 +2066,7 @@ async fn send_message(
                         status: Some("error".into()),
                         ..ToolDisplay::default()
                     }),
+                    None,
                 )
             };
             let outcome_text = tools::truncate_output(&raw_text);
@@ -2045,6 +2105,7 @@ async fn send_message(
                     call_id: tc.id.clone(),
                     name: tc.name.clone(),
                     content: outcome_text,
+                    image_png,
                 }),
             });
         }
@@ -2117,7 +2178,7 @@ pub async fn generate_session_title(
         parallelism: 1,
     };
     let title = normalize_generated_title(
-        &send_message(&app, &provider, &call, None, None, false)
+        &send_message(&app, &provider, &call, None, None, false, false)
             .await?
             .content,
     );
@@ -2254,7 +2315,7 @@ pub async fn generate_app_content(
         parallelism: 1,
     };
     let text = normalize_generated_text(
-        &send_message(&app, &provider, &call, None, None, false)
+        &send_message(&app, &provider, &call, None, None, false, false)
             .await?
             .content,
     );
@@ -2516,6 +2577,7 @@ pub async fn send_chat_message(
         Some(&on_chunk),
         input.session_id.as_deref(),
         input.outside_workspace_allowed,
+        input.http_write_allowed,
     );
     tokio::pin!(send_fut);
     let output = match cancel_rx {

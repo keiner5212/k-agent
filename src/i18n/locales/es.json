@@ -682,6 +682,18 @@
       "internet_search": {
         "label": "Buscar en la web",
         "description": "Buscar en la web publica y devolver titulos, URLs, sitios y fragmentos."
+      },
+      "http_request": {
+        "label": "Peticion HTTP",
+        "description": "Enviar una peticion HTTP con metodo, cabeceras, query y cuerpo. Si no es GET, pide confirmacion."
+      },
+      "graphql": {
+        "label": "GraphQL",
+        "description": "Enviar una query o mutation GraphQL. Si no es GET, pide confirmacion."
+      },
+      "page_shot": {
+        "label": "Captura de pagina",
+        "description": "Capturar una pagina oculta o un elemento y devolver la imagen."
       }
     },
     "delete": {

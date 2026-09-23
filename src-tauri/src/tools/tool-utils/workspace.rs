@@ -86,22 +86,30 @@ fn session_granted(ctx: &ToolContext<'_>) -> bool {
 }
 
 fn session_id_granted(session_id: Option<&str>) -> bool {
-    let Some(session_id) = session_id.filter(|id| !id.is_empty()) else {
-        return false;
-    };
-    session_grants()
-        .lock()
-        .map(|grants| grants.contains(session_id))
-        .unwrap_or(false)
+    session_id_granted_in(&session_grants(), session_id)
 }
 
 fn grant_session(session_id: Option<&str>) {
+    grant_in(&session_grants(), session_id);
+}
+
+fn grant_in(grants: &Mutex<HashSet<String>>, session_id: Option<&str>) {
     let Some(session_id) = session_id.filter(|id| !id.is_empty()) else {
         return;
     };
-    if let Ok(mut grants) = session_grants().lock() {
+    if let Ok(mut grants) = grants.lock() {
         grants.insert(session_id.to_string());
     }
+}
+
+fn session_id_granted_in(grants: &Mutex<HashSet<String>>, session_id: Option<&str>) -> bool {
+    let Some(session_id) = session_id.filter(|id| !id.is_empty()) else {
+        return false;
+    };
+    grants
+        .lock()
+        .map(|grants| grants.contains(session_id))
+        .unwrap_or(false)
 }
 
 async fn confirm_outside(
@@ -110,17 +118,65 @@ async fn confirm_outside(
     resolved: &Path,
     rel: &str,
 ) -> OutsideChoice {
-    let questions = vec![AskUserQuestion {
-        id: "outside_confirm".to_string(),
-        header: "Outside workspace".to_string(),
-        question: format!(
+    ask_choice(
+        ctx,
+        "outside_confirm",
+        "Outside workspace",
+        &format!(
             "`{rel}` is outside the workspace. {verb} `{}`?",
             resolved.display()
         ),
+    )
+    .await
+}
+
+pub fn http_write_allowed(ctx: &ToolContext<'_>) -> bool {
+    ctx.http_write_allowed || session_id_granted_in(&http_grants(), ctx.session_id.as_deref())
+}
+
+pub async fn ensure_http_write(ctx: &ToolContext<'_>, method: &str) -> Result<(), String> {
+    if method.eq_ignore_ascii_case("GET") || method.eq_ignore_ascii_case("HEAD") {
+        return Ok(());
+    }
+    if http_write_allowed(ctx) {
+        return Ok(());
+    }
+    match ask_choice(
+        ctx,
+        "http_write_confirm",
+        "HTTP write",
+        &format!("Send {method}? This request is not a GET."),
+    )
+    .await
+    {
+        OutsideChoice::Deny => Err("User denied the HTTP write.".into()),
+        OutsideChoice::Once => Ok(()),
+        OutsideChoice::Session => {
+            grant_in(&http_grants(), ctx.session_id.as_deref());
+            Ok(())
+        }
+    }
+}
+
+fn http_grants() -> &'static Mutex<HashSet<String>> {
+    static GRANTS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    GRANTS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+async fn ask_choice(
+    ctx: &ToolContext<'_>,
+    id: &str,
+    header: &str,
+    question: &str,
+) -> OutsideChoice {
+    let questions = vec![AskUserQuestion {
+        id: id.to_string(),
+        header: header.to_string(),
+        question: question.to_string(),
         options: vec![
             AskUserOption {
                 label: "Deny".to_string(),
-                description: Some("Stop. Do not touch this path.".to_string()),
+                description: Some("Stop this action.".to_string()),
                 preview: None,
             },
             AskUserOption {
@@ -131,7 +187,7 @@ async fn confirm_outside(
             AskUserOption {
                 label: "Accept for this chat".to_string(),
                 description: Some(
-                    "Allow outside-workspace access for the rest of this chat.".to_string(),
+                    "Allow this kind of action for the rest of this chat.".to_string(),
                 ),
                 preview: None,
             },
@@ -139,11 +195,9 @@ async fn confirm_outside(
         multi_select: false,
         allow_free_text: false,
     }];
-    let call_id = format!("outside_confirm::{}", ctx.call_id);
+    let call_id = format!("{id}::{}", ctx.call_id);
     let answer = ask_user_wait(ctx, &call_id, &questions, "", "").await;
-    let entry = answer
-        .iter()
-        .find(|entry| entry.question_id == "outside_confirm");
+    let entry = answer.iter().find(|entry| entry.question_id == id);
     let Some(entry) = entry else {
         return OutsideChoice::Deny;
     };

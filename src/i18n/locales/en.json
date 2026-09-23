@@ -682,6 +682,18 @@
       "internet_search": {
         "label": "Web search",
         "description": "Search the public web and return titles, URLs, sites, and snippets."
+      },
+      "http_request": {
+        "label": "HTTP request",
+        "description": "Send an HTTP request with method, headers, query, and body. Non-GET asks for confirmation."
+      },
+      "graphql": {
+        "label": "GraphQL",
+        "description": "Send a GraphQL query or mutation. Non-GET asks for confirmation."
+      },
+      "page_shot": {
+        "label": "Page screenshot",
+        "description": "Capture a hidden page or one element and return the image."
       }
     },
     "delete": {

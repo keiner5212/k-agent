@@ -71,6 +71,7 @@ export type ToolDisplay = {
   status?: string;
   skillName?: string;
   linesRemoved?: number;
+  imageData?: string;
 };
 
 export type ChatToolCall = {
@@ -161,6 +162,7 @@ export type ChatToolResultTurn = {
   callId: string;
   name: string;
   content: string;
+  imageData?: string;
 };
 
 export type ChatTurn = {

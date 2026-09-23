@@ -55,6 +55,7 @@ impl Tool for SkillTool {
                         ..ToolDisplay::default()
                     },
                     snapshot: None,
+                    image_png: None,
                 }
             }
             Ok(None) => with_skill_name(

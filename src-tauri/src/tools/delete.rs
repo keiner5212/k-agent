@@ -131,6 +131,7 @@ fn apply_delete(target: &DeleteTarget) -> ToolOutcome {
                 ..ToolDisplay::default()
             },
             snapshot: None,
+            image_png: None,
         };
     }
 
@@ -157,6 +158,7 @@ fn apply_delete(target: &DeleteTarget) -> ToolOutcome {
             ..ToolDisplay::default()
         },
         snapshot: None,
+        image_png: None,
     }
 }
 

@@ -8,6 +8,7 @@ type LooseSession = {
   updatedAt?: number;
   messages?: ChatMessage[] | null;
   outsideWorkspaceAllowed?: boolean;
+  httpWriteAllowed?: boolean;
 };
 
 export const sessionMessages = (
@@ -21,6 +22,7 @@ export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => (
   updatedAt: typeof session.updatedAt === "number" ? session.updatedAt : 0,
   messages: sessionMessages(session),
   outsideWorkspaceAllowed: session.outsideWorkspaceAllowed === true,
+  httpWriteAllowed: session.httpWriteAllowed === true,
 });
 
 export const sanitizeSessionsSnapshot = (snapshot: {
@@ -63,6 +65,7 @@ export const toChatTurns = (messages: ChatMessage[]): ChatTurn[] => {
               callId: call.id,
               name: call.name,
               content: call.output,
+              ...(call.display?.imageData ? { imageData: call.display.imageData } : {}),
             },
           });
         }

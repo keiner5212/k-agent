@@ -1,0 +1,2 @@
+status: error
+error: "http_request failed: error sending request for url (http://127.0.0.1:9/graphql?query=%7B+__typename+%7D)"

@@ -78,6 +78,7 @@ impl Tool for CreateFolderTool {
                         ..ToolDisplay::default()
                     },
                     snapshot: None,
+                    image_png: None,
                 };
             }
             Err(error) => {
@@ -101,6 +102,7 @@ impl Tool for CreateFolderTool {
                     ..ToolDisplay::default()
                 },
                 snapshot: None,
+                image_png: None,
             };
         }
 

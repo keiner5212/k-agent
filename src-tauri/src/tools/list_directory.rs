@@ -323,6 +323,7 @@ fn render_tree(
             ..ToolDisplay::default()
         },
         snapshot: None,
+        image_png: None,
     }
 }
 

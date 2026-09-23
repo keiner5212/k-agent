@@ -108,11 +108,16 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
     if (submitting) return;
     setSubmitting(true);
     setError(undefined);
-    const acceptedForChat = state.answers.some((entry) =>
-      entry.selected.includes("Accept for this chat"),
-    );
-    if (acceptedForChat && state.sessionId) {
+    const grantForChat = (questionId: string) =>
+      state.answers.some(
+        (entry) =>
+          entry.questionId === questionId && entry.selected.includes("Accept for this chat"),
+      );
+    if (state.sessionId && grantForChat("outside_confirm")) {
       useSessionsStore.getState().allowOutsideWorkspace(state.sessionId);
+    }
+    if (state.sessionId && grantForChat("http_write_confirm")) {
+      useSessionsStore.getState().allowHttpWrite(state.sessionId);
     }
     const result = await submit(state.callId);
     if (result.resume) {

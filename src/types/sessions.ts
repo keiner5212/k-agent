@@ -7,6 +7,7 @@ export type SessionRecord = {
   updatedAt: number;
   messages: ChatMessage[];
   outsideWorkspaceAllowed?: boolean;
+  httpWriteAllowed?: boolean;
 };
 
 export type SessionSummary = Pick<SessionRecord, "id" | "title" | "preview" | "updatedAt">;

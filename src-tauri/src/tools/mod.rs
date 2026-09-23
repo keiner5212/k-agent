@@ -1,7 +1,10 @@
 mod edit;
 mod fetch_url;
+mod graphql;
+mod http_request;
 mod internet_search;
 mod list_directory;
+mod page_shot;
 mod read;
 mod skill;
 mod write;
@@ -35,6 +38,9 @@ pub const CREATE_FOLDER_TOOL_NAME: &str = create_folder::NAME;
 pub const DELETE_TOOL_NAME: &str = delete::NAME;
 pub const FETCH_URL_TOOL_NAME: &str = fetch_url::NAME;
 pub const INTERNET_SEARCH_TOOL_NAME: &str = internet_search::NAME;
+pub const HTTP_REQUEST_TOOL_NAME: &str = http_request::NAME;
+pub const GRAPHQL_TOOL_NAME: &str = graphql::NAME;
+pub const PAGE_SHOT_TOOL_NAME: &str = page_shot::NAME;
 pub const LIST_DIRECTORY_MAX_PARALLELISM: usize = list_directory::MAX_PARALLELISM;
 
 pub const TOOL_KIND_CONTEXT: &str = "context";
@@ -65,6 +71,7 @@ pub struct ToolContext<'a> {
     pub session_id: Option<String>,
     pub thought_signature: String,
     pub outside_workspace_allowed: bool,
+    pub http_write_allowed: bool,
     pub on_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
     pub workspace: Option<std::path::PathBuf>,
     pub parallelism: usize,
@@ -98,6 +105,7 @@ impl ToolContext<'static> {
             session_id: None,
             thought_signature: String::new(),
             outside_workspace_allowed: false,
+            http_write_allowed: false,
             on_chunk: None,
             workspace: Some(workspace),
             parallelism,
@@ -126,6 +134,8 @@ pub struct ToolDisplay {
     pub skill_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lines_removed: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_data: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -138,6 +148,7 @@ pub struct ToolOutcome {
     pub text: String,
     pub display: ToolDisplay,
     pub snapshot: Option<FileSnapshot>,
+    pub image_png: Option<Vec<u8>>,
 }
 
 impl ToolOutcome {
@@ -149,6 +160,7 @@ impl ToolOutcome {
                 ..ToolDisplay::default()
             },
             snapshot: None,
+            image_png: None,
         }
     }
 }
@@ -209,6 +221,9 @@ fn all_tools() -> Vec<Box<dyn Tool>> {
         Box::new(delete::DeleteTool),
         Box::new(fetch_url::FetchUrlTool),
         Box::new(internet_search::InternetSearchTool),
+        Box::new(http_request::HttpRequestTool),
+        Box::new(graphql::GraphqlTool),
+        Box::new(page_shot::PageShotTool),
     ]
 }
 
@@ -243,6 +258,15 @@ pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> Tool
     }
     if name == internet_search::NAME {
         return internet_search::execute_async(arguments, ctx).await;
+    }
+    if name == http_request::NAME {
+        return http_request::execute_async(arguments, ctx).await;
+    }
+    if name == graphql::NAME {
+        return graphql::execute_async(arguments, ctx).await;
+    }
+    if name == page_shot::NAME {
+        return page_shot::execute_async(arguments, ctx).await;
     }
     let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
     for tool in all_tools() {
@@ -417,6 +441,7 @@ pub fn context_error(path: Option<&str>, message: &str) -> ToolOutcome {
             ..ToolDisplay::default()
         },
         snapshot: None,
+        image_png: None,
     }
 }
 
@@ -434,6 +459,7 @@ pub fn action_error(path: &str, message: &str) -> ToolOutcome {
             ..ToolDisplay::default()
         },
         snapshot: None,
+        image_png: None,
     }
 }
 

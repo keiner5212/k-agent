@@ -48,6 +48,11 @@ libc = "0.2"
 # Linux tray icon needs GLib + a system-tray indicator; macOS/Windows use native APIs.
 [target.'cfg(target_os = "linux")'.dependencies]
 glib = "0.18.5"
+gtk = "0.18"
+gdk = "0.18"
+gio = "0.18"
+cairo-rs = { version = "0.18", features = ["png"] }
+webkit2gtk = { version = "2.0", features = ["v2_40"] }
 
 # Disable deprecated libayatana-appindicator (transitively pulled by tray-icon via libappindicator).
 # libayatana-appindicator-glib is the GLib-based replacement and is what's actually needed.
