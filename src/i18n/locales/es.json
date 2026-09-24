@@ -907,6 +907,15 @@
     },
     "interruptedByUser": "interrumpido por el usuario",
     "interruptHint": "Pulsa Esc otra vez para interrumpir",
+    "error": {
+      "empty": "El modelo devolvio una respuesta vacia.",
+      "network": "No se pudo contactar al modelo.",
+      "parse": "No se pudo leer la respuesta del modelo.",
+      "interrupted": "La respuesta se detuvo antes de terminar.",
+      "api": "El proveedor respondio HTTP {{status}}.",
+      "apiDetail": "El proveedor respondio HTTP {{status}}: {{detail}}",
+      "retry": "Reintentar"
+    },
     "queue": {
       "sendNow": "Interrumpir y enviar ahora",
       "edit": "Editar mensaje",

@@ -907,6 +907,15 @@
     },
     "interruptedByUser": "interrupted by user",
     "interruptHint": "Press Esc again to interrupt",
+    "error": {
+      "empty": "The model returned an empty response.",
+      "network": "Could not reach the model.",
+      "parse": "Could not read the model response.",
+      "interrupted": "The response stopped before it finished.",
+      "api": "The provider returned HTTP {{status}}.",
+      "apiDetail": "The provider returned HTTP {{status}}: {{detail}}",
+      "retry": "Retry"
+    },
     "queue": {
       "sendNow": "Interrupt and send now",
       "edit": "Edit message",

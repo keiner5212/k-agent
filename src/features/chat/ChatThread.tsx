@@ -29,6 +29,32 @@ import { QuestionDialog } from "./QuestionDialog";
 import { TodoList } from "./TodoList";
 import { ToolCallsBlock } from "./ToolCallsBlock";
 
+const clipDetail = (value: string): string => {
+  const flat = value.replace(/\s+/g, " ").trim();
+  if (flat.length <= 160) return flat;
+  return `${flat.slice(0, 157)}...`;
+};
+
+const formatChatError = (
+  raw: string,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string => {
+  const text = raw.trim();
+  const lower = text.toLowerCase();
+  if (lower === "empty model response") return t("chat.error.empty");
+  if (lower.startsWith("http error:")) return t("chat.error.network");
+  if (lower.startsWith("parse error:")) return t("chat.error.parse");
+  if (lower.startsWith("response interrupted:")) return t("chat.error.interrupted");
+  const api = text.match(/^api responded with status (\d+):\s*([\s\S]*)$/i);
+  if (api) {
+    const status = api[1] ?? "";
+    const detail = clipDetail(api[2] ?? "");
+    if (detail) return t("chat.error.apiDetail", { status, detail });
+    return t("chat.error.api", { status });
+  }
+  return clipDetail(text);
+};
+
 const AssistantMarkdown = ({
   content,
   streaming,
@@ -344,6 +370,7 @@ const ActiveThread = ({
   messages,
   waiting,
   error,
+  canRetry,
   sessionId,
   themeEpoch,
   onFullscreenMermaid,
@@ -351,6 +378,7 @@ const ActiveThread = ({
   messages: ChatMessage[];
   waiting: boolean;
   error?: string;
+  canRetry: boolean;
   sessionId: string | null;
   themeEpoch: number;
   onFullscreenMermaid: (source: string) => void;
@@ -423,7 +451,22 @@ const ActiveThread = ({
           ))}
           {waiting ? <ChatWaitingLine /> : null}
           <InterruptHint />
-          {error ? <p className="chat-thread__error">{error}</p> : null}
+          {error ? (
+            <div className="chat-thread__error" role="alert">
+              <p className="chat-thread__error-text">{formatChatError(error, t)}</p>
+              {canRetry ? (
+                <button
+                  type="button"
+                  className="chat-thread__error-retry"
+                  onClick={() => {
+                    useSessionsStore.getState().retryLast();
+                  }}
+                >
+                  {t("chat.error.retry")}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
       {showJump ? (
@@ -443,6 +486,7 @@ export const ChatThread = (): ReactNode => {
   const sendingSessionId = useSessionsStore((state) => state.sendingSessionId);
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
   const error = useSessionsStore((state) => state.error);
+  const canRetry = useSessionsStore((state) => state.canRetry);
   const [fullscreenSource, setFullscreenSource] = useState<string | null>(null);
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [mermaidTheme, setMermaidTheme] = useState(0);
@@ -484,6 +528,7 @@ export const ChatThread = (): ReactNode => {
         messages={messages}
         waiting={waiting}
         error={error}
+        canRetry={canRetry}
         sessionId={activeSessionId}
         themeEpoch={mermaidTheme}
         onFullscreenMermaid={openFullscreenMermaid}

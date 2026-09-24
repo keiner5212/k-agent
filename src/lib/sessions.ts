@@ -509,6 +509,7 @@ type SessionsStore = {
   interruptArmedAt: number | null;
   queued: QueuedMessage[];
   error?: string;
+  canRetry: boolean;
   hydrate: () => Promise<void>;
   focusWorkspace: () => Promise<void>;
   create: () => void;
@@ -535,6 +536,7 @@ type SessionsStore = {
   rewindTo: (messageId: string) => void;
   rewindLastUserMessage: () => void;
   editQueued: (id: string) => void;
+  retryLast: () => void;
 };
 
 export const useSessionsStore = create<SessionsStore>((set, get) => ({
@@ -547,6 +549,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   shellRunning: false,
   interruptArmedAt: null,
   queued: [],
+  canRetry: false,
 
   hydrate: async () => {
     if (get().hydrated) return;
@@ -778,6 +781,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       sending: true,
       sendingSessionId: sessionId,
       error: undefined,
+      canRetry: false,
       ...(stickActive ? { activeSessionId: sessionId } : {}),
     });
 
@@ -792,6 +796,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           sending: false,
           sendingSessionId: null,
           error: ipcErrorMessage(error),
+          canRetry: false,
         });
         get().flushQueued();
         return true;
@@ -1250,6 +1255,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           sendingSessionId: null,
           interruptArmedAt: null,
           error: cancelled ? undefined : ipcErrorMessage(error),
+          canRetry: !cancelled,
         });
         void persistSnapshot(snapshotFromState(nextSessions, sessionId));
         get().flushQueued();
@@ -1431,6 +1437,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         shellRunning: false,
         shellRunningSessionId: null,
         error: i18n.t("chat.shell.needsWorkspace"),
+        canRetry: false,
       });
       get().flushQueued();
       return true;
@@ -1445,6 +1452,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         shellRunning: false,
         shellRunningSessionId: null,
         error: ipcErrorMessage(error),
+        canRetry: false,
       });
       get().flushQueued();
       return true;
@@ -1564,6 +1572,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         ...(stillRunning ? { shellRunning: false, shellRunningSessionId: null } : {}),
         ...(stillRunning ? { interruptArmedAt: null } : {}),
         error,
+        canRetry: false,
       });
       const active = get().activeSessionId ?? sessionId;
       void persistSnapshot(snapshotFromState(nextSessions, active));
@@ -1606,6 +1615,39 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       applyShellMessage(formatShellMessage(resolvedCommand, failed), failed, errorMessage);
     }
     return true;
+  },
+
+  retryLast: () => {
+    if (!get().canRetry || get().sending || get().shellRunning || !get().hydrated) return;
+    if (!useSelectionStore.getState().selection || !isTauri()) return;
+    const sessionId = get().activeSessionId;
+    if (!sessionId) return;
+    const session = get().sessions.find((item) => item.id === sessionId);
+    if (!session) return;
+    let messages = sessionMessages(session);
+    const last = messages[messages.length - 1];
+    if (!last) return;
+    if (last.role === "assistant") messages = messages.slice(0, -1);
+    const prompt = messages[messages.length - 1];
+    if (!prompt || prompt.role !== "user" || prompt.kind === "shell") return;
+    if (messages.length !== sessionMessages(session).length) {
+      const nextSessions = sortSessions(
+        patchActiveSession(get().sessions, sessionId, (item) => ({
+          ...item,
+          messages,
+          preview: previewFromMessages(messages),
+          updatedAt: Date.now(),
+        })),
+      );
+      set({ sessions: nextSessions, error: undefined, canRetry: false });
+      void persistSnapshot(snapshotFromState(nextSessions, sessionId));
+    } else {
+      set({ error: undefined, canRetry: false });
+    }
+    void get().send("", sessionId, undefined, {
+      assistantId: nextId(),
+      resumeConfirmed: false,
+    });
   },
 
   rewindLastUserMessage: () => {

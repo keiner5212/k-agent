@@ -9,6 +9,8 @@ use crate::providers::{attach_auth, load_all, ModelInfo, Provider, ProviderError
 use crate::tools::{self, ModelToolCall, ToolContext, ToolDisplay};
 
 const CHAT_HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+const RESPONSE_ATTEMPTS: u32 = 3;
+const RETRY_BACKOFF_MS: u64 = 400;
 const DEFAULT_TEMPERATURE: f64 = 1.0;
 const DEFAULT_TOP_P: f64 = 0.95;
 const DEFAULT_MAX_OUTPUT: u64 = 8192;
@@ -231,6 +233,8 @@ pub enum ChatError {
     ApiStatus { status: u16, body: String },
     #[error("empty model response")]
     EmptyResponse,
+    #[error("response interrupted: {0}")]
+    StreamInterrupted(String),
     #[error("interrupted by user")]
     Cancelled,
 }
@@ -1514,7 +1518,7 @@ async fn collect_stream(
     let mut reasoning = String::new();
     let mut reasoning_signature = String::new();
     let mut tool_slots: Vec<(usize, ToolCallBuilder)> = Vec::new();
-    consume_sse(resp, |data| {
+    let streamed = consume_sse(resp, |data| {
         let Ok(value) = serde_json::from_str::<serde_json::Value>(data) else {
             return Ok(());
         };
@@ -1539,20 +1543,26 @@ async fn collect_stream(
         }
         Ok(())
     })
-    .await?;
+    .await;
     take_split(&mut content, &mut reasoning, filter.finish(), on_chunk);
     let tool_calls = finish_stream_tools(tool_slots);
-    if content.trim().is_empty() && reasoning.trim().is_empty() && tool_calls.is_empty() {
-        Err(ChatError::EmptyResponse)
-    } else {
-        Ok(ChatOutput {
-            content,
-            reasoning,
-            reasoning_signature,
-            tool_calls,
-            tool_rounds: Vec::new(),
-        })
+    let empty = content.trim().is_empty() && reasoning.trim().is_empty() && tool_calls.is_empty();
+    if let Err(error) = streamed {
+        if empty {
+            return Err(error);
+        }
+        return Err(ChatError::StreamInterrupted(error.to_string()));
     }
+    if empty {
+        return Err(ChatError::EmptyResponse);
+    }
+    Ok(ChatOutput {
+        content,
+        reasoning,
+        reasoning_signature,
+        tool_calls,
+        tool_rounds: Vec::new(),
+    })
 }
 
 fn apply_openai_like_reasoning(body: &mut serde_json::Value, call: &ChatCall<'_>) {
@@ -1982,6 +1992,42 @@ async fn dispatch_provider(
     }
 }
 
+fn retryable_response(error: &ChatError) -> bool {
+    match error {
+        ChatError::EmptyResponse | ChatError::Http(_) | ChatError::Parse(_) => true,
+        ChatError::ApiStatus { status, .. } => {
+            matches!(*status, 408 | 409 | 425 | 429 | 500 | 502 | 503 | 504 | 529)
+        }
+        ChatError::Provider(_)
+        | ChatError::EmptyMessage
+        | ChatError::ProviderNotFound(_)
+        | ChatError::StreamInterrupted(_)
+        | ChatError::Cancelled => false,
+    }
+}
+
+async fn dispatch_with_retry(
+    provider: &Provider,
+    call: &ChatCall<'_>,
+    on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
+) -> Result<ChatOutput, ChatError> {
+    let mut attempt = 1u32;
+    loop {
+        match dispatch_provider(provider, call, on_chunk).await {
+            Ok(output) => return Ok(output),
+            Err(error) if attempt < RESPONSE_ATTEMPTS && retryable_response(&error) => {
+                eprintln!("[chat] attempt {attempt} failed ({error}); retrying");
+                tokio::time::sleep(std::time::Duration::from_millis(
+                    RETRY_BACKOFF_MS * u64::from(attempt),
+                ))
+                .await;
+                attempt += 1;
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
+
 async fn commit_tool_calls(
     app: &AppHandle,
     call: &ChatCall<'_>,
@@ -2133,7 +2179,7 @@ async fn send_message(
         return Err(ChatError::EmptyMessage);
     }
     if !tools_enabled(call) {
-        let mut output = dispatch_provider(provider, call, on_chunk).await?;
+        let mut output = dispatch_with_retry(provider, call, on_chunk).await?;
         output.content = tools::truncate_assistant(&output.content);
         return Ok(ChatOutput {
             content: output.content,
@@ -2202,7 +2248,7 @@ async fn send_message(
             shell_program: call.shell_program,
         };
         let round_started = std::time::Instant::now();
-        let output = dispatch_provider(provider, &round_call, on_chunk).await?;
+        let output = dispatch_with_retry(provider, &round_call, on_chunk).await?;
         let thinking_ms = round_started.elapsed().as_millis() as u64;
         if on_chunk.is_none() && !output.reasoning.is_empty() {
             emit_chunk(on_chunk, "reasoning", &output.reasoning);
@@ -2929,6 +2975,30 @@ mod tests {
             tool_parallelism(Some(10_000)),
             tools::LIST_DIRECTORY_MAX_PARALLELISM
         );
+    }
+
+    #[test]
+    fn retryable_response_covers_transient_failures_only() {
+        assert!(retryable_response(&ChatError::EmptyResponse));
+        assert!(retryable_response(&ChatError::Http("reset".into())));
+        assert!(retryable_response(&ChatError::Parse("bad json".into())));
+        assert!(retryable_response(&ChatError::ApiStatus {
+            status: 429,
+            body: "slow down".into(),
+        }));
+        assert!(retryable_response(&ChatError::ApiStatus {
+            status: 503,
+            body: "unavailable".into(),
+        }));
+        assert!(!retryable_response(&ChatError::ApiStatus {
+            status: 400,
+            body: "bad request".into(),
+        }));
+        assert!(!retryable_response(&ChatError::Cancelled));
+        assert!(!retryable_response(&ChatError::EmptyMessage));
+        assert!(!retryable_response(&ChatError::StreamInterrupted(
+            "http error: reset".into()
+        )));
     }
 
     #[test]
