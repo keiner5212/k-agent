@@ -702,6 +702,14 @@
       "validate_mermaid": {
         "label": "Check diagram",
         "description": "Parse a mermaid diagram before it is shown in chat. The reply may include the diagram only after this returns ok."
+      },
+      "bash": {
+        "label": "Shell",
+        "description": "Run one shell command in the workspace. Blocked commands never run. Allowed commands skip the prompt. Dangerous commands ask first."
+      },
+      "grep": {
+        "label": "Search files",
+        "description": "Search file contents with ripgrep using the configured worker cores."
       }
     },
     "delete": {
@@ -1000,6 +1008,8 @@
       "deleteTitle": "Delete",
       "todoTitle": "Plan",
       "validateMermaidTitle": "Diagram check",
+      "bashTitle": "Shell",
+      "grepTitle": "Search",
       "outputTitle": "Tool output"
     },
     "todos": {

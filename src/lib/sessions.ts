@@ -940,6 +940,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           resumeConfirmed: Boolean(replay?.resumeConfirmed),
           toolNames,
           workerCores: getWorkerCoreSnapshot().limit,
+          allowedCommands: useSettingsStore.getState().allowedCommands,
+          blockedCommands: useSettingsStore.getState().blockedCommands,
+          shellProgram: useSettingsStore.getState().shellProgram,
         },
         onChunk,
       });

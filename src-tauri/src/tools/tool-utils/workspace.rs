@@ -221,6 +221,29 @@ async fn ask_choice(
     OutsideChoice::Deny
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConfirmChoice {
+    Deny,
+    Once,
+    Session,
+}
+
+pub async fn confirm_action(
+    ctx: &ToolContext<'_>,
+    id: &str,
+    header: &str,
+    question: &str,
+) -> Result<ConfirmChoice, String> {
+    if ctx.on_chunk.is_none() && ctx.app.is_none() {
+        return Err("bash confirmation needs the desktop shell.".into());
+    }
+    Ok(match ask_choice(ctx, id, header, question).await {
+        OutsideChoice::Deny => ConfirmChoice::Deny,
+        OutsideChoice::Once => ConfirmChoice::Once,
+        OutsideChoice::Session => ConfirmChoice::Session,
+    })
+}
+
 fn canonical_or_normalize(path: &Path) -> PathBuf {
     dunce::canonicalize(path).unwrap_or_else(|_| normalize(path))
 }

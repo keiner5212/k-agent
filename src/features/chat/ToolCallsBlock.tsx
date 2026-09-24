@@ -38,6 +38,8 @@ const TOOL_SYMBOL: Record<string, string> = {
   delete: "\u2715 ",
   todowrite: "\u25C7 ",
   validate_mermaid: "\u25A1 ",
+  bash: "\u25B8 ",
+  grep: "\u2315 ",
 };
 
 const READ_LINE_RE = /^(\d+): (.*)$/;
@@ -165,7 +167,11 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
               ? "chat.tools.todoTitle"
               : call.name === "validate_mermaid"
                 ? "chat.tools.validateMermaidTitle"
-                : "chat.tools.outputTitle";
+                : call.name === "bash"
+                  ? "chat.tools.bashTitle"
+                  : call.name === "grep"
+                    ? "chat.tools.grepTitle"
+                    : "chat.tools.outputTitle";
     const parsedRead = call.name === "read" ? readToolView(call.output ?? "") : null;
     setPreview({
       titleKey,

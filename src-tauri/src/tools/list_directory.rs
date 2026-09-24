@@ -13,7 +13,7 @@ use super::{
 
 pub const NAME: &str = "list_directory";
 
-const DESCRIPTION: &str = "List directory entries. Path is absolute or workspace-relative (default: workspace root). Paths outside the workspace wait for the user to allow or deny. recursive walks the tree; maxDepth default 3, max 10. Skips noise dirs. Capped at 5000 lines. Walks subtrees in parallel using available CPU cores with a short-lived cache.";
+const DESCRIPTION: &str = "List a directory as tagged paths the model can pass to read or edit. Each line is [dir] or [file], indented when recursive. summary counts directories and files. Path is absolute or workspace-relative (default: workspace root). Paths outside the workspace wait for the user. recursive walks the tree; maxDepth default 3, max 10. Skips noise dirs. Capped at 5000 lines. Walks subtrees in parallel using configured worker cores.";
 
 const MAX_ENTRIES_PER_DIR: usize = 2_000;
 const MAX_OUTPUT_LINES: usize = 5_000;
@@ -301,19 +301,22 @@ fn render_tree(
                 break;
             }
             lines.push(if entry.is_dir {
-                format!("{}/", entry.name)
+                format!("[dir] {}", entry.name)
             } else {
-                entry.name
+                format!("[file] {}", entry.name)
             });
             if let Ok(mut g) = budget.lock() {
                 *g = g.saturating_sub(1);
             }
         }
     }
+    let (dirs, files) = count_kinds(&lines);
+    let summary = format!("{dirs} directories, {files} files");
     let entries = lines.join("\n");
     ToolOutcome {
         text: toon_doc(&[
             ("path", ToonValue::Str(rel)),
+            ("summary", ToonValue::Str(&summary)),
             ("entries", ToonValue::Block(&entries)),
         ]),
         display: ToolDisplay {
@@ -325,6 +328,20 @@ fn render_tree(
         snapshot: None,
         image_png: None,
     }
+}
+
+fn count_kinds(lines: &[String]) -> (usize, usize) {
+    let mut dirs = 0usize;
+    let mut files = 0usize;
+    for line in lines {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("[dir]") {
+            dirs += 1;
+        } else if trimmed.starts_with("[file]") {
+            files += 1;
+        }
+    }
+    (dirs, files)
 }
 
 fn walk_inner(
@@ -388,7 +405,7 @@ fn walk_inner(
             return;
         }
         if entry.is_dir {
-            lines.push(format!("{indent}{}/", entry.name));
+            lines.push(format!("{indent}[dir] {}", entry.name));
             if let Ok(mut g) = budget.lock() {
                 *g = g.saturating_sub(1);
             }
@@ -420,7 +437,7 @@ fn walk_inner(
                 }
             }
         } else {
-            lines.push(format!("{indent}{}", entry.name));
+            lines.push(format!("{indent}[file] {}", entry.name));
             if let Ok(mut g) = budget.lock() {
                 *g = g.saturating_sub(1);
             }

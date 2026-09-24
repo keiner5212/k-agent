@@ -5,6 +5,7 @@ Replace an exact string in an existing file with multiple relaxations for whites
 ## Does
 
 - Replaces the first (or every) match of `oldString` with `newString` in the target file.
+- Applies several edits in one call through `edits`. Every edit is checked in memory first. A failed check writes nothing. A failed write rolls back files already written in that call.
 - Tries 9 replacers in order when an exact match fails: `simple`, `line_trimmed`, `block_anchor`, `whitespace_normalized`, `indentation_flexible`, `escape_normalized`, `trimmed_boundary`, `context_aware`, `multi_occurrence`. Each attempts to find `oldString` under looser matching.
 - Detects whether the file uses `\n` or `\r\n` line endings and converts `oldString` / `newString` to match before applying the replacement.
 - Locks the target file with a per-path mutex for the duration of the replacement so concurrent edit/write calls cannot interleave.
@@ -20,12 +21,13 @@ Replace an exact string in an existing file with multiple relaxations for whites
 
 ## Options
 
-| Name         | Type    | Required | Default | Notes                                                                            |
-| ------------ | ------- | -------- | ------- | -------------------------------------------------------------------------------- |
-| `filePath`   | string  | yes      | -       | Absolute or workspace-relative path to an existing file.                         |
-| `oldString`  | string  | yes      | -       | Substring to find. Must be non-empty and different from `newString`.             |
-| `newString`  | string  | yes      | -       | Replacement body.                                                                |
-| `replaceAll` | boolean | no       | `false` | When `true`, replace every match. Otherwise the tool errors on multiple matches. |
+| Name         | Type    | Required | Default | Notes                                                                                               |
+| ------------ | ------- | -------- | ------- | --------------------------------------------------------------------------------------------------- |
+| `filePath`   | string  | yes      | -       | Absolute or workspace-relative path to an existing file.                                            |
+| `oldString`  | string  | yes      | -       | Substring to find. Must be non-empty and different from `newString`.                                |
+| `newString`  | string  | yes      | -       | Replacement body.                                                                                   |
+| `replaceAll` | boolean | no       | `false` | When `true`, replace every match. Otherwise the tool errors on multiple matches.                    |
+| `edits`      | array   | no       | -       | Several `{filePath, oldString, newString, replaceAll}` edits. Do not also set the top-level fields. |
 
 ## Response
 

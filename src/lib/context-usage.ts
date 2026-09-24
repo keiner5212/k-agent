@@ -285,6 +285,24 @@ const TODO_TOOL_PARAMETERS = {
   required: ["todos"],
 } as const;
 
+const BASH_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    command: { type: "string", description: "One shell command." },
+  },
+  required: ["command"],
+} as const;
+
+const GREP_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    pattern: { type: "string", description: "Ripgrep regex." },
+    path: { type: "string", description: "File or directory. Default workspace root." },
+    glob: { type: "string", description: "Optional glob such as *.rs." },
+  },
+  required: ["pattern"],
+} as const;
+
 const VALIDATE_MERMAID_TOOL_PARAMETERS = {
   type: "object",
   properties: {
@@ -313,6 +331,8 @@ const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   page_shot: PAGE_SHOT_TOOL_PARAMETERS,
   todowrite: TODO_TOOL_PARAMETERS,
   validate_mermaid: VALIDATE_MERMAID_TOOL_PARAMETERS,
+  bash: BASH_TOOL_PARAMETERS,
+  grep: GREP_TOOL_PARAMETERS,
 };
 
 export const CONTEXT_CATEGORY_IDS = [

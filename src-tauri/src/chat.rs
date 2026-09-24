@@ -78,6 +78,12 @@ pub struct SendChatInput {
     #[serde(default)]
     pub worker_cores: Option<u32>,
     #[serde(default)]
+    pub allowed_commands: Vec<String>,
+    #[serde(default)]
+    pub blocked_commands: Vec<String>,
+    #[serde(default)]
+    pub shell_program: String,
+    #[serde(default)]
     pub outside_workspace_allowed: bool,
     #[serde(default)]
     pub http_write_allowed: bool,
@@ -191,6 +197,9 @@ struct ChatCall<'a> {
     tool_names: &'a [String],
     mcp_tools: &'a [crate::mcp_client::BoundMcpTool],
     parallelism: usize,
+    allowed_commands: &'a [String],
+    blocked_commands: &'a [String],
+    shell_program: &'a str,
 }
 
 fn tool_parallelism(worker_cores: Option<u32>) -> usize {
@@ -539,9 +548,10 @@ fn normalize_turns(input: &[ChatTurn], keep_trailing_tools: bool) -> Vec<Turn> {
     while turns.first().is_some_and(|turn| turn.assistant) {
         turns.remove(0);
     }
-    while turns.last().is_some_and(|turn| {
-        turn.assistant && !(keep_trailing_tools && !turn.tool_calls.is_empty())
-    }) {
+    while turns
+        .last()
+        .is_some_and(|turn| turn.assistant && !(keep_trailing_tools && !turn.tool_calls.is_empty()))
+    {
         turns.pop();
     }
     turns
@@ -1973,6 +1983,9 @@ async fn commit_tool_calls(
                 on_chunk,
                 workspace: None,
                 parallelism: call.parallelism,
+                allowed_commands: call.allowed_commands.to_vec(),
+                blocked_commands: call.blocked_commands.to_vec(),
+                shell_program: call.shell_program.to_string(),
             };
             let outcome = tools::execute(&tc.name, &tc.arguments, &tool_ctx).await;
             if let Some(snapshot) = outcome.snapshot {
@@ -2117,6 +2130,9 @@ async fn send_message(
             tool_names: call.tool_names,
             mcp_tools: call.mcp_tools,
             parallelism: call.parallelism,
+            allowed_commands: call.allowed_commands,
+            blocked_commands: call.blocked_commands,
+            shell_program: call.shell_program,
         };
         let round_started = std::time::Instant::now();
         let output = dispatch_provider(provider, &round_call, on_chunk).await?;
@@ -2300,6 +2316,9 @@ pub async fn generate_session_title(
         tool_names: &[],
         mcp_tools: &[],
         parallelism: 1,
+        allowed_commands: &[],
+        blocked_commands: &[],
+        shell_program: "",
     };
     let title = normalize_generated_title(
         &send_message(&app, &provider, &call, None, None, false, false, false)
@@ -2458,6 +2477,9 @@ pub async fn generate_app_content(
         tool_names: &[],
         mcp_tools: &[],
         parallelism: 1,
+        allowed_commands: &[],
+        blocked_commands: &[],
+        shell_program: "",
     };
     let text = normalize_generated_text(
         &send_message(&app, &provider, &call, None, None, false, false, false)
@@ -2713,6 +2735,9 @@ pub async fn send_chat_message(
         tool_names: &tool_names,
         mcp_tools: &mcp_tools,
         parallelism: tool_parallelism(input.worker_cores),
+        allowed_commands: &input.allowed_commands,
+        blocked_commands: &input.blocked_commands,
+        shell_program: &input.shell_program,
     };
     log_chat_config(&provider, &input, &call);
     let send_fut = send_message(
@@ -2771,26 +2796,29 @@ mod tests {
 
     #[test]
     fn normalize_turns_keeps_user_and_drops_unknown_roles() {
-        let turns = normalize_turns(&[
-            ChatTurn {
-                role: "system".into(),
-                content: "nope".into(),
-                reasoning: None,
-                reasoning_signature: None,
-                attachments: Vec::new(),
-                tool_calls: Vec::new(),
-                tool_result: None,
-            },
-            ChatTurn {
-                role: "user".into(),
-                content: "hello".into(),
-                reasoning: None,
-                reasoning_signature: None,
-                attachments: Vec::new(),
-                tool_calls: Vec::new(),
-                tool_result: None,
-            },
-        ], false);
+        let turns = normalize_turns(
+            &[
+                ChatTurn {
+                    role: "system".into(),
+                    content: "nope".into(),
+                    reasoning: None,
+                    reasoning_signature: None,
+                    attachments: Vec::new(),
+                    tool_calls: Vec::new(),
+                    tool_result: None,
+                },
+                ChatTurn {
+                    role: "user".into(),
+                    content: "hello".into(),
+                    reasoning: None,
+                    reasoning_signature: None,
+                    attachments: Vec::new(),
+                    tool_calls: Vec::new(),
+                    tool_result: None,
+                },
+            ],
+            false,
+        );
         assert_eq!(turns.len(), 1);
         assert!(!turns[0].assistant);
         assert_eq!(turns[0].content, "hello");

@@ -19,7 +19,7 @@ List directory entries. Optional recursive walk with bounded depth and parallel 
 - Traverse further than `maxDepth` lets it. The walk stops at the depth bound.
 - Delete the recursive cache TTL. The 1-second cache is intentional; expect re-reads on every burst.
 - Walk a directory outside the workspace without an allow answer. The tool waits on that prompt.
-- Report file sizes or mtimes. The output is `name` or `name/`.
+- Report file sizes or mtimes. Each line is `[dir]` or `[file]` plus the name, indented when the walk is recursive.
 
 ## Options
 
@@ -31,10 +31,11 @@ List directory entries. Optional recursive walk with bounded depth and parallel 
 
 ## Response
 
-| Field     | Type   | Notes                                                                                                                                                 |
-| --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `path`    | string | Workspace-relative directory that was listed.                                                                                                         |
-| `entries` | string | One entry per line, directories suffixed with `/`, sub-entries indented by 2 spaces. Multi-line; rendered as a quoted TOON string with embedded `\n`. |
+| Field     | Type   | Notes                                                                                           |
+| --------- | ------ | ----------------------------------------------------------------------------------------------- |
+| `path`    | string | Workspace-relative directory that was listed.                                                   |
+| `summary` | string | Counts, for example `2 directories, 5 files`.                                                   |
+| `entries` | string | One `[dir] name` or `[file] name` per line. Recursive rows stay indented by 2 spaces per level. |
 
 See `response.toon` for the concrete wire shape the LLM sees.
 

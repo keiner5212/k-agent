@@ -18,6 +18,8 @@ export const AGENT_TOOL_IDS = [
   "page_shot",
   "todowrite",
   "validate_mermaid",
+  "bash",
+  "grep",
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
@@ -31,13 +33,14 @@ export const PLAN_AGENT_TOOL_IDS: readonly AgentToolId[] = [
   "internet_search",
   "fetch_url",
   "validate_mermaid",
+  "grep",
 ];
 
 export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   skill: "Load a skill by name. Returns SKILL.md body and dir.",
   read: "Read a file. Path absolute or workspace-relative. Outside the workspace, waits for the user to allow or deny.",
   write: "Create or overwrite a file. Outside the workspace, waits for the user to allow or deny.",
-  edit: "Exact string replace in a file. Read first. Outside the workspace, waits for the user to allow or deny.",
+  edit: "Exact string replace in one or more files. Pass filePath, oldString, and newString for one edit, or edits for several applied together. Read first. Outside the workspace, waits for the user to allow or deny.",
   list_directory:
     "List directory entries. recursive/maxDepth optional. Outside the workspace, waits for the user to allow or deny.",
   ask_user:
@@ -60,6 +63,8 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
     "Update the session todo list incrementally. Each item has a stable id. Use add for new items, update to change existing ones by id, remove to delete by id, and clear: true to wipe the list. Empty args is a no-op, not a clear. Priority is numeric 0-10. The list is shown to the user and persisted across restarts.",
   validate_mermaid:
     "Check one mermaid diagram with the same parser the chat uses. Call this before a mermaid fence goes in the reply. status ok means the source parsed. status error returns the parser message. Fix the source and call again. Do not put a failed diagram in the reply.",
+  bash: "Run one shell command in the workspace. Exact blocked commands never run. Exact allowed commands skip the prompt. Destructive, networked, or redirecting commands wait for the user to deny, allow once, or allow for this chat.",
+  grep: "Search file contents with ripgrep. pattern is a regex. path defaults to the workspace. glob limits files. Uses the configured worker cores.",
 };
 
 export const MAX_AGENT_SKILLS = 10;

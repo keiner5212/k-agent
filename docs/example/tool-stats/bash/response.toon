@@ -1,0 +1,3 @@
+status: error
+exitCode: 2
+output: "\n/bin/sh: 29: source: not found\n/bin/sh: 32: .: cannot open /home/keiner5212/.deno/env: No such file\n"

@@ -702,6 +702,14 @@
       "validate_mermaid": {
         "label": "Revisar diagrama",
         "description": "Parsea un diagrama mermaid antes de mostrarlo en el chat. La respuesta puede incluir el diagrama solo si esto devuelve ok."
+      },
+      "bash": {
+        "label": "Shell",
+        "description": "Ejecuta un comando en el workspace. Los comandos bloqueados no corren. Los permitidos no preguntan. Los peligrosos piden confirmacion."
+      },
+      "grep": {
+        "label": "Buscar en archivos",
+        "description": "Busca en el contenido de archivos con ripgrep usando los nucleos configurados."
       }
     },
     "delete": {
@@ -1000,6 +1008,8 @@
       "deleteTitle": "Eliminar",
       "todoTitle": "Plan",
       "validateMermaidTitle": "Revision del diagrama",
+      "bashTitle": "Shell",
+      "grepTitle": "Busqueda",
       "outputTitle": "Salida de la herramienta"
     },
     "todos": {

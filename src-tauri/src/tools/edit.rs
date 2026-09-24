@@ -12,7 +12,7 @@ use super::{
 
 pub const NAME: &str = "edit";
 
-const DESCRIPTION: &str = "Exact string replace in a file. Read first. Fails if oldString is missing or not unique, unless replaceAll is true. Path is absolute or workspace-relative. Paths outside the workspace wait for the user to allow or deny.";
+const DESCRIPTION: &str = "Exact string replace in one or more files. Pass filePath/oldString/newString for one edit, or edits for several. All edits are checked before any file is written. Read first. Fails if oldString is missing or not unique, unless replaceAll is true. Paths outside the workspace wait for the user to allow or deny.";
 
 pub struct EditTool;
 
@@ -39,122 +39,293 @@ impl Tool for EditTool {
                     "replaceAll": {
                         "type": "boolean",
                         "description": "Replace every match (default false)"
+                    },
+                    "edits": {
+                        "type": "array",
+                        "description": "Several edits applied together. Each item has filePath, oldString, newString, and optional replaceAll. Do not also set the top-level fields.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "filePath": { "type": "string" },
+                                "oldString": { "type": "string" },
+                                "newString": { "type": "string" },
+                                "replaceAll": { "type": "boolean" }
+                            },
+                            "required": ["filePath", "oldString", "newString"]
+                        }
                     }
                 },
-                "required": ["filePath", "oldString", "newString"]
+                "anyOf": [
+                    { "required": ["filePath", "oldString", "newString"] },
+                    { "required": ["edits"] }
+                ]
             }),
         }
     }
 
     fn execute(&self, args: &Value, ctx: &ToolContext<'_>) -> ToolOutcome {
-        let Some(raw_path) = args.get("filePath").and_then(Value::as_str) else {
-            return super::action_error("", "edit tool requires a string `filePath`.");
+        let ops = match parse_edits(args) {
+            Ok(ops) => ops,
+            Err(message) => return super::action_error("", &message),
         };
-        let Some(old_string) = args.get("oldString").and_then(Value::as_str) else {
-            return super::action_error("", "edit tool requires a string `oldString`.");
-        };
-        let Some(new_string) = args.get("newString").and_then(Value::as_str) else {
-            return super::action_error("", "edit tool requires a string `newString`.");
-        };
-        let replace_all = args
-            .get("replaceAll")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
+        apply_edits(ctx, &ops)
+    }
+}
 
-        let trimmed_path = raw_path.trim();
-        if trimmed_path.is_empty() {
-            return super::action_error("", "edit tool `filePath` is empty.");
+pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
+    let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
+    let ops = match parse_edits(&args) {
+        Ok(ops) => ops,
+        Err(message) => return super::action_error("", &message),
+    };
+    let mut seen = Vec::new();
+    for op in &ops {
+        if seen.iter().any(|path: &String| path == &op.file_path) {
+            continue;
         }
-        if old_string == new_string {
-            return super::action_error(
-                trimmed_path,
-                "No changes to apply: oldString and newString are identical.",
+        seen.push(op.file_path.clone());
+        let probe = super::tool_utils::workspace::guard(ctx, &op.file_path, "Edit", true, || {
+            super::ToolOutcome::text("ok")
+        })
+        .await;
+        if probe.text.contains("denied") {
+            return probe;
+        }
+    }
+    EditTool.execute(&args, ctx)
+}
+
+struct EditRequest {
+    file_path: String,
+    old_string: String,
+    new_string: String,
+    replace_all: bool,
+}
+
+fn parse_edits(args: &Value) -> Result<Vec<EditRequest>, String> {
+    let has_single = args.get("filePath").is_some()
+        || args.get("oldString").is_some()
+        || args.get("newString").is_some();
+    if let Some(edits) = args.get("edits") {
+        if has_single {
+            return Err(
+                "edit accepts either filePath/oldString/newString or `edits`, not both.".into(),
             );
         }
-        let resolved = match resolve_path(ctx, trimmed_path) {
-            Ok(value) => value,
-            Err(message) => return super::action_error(trimmed_path, &message),
+        let items = edits.as_array().ok_or("edit `edits` must be an array.")?;
+        if items.is_empty() {
+            return Err("edit `edits` is empty.".into());
+        }
+        let mut ops = Vec::with_capacity(items.len());
+        for (index, item) in items.iter().enumerate() {
+            ops.push(parse_one(item).map_err(|error| format!("edit edits[{index}]: {error}"))?);
+        }
+        return Ok(ops);
+    }
+    Ok(vec![parse_one(args)?])
+}
+
+fn parse_one(args: &Value) -> Result<EditRequest, String> {
+    let file_path = args
+        .get("filePath")
+        .and_then(Value::as_str)
+        .ok_or("edit requires a string `filePath`.")?
+        .trim()
+        .to_string();
+    if file_path.is_empty() {
+        return Err("edit `filePath` is empty.".into());
+    }
+    let old_string = args
+        .get("oldString")
+        .and_then(Value::as_str)
+        .ok_or("edit requires a string `oldString`.")?
+        .to_string();
+    let new_string = args
+        .get("newString")
+        .and_then(Value::as_str)
+        .ok_or("edit requires a string `newString`.")?
+        .to_string();
+    if old_string == new_string {
+        return Err("No changes to apply: oldString and newString are identical.".into());
+    }
+    let replace_all = args
+        .get("replaceAll")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    Ok(EditRequest {
+        file_path,
+        old_string,
+        new_string,
+        replace_all,
+    })
+}
+
+struct StagedEdit {
+    resolved: PathBuf,
+    rel: String,
+    before: String,
+    after: String,
+}
+
+fn apply_edits(ctx: &ToolContext<'_>, ops: &[EditRequest]) -> ToolOutcome {
+    let mut order: Vec<PathBuf> = Vec::new();
+    let mut grouped: HashMap<PathBuf, Vec<&EditRequest>> = HashMap::new();
+    for op in ops {
+        let resolved = match resolve_path(ctx, &op.file_path) {
+            Ok(path) => path,
+            Err(message) => return super::action_error(&op.file_path, &message),
         };
         if super::tool_utils::workspace::reject_if_unconfirmed(
             &resolved,
             ctx.workspace_path().as_deref(),
         ) {
             return super::action_error(
-                trimmed_path,
+                &op.file_path,
                 "edit outside the workspace must run on the async dispatch path.",
             );
         }
-        let rel = ctx.relative_path(&resolved);
-        let _guard = match file_lock_for(&resolved) {
-            Ok(guard) => guard,
-            Err(message) => return super::action_error(&rel, &message),
-        };
-
-        match fs::read_to_string(&resolved) {
-            Ok(content_old) => {
-                let ending = detect_line_ending(&content_old);
-                let normalized_old =
-                    convert_to_line_ending(&normalize_line_endings(old_string), ending);
-                let normalized_new =
-                    convert_to_line_ending(&normalize_line_endings(new_string), ending);
-                let replaced =
-                    match replace(&content_old, &normalized_old, &normalized_new, replace_all) {
-                        Ok(value) => value,
-                        Err(error) => return super::action_error(&rel, &error),
-                    };
-                if let Err(error) = fs::write(&resolved, &replaced) {
-                    return super::action_error(
-                        &rel,
-                        &format!("Unable to write `{}`: {error}", resolved.display()),
-                    );
-                }
-                let (added, removed) = line_add_remove(&content_old, &replaced);
-                ToolOutcome {
-                    text: toon_doc(&[
-                        ("path", ToonValue::Str(&rel)),
-                        ("status", ToonValue::Str("ok")),
-                        ("added", ToonValue::Int(added as i64)),
-                        ("removed", ToonValue::Int(removed as i64)),
-                    ]),
-                    display: ToolDisplay {
-                        kind: TOOL_KIND_ACTION.to_string(),
-                        path: Some(rel),
-                        added: Some(added),
-                        removed: Some(removed),
-                        status: Some("ok".into()),
-                        ..ToolDisplay::default()
-                    },
-                    snapshot: Some(FileSnapshot {
-                        before: content_old,
-                        after: replaced,
-                    }),
-                    image_png: None,
-                }
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                super::action_error(&rel, &format!("File not found: {}", resolved.display()))
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::InvalidData => super::action_error(
-                &rel,
-                &format!("Cannot edit binary file: {}", resolved.display()),
-            ),
-            Err(error) => super::action_error(
-                &rel,
-                &format!("Unable to read `{}`: {error}", resolved.display()),
-            ),
+        if !grouped.contains_key(&resolved) {
+            order.push(resolved.clone());
         }
+        grouped.entry(resolved).or_default().push(op);
+    }
+    order.sort();
+    let mut guards = Vec::new();
+    for path in &order {
+        match file_lock_for(path) {
+            Ok(guard) => guards.push(guard),
+            Err(message) => return super::action_error(&ctx.relative_path(path), &message),
+        }
+    }
+    let mut staged = Vec::new();
+    for path in &order {
+        let rel = ctx.relative_path(path);
+        let content = match fs::read_to_string(path) {
+            Ok(content) => content,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return super::action_error(&rel, &format!("File not found: {}", path.display()));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::InvalidData => {
+                return super::action_error(
+                    &rel,
+                    &format!("Cannot edit binary file: {}", path.display()),
+                );
+            }
+            Err(error) => {
+                return super::action_error(
+                    &rel,
+                    &format!("Unable to read `{}`: {error}", path.display()),
+                );
+            }
+        };
+        let mut next = content.clone();
+        for op in grouped.get(path).into_iter().flatten() {
+            let ending = detect_line_ending(&next);
+            let old = convert_to_line_ending(&normalize_line_endings(&op.old_string), ending);
+            let new = convert_to_line_ending(&normalize_line_endings(&op.new_string), ending);
+            next = match replace(&next, &old, &new, op.replace_all) {
+                Ok(value) => value,
+                Err(error) => return super::action_error(&rel, &error),
+            };
+        }
+        staged.push(StagedEdit {
+            resolved: path.clone(),
+            rel,
+            before: content,
+            after: next,
+        });
+    }
+    for (index, file) in staged.iter().enumerate() {
+        if let Err(error) = fs::write(&file.resolved, &file.after) {
+            for written in staged.iter().take(index) {
+                let _ = fs::write(&written.resolved, &written.before);
+            }
+            return super::action_error(
+                &file.rel,
+                &format!("Unable to write `{}`: {error}", file.resolved.display()),
+            );
+        }
+    }
+    drop(guards);
+    let mut added_total = 0u32;
+    let mut removed_total = 0u32;
+    let mut lines = Vec::new();
+    for file in &staged {
+        let (added, removed) = line_add_remove(&file.before, &file.after);
+        added_total += added;
+        removed_total += removed;
+        lines.push(format!("{} +{added} -{removed}", file.rel));
+    }
+    let files = lines.join("\n");
+    let first = staged
+        .first()
+        .map(|file| file.rel.clone())
+        .unwrap_or_default();
+    let snapshot = pack_snapshot(&staged);
+    if staged.len() == 1 {
+        return ToolOutcome {
+            text: toon_doc(&[
+                ("path", ToonValue::Str(&first)),
+                ("status", ToonValue::Str("ok")),
+                ("added", ToonValue::Int(added_total as i64)),
+                ("removed", ToonValue::Int(removed_total as i64)),
+            ]),
+            display: ToolDisplay {
+                kind: TOOL_KIND_ACTION.to_string(),
+                path: Some(first),
+                added: Some(added_total),
+                removed: Some(removed_total),
+                status: Some("ok".into()),
+                ..ToolDisplay::default()
+            },
+            snapshot: Some(snapshot),
+            image_png: None,
+        };
+    }
+    let count = staged.len() as i64;
+    ToolOutcome {
+        text: toon_doc(&[
+            ("status", ToonValue::Str("ok")),
+            ("count", ToonValue::Int(count)),
+            ("added", ToonValue::Int(added_total as i64)),
+            ("removed", ToonValue::Int(removed_total as i64)),
+            ("files", ToonValue::Block(&files)),
+        ]),
+        display: ToolDisplay {
+            kind: TOOL_KIND_ACTION.to_string(),
+            path: Some(first),
+            added: Some(added_total),
+            removed: Some(removed_total),
+            status: Some("ok".into()),
+            ..ToolDisplay::default()
+        },
+        snapshot: Some(snapshot),
+        image_png: None,
     }
 }
 
-pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
-    let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
-    let raw = args
-        .get("filePath")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .trim();
-    super::tool_utils::workspace::guard(ctx, raw, "Edit", true, || EditTool.execute(&args, ctx))
-        .await
+fn pack_snapshot(staged: &[StagedEdit]) -> FileSnapshot {
+    if staged.len() == 1 {
+        return FileSnapshot {
+            before: staged[0].before.clone(),
+            after: staged[0].after.clone(),
+        };
+    }
+    let mut before = String::new();
+    let mut after = String::new();
+    for file in staged {
+        before.push_str(&format!("===== {}\n", file.rel));
+        before.push_str(&file.before);
+        if !file.before.ends_with('\n') {
+            before.push('\n');
+        }
+        after.push_str(&format!("===== {}\n", file.rel));
+        after.push_str(&file.after);
+        if !file.after.ends_with('\n') {
+            after.push('\n');
+        }
+    }
+    FileSnapshot { before, after }
 }
 
 fn resolve_path(ctx: &ToolContext<'_>, raw: &str) -> Result<PathBuf, String> {

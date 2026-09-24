@@ -11,8 +11,10 @@ mod validate_mermaid;
 mod write;
 
 pub mod ask_user;
+mod bash;
 mod create_folder;
 mod delete;
+mod grep;
 pub mod todo;
 
 #[path = "tool-utils/mod.rs"]
@@ -45,6 +47,8 @@ pub const GRAPHQL_TOOL_NAME: &str = graphql::NAME;
 pub const PAGE_SHOT_TOOL_NAME: &str = page_shot::NAME;
 pub const TODO_TOOL_NAME: &str = todo::NAME;
 pub const VALIDATE_MERMAID_TOOL_NAME: &str = validate_mermaid::NAME;
+pub const BASH_TOOL_NAME: &str = bash::NAME;
+pub const GREP_TOOL_NAME: &str = grep::NAME;
 pub const LIST_DIRECTORY_MAX_PARALLELISM: usize = list_directory::MAX_PARALLELISM;
 
 pub const TOOL_KIND_CONTEXT: &str = "context";
@@ -79,6 +83,9 @@ pub struct ToolContext<'a> {
     pub on_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
     pub workspace: Option<std::path::PathBuf>,
     pub parallelism: usize,
+    pub allowed_commands: Vec<String>,
+    pub blocked_commands: Vec<String>,
+    pub shell_program: String,
 }
 
 impl ToolContext<'_> {
@@ -113,6 +120,9 @@ impl ToolContext<'static> {
             on_chunk: None,
             workspace: Some(workspace),
             parallelism,
+            allowed_commands: Vec::new(),
+            blocked_commands: Vec::new(),
+            shell_program: String::new(),
         }
     }
 }
@@ -232,6 +242,8 @@ fn all_tools() -> Vec<Box<dyn Tool>> {
         Box::new(page_shot::PageShotTool),
         Box::new(todo::TodoTool),
         Box::new(validate_mermaid::ValidateMermaidTool),
+        Box::new(bash::BashTool),
+        Box::new(grep::GrepTool),
     ]
 }
 
@@ -278,6 +290,12 @@ pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> Tool
     }
     if name == validate_mermaid::NAME {
         return validate_mermaid::execute_async(arguments, ctx).await;
+    }
+    if name == bash::NAME {
+        return bash::execute_async(arguments, ctx).await;
+    }
+    if name == grep::NAME {
+        return grep::execute_async(arguments, ctx).await;
     }
     let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
     for tool in all_tools() {
