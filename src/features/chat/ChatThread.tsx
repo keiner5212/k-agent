@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FileText, Film, Sparkles } from "lucide-react";
 import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
@@ -38,7 +38,7 @@ const AssistantMarkdown = ({
   const [html, setHtml] = useState("");
 
   useEffect(() => {
-    if (streaming || content.length === 0) return;
+    if (content.length === 0) return;
     let alive = true;
     const hint = linkHint;
     void runRenderMarkdownJob(content, hint).then((next) => {
@@ -56,7 +56,7 @@ const AssistantMarkdown = ({
     return () => {
       alive = false;
     };
-  }, [content, linkHint, streaming]);
+  }, [content, linkHint]);
 
   const [viewHtml, setViewHtml] = useState("");
   const [readyKey, setReadyKey] = useState("");
@@ -85,7 +85,7 @@ const AssistantMarkdown = ({
   };
 
   if (content.length === 0) return null;
-  if (streaming || html.length === 0) {
+  if (html.length === 0) {
     return <div className="chat-message__content">{content}</div>;
   }
   return (
@@ -208,7 +208,7 @@ const PendingQuestionsBlock = ({ messageId }: { messageId: string }): ReactNode 
   return <div className="chat-questions">{pending}</div>;
 };
 
-const MessageBody = ({
+const MessageBody = memo(function MessageBody({
   message,
   sessionId,
   themeEpoch,
@@ -218,7 +218,7 @@ const MessageBody = ({
   sessionId: string | null;
   themeEpoch: number;
   onFullscreenMermaid: (source: string) => void;
-}): ReactNode => {
+}): ReactNode {
   if (message.kind === "shell") {
     return (
       <>
@@ -296,7 +296,7 @@ const MessageBody = ({
       {message.content ? <p className="chat-message__content">{message.content}</p> : null}
     </>
   );
-};
+});
 
 const InterruptHint = (): ReactNode => {
   const { t } = useTranslation();

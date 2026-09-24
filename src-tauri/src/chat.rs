@@ -2397,6 +2397,82 @@ pub async fn generate_session_title(
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SummarizeConversationInput {
+    pub provider_id: String,
+    pub model_id: String,
+    pub transcript: String,
+    #[serde(default)]
+    pub limit_provider_data_use: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SummarizeConversationResult {
+    pub summary: String,
+}
+
+const SUMMARY_MAX_OUTPUT: u64 = 2048;
+
+const SUMMARY_PROMPT: &str = "\
+You compress a chat so a later reply can continue the same task.
+
+<task>
+Write a compact summary of the conversation below.
+Keep the user's goal, decisions, constraints, file paths, errors, and what is already done.
+Drop greetings and tool noise that did not change the outcome.
+Write in the same language as the conversation.
+Output only the summary.
+</task>
+
+Conversation:\n\n";
+
+#[tauri::command]
+pub async fn summarize_conversation(
+    app: AppHandle,
+    input: SummarizeConversationInput,
+) -> Result<SummarizeConversationResult, ChatError> {
+    let transcript = input.transcript.trim();
+    if transcript.is_empty() {
+        return Err(ChatError::EmptyResponse);
+    }
+    let (provider, model) = load_provider_model(&app, &input.provider_id, &input.model_id).await?;
+    let prompt = format!("{SUMMARY_PROMPT}{transcript}");
+    let turns = vec![user_turn(prompt)];
+    let options = quiet_request_options(input.limit_provider_data_use);
+    let plan = request_plan(
+        &provider,
+        &model,
+        &options,
+        capped_output(&model, SUMMARY_MAX_OUTPUT),
+    );
+    let call = ChatCall {
+        model: &model,
+        turns: &turns,
+        system: None,
+        effort: None,
+        max_output: plan.max_output,
+        enable_reasoning: plan.enable_reasoning,
+        plan: &plan,
+        tool_names: &[],
+        mcp_tools: &[],
+        parallelism: 1,
+        allowed_commands: &[],
+        blocked_commands: &[],
+        shell_program: "",
+    };
+    let summary = normalize_generated_text(
+        &send_message(&app, &provider, &call, None, None, false, false, false)
+            .await?
+            .content,
+    );
+    if summary.is_empty() {
+        return Err(ChatError::EmptyResponse);
+    }
+    Ok(SummarizeConversationResult { summary })
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum GenerateAppContentKind {
     ImprovePrompt,
 }

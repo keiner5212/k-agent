@@ -66,6 +66,8 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
         await import("@/lib/workspace-config");
       invalidateWorkspaceConfig();
       await hydrateWorkspaceConfig(true);
+      const { useSessionsStore } = await import("@/lib/sessions");
+      await useSessionsStore.getState().focusWorkspace();
       const error = get().error;
       return error ? { error } : {};
     } catch (error) {

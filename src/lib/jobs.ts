@@ -150,6 +150,9 @@ export const runLspRequestJob = (
 export const runListWorkspaceDirJob = (relativeDir = ""): Promise<WorkspaceEntry[]> =>
   runJob("listWorkspaceFiles", { relativeDir });
 
+export const runSearchWorkspaceFilesJob = (query: string): Promise<WorkspaceEntry[]> =>
+  runJob("searchWorkspaceFiles", { query });
+
 export const runListWorkspaceConfigJob = (): Promise<WorkspaceConfigBundle> =>
   runJob("listWorkspaceConfig");
 

@@ -21,8 +21,22 @@ import {
   summarizeShellResultForAi,
   type ShellChunk,
 } from "@/lib/shell";
-import { loadedSkillNamesFromMessages } from "@/lib/context-usage";
-import { sanitizeSessionsSnapshot, sessionMessages, toChatTurns } from "@/lib/session-turns";
+import {
+  buildContextUsage,
+  estimateToolDefinitionTokens,
+  loadedSkillNamesFromMessages,
+  resolveSelectedModel,
+} from "@/lib/context-usage";
+import { estimateTokensFromText } from "@/lib/jobs-handlers";
+import { useProvidersStore } from "@/lib/providers";
+import {
+  applySystemReminder,
+  messagesBeforeTail,
+  sanitizeSessionsSnapshot,
+  sessionMessages,
+  summaryTranscript,
+  toChatTurns,
+} from "@/lib/session-turns";
 import { perfLog } from "@/lib/perf-log";
 import { getWorkerCoreSnapshot } from "@/lib/worker-cores";
 import {
@@ -43,13 +57,18 @@ import {
 import { useAskUserStore } from "@/lib/ask-user";
 import { notifyAskUser } from "@/lib/notifications";
 import {
+  activateWorkspace,
+  adoptUnscopedSessions,
+  sessionInWorkspace,
   sortSessions,
   titleFromFirstMessage,
+  workspaceKey,
   type SessionRecord,
   type SessionsSnapshot,
 } from "@/types/sessions";
 
 export const INTERRUPT_ARM_MS = 2000;
+const STREAM_PAINT_MS = 100;
 
 export type QueuedMessage = {
   id: string;
@@ -200,13 +219,35 @@ const nextId = (): string =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-const emptySession = (): SessionRecord => ({
-  id: nextId(),
-  title: "",
-  preview: "",
-  updatedAt: Date.now(),
-  messages: [],
-});
+const workspacePathNow = (): string | undefined => {
+  const key = workspaceKey(useSkillsStore.getState().workspacePath);
+  return key.length > 0 ? key : undefined;
+};
+
+const readWorkspacePath = async (): Promise<string | undefined> => {
+  if (!isTauri()) return undefined;
+  try {
+    const path = await invoke<string | null>("get_workspace_path");
+    const key = workspaceKey(path);
+    return key.length > 0 ? key : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const emptySession = (workspacePath?: string): SessionRecord => {
+  const key = workspaceKey(workspacePath) || workspacePathNow();
+  return {
+    id: nextId(),
+    title: "",
+    preview: "",
+    updatedAt: Date.now(),
+    messages: [],
+    ...(key ? { workspacePath: key } : {}),
+  };
+};
+
+let workspaceEpoch = 0;
 
 const snapshotFromState = (
   sessions: SessionRecord[],
@@ -296,6 +337,64 @@ const resolveSendRequest = () => {
     temperature: request.temperature ?? null,
     limitProviderDataUse: useSettingsStore.getState().limitProviderDataUse,
   };
+};
+
+const compactHistory = async (
+  sessionId: string,
+  messages: ChatMessage[],
+  system: string,
+  toolNames: readonly string[],
+  selection: SelectedModel,
+): Promise<ChatMessage[]> => {
+  const { contextSummarizePercent, limitProviderDataUse } = useSettingsStore.getState();
+  const { head, tail } = messagesBeforeTail(messages);
+  if (head.length === 0 || contextSummarizePercent <= 0) return messages;
+  const model = resolveSelectedModel(useProvidersStore.getState().providers, selection);
+  const windowTokens = model?.contextWindow;
+  if (!windowTokens || windowTokens <= 0) return messages;
+  const usage = buildContextUsage({
+    windowTokens,
+    messages,
+    cost: undefined,
+    extras: {
+      systemPrompt: estimateTokensFromText(system),
+      toolDefinitions: estimateToolDefinitionTokens(toolNames),
+    },
+  });
+  if (usage.percent < contextSummarizePercent) return messages;
+  const transcript = summaryTranscript(head);
+  if (transcript.length === 0) return messages;
+  try {
+    const result = await invoke<{ summary: string }>("summarize_conversation", {
+      input: {
+        providerId: selection.providerId,
+        modelId: selection.modelId,
+        transcript,
+        limitProviderDataUse,
+      },
+    });
+    const summary = result.summary.trim();
+    if (summary.length === 0) return messages;
+    const nextMessages: ChatMessage[] = [
+      {
+        id: nextId(),
+        role: "user",
+        content: `<conversation-summary>\n${summary}\n</conversation-summary>`,
+      },
+      ...tail,
+    ];
+    const state = useSessionsStore.getState();
+    const nextSessions = patchActiveSession(state.sessions, sessionId, (session) => ({
+      ...session,
+      messages: nextMessages,
+    }));
+    useSessionsStore.setState({ sessions: nextSessions });
+    void persistSnapshot(snapshotFromState(nextSessions, state.activeSessionId ?? sessionId));
+    return nextMessages;
+  } catch (error) {
+    console.warn("context summarize failed", error);
+    return messages;
+  }
 };
 
 const generateSessionTitle = async (firstMessage: string): Promise<string> => {
@@ -411,6 +510,7 @@ type SessionsStore = {
   queued: QueuedMessage[];
   error?: string;
   hydrate: () => Promise<void>;
+  focusWorkspace: () => Promise<void>;
   create: () => void;
   select: (id: string) => void;
   remove: (id: string) => Promise<void>;
@@ -459,20 +559,28 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       });
       return;
     }
+    const epoch = workspaceEpoch;
     try {
       const snapshot = sanitizeSessionsSnapshot(
         await invokeWithTimeout<SessionsSnapshot>("load_sessions", HYDRATE_TIMEOUT_MS),
       );
       if (get().hydrated) return;
-      const ensured = ensureSession(snapshot.sessions, snapshot.activeSessionId);
+      const path = await readWorkspacePath();
+      if (get().hydrated) return;
+      const adopted = adoptUnscopedSessions(snapshot.sessions, path);
+      const focused = activateWorkspace(adopted.sessions, snapshot.activeSessionId, path, nextId);
       set({
-        sessions: ensured.sessions,
-        activeSessionId: ensured.activeSessionId,
+        sessions: focused.sessions,
+        activeSessionId: focused.activeSessionId,
         hydrated: true,
       });
-      restorePendingAsks(ensured.sessions);
-      restoreTodos(ensured.sessions);
-      continueResumedTools(ensured.sessions);
+      if (adopted.changed || focused.changed) {
+        void persistSnapshot(snapshotFromState(focused.sessions, focused.activeSessionId));
+      }
+      restorePendingAsks(focused.sessions);
+      restoreTodos(focused.sessions);
+      continueResumedTools(focused.sessions);
+      if (epoch !== workspaceEpoch) await get().focusWorkspace();
     } catch (error) {
       console.warn("sessions hydrate failed", error);
       if (get().hydrated) return;
@@ -485,12 +593,27 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     }
   },
 
+  focusWorkspace: async () => {
+    const epoch = (workspaceEpoch += 1);
+    if (!get().hydrated) return;
+    const path = await readWorkspacePath();
+    if (epoch !== workspaceEpoch || !get().hydrated) return;
+    const focused = activateWorkspace(get().sessions, get().activeSessionId, path, nextId);
+    if (!focused.changed) return;
+    set({
+      sessions: focused.sessions,
+      activeSessionId: focused.activeSessionId,
+      error: undefined,
+    });
+    void persistSnapshot(snapshotFromState(focused.sessions, focused.activeSessionId));
+  },
+
   create: () => {
     const { sessions, activeSessionId } = get();
     const current = activeSessionId
       ? sessions.find((session) => session.id === activeSessionId)
       : undefined;
-    if (current && isBlankSession(current)) {
+    if (current && isBlankSession(current) && sessionInWorkspace(current, workspacePathNow())) {
       set({ activeSessionId: current.id, error: undefined });
       return;
     }
@@ -518,9 +641,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         console.warn("cancel_running_task failed", error);
       }
     }
-    if (nextSessions.length === 0) {
+    const here = nextSessions.filter((session) => sessionInWorkspace(session, workspacePathNow()));
+    if (here.length === 0) {
       const session = emptySession();
-      const seeded = [session];
+      const seeded = sortSessions([session, ...nextSessions]);
       set({
         sessions: seeded,
         activeSessionId: session.id,
@@ -534,12 +658,13 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       return;
     }
     const sorted = sortSessions(nextSessions);
-    const fallbackId = sorted[0]?.id;
+    const sortedHere = sortSessions(here);
+    const fallbackId = sortedHere[0]?.id;
     if (!fallbackId) return;
     const nextActiveId =
       activeSessionId !== null &&
       activeSessionId !== id &&
-      sorted.some((session) => session.id === activeSessionId)
+      sortedHere.some((session) => session.id === activeSessionId)
         ? activeSessionId
         : fallbackId;
     set({
@@ -726,11 +851,15 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       }
     }
 
+    let paintTimer = 0;
+    const cancelPaint = (): void => {
+      if (!paintTimer) return;
+      window.clearTimeout(paintTimer);
+      paintTimer = 0;
+    };
+
     try {
       const assistantId = replay?.assistantId ?? nextId();
-      const chatTurns = toChatTurns(
-        sessionMessages(withUser.find((session) => session.id === sessionId)),
-      );
       let thinkingStartedAt: number | undefined;
       let thinkingEndedAt: number | undefined;
       const rounds: ToolRoundTrace[] = [];
@@ -739,6 +868,76 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       // reasoning/tool/reasoning/tool chains render as separate collapsibles.
       let lastChunkKind: ChatChunkKind | null = null;
       let roundStartedAt: number | undefined;
+      const contentParts: string[] = [];
+      const reasoningParts: string[] = [];
+      let lastPaintAt = 0;
+      const commitBuffer = (): void => {
+        const round = rounds[activeRoundIndex];
+        if (!round) return;
+        if (contentParts.length > 0) {
+          round.content = `${round.content ?? ""}${contentParts.join("")}`;
+          contentParts.length = 0;
+        }
+        if (reasoningParts.length > 0) {
+          round.reasoning = `${round.reasoning}${reasoningParts.join("")}`;
+          reasoningParts.length = 0;
+        }
+      };
+      const publishStreaming = (preview: string | null): void => {
+        if (get().sendingSessionId !== sessionId) return;
+        const nextSessions = get().sessions.map((session) => {
+          if (session.id !== sessionId) return session;
+          const index = session.messages.findIndex((message) => message.id === assistantId);
+          if (index < 0) {
+            return {
+              ...session,
+              preview: preview ?? session.preview,
+              messages: [
+                ...session.messages,
+                {
+                  id: assistantId,
+                  role: "assistant" as const,
+                  content: preview ?? "",
+                  toolRounds: snapshotRounds(),
+                  streaming: true,
+                },
+              ],
+            };
+          }
+          const messages = session.messages.slice();
+          const current = messages[index];
+          if (!current) return session;
+          messages[index] = {
+            ...current,
+            content: preview ?? current.content,
+            toolRounds: snapshotRounds(),
+            streaming: true,
+          };
+          return {
+            ...session,
+            preview: preview ?? session.preview,
+            messages,
+          };
+        });
+        set({ sessions: nextSessions });
+      };
+      const paintStreaming = (): void => {
+        paintTimer = 0;
+        commitBuffer();
+        lastPaintAt = performance.now();
+        publishStreaming(rounds[activeRoundIndex]?.content ?? null);
+      };
+      const schedulePaint = (): void => {
+        const now = performance.now();
+        const sincePaint = lastPaintAt === 0 ? STREAM_PAINT_MS : now - lastPaintAt;
+        if (sincePaint >= STREAM_PAINT_MS) {
+          cancelPaint();
+          paintStreaming();
+          return;
+        }
+        if (paintTimer) return;
+        paintTimer = window.setTimeout(paintStreaming, STREAM_PAINT_MS - sincePaint);
+      };
       const ensureActiveRound = (): ToolRoundTrace => {
         while (rounds.length <= activeRoundIndex) {
           rounds.push({ reasoning: "", calls: [] });
@@ -773,6 +972,8 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
             thinkingEndedAt = Date.now();
           }
           if (chunk.kind === "question") {
+            cancelPaint();
+            commitBuffer();
             const pending = handleAskUserChunk(chunk.text, assistantId, sessionId);
             if (pending) {
               const activeRound = ensureActiveRound();
@@ -835,6 +1036,8 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
             return;
           }
           if (chunk.kind === "todo") {
+            cancelPaint();
+            commitBuffer();
             const parsed = parseTodoChunk(chunk.text);
             if (parsed) {
               const { todos } = parsed;
@@ -856,59 +1059,30 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
             }
           }
           if (lastChunkKind === "tool" && !isTool) {
+            commitBuffer();
             activeRoundIndex += 1;
             roundStartedAt = undefined;
           }
           const activeRound = ensureActiveRound();
           if (isReasoning) {
             if (roundStartedAt === undefined) roundStartedAt = Date.now();
-            activeRound.reasoning = `${activeRound.reasoning}${chunk.text}`;
+            reasoningParts.push(chunk.text);
           } else if (isTool) {
             recordRoundThinkingMs(activeRound, Date.now());
             roundStartedAt = undefined;
             const toolCall = parseToolChunkText(chunk.text);
             if (toolCall) activeRound.calls = [...activeRound.calls, toolCall];
           } else if (chunk.kind === "content") {
-            activeRound.content = `${activeRound.content ?? ""}${chunk.text}`;
+            contentParts.push(chunk.text);
           }
           lastChunkKind = chunk.kind;
-          const newPreview = chunk.kind === "content" ? (activeRound.content ?? chunk.text) : null;
-          const nextSessions = get().sessions.map((session) => {
-            if (session.id !== sessionId) return session;
-            const index = session.messages.findIndex((message) => message.id === assistantId);
-            if (index < 0) {
-              return {
-                ...session,
-                preview: newPreview ?? session.preview,
-                messages: [
-                  ...session.messages,
-                  {
-                    id: assistantId,
-                    role: "assistant" as const,
-                    content: chunk.kind === "content" ? chunk.text : "",
-                    toolRounds: snapshotRounds(),
-                    streaming: true,
-                  },
-                ],
-              };
-            }
-            const messages = session.messages.slice();
-            const current = messages[index];
-            if (!current) return session;
-            messages[index] = {
-              ...current,
-              content:
-                chunk.kind === "content" ? (activeRound.content ?? chunk.text) : current.content,
-              toolRounds: snapshotRounds(),
-              streaming: true,
-            };
-            return {
-              ...session,
-              preview: newPreview ?? session.preview,
-              messages,
-            };
-          });
-          set({ sessions: nextSessions });
+          if (!isTool) {
+            schedulePaint();
+            return;
+          }
+          cancelPaint();
+          commitBuffer();
+          publishStreaming(activeRound.content ?? null);
         } finally {
           perfLog(
             "ui.chatChunk",
@@ -919,13 +1093,14 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         }
       };
 
-      const { forceResponseLanguage, responseLanguage } = useSettingsStore.getState();
+      const { forceResponseLanguage, responseLanguage, reminderInterval } =
+        useSettingsStore.getState();
       const selectedAgent = useComposerStore.getState().selectedAgent;
       const agentContexts = useAgentsStore.getState().contexts;
       const skillContexts = useSkillsStore.getState().contexts;
       const t = i18n.t.bind(i18n);
       const agent = resolveAgentMeta(selectedAgent, agentContexts, t);
-      const historyMessages = sessionMessages(withUser.find((session) => session.id === sessionId));
+      let historyMessages = sessionMessages(withUser.find((session) => session.id === sessionId));
       const loadedSkills = loadedSkillNamesFromMessages(historyMessages);
       const baseSystem = composeAgentSystem(agent, skillContexts, loadedSkills);
       const rules = buildAgentsMdRules(useAgentsMdStore.getState().files);
@@ -936,6 +1111,16 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         rules,
       );
       const toolNames = agent?.tools ?? [];
+      if (!replay) {
+        historyMessages = await compactHistory(
+          sessionId,
+          historyMessages,
+          system,
+          toolNames,
+          selection,
+        );
+      }
+      const chatTurns = applySystemReminder(toChatTurns(historyMessages), system, reminderInterval);
       const result = await invoke<SendChatResult>("send_chat_message", {
         input: {
           providerId: selection.providerId,
@@ -959,6 +1144,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         },
         onChunk,
       });
+      cancelPaint();
       if (epoch !== sendEpoch) return true;
       const replyAt = Date.now();
       const duration = thinkingDurationMs(thinkingStartedAt, thinkingEndedAt ?? replyAt);
@@ -1022,6 +1208,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       }
       return true;
     } catch (error) {
+      cancelPaint();
       if (epoch !== sendEpoch) return true;
       if (get().sendingSessionId === sessionId) {
         const cancelled = ipcErrorMessage(error).toLowerCase().includes("interrupted by user");

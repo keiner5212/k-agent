@@ -5,13 +5,19 @@ import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { APP_VERSION } from "@/lib/app-meta";
 import { useSessionsStore } from "@/lib/sessions";
-import { sortSessions, titleFromFirstMessage } from "@/types/sessions";
+import { useSkillsStore } from "@/lib/skills";
+import { sessionInWorkspace, sortSessions, titleFromFirstMessage } from "@/types/sessions";
 
 export const SessionsSidebar = (): ReactNode => {
   const { t } = useTranslation();
   const sessions = useSessionsStore((state) => state.sessions);
-  const sortedSessions = useMemo(() => sortSessions(sessions), [sessions]);
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
+  const workspacePath = useSkillsStore((state) => state.workspacePath);
+  const sortedSessions = useMemo(() => {
+    const scope =
+      workspacePath ?? sessions.find((session) => session.id === activeSessionId)?.workspacePath;
+    return sortSessions(sessions.filter((session) => sessionInWorkspace(session, scope)));
+  }, [activeSessionId, sessions, workspacePath]);
   const create = useSessionsStore((state) => state.create);
   const select = useSessionsStore((state) => state.select);
   const remove = useSessionsStore((state) => state.remove);

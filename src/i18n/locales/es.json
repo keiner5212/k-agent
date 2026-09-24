@@ -89,6 +89,10 @@
         "auto": "Auto (todos los núcleos)"
       }
     },
+    "contextSummarizePercent": {
+      "label": "Resumen de contexto",
+      "description": "Resume los mensajes viejos cuando el uso del contexto llega a este porcentaje de la ventana."
+    },
     "reminderInterval": {
       "label": "Intervalo de recordatorio",
       "description": "Inyecta un mensaje de recordatorio cada N mensajes del usuario para no perder información importante."
@@ -966,6 +970,10 @@
     "agent": {
       "label": "Agente",
       "empty": "Sin agentes"
+    },
+    "streamRate": {
+      "label": "{{rate}} tok/s",
+      "title": "Velocidad de salida estimada"
     },
     "usage": {
       "label": "Contexto {{percent}}%, costo {{cost}}",

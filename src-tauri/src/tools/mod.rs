@@ -133,7 +133,12 @@ impl ToolContext<'static> {
             blocked_commands: Vec::new(),
             shell_program: String::new(),
             input_modalities: vec!["text".into(), "image".into(), "pdf".into()],
-            attachment_types: vec!["text".into(), "image".into(), "pdf".into(), "document".into()],
+            attachment_types: vec![
+                "text".into(),
+                "image".into(),
+                "pdf".into(),
+                "document".into(),
+            ],
         }
     }
 }

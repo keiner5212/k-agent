@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 import { dirsToLoadForMention } from "@/lib/file-mentions";
-import { runListWorkspaceDirJob } from "@/lib/jobs";
+import { runListWorkspaceDirJob, runSearchWorkspaceFilesJob } from "@/lib/jobs";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
 import { perfLog } from "@/lib/perf-log";
 import { acquireWorkerCores } from "@/lib/worker-cores";
@@ -19,16 +19,20 @@ export type WorkspaceFilesStore = {
   dirs: Record<string, CachedDir>;
   workspacePath: string | null;
   loadingDirs: string[];
+  mentionQuery: string;
+  mentionHits: WorkspaceEntry[];
   error?: string;
   hasDir: (path: string) => boolean;
   ensureDirLoaded: (relativeDir: string) => Promise<void>;
   ensureMentionScope: (query: string) => Promise<void>;
+  searchMention: (query: string) => Promise<void>;
   prefetchDir: (relativeDir: string) => void;
   ensureRootLoaded: () => Promise<void>;
   invalidate: () => void;
 };
 
 const dirLoads = new Map<string, Promise<void>>();
+let mentionSearchGen = 0;
 
 const normalizeDir = (relativeDir: string): string =>
   relativeDir.trim().replace(/\\/g, "/").replace(/\/+$/, "");
@@ -50,6 +54,8 @@ export const useWorkspaceFilesStore = create<WorkspaceFilesStore>((set, get) => 
   dirs: {},
   workspacePath: null,
   loadingDirs: [],
+  mentionQuery: "",
+  mentionHits: [],
   error: undefined,
 
   hasDir: (path) => hasDirInCache(get().dirs, path),
@@ -142,6 +148,38 @@ export const useWorkspaceFilesStore = create<WorkspaceFilesStore>((set, get) => 
     }
   },
 
+  searchMention: async (query) => {
+    if (!isTauri()) return;
+    const normalized = query.trim();
+    if (!normalized) {
+      set({ mentionQuery: "", mentionHits: [] });
+      return;
+    }
+    const gen = mentionSearchGen + 1;
+    mentionSearchGen = gen;
+    const start = performance.now();
+    const lease = acquireWorkerCores("searchWorkspaceFiles", 1);
+    try {
+      const entries = await runSearchWorkspaceFilesJob(normalized);
+      if (gen !== mentionSearchGen) return;
+      set({ mentionQuery: normalized, mentionHits: entries });
+      perfLog("workspaceFiles.searchMention", performance.now() - start, {
+        query: normalized,
+        count: entries.length,
+        cores: lease.cores,
+      });
+    } catch (error) {
+      if (gen !== mentionSearchGen) return;
+      set({ mentionQuery: normalized, mentionHits: [] });
+      perfLog("workspaceFiles.searchMention.error", performance.now() - start, {
+        query: normalized,
+        error: ipcErrorMessage(error),
+      });
+    } finally {
+      lease.release();
+    }
+  },
+
   prefetchDir: (relativeDir) => {
     void get().ensureDirLoaded(relativeDir);
   },
@@ -152,10 +190,13 @@ export const useWorkspaceFilesStore = create<WorkspaceFilesStore>((set, get) => 
 
   invalidate: () => {
     dirLoads.clear();
+    mentionSearchGen += 1;
     set({
       dirs: {},
       workspacePath: null,
       loadingDirs: [],
+      mentionQuery: "",
+      mentionHits: [],
       error: undefined,
     });
   },

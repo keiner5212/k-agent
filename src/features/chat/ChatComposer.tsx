@@ -43,6 +43,7 @@ import { ComposerShellChip } from "./ComposerModeChip";
 import { ComposerQueue } from "./ComposerQueue";
 import { ComposerTextarea } from "./ComposerTextarea";
 import { ContextUsage } from "./ContextUsage";
+import { StreamRate } from "./StreamRate";
 import { ModelRequestButton } from "./ModelRequestDialog";
 import { ModelSelector } from "./ModelSelector";
 import { useComposerFocusKeys } from "./use-composer-focus";
@@ -275,6 +276,7 @@ export const ChatComposer = (): ReactNode => {
         {!shellMode ? <AgentSelector /> : null}
         {!shellMode ? <ModelSelector /> : null}
         {!shellMode ? <ModelRequestButton /> : null}
+        <StreamRate />
         <ContextUsage />
       </div>
       <ComposerQueue />

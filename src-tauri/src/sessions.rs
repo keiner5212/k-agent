@@ -57,6 +57,8 @@ pub struct SessionRecord {
     pub todos: Vec<crate::tools::todo::TodoItem>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub todos_history: Vec<crate::tools::todo::TodoHistoryEvent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,6 +181,7 @@ fn empty_snapshot() -> SessionsSnapshot {
             http_write_allowed: false,
             todos: Vec::new(),
             todos_history: Vec::new(),
+            workspace_path: None,
         }],
     }
 }
@@ -283,6 +286,7 @@ fn read_session_record(app: &AppHandle, id: &str) -> Result<SessionRecord, Sessi
             http_write_allowed: false,
             todos: Vec::new(),
             todos_history: Vec::new(),
+            workspace_path: None,
         });
     }
     let raw = std::fs::read_to_string(&path).map_err(|e| SessionError::Io(e.to_string()))?;
@@ -573,8 +577,8 @@ fn refresh_index_entry(app: &AppHandle, session: &SessionRecord) -> Result<(), S
             updated_at: session.updated_at,
         });
     }
-    let json = serde_json::to_string_pretty(&index)
-        .map_err(|e| SessionError::Parse(e.to_string()))?;
+    let json =
+        serde_json::to_string_pretty(&index).map_err(|e| SessionError::Parse(e.to_string()))?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| SessionError::Io(e.to_string()))?;
     }

@@ -678,6 +678,18 @@ button.change-bar__stat:focus-visible {
   text-overflow: ellipsis;
 }
 
+.stream-rate {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-height);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .context-usage {
   display: inline-flex;
   align-items: center;

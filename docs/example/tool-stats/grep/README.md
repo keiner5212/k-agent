@@ -4,12 +4,12 @@ Search file contents with the ripgrep engine compiled into the app. The job coun
 
 ## Does
 
-- Search with the `grep`, `grep-regex`, `grep-searcher`, and `ignore` crates. There is no system `rg` binary.
+- Search a pattern with no regex metacharacters as a literal byte scan. A pattern that contains `. * + ? ( ) | [ ] { } ^ $` or `\` stays on the regex engine. There is no system `rg` binary.
 - Walk files on a pool sized to the chat request parallelism.
 - Default `path` to the workspace root. Absolute and workspace-relative paths are accepted.
 - Treat `glob` as an include filter. `*.md` returns only markdown files. `*.{rs,toml}` is one glob. A leading `!` excludes (`!*.json`).
 - Honor `caseInsensitive`. Default is case-sensitive. `token` does not match `TOKEN` unless the flag is true.
-- Count every match. `count` is that total, not the number of lines printed.
+- Count each matching line once. A repeated pattern on one line is one hit. `count` is that total, not the sample length.
 - Return a sample in `matches`: at most 20 lines from each file and 100 lines overall. `truncated` is `true` when `count` is larger than the sample.
 - Skip `.git`, `node_modules`, `target`, and `dist`. Hidden files and gitignore rules still apply.
 - Clip each sample line at 400 characters. Sort the sample by path, then line.
@@ -37,12 +37,12 @@ Search file contents with the ripgrep engine compiled into the app. The job coun
 
 ## Response
 
-| Field       | Type    | Notes                                                              |
-| ----------- | ------- | ------------------------------------------------------------------ |
-| `pattern`   | string  | The pattern that was searched.                                     |
-| `count`     | integer | Total matches in the walk, including lines left out of the sample. |
-| `truncated` | string  | `true` when `matches` is a sample of a larger `count`.             |
-| `matches`   | string  | `path:line:text` sample. Empty when nothing matched.               |
+| Field       | Type    | Notes                                                   |
+| ----------- | ------- | ------------------------------------------------------- |
+| `pattern`   | string  | The pattern that was searched.                          |
+| `count`     | integer | Matching lines, including lines left out of the sample. |
+| `truncated` | string  | `true` when `matches` is a sample of a larger `count`.  |
+| `matches`   | string  | `path:line:text` sample. Empty when nothing matched.    |
 
 See `response.toon` for the concrete wire shape the LLM sees.
 

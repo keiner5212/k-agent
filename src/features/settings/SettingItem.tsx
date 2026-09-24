@@ -17,6 +17,7 @@ import { useProvidersStore } from "@/lib/providers";
 import { listSystemFonts } from "@/lib/system-fonts";
 import {
   FONT_FAMILY_OPTIONS,
+  CONTEXT_SUMMARIZE_OPTIONS,
   REMINDER_INTERVAL_OPTIONS,
   SUPPORTED_LANGUAGES,
   hardwareThreadCount,
@@ -199,6 +200,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const rememberWindowSize = useSettingsStore((state) => state.rememberWindowSize);
   const maxWorkerCores = useSettingsStore((state) => state.maxWorkerCores);
   const reminderInterval = useSettingsStore((state) => state.reminderInterval);
+  const contextSummarizePercent = useSettingsStore((state) => state.contextSummarizePercent);
   const forceResponseLanguage = useSettingsStore((state) => state.forceResponseLanguage);
   const responseLanguage = useSettingsStore((state) => state.responseLanguage);
   const blockedCommands = useSettingsStore((state) => state.blockedCommands);
@@ -222,6 +224,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setFontFamily = useSettingsStore((state) => state.setFontFamily);
   const setMaxWorkerCores = useSettingsStore((state) => state.setMaxWorkerCores);
   const setReminderInterval = useSettingsStore((state) => state.setReminderInterval);
+  const setContextSummarizePercent = useSettingsStore((state) => state.setContextSummarizePercent);
   const setForceResponseLanguage = useSettingsStore((state) => state.setForceResponseLanguage);
   const setResponseLanguage = useSettingsStore((state) => state.setResponseLanguage);
   const setBlockedCommands = useSettingsStore((state) => state.setBlockedCommands);
@@ -290,6 +293,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               fontFamily,
               maxWorkerCores,
               reminderInterval,
+              contextSummarizePercent,
               responseLanguage,
               defaultAgent,
             })}
@@ -301,6 +305,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setFontFamily,
                 setMaxWorkerCores,
                 setReminderInterval,
+                setContextSummarizePercent,
                 setResponseLanguage,
                 setDefaultAgent,
               })
@@ -449,7 +454,7 @@ type ThemeState = { theme: AppTheme };
 type ScaleState = { textScale: TextScale };
 type FontState = { fontFamily: AppFontFamily };
 type CoresState = { maxWorkerCores: number };
-type ReminderState = { reminderInterval: number };
+type ReminderState = { reminderInterval: number; contextSummarizePercent: number };
 type ResponseLangState = { responseLanguage: AppLanguage };
 
 const selectOptions = (
@@ -489,6 +494,12 @@ const selectOptions = (
     return REMINDER_INTERVAL_OPTIONS.map((value) => ({
       value: String(value),
       label: String(value),
+    }));
+  }
+  if (item.id === "contextSummarizePercent") {
+    return CONTEXT_SUMMARIZE_OPTIONS.map((value) => ({
+      value: String(value),
+      label: `${value}%`,
     }));
   }
   if (item.id === "fontFamily") {
@@ -576,6 +587,8 @@ const selectValue = (
       return String(state.maxWorkerCores);
     case "reminderInterval":
       return String(state.reminderInterval);
+    case "contextSummarizePercent":
+      return String(state.contextSummarizePercent);
     case "responseLanguage":
       return state.responseLanguage;
     case "defaultAgent":
@@ -595,6 +608,7 @@ const onSelectChange = (
     setFontFamily: (f: AppFontFamily) => void;
     setMaxWorkerCores: (n: number) => void;
     setReminderInterval: (n: number) => void;
+    setContextSummarizePercent: (n: number) => void;
     setResponseLanguage: (l: AppLanguage) => void;
     setDefaultAgent: (agent: string) => void;
   },
@@ -619,6 +633,9 @@ const onSelectChange = (
       return;
     case "reminderInterval":
       setters.setReminderInterval(Number(next));
+      return;
+    case "contextSummarizePercent":
+      setters.setContextSummarizePercent(Number(next));
       return;
     case "responseLanguage":
       if ((SUPPORTED_LANGUAGES as readonly string[]).includes(next)) {

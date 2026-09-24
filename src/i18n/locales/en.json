@@ -93,6 +93,10 @@
       "label": "Reminder interval",
       "description": "Inject one reminder message every N user messages to keep important info in mind."
     },
+    "contextSummarizePercent": {
+      "label": "Context summarize",
+      "description": "Summarize older messages when context use reaches this percent of the window."
+    },
     "forceResponseLanguage": {
       "label": "Force response language",
       "description": "Always reply in the selected language regardless of the input."
@@ -966,6 +970,10 @@
     "agent": {
       "label": "Agent",
       "empty": "No agents"
+    },
+    "streamRate": {
+      "label": "{{rate}} tok/s",
+      "title": "Estimated output speed"
     },
     "usage": {
       "label": "Context {{percent}}%, cost {{cost}}",

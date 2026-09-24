@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   applyMentionSelection,
   buildMentionPathSet,
-  filterDirEntries,
   mentionListingContext,
+  mentionSearchQuery,
+  mergeMentionEntries,
   parseActiveMention,
   type ActiveMention,
 } from "@/lib/file-mentions";
@@ -74,6 +75,9 @@ export const useFileMentions = ({
   const ensureMentionScope = useWorkspaceFilesStore(
     (state: WorkspaceFilesStore) => state.ensureMentionScope,
   );
+  const searchMention = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.searchMention);
+  const mentionQuery = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.mentionQuery);
+  const mentionHits = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.mentionHits);
   const prefetchDir = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.prefetchDir);
   const [selection, setSelection] = useState<MentionSelection>({ key: "", index: 0 });
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
@@ -90,10 +94,12 @@ export const useFileMentions = ({
   );
   const activeIndex = selection.key === mentionKey ? selection.index : 0;
 
+  const searchQuery = mentionSearchQuery(activeMention?.query ?? "");
   const filterResult = useMemo(() => {
     const scoped = dirs[listing.parentDir]?.entries ?? [];
-    return filterDirEntries(scoped, listing.prefix);
-  }, [dirs, listing.parentDir, listing.prefix]);
+    const hits = searchQuery && mentionQuery === searchQuery ? mentionHits : [];
+    return mergeMentionEntries(scoped, listing.prefix, hits);
+  }, [dirs, listing.parentDir, listing.prefix, mentionHits, mentionQuery, searchQuery]);
   const items = filterResult.items;
   const tooMany = filterResult.tooMany;
 
@@ -111,6 +117,14 @@ export const useFileMentions = ({
     if (!enabled || !activeMention) return;
     void ensureMentionScope(activeMention.query);
   }, [activeMention, enabled, ensureMentionScope]);
+
+  useEffect(() => {
+    if (!enabled || !searchQuery) return;
+    const timer = window.setTimeout(() => {
+      void searchMention(searchQuery);
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [enabled, searchMention, searchQuery]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -134,11 +148,13 @@ export const useFileMentions = ({
     (entry: WorkspaceEntry) => {
       if (!activeMention) return;
       const { next, cursor: nextCursor } = applyMentionSelection(value, activeMention, entry);
+      const slash = entry.path.lastIndexOf("/");
+      if (slash !== -1) prefetchDir(entry.path.slice(0, slash));
       onApply(next, nextCursor);
       setSelection({ key: "", index: 0 });
       setDismissedKey(null);
     },
-    [activeMention, onApply, value],
+    [activeMention, onApply, prefetchDir, value],
   );
 
   const resetMenu = useCallback(() => {
@@ -185,7 +201,8 @@ export const useFileMentions = ({
     activeIndex,
     activeMention,
     mentionPaths,
-    loading,
+    loading:
+      loading || (Boolean(searchQuery) && mentionQuery !== searchQuery && items.length === 0),
     error,
     handleKeyDown,
     pickItem,

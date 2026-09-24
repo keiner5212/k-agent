@@ -16,6 +16,7 @@ export type JobName =
   | "resolveLanguageServer"
   | "lspRequest"
   | "listWorkspaceFiles"
+  | "searchWorkspaceFiles"
   | "listWorkspaceConfig"
   | "renderMarkdown"
   | "highlightLines"
@@ -46,6 +47,10 @@ export type LspRequestPayload = {
 
 export type ListWorkspaceFilesPayload = {
   relativeDir: string;
+};
+
+export type SearchWorkspaceFilesPayload = {
+  query: string;
 };
 
 export type RenderMarkdownPayload = {
@@ -173,6 +178,13 @@ export const handleJob = async (name: JobName, payload: unknown, host: Host): Pr
           ? String((payload as ListWorkspaceFilesPayload).relativeDir)
           : "";
       return host.invoke<WorkspaceEntry[]>("list_workspace_files", { relativeDir });
+    }
+    case "searchWorkspaceFiles": {
+      const query =
+        payload && typeof payload === "object" && "query" in payload
+          ? String((payload as SearchWorkspaceFilesPayload).query)
+          : "";
+      return host.invoke<WorkspaceEntry[]>("search_workspace_files", { query });
     }
     case "listWorkspaceConfig": {
       const [skills, agents, agentsMd, workspacePath] = await Promise.all([

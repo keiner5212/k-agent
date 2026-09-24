@@ -40,6 +40,9 @@ export const MAX_REMINDER_INTERVAL = 500;
 
 export const REMINDER_INTERVAL_OPTIONS = [4, 6, 8, 10, 12, 16, 20, 30, 50] as const;
 
+export const DEFAULT_CONTEXT_SUMMARIZE_PERCENT = 80;
+export const CONTEXT_SUMMARIZE_OPTIONS = [60, 70, 80, 90] as const;
+
 export const DEFAULT_FORCE_RESPONSE_LANGUAGE = false;
 export const DEFAULT_RESPONSE_LANGUAGE: AppLanguage = DEFAULT_LANGUAGE;
 
@@ -132,6 +135,7 @@ export type Settings = {
   fontFamily: AppFontFamily;
   maxWorkerCores: number;
   reminderInterval: number;
+  contextSummarizePercent: number;
   forceResponseLanguage: boolean;
   responseLanguage: AppLanguage;
   blockedCommands: string[];
@@ -166,6 +170,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fontFamily: DEFAULT_FONT_FAMILY,
   maxWorkerCores: DEFAULT_MAX_WORKER_CORES,
   reminderInterval: DEFAULT_REMINDER_INTERVAL,
+  contextSummarizePercent: DEFAULT_CONTEXT_SUMMARIZE_PERCENT,
   forceResponseLanguage: DEFAULT_FORCE_RESPONSE_LANGUAGE,
   responseLanguage: DEFAULT_RESPONSE_LANGUAGE,
   blockedCommands: DEFAULT_BLOCKED_COMMANDS,

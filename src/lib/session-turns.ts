@@ -30,6 +30,7 @@ type LooseSession = {
   todosHistory?: unknown;
   outsideWorkspaceAllowed?: boolean;
   httpWriteAllowed?: boolean;
+  workspacePath?: unknown;
 };
 
 export const sessionMessages = (
@@ -134,6 +135,9 @@ export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => (
   todosHistory: sanitizeTodoHistory(session.todosHistory),
   outsideWorkspaceAllowed: session.outsideWorkspaceAllowed === true,
   httpWriteAllowed: session.httpWriteAllowed === true,
+  ...(typeof session.workspacePath === "string" && session.workspacePath.trim().length > 0
+    ? { workspacePath: session.workspacePath }
+    : {}),
 });
 
 export const sanitizeSessionsSnapshot = (snapshot: {
@@ -143,6 +147,90 @@ export const sanitizeSessionsSnapshot = (snapshot: {
   activeSessionId: snapshot.activeSessionId,
   sessions: (snapshot.sessions ?? []).map(sanitizeSessionRecord),
 });
+
+const SUMMARY_TAIL = 2;
+const SUMMARY_CHAR_BUDGET = 80_000;
+const MESSAGE_CLIP = 4_000;
+
+const clip = (text: string, max: number): string =>
+  text.length <= max ? text : text.slice(text.length - max);
+
+const messageText = (message: ChatMessage): string => {
+  const parts: string[] = [];
+  const push = (value: string | undefined): void => {
+    const trimmed = value?.trim() ?? "";
+    if (trimmed.length > 0) parts.push(clip(trimmed, MESSAGE_CLIP));
+  };
+  push(message.content);
+  push(message.reasoning);
+  for (const round of message.toolRounds ?? []) {
+    push(round.content);
+    for (const call of round.calls ?? []) {
+      const args = call.arguments || call.argument || "";
+      push(`${call.name} ${args}`.trim());
+      push(call.output?.slice(0, 500));
+    }
+  }
+  return parts.join("\n");
+};
+
+export const messagesBeforeTail = (
+  messages: ChatMessage[],
+): { head: ChatMessage[]; tail: ChatMessage[] } => {
+  if (messages.length <= SUMMARY_TAIL) return { head: [], tail: messages };
+  return {
+    head: messages.slice(0, -SUMMARY_TAIL),
+    tail: messages.slice(-SUMMARY_TAIL),
+  };
+};
+
+export const summaryTranscript = (messages: ChatMessage[]): string => {
+  const lines = messages
+    .map((message) => {
+      const body = messageText(message);
+      return body.length > 0 ? `${message.role}: ${body}` : "";
+    })
+    .filter((line) => line.length > 0);
+  if (lines.length === 0) return "";
+  const first = lines[0] ?? "";
+  let used = first.length;
+  const recent: string[] = [];
+  for (let index = lines.length - 1; index >= 1; index -= 1) {
+    const line = lines[index] ?? "";
+    if (used + line.length + 1 > SUMMARY_CHAR_BUDGET) break;
+    recent.push(line);
+    used += line.length + 1;
+  }
+  recent.reverse();
+  return [first, ...recent].join("\n");
+};
+
+export const applySystemReminder = (
+  turns: ChatTurn[],
+  system: string,
+  interval: number,
+): ChatTurn[] => {
+  const text = system.trim();
+  if (text.length === 0 || interval <= 0) return turns;
+  let userCount = 0;
+  let lastUser = -1;
+  for (let index = 0; index < turns.length; index += 1) {
+    const turn = turns[index];
+    if (!turn || turn.role !== "user" || turn.toolResult) continue;
+    userCount += 1;
+    lastUser = index;
+  }
+  if (userCount === 0 || userCount % interval !== 0 || lastUser < 0) return turns;
+  const target = turns[lastUser];
+  if (!target) return turns;
+  const reminder = `<system-reminder>\n${text}\n</system-reminder>`;
+  const next = turns.slice();
+  next[lastUser] = {
+    ...target,
+    content: target.content.trim().length > 0 ? `${target.content}\n\n${reminder}` : reminder,
+  };
+  return next;
+};
 
 export const toChatTurns = (messages: ChatMessage[]): ChatTurn[] => {
   const turns: ChatTurn[] = [];

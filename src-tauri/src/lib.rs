@@ -46,7 +46,9 @@ use tauri::{
 use tokio::sync::oneshot;
 
 use attachments::prepare_chat_attachments;
-use chat::{generate_app_content, generate_session_title, send_chat_message};
+use chat::{
+    generate_app_content, generate_session_title, send_chat_message, summarize_conversation,
+};
 use providers::{
     delete_provider, delete_provider_model, list_providers, refresh_provider_models,
     refresh_single_model, save_provider, set_model_favorite, upsert_provider_model,
@@ -702,6 +704,7 @@ pub fn run() {
             lsp::resolve_language_server,
             lsp_client::lsp_request,
             workspace_files::list_workspace_files,
+            workspace_files::search_workspace_files,
             load_sessions,
             save_sessions,
             read_session_attachment,
@@ -709,6 +712,7 @@ pub fn run() {
             send_chat_message,
             request_profile::describe_model_request,
             generate_session_title,
+            summarize_conversation,
             generate_app_content,
             run_shell_command,
             prepare_chat_attachments,

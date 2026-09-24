@@ -195,6 +195,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         keywords: ["reminder", "interval", "memory", "context", "messages", "recordatorio"],
       },
       {
+        id: "contextSummarizePercent",
+        type: "select",
+        titleKey: "settings.contextSummarizePercent.label",
+        descriptionKey: "settings.contextSummarizePercent.description",
+        keywords: ["context", "summarize", "summary", "percent", "window", "resumen"],
+      },
+      {
         id: "forceResponseLanguage",
         type: "toggle",
         titleKey: "settings.forceResponseLanguage.label",

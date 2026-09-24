@@ -120,6 +120,33 @@ export const filterDirEntries = (
   return { items, tooMany: false };
 };
 
+export const mentionSearchQuery = (query: string): string | null => {
+  const normalized = toPosixPath(query).replace(/^\/+/, "");
+  if (!normalized || normalized.endsWith("/") || normalized.includes("..")) return null;
+  return normalized.replace(/\/+$/, "");
+};
+
+export const mergeMentionEntries = (
+  scoped: readonly WorkspaceEntry[],
+  prefix: string,
+  hits: readonly WorkspaceEntry[],
+): MentionFilterResult => {
+  if (prefix.length === 0 || hits.length === 0) return filterDirEntries(scoped, prefix);
+  const local = filterDirEntries(scoped, prefix);
+  const items: WorkspaceEntry[] = [];
+  const seen = new Set<string>();
+  const push = (entry: WorkspaceEntry): void => {
+    if (seen.has(entry.path) || items.length >= MENTION_RESULT_LIMIT) return;
+    seen.add(entry.path);
+    items.push(entry);
+  };
+  if (!local.tooMany) {
+    for (const entry of local.items) push(entry);
+  }
+  for (const entry of hits) push(entry);
+  return { items, tooMany: items.length === 0 && local.tooMany };
+};
+
 export const buildMentionPathSet = (entries: readonly WorkspaceEntry[]): Set<string> => {
   const out = new Set<string>();
   for (const entry of entries) {

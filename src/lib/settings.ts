@@ -18,6 +18,8 @@ import {
   DEFAULT_PLAN_AGENT_ENABLED,
   DEFAULT_MAX_WORKER_CORES,
   DEFAULT_NOTIFICATIONS_ENABLED,
+  CONTEXT_SUMMARIZE_OPTIONS,
+  DEFAULT_CONTEXT_SUMMARIZE_PERCENT,
   DEFAULT_REMINDER_INTERVAL,
   DEFAULT_RESPONSE_LANGUAGE,
   DEFAULT_SETTINGS,
@@ -134,6 +136,14 @@ const sanitizeMaxWorkerCores = (value: unknown): number => {
   return Math.min(max, Math.max(1, rounded));
 };
 
+const sanitizeContextSummarizePercent = (value: unknown): number => {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(n)) return DEFAULT_CONTEXT_SUMMARIZE_PERCENT;
+  const rounded = Math.round(n);
+  if ((CONTEXT_SUMMARIZE_OPTIONS as readonly number[]).includes(rounded)) return rounded;
+  return DEFAULT_CONTEXT_SUMMARIZE_PERCENT;
+};
+
 const sanitizeReminderInterval = (value: unknown): number => {
   const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   if (!Number.isFinite(n)) return DEFAULT_REMINDER_INTERVAL;
@@ -219,6 +229,7 @@ const sanitizeSettings = (raw: unknown): Settings => {
     fontFamily: sanitizeFontFamily(obj.fontFamily),
     maxWorkerCores: sanitizeMaxWorkerCores(obj.maxWorkerCores),
     reminderInterval: sanitizeReminderInterval(obj.reminderInterval),
+    contextSummarizePercent: sanitizeContextSummarizePercent(obj.contextSummarizePercent),
     forceResponseLanguage: sanitizeBoolean(
       obj.forceResponseLanguage,
       DEFAULT_FORCE_RESPONSE_LANGUAGE,
@@ -273,6 +284,7 @@ export type SettingsStore = Settings & {
   setFontFamily: (family: AppFontFamily) => void;
   setMaxWorkerCores: (cores: number) => void;
   setReminderInterval: (interval: number) => void;
+  setContextSummarizePercent: (percent: number) => void;
   setForceResponseLanguage: (enabled: boolean) => void;
   setResponseLanguage: (language: AppLanguage) => void;
   setBlockedCommands: (commands: string[]) => void;
@@ -395,6 +407,7 @@ const snapshot = (state: SettingsStore): Settings => ({
   fontFamily: state.fontFamily,
   maxWorkerCores: state.maxWorkerCores,
   reminderInterval: state.reminderInterval,
+  contextSummarizePercent: state.contextSummarizePercent,
   forceResponseLanguage: state.forceResponseLanguage,
   responseLanguage: state.responseLanguage,
   blockedCommands: state.blockedCommands,
@@ -541,6 +554,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setReminderInterval: (interval) => {
     set({ reminderInterval: sanitizeReminderInterval(interval) });
+    void persist(snapshot(get()));
+  },
+
+  setContextSummarizePercent: (percent) => {
+    set({ contextSummarizePercent: sanitizeContextSummarizePercent(percent) });
     void persist(snapshot(get()));
   },
 
