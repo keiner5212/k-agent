@@ -2,7 +2,6 @@ import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { LineKind } from "@/components/LineEditor";
 import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
-import { TodoList } from "@/features/chat/TodoList";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import { runDiffLinesJob } from "@/lib/jobs";
 import { readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
@@ -101,8 +100,8 @@ const argString = (call: ChatToolCall, key: string): string => {
   if (!raw) return "";
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const value = parsed[key];
-    return typeof value === "string" ? value.trim() : "";
+    if (typeof parsed[key] !== "string") return "";
+    return parsed[key].trim();
   } catch {
     return "";
   }
@@ -319,9 +318,6 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
                   alt=""
                   src={`data:image/png;base64,${display.imageData}`}
                 />
-              ) : null}
-              {call.name === "todowrite" && display?.todos && display.todos.length > 0 ? (
-                <TodoList todos={display.todos} />
               ) : null}
             </li>
           );

@@ -34,7 +34,7 @@ const GIT_SAFE: &[&str] = &[
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Decision {
+pub enum Decision {
     Run,
     Allowed,
     Blocked,
