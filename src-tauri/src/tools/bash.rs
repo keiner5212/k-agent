@@ -415,6 +415,7 @@ fn run_command(ctx: &ToolContext<'_>, command: &str) -> ToolOutcome {
         },
         snapshot: None,
         image_png: None,
+        file: None,
     }
 }
 
@@ -451,6 +452,7 @@ fn error_outcome(message: &str) -> ToolOutcome {
         },
         snapshot: None,
         image_png: None,
+        file: None,
     }
 }
 

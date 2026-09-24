@@ -132,6 +132,7 @@ fn apply_delete(target: &DeleteTarget) -> ToolOutcome {
             },
             snapshot: None,
             image_png: None,
+            file: None,
         };
     }
 
@@ -159,6 +160,7 @@ fn apply_delete(target: &DeleteTarget) -> ToolOutcome {
         },
         snapshot: None,
         image_png: None,
+        file: None,
     }
 }
 

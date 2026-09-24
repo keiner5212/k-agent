@@ -1,5 +1,9 @@
-use std::process::Command;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 
+use grep_regex::RegexMatcher;
+use grep_searcher::{sinks::UTF8, SearcherBuilder};
+use ignore::WalkBuilder;
 use serde_json::{json, Value};
 
 use super::{
@@ -8,7 +12,7 @@ use super::{
 
 pub const NAME: &str = "grep";
 
-const DESCRIPTION: &str = "Search file contents with ripgrep. pattern is a regex. path defaults to the workspace. glob limits files (for example *.rs). Uses the configured worker cores. Results are capped.";
+const DESCRIPTION: &str = "Search file contents with the ripgrep engine compiled into the app. pattern is a regex. path defaults to the workspace. glob limits files (for example *.rs). Uses the configured worker cores. Results are capped. No system rg binary.";
 
 const MAX_MATCHES: usize = 100;
 const MAX_LINE_CHARS: usize = 400;
@@ -70,61 +74,117 @@ impl Tool for GrepTool {
             .unwrap_or("")
             .trim();
         let jobs = ctx.parallelism.clamp(1, 16);
-        let mut command = Command::new("rg");
-        command
-            .arg("--line-number")
-            .arg("--no-heading")
-            .arg("--color")
-            .arg("never")
-            .arg("--max-columns")
-            .arg(MAX_LINE_CHARS.to_string())
-            .arg("--max-count")
-            .arg("20")
-            .arg("-j")
-            .arg(jobs.to_string())
-            .arg("--glob")
-            .arg("!.git/**")
-            .arg("--glob")
-            .arg("!node_modules/**")
-            .arg("--glob")
-            .arg("!target/**");
-        if !glob.is_empty() {
-            command.arg("--glob").arg(glob);
-        }
-        command.arg("--").arg(pattern).arg(&resolved);
-        let output = match command.output() {
-            Ok(output) => output,
-            Err(error) => {
-                return error_outcome(&format!(
-                    "grep could not start ripgrep (`rg`): {error}. Install ripgrep."
-                ));
-            }
-        };
-        if output.status.code() == Some(1) {
-            return ok_outcome(pattern, "0", "false", "");
-        }
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return error_outcome(&format!("grep: {}", stderr.trim()));
-        }
-        let stdout = String::from_utf8_lossy(&output.stdout);
         let workspace = ctx.workspace_path();
-        let mut lines: Vec<String> = Vec::new();
-        for line in stdout.lines() {
-            if lines.len() >= MAX_MATCHES {
-                break;
+        match search(&resolved, workspace.as_deref(), pattern, glob, jobs) {
+            Ok(found) => {
+                let truncated = if found.truncated { "true" } else { "false" };
+                ok_outcome(
+                    pattern,
+                    &found.lines.len().to_string(),
+                    truncated,
+                    &found.lines.join("\n"),
+                )
             }
-            lines.push(trim_line(&relativize_match(line, workspace.as_deref())));
+            Err(message) => error_outcome(&message),
         }
-        let truncated = stdout.lines().count() > lines.len();
-        let body = lines.join("\n");
-        ok_outcome(
-            pattern,
-            &lines.len().to_string(),
-            if truncated { "true" } else { "false" },
-            &body,
-        )
     }
+}
+
+struct SearchHit {
+    lines: Vec<String>,
+    truncated: bool,
+}
+
+fn search(
+    root: &Path,
+    workspace: Option<&Path>,
+    pattern: &str,
+    glob: &str,
+    jobs: usize,
+) -> Result<SearchHit, String> {
+    let matcher = RegexMatcher::new(pattern).map_err(|error| format!("grep: {error}"))?;
+    let mut walk = WalkBuilder::new(root);
+    walk.threads(jobs)
+        .hidden(true)
+        .git_ignore(true)
+        .git_exclude(true)
+        .parents(true)
+        .filter_entry(|entry| {
+            let name = entry.file_name().to_string_lossy();
+            !matches!(name.as_ref(), ".git" | "node_modules" | "target" | "dist")
+        });
+    if !glob.is_empty() {
+        let mut overrides = ignore::overrides::OverrideBuilder::new(root);
+        overrides
+            .add("*")
+            .map_err(|error| format!("grep: {error}"))?;
+        overrides
+            .add(&format!("!{glob}"))
+            .map_err(|error| format!("grep: {error}"))?;
+        walk.overrides(
+            overrides
+                .build()
+                .map_err(|error| format!("grep: {error}"))?,
+        );
+    }
+    let hits = Arc::new(Mutex::new(Vec::<String>::new()));
+    let truncated = Arc::new(Mutex::new(false));
+    walk.build_parallel().run(|| {
+        let matcher = matcher.clone();
+        let hits = Arc::clone(&hits);
+        let truncated = Arc::clone(&truncated);
+        Box::new(move |result| {
+            if hits.lock().map(|guard| guard.len()).unwrap_or(MAX_MATCHES) >= MAX_MATCHES {
+                *truncated.lock().unwrap_or_else(|err| err.into_inner()) = true;
+                return ignore::WalkState::Quit;
+            }
+            let Ok(entry) = result else {
+                return ignore::WalkState::Continue;
+            };
+            if !entry.file_type().is_some_and(|kind| kind.is_file()) {
+                return ignore::WalkState::Continue;
+            }
+            let mut searcher = SearcherBuilder::new().line_number(true).build();
+            let mut local = Vec::new();
+            let searched = searcher.search_path(
+                &matcher,
+                entry.path(),
+                UTF8(|line_number, line| {
+                    if local.len() >= 20 {
+                        return Ok(false);
+                    }
+                    let text = line.trim_end();
+                    let text = trim_line(text);
+                    let rel = display_path(entry.path(), workspace);
+                    local.push(format!("{rel}:{line_number}:{text}"));
+                    Ok(true)
+                }),
+            );
+            if searched.is_err() {
+                return ignore::WalkState::Continue;
+            }
+            let mut guard = hits.lock().unwrap_or_else(|err| err.into_inner());
+            for line in local {
+                if guard.len() >= MAX_MATCHES {
+                    *truncated.lock().unwrap_or_else(|err| err.into_inner()) = true;
+                    return ignore::WalkState::Quit;
+                }
+                guard.push(line);
+            }
+            ignore::WalkState::Continue
+        })
+    });
+    let lines = hits.lock().unwrap_or_else(|err| err.into_inner()).clone();
+    let truncated = *truncated.lock().unwrap_or_else(|err| err.into_inner());
+    Ok(SearchHit { lines, truncated })
+}
+
+fn display_path(path: &Path, workspace: Option<&Path>) -> String {
+    let relative = workspace
+        .and_then(|root| path.strip_prefix(root).ok())
+        .unwrap_or(path);
+    let text = relative.to_string_lossy().replace('\\', "/");
+    text.trim_start_matches("./").to_string()
 }
 
 pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
@@ -132,39 +192,6 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     let raw = args.get("path").and_then(Value::as_str).unwrap_or(".");
     super::tool_utils::workspace::guard(ctx, raw, "Search", false, || GrepTool.execute(&args, ctx))
         .await
-}
-
-fn relativize_match(line: &str, workspace: Option<&std::path::Path>) -> String {
-    let Some((path, rest)) = split_match(line) else {
-        return line.to_string();
-    };
-    let Some(root) = workspace else {
-        return line.to_string();
-    };
-    let relative = std::path::Path::new(path)
-        .strip_prefix(root)
-        .map(|path| path.to_string_lossy().replace('\\', "/"))
-        .unwrap_or_else(|_| path.to_string());
-    let relative = relative.trim_start_matches("./").to_string();
-    format!("{relative}:{rest}")
-}
-
-fn split_match(line: &str) -> Option<(&str, &str)> {
-    let bytes = line.as_bytes();
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if bytes[index] != b':' {
-            index += 1;
-            continue;
-        }
-        let tail = &line[index + 1..];
-        let digits = tail.chars().take_while(|ch| ch.is_ascii_digit()).count();
-        if digits > 0 && tail.as_bytes().get(digits) == Some(&b':') {
-            return Some((&line[..index], &tail));
-        }
-        index += 1;
-    }
-    None
 }
 
 fn trim_line(line: &str) -> String {
@@ -192,6 +219,7 @@ fn ok_outcome(pattern: &str, count: &str, truncated: &str, matches: &str) -> Too
         },
         snapshot: None,
         image_png: None,
+        file: None,
     }
 }
 
@@ -209,5 +237,6 @@ fn error_outcome(message: &str) -> ToolOutcome {
         },
         snapshot: None,
         image_png: None,
+        file: None,
     }
 }

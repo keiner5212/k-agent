@@ -327,6 +327,7 @@ fn render_tree(
         },
         snapshot: None,
         image_png: None,
+        file: None,
     }
 }
 

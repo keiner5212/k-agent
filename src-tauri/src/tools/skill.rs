@@ -56,6 +56,7 @@ impl Tool for SkillTool {
                     },
                     snapshot: None,
                     image_png: None,
+                    file: None,
                 }
             }
             Ok(None) => with_skill_name(

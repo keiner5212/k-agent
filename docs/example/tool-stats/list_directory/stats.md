@@ -20,7 +20,7 @@ memory the host process held while it ran.
 
 | Wall time | CPU time (user + sys) | Host process RSS (during call) |
 |---|---|---|
-| **2 ms** (2678 us) | 0 ms user + 1 ms sys | before: 62232 KiB, after: 62672 KiB, delta: +440 KiB, lifetime peak: 132496 KiB |
+| **5 ms** (5178 us) | 0 ms user + 2 ms sys | before: 68136 KiB, after: 69216 KiB, delta: +1080 KiB, lifetime peak: 135608 KiB |
 
 RSS is sampled via `/proc/self/status` on Linux or `ps -o rss=` on
 macOS, immediately before and after the call. The delta reflects
@@ -42,7 +42,7 @@ at runtime; see `src-tauri/src/tools/list_directory.rs`.
 
 | Bytes | Chars | Lines | Tokens (chars/4) |
 |---|---|---|---|
-| 1905 | 1905 | 3 | 477 |
+| 2045 | 2045 | 3 | 512 |
 
 ## Target
 

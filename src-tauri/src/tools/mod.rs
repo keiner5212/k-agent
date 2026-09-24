@@ -86,6 +86,15 @@ pub struct ToolContext<'a> {
     pub allowed_commands: Vec<String>,
     pub blocked_commands: Vec<String>,
     pub shell_program: String,
+    pub input_modalities: Vec<String>,
+    pub attachment_types: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ToolFile {
+    pub name: String,
+    pub mime: String,
+    pub bytes: Vec<u8>,
 }
 
 impl ToolContext<'_> {
@@ -123,6 +132,8 @@ impl ToolContext<'static> {
             allowed_commands: Vec::new(),
             blocked_commands: Vec::new(),
             shell_program: String::new(),
+            input_modalities: vec!["text".into(), "image".into(), "pdf".into()],
+            attachment_types: vec!["text".into(), "image".into(), "pdf".into(), "document".into()],
         }
     }
 }
@@ -165,6 +176,7 @@ pub struct ToolOutcome {
     pub display: ToolDisplay,
     pub snapshot: Option<FileSnapshot>,
     pub image_png: Option<Vec<u8>>,
+    pub file: Option<ToolFile>,
 }
 
 impl ToolOutcome {
@@ -177,6 +189,7 @@ impl ToolOutcome {
             },
             snapshot: None,
             image_png: None,
+            file: None,
         }
     }
 }
@@ -471,6 +484,7 @@ pub fn context_error(path: Option<&str>, message: &str) -> ToolOutcome {
         },
         snapshot: None,
         image_png: None,
+        file: None,
     }
 }
 
@@ -489,6 +503,7 @@ pub fn action_error(path: &str, message: &str) -> ToolOutcome {
         },
         snapshot: None,
         image_png: None,
+        file: None,
     }
 }
 

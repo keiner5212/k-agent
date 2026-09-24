@@ -108,6 +108,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
             },
             snapshot: None,
             image_png: None,
+            file: None,
         },
         Err(message) => super::context_error(Some(&args.query), &message),
     }

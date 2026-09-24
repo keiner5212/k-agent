@@ -268,7 +268,7 @@ fn kind_from_ext(name: &str) -> Option<(&'static str, &'static str)> {
     }
 }
 
-fn extract_docx_text(bytes: &[u8]) -> Option<String> {
+pub(crate) fn extract_docx_text(bytes: &[u8]) -> Option<String> {
     let mut archive = ZipArchive::new(Cursor::new(bytes)).ok()?;
     let mut file = archive.by_name("word/document.xml").ok()?;
     let mut xml = String::new();

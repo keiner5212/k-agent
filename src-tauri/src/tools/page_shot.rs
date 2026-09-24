@@ -113,6 +113,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
         },
         snapshot: None,
         image_png: Some(png),
+        file: None,
     }
 }
 

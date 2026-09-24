@@ -79,6 +79,7 @@ impl Tool for CreateFolderTool {
                     },
                     snapshot: None,
                     image_png: None,
+                    file: None,
                 };
             }
             Err(error) => {
@@ -103,6 +104,7 @@ impl Tool for CreateFolderTool {
                 },
                 snapshot: None,
                 image_png: None,
+                file: None,
             };
         }
 

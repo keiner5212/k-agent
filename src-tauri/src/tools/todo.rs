@@ -444,6 +444,7 @@ fn emit_outcome(ctx: &ToolContext<'_>, todos: Vec<TodoItem>, diff: TodoDiff) -> 
         },
         snapshot: None,
         image_png: None,
+        file: None,
     }
 }
 

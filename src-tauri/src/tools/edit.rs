@@ -280,6 +280,7 @@ fn apply_edits(ctx: &ToolContext<'_>, ops: &[EditRequest]) -> ToolOutcome {
             },
             snapshot: Some(snapshot),
             image_png: None,
+            file: None,
         };
     }
     let count = staged.len() as i64;
@@ -301,6 +302,7 @@ fn apply_edits(ctx: &ToolContext<'_>, ops: &[EditRequest]) -> ToolOutcome {
         },
         snapshot: Some(snapshot),
         image_png: None,
+        file: None,
     }
 }
 

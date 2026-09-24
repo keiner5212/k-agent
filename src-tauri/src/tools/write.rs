@@ -96,6 +96,7 @@ impl Tool for WriteTool {
                         after: content.to_string(),
                     }),
                     image_png: None,
+                    file: None,
                 }
             }
             Err(error) => super::action_error(

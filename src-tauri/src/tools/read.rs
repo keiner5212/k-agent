@@ -1,7 +1,9 @@
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Cursor};
 use std::path::{Path, PathBuf};
 
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use image::ImageFormat;
 use serde_json::{json, Value};
 
 use super::{
@@ -10,13 +12,18 @@ use super::{
 
 pub const NAME: &str = "read";
 
-const DESCRIPTION: &str = "Read a file. Path is absolute or workspace-relative. Paths outside the workspace wait for the user to allow or deny. Optional offset (1-based) and limit (default 2000 lines). Output capped at 50 KB.";
+const DESCRIPTION: &str = "Read a file. Text stays line-numbered text. An image is attached only when the model accepts image input. A PDF is attached only when the model accepts pdf input. A docx is extracted to text when the model accepts documents. Path is absolute or workspace-relative. Paths outside the workspace wait for the user. Optional offset and limit for text. Text capped at 50 KB. Images capped at 20 MB.";
 
 const DEFAULT_LIMIT: usize = 2000;
 const MAX_LINE_LENGTH: usize = 2000;
 const MAX_LINE_SUFFIX: &str = "... (line truncated to 2000 chars)";
 const MAX_BYTES: usize = 50 * 1024;
 const MAX_BYTES_LABEL: &str = "50 KB";
+
+const MAX_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
+const MAX_IMAGE_BYTES_LABEL: &str = "20 MB";
+const MAX_IMAGE_DIMENSION: u32 = 1440;
+const IMAGE_PROBE_BYTES: usize = 16;
 
 pub struct ReadTool;
 
@@ -35,12 +42,12 @@ impl Tool for ReadTool {
                     "offset": {
                         "type": "integer",
                         "minimum": 1,
-                        "description": "1-based start line"
+                        "description": "1-based start line. Text files only."
                     },
                     "limit": {
                         "type": "integer",
                         "minimum": 1,
-                        "description": "Max lines (default 2000)"
+                        "description": "Max lines (default 2000). Text files only."
                     }
                 },
                 "required": ["filePath"]
@@ -64,6 +71,7 @@ impl Tool for ReadTool {
             Ok(value) => value,
             Err(message) => return super::context_error(Some(trimmed), &message),
         };
+        let page_requested = args.get("offset").is_some() || args.get("limit").is_some();
 
         let resolved = match resolve_path(ctx, trimmed) {
             Ok(value) => value,
@@ -116,14 +124,44 @@ impl Tool for ReadTool {
             );
         }
 
-        if is_likely_binary_path(&resolved) {
+        if !page_requested {
+            if let Some(image_kind) = detect_image(&resolved) {
+                if model_accepts(ctx, "image") {
+                    return render_image(&resolved, &rel, image_kind);
+                }
+                return super::context_error(
+                    Some(&rel),
+                    "This file is an image. The selected model has no image input, so the pixels were not attached.",
+                );
+            }
+            if is_pdf(&resolved) {
+                if model_accepts(ctx, "pdf") {
+                    return render_pdf(&resolved, &rel);
+                }
+                return super::context_error(
+                    Some(&rel),
+                    "This file is a PDF. The selected model has no pdf input, so the file was not attached.",
+                );
+            }
+            if is_docx(&resolved) {
+                if model_accepts(ctx, "document") {
+                    return render_docx(&resolved, &rel);
+                }
+                return super::context_error(
+                    Some(&rel),
+                    "This file is a document. The selected model has no document input.",
+                );
+            }
+        }
+
+        if is_disguised_binary_extension(&resolved) {
             return super::context_error(
                 Some(&rel),
                 &format!("Cannot read binary file: {}", resolved.display()),
             );
         }
 
-        render_file(&resolved, &rel, offset, limit)
+        render_text(&resolved, &rel, offset, limit)
     }
 }
 
@@ -191,7 +229,7 @@ fn fuzzy_sibling_suggestions(path: &Path) -> Vec<String> {
     hits
 }
 
-fn render_file(path: &Path, rel: &str, offset: usize, limit: usize) -> ToolOutcome {
+fn render_text(path: &Path, rel: &str, offset: usize, limit: usize) -> ToolOutcome {
     let outcome = read_windowed(path, offset, limit);
     let result = match outcome {
         Ok(value) => value,
@@ -213,11 +251,7 @@ fn render_file(path: &Path, rel: &str, offset: usize, limit: usize) -> ToolOutco
             ),
         );
     }
-    let start_line = if result.raw.is_empty() {
-        offset as u32
-    } else {
-        offset as u32
-    };
+    let start_line = offset as u32;
     let end_line = if result.raw.is_empty() {
         start_line
     } else {
@@ -264,15 +298,106 @@ fn render_file(path: &Path, rel: &str, offset: usize, limit: usize) -> ToolOutco
         },
         snapshot: None,
         image_png: None,
+        file: None,
     }
 }
 
-fn is_likely_binary_path(path: &Path) -> bool {
+fn render_image(path: &Path, rel: &str, kind: ImageKind) -> ToolOutcome {
+    let metadata = match fs::metadata(path) {
+        Ok(value) => value,
+        Err(error) => {
+            return super::context_error(
+                Some(rel),
+                &format!("Unable to stat `{}`: {error}", path.display()),
+            );
+        }
+    };
+    if metadata.len() > MAX_IMAGE_BYTES {
+        return super::context_error(
+            Some(rel),
+            &format!(
+                "Image exceeds {MAX_IMAGE_BYTES_LABEL} ingestion limit ({} bytes): {}",
+                metadata.len(),
+                path.display()
+            ),
+        );
+    }
+    let bytes = match fs::read(path) {
+        Ok(value) => value,
+        Err(error) => {
+            return super::context_error(
+                Some(rel),
+                &format!("Unable to read `{}`: {error}", path.display()),
+            );
+        }
+    };
+    if bytes.len() as u64 > MAX_IMAGE_BYTES {
+        return super::context_error(
+            Some(rel),
+            &format!(
+                "Image exceeds {MAX_IMAGE_BYTES_LABEL} ingestion limit ({} bytes): {}",
+                bytes.len(),
+                path.display()
+            ),
+        );
+    }
+    let image = match image::load_from_memory(&bytes) {
+        Ok(value) => value,
+        Err(error) => {
+            let text = format!(
+                "Image could not be decoded as {} ({}): {}",
+                kind.label(),
+                error,
+                path.display()
+            );
+            return super::context_error(Some(rel), &text);
+        }
+    };
+    let original = (image.width(), image.height());
+    let thumb = image.thumbnail(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION);
+    let (scaled_w, scaled_h) = (thumb.width(), thumb.height());
+    let mut encoded = Vec::with_capacity(bytes.len().min(64 * 1024));
+    if let Err(error) = thumb.write_to(&mut Cursor::new(&mut encoded), ImageFormat::Png) {
+        return super::context_error(
+            Some(rel),
+            &format!("Failed to encode image as PNG: {error}"),
+        );
+    }
+    let encoded_b64 = BASE64.encode(&encoded);
+    let mime = kind.mime();
+    ToolOutcome {
+        text: toon_doc(&[
+            ("path", ToonValue::Str(rel)),
+            ("mime", ToonValue::Str(mime)),
+            ("bytes", ToonValue::Int(encoded.len() as i64)),
+            ("width", ToonValue::Int(scaled_w as i64)),
+            ("height", ToonValue::Int(scaled_h as i64)),
+            ("originalWidth", ToonValue::Int(original.0 as i64)),
+            ("originalHeight", ToonValue::Int(original.1 as i64)),
+            ("image", ToonValue::Str("png attached")),
+        ]),
+        display: ToolDisplay {
+            kind: TOOL_KIND_CONTEXT.to_string(),
+            path: Some(rel.to_string()),
+            status: Some("ok".into()),
+            image_data: Some(encoded_b64),
+            ..ToolDisplay::default()
+        },
+        snapshot: None,
+        image_png: Some(encoded),
+        file: None,
+    }
+}
+
+fn is_disguised_binary_extension(path: &Path) -> bool {
     let ext = path
         .extension()
         .and_then(|value| value.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
+    if ext.is_empty() {
+        return false;
+    }
     matches!(
         ext.as_str(),
         "zip"
@@ -305,6 +430,153 @@ fn is_likely_binary_path(path: &Path) -> bool {
             | "pyc"
             | "pyo"
     )
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ImageKind {
+    Png,
+    Jpeg,
+    Gif,
+    Webp,
+}
+
+impl ImageKind {
+    fn label(self) -> &'static str {
+        match self {
+            ImageKind::Png => "PNG",
+            ImageKind::Jpeg => "JPEG",
+            ImageKind::Gif => "GIF",
+            ImageKind::Webp => "WebP",
+        }
+    }
+
+    fn mime(self) -> &'static str {
+        match self {
+            ImageKind::Png => "image/png",
+            ImageKind::Jpeg => "image/jpeg",
+            ImageKind::Gif => "image/gif",
+            ImageKind::Webp => "image/webp",
+        }
+    }
+}
+
+fn model_accepts(ctx: &ToolContext<'_>, kind: &str) -> bool {
+    ctx.input_modalities
+        .iter()
+        .chain(ctx.attachment_types.iter())
+        .any(|item| item.eq_ignore_ascii_case(kind))
+}
+
+fn is_pdf(path: &Path) -> bool {
+    let mut buf = [0u8; 5];
+    let Ok(mut file) = fs::File::open(path) else {
+        return false;
+    };
+    let Ok(read) = std::io::Read::read(&mut file, &mut buf) else {
+        return false;
+    };
+    read >= 4 && &buf[..4] == b"%PDF"
+}
+
+fn is_docx(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("docx"))
+}
+
+fn render_pdf(path: &Path, rel: &str) -> ToolOutcome {
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            return super::context_error(Some(rel), &format!("Unable to read `{rel}`: {error}"));
+        }
+    };
+    if bytes.len() as u64 > 32 * 1024 * 1024 {
+        return super::context_error(Some(rel), "PDF exceeds 32 MB.");
+    }
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "file.pdf".into());
+    ToolOutcome {
+        text: toon_doc(&[
+            ("path", ToonValue::Str(rel)),
+            ("kind", ToonValue::Str("pdf")),
+            ("mime", ToonValue::Str("application/pdf")),
+            ("status", ToonValue::Str("attached")),
+        ]),
+        display: ToolDisplay {
+            kind: TOOL_KIND_CONTEXT.to_string(),
+            path: Some(rel.to_string()),
+            status: Some("ok".into()),
+            ..ToolDisplay::default()
+        },
+        snapshot: None,
+        image_png: None,
+        file: Some(super::ToolFile {
+            name,
+            mime: "application/pdf".into(),
+            bytes,
+        }),
+    }
+}
+
+fn render_docx(path: &Path, rel: &str) -> ToolOutcome {
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            return super::context_error(Some(rel), &format!("Unable to read `{rel}`: {error}"));
+        }
+    };
+    let Some(text) = crate::attachments::extract_docx_text(&bytes) else {
+        return super::context_error(Some(rel), "Could not extract text from the document.");
+    };
+    ToolOutcome {
+        text: toon_doc(&[
+            ("path", ToonValue::Str(rel)),
+            ("kind", ToonValue::Str("document")),
+            ("content", ToonValue::Block(&text)),
+        ]),
+        display: ToolDisplay {
+            kind: TOOL_KIND_CONTEXT.to_string(),
+            path: Some(rel.to_string()),
+            status: Some("ok".into()),
+            ..ToolDisplay::default()
+        },
+        snapshot: None,
+        image_png: None,
+        file: None,
+    }
+}
+
+fn detect_image(path: &Path) -> Option<ImageKind> {
+    let mut buf = [0u8; IMAGE_PROBE_BYTES];
+    let mut file = fs::File::open(path).ok()?;
+    let read = std::io::Read::read(&mut file, &mut buf).ok()?;
+    if read < 8 {
+        return None;
+    }
+    detect_image_from_bytes(&buf[..read])
+}
+
+fn detect_image_from_bytes(bytes: &[u8]) -> Option<ImageKind> {
+    if starts_with(bytes, b"\x89PNG\r\n\x1a\n") {
+        return Some(ImageKind::Png);
+    }
+    if bytes.len() >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff {
+        return Some(ImageKind::Jpeg);
+    }
+    if starts_with(bytes, b"GIF87a") || starts_with(bytes, b"GIF89a") {
+        return Some(ImageKind::Gif);
+    }
+    if bytes.len() >= 12 && starts_with(bytes, b"RIFF") && &bytes[8..12] == b"WEBP" {
+        return Some(ImageKind::Webp);
+    }
+    None
+}
+
+fn starts_with(bytes: &[u8], prefix: &[u8]) -> bool {
+    bytes.len() >= prefix.len() && &bytes[..prefix.len()] == prefix
 }
 
 struct ReadResult {
@@ -363,6 +635,7 @@ fn read_windowed(path: &Path, offset: usize, limit: usize) -> std::io::Result<Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    use image::DynamicImage;
     use serde_json::json;
 
     #[test]
@@ -398,6 +671,159 @@ mod tests {
         let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
         let outcome = ReadTool.execute(&json!({}), &ctx);
         assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn detects_png_magic_bytes() {
+        let bytes = b"\x89PNG\r\n\x1a\nrest";
+        assert!(matches!(
+            detect_image_from_bytes(bytes),
+            Some(ImageKind::Png)
+        ));
+    }
+
+    #[test]
+    fn detects_jpeg_magic_bytes() {
+        let bytes = b"\xff\xd8\xff\xe0";
+        assert!(matches!(
+            detect_image_from_bytes(bytes),
+            Some(ImageKind::Jpeg)
+        ));
+    }
+
+    #[test]
+    fn detects_gif_magic_bytes() {
+        assert!(matches!(
+            detect_image_from_bytes(b"GIF89a..."),
+            Some(ImageKind::Gif)
+        ));
+    }
+
+    #[test]
+    fn detects_webp_magic_bytes() {
+        let bytes = b"RIFF\x00\x00\x00\x00WEBPVP8";
+        assert!(matches!(
+            detect_image_from_bytes(bytes),
+            Some(ImageKind::Webp)
+        ));
+    }
+
+    #[test]
+    fn rejects_non_image_bytes() {
+        assert!(detect_image_from_bytes(b"hello, world").is_none());
+        assert!(detect_image_from_bytes(b"\x89PNG").is_none());
+    }
+
+    #[test]
+    fn execute_decodes_png_image() {
+        let dir = tempdir();
+        let path = dir.join("pixel.png");
+        let pixel = DynamicImage::new_rgba8(8, 8);
+        let mut encoded = Vec::new();
+        pixel
+            .write_to(&mut Cursor::new(&mut encoded), ImageFormat::Png)
+            .unwrap();
+        fs::write(&path, &encoded).unwrap();
+
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = ReadTool.execute(&json!({ "filePath": path.to_string_lossy() }), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("ok"));
+        let png = outcome.image_png.expect("image_png set");
+        assert!(!png.is_empty());
+        assert!(outcome.display.image_data.is_some());
+        assert!(outcome.text.contains("mime: image/png"));
+        assert!(outcome.text.contains("image: png attached"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn execute_decodes_jpeg_image() {
+        let dir = tempdir();
+        let path = dir.join("pixel.jpg");
+        let pixel = DynamicImage::new_rgb8(8, 8);
+        let mut encoded = Vec::new();
+        pixel
+            .write_to(&mut Cursor::new(&mut encoded), ImageFormat::Jpeg)
+            .unwrap();
+        fs::write(&path, &encoded).unwrap();
+
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = ReadTool.execute(&json!({ "filePath": path.to_string_lossy() }), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("ok"));
+        assert!(outcome.image_png.is_some());
+        assert!(outcome.text.contains("mime: image/jpeg"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn execute_rejects_oversize_image() {
+        let dir = tempdir();
+        let path = dir.join("huge.png");
+        let mut bytes = b"\x89PNG\r\n\x1a\n".to_vec();
+        bytes.resize(MAX_IMAGE_BYTES as usize + 1, 0);
+        fs::write(&path, &bytes).unwrap();
+
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = ReadTool.execute(&json!({ "filePath": path.to_string_lossy() }), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        assert!(outcome.text.contains("exceeds 20 MB ingestion limit"));
+        assert!(outcome.image_png.is_none());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn execute_rejects_truncated_image_bytes() {
+        let dir = tempdir();
+        let path = dir.join("truncated.png");
+        fs::write(&path, b"\x89PNG\r\n\x1a\ntruncated").unwrap();
+
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = ReadTool.execute(&json!({ "filePath": path.to_string_lossy() }), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        assert!(outcome.text.contains("could not be decoded"));
+        assert!(outcome.image_png.is_none());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn execute_treats_image_extension_with_text_as_text() {
+        let dir = tempdir();
+        let path = dir.join("notes.png");
+        fs::write(&path, "just text, not a real png").unwrap();
+
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = ReadTool.execute(&json!({ "filePath": path.to_string_lossy() }), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("ok"));
+        assert!(outcome.image_png.is_none());
+        assert!(outcome.text.contains("just text, not a real png"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn page_request_forces_text_path() {
+        let dir = tempdir();
+        let path = dir.join("pixel.png");
+        let pixel = DynamicImage::new_rgba8(4, 4);
+        let mut encoded = Vec::new();
+        pixel
+            .write_to(&mut Cursor::new(&mut encoded), ImageFormat::Png)
+            .unwrap();
+        fs::write(&path, &encoded).unwrap();
+
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = ReadTool.execute(
+            &json!({ "filePath": path.to_string_lossy(), "offset": 1, "limit": 10 }),
+            &ctx,
+        );
+        assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        assert!(outcome.image_png.is_none());
+
         let _ = fs::remove_dir_all(&dir);
     }
 

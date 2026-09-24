@@ -5,7 +5,7 @@ this file and the matching `<tool>.response.toon`.
 
 ## Outcome
 
-kind: `action`  status: `error`  call_id: `test`
+kind: `action`  status: `ok`  call_id: `test`
 
 ## Environment
 
@@ -20,7 +20,7 @@ memory the host process held while it ran.
 
 | Wall time | CPU time (user + sys) | Host process RSS (during call) |
 |---|---|---|
-| **80 ms** (80804 us) | 0 ms user + 0 ms sys | before: 71988 KiB, after: 71988 KiB, delta: +0 KiB, lifetime peak: 132496 KiB |
+| **20 ms** (20734 us) | 0 ms user + 0 ms sys | before: 81876 KiB, after: 81908 KiB, delta: +32 KiB, lifetime peak: 135608 KiB |
 
 RSS is sampled via `/proc/self/status` on Linux or `ps -o rss=` on
 macOS, immediately before and after the call. The delta reflects
@@ -42,7 +42,7 @@ at runtime; see `src-tauri/src/tools/list_directory.rs`.
 
 | Bytes | Chars | Lines | Tokens (chars/4) |
 |---|---|---|---|
-| 140 | 140 | 3 | 35 |
+| 33 | 33 | 3 | 9 |
 
 ## Target
 

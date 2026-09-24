@@ -96,6 +96,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
             },
             snapshot: None,
             image_png: None,
+            file: None,
         },
         Err(message) => context_error(None, &message),
     }

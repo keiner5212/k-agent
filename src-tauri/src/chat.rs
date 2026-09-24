@@ -156,6 +156,9 @@ struct ToolResultTurn {
     name: String,
     content: String,
     image_png: Option<Vec<u8>>,
+    file_name: Option<String>,
+    file_mime: Option<String>,
+    file_bytes: Option<Vec<u8>>,
 }
 
 #[derive(Clone)]
@@ -474,6 +477,9 @@ fn normalize_turns(input: &[ChatTurn], keep_trailing_tools: bool) -> Vec<Turn> {
                     name: result.name.clone(),
                     content: result.content.clone(),
                     image_png: decode_png(result.image_data.as_deref()),
+                    file_name: None,
+                    file_mime: None,
+                    file_bytes: None,
                 }),
             });
             continue;
@@ -714,33 +720,56 @@ fn png_base64(png: &[u8]) -> String {
 }
 
 fn openai_tool_content(result: &ToolResultTurn) -> serde_json::Value {
-    let Some(png) = &result.image_png else {
-        return json!(result.content);
-    };
-    json!([
-        { "type": "text", "text": result.content },
-        {
+    let mut parts = vec![json!({ "type": "text", "text": result.content })];
+    if let Some(png) = &result.image_png {
+        parts.push(json!({
             "type": "image_url",
             "image_url": { "url": format!("data:image/png;base64,{}", png_base64(png)) }
-        }
-    ])
+        }));
+    }
+    if let (Some(mime), Some(bytes), Some(name)) =
+        (&result.file_mime, &result.file_bytes, &result.file_name)
+    {
+        parts.push(json!({
+            "type": "file",
+            "file": {
+                "filename": name,
+                "file_data": format!("data:{mime};base64,{}", png_base64(bytes)),
+            }
+        }));
+    }
+    if parts.len() == 1 {
+        return json!(result.content);
+    }
+    json!(parts)
 }
 
 fn anthropic_tool_content(result: &ToolResultTurn) -> serde_json::Value {
-    let Some(png) = &result.image_png else {
-        return json!(result.content);
-    };
-    json!([
-        { "type": "text", "text": result.content },
-        {
+    let mut parts = vec![json!({ "type": "text", "text": result.content })];
+    if let Some(png) = &result.image_png {
+        parts.push(json!({
             "type": "image",
             "source": {
                 "type": "base64",
                 "media_type": "image/png",
                 "data": png_base64(png),
             }
-        }
-    ])
+        }));
+    }
+    if let (Some(mime), Some(bytes)) = (&result.file_mime, &result.file_bytes) {
+        parts.push(json!({
+            "type": "document",
+            "source": {
+                "type": "base64",
+                "media_type": mime,
+                "data": png_base64(bytes),
+            }
+        }));
+    }
+    if parts.len() == 1 {
+        return json!(result.content);
+    }
+    json!(parts)
 }
 
 fn gemini_tool_result(result: &ToolResultTurn) -> serde_json::Value {
@@ -755,6 +784,14 @@ fn gemini_tool_result(result: &ToolResultTurn) -> serde_json::Value {
             "inlineData": {
                 "mimeType": "image/png",
                 "data": png_base64(png),
+            }
+        }));
+    }
+    if let (Some(mime), Some(bytes)) = (&result.file_mime, &result.file_bytes) {
+        parts.push(json!({
+            "inlineData": {
+                "mimeType": mime,
+                "data": png_base64(bytes),
             }
         }));
     }
@@ -1956,7 +1993,7 @@ async fn commit_tool_calls(
         if emit {
             emit_tool_call(on_chunk, tc);
         }
-        let (raw_text, display, image_png) = if let Some(mcp) =
+        let (raw_text, display, image_png, file) = if let Some(mcp) =
             call.mcp_tools.iter().find(|item| item.wire_name == tc.name)
         {
             let args = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
@@ -1970,6 +2007,7 @@ async fn commit_tool_calls(
                     kind: tools::TOOL_KIND_CONTEXT.to_string(),
                     ..ToolDisplay::default()
                 }),
+                None,
                 None,
             )
         } else if call.tool_names.iter().any(|name| name == &tc.name) {
@@ -1986,6 +2024,15 @@ async fn commit_tool_calls(
                 allowed_commands: call.allowed_commands.to_vec(),
                 blocked_commands: call.blocked_commands.to_vec(),
                 shell_program: call.shell_program.to_string(),
+                input_modalities: call.model.input.clone(),
+                attachment_types: if call.model.attachment_types.is_empty() {
+                    crate::providers::derive_attachment_types(
+                        &call.model.input,
+                        call.model.attachment,
+                    )
+                } else {
+                    call.model.attachment_types.clone()
+                },
             };
             let outcome = tools::execute(&tc.name, &tc.arguments, &tool_ctx).await;
             if let Some(snapshot) = outcome.snapshot {
@@ -1999,7 +2046,12 @@ async fn commit_tool_calls(
                     );
                 }
             }
-            (outcome.text, Some(outcome.display), outcome.image_png)
+            (
+                outcome.text,
+                Some(outcome.display),
+                outcome.image_png,
+                outcome.file,
+            )
         } else {
             (
                 format!("Tool `{}` is not enabled for this agent.", tc.name),
@@ -2008,6 +2060,7 @@ async fn commit_tool_calls(
                     status: Some("error".into()),
                     ..ToolDisplay::default()
                 }),
+                None,
                 None,
             )
         };
@@ -2048,6 +2101,9 @@ async fn commit_tool_calls(
                 name: tc.name.clone(),
                 content: outcome_text,
                 image_png,
+                file_name: file.as_ref().map(|item| item.name.clone()),
+                file_mime: file.as_ref().map(|item| item.mime.clone()),
+                file_bytes: file.map(|item| item.bytes),
             }),
         });
     }

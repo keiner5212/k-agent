@@ -476,14 +476,19 @@ async fn dumps_tool_examples() {
         write_stats(EDIT_TOOL_NAME, &stats, &outcome, &ctx_scratch);
     }
 
-    // read: real file in docs/, with offset + limit so the output exercises
-    // the "(Showing lines A-B of N)" footer and produces a non-trivial body.
+    // read: copy an image from src/assets into scratch so the workspace gate
+    // resolves it. Exercises magic-byte detection + PNG decode + downscale.
+    // The text path is covered by the unit tests in src/tools/read.rs.
     {
-        let args = r#"{"filePath":"example/system-prompt.md","offset":1,"limit":40}"#;
+        let repo_root = workspace_docs.parent().unwrap();
+        let src = repo_root.join("src/assets/easter-egg.png");
+        let dst = scratch.join("easter-egg.png");
+        let _ = fs::copy(&src, &dst);
+        let args = r#"{"filePath":"easter-egg.png"}"#;
         let (stats, outcome) =
-            measure(async { execute(READ_TOOL_NAME, args, &ctx_docs).await }).await;
+            measure(async { execute(READ_TOOL_NAME, args, &ctx_scratch).await }).await;
         write_input(READ_TOOL_NAME, args);
-        write_stats(READ_TOOL_NAME, &stats, &outcome, &ctx_docs);
+        write_stats(READ_TOOL_NAME, &stats, &outcome, &ctx_scratch);
     }
 
     // list_directory: recursive walk of `example/` so the model sees the
