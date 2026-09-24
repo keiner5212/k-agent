@@ -58,12 +58,12 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   graphql:
     "Send one GraphQL request. POST by default with query, optional variables, operation name, and headers. GET does not ask. POST and any other method wait for the user to deny, allow once, or allow for this chat.",
   page_shot:
-    "Capture a hidden view of one http or https page, including localhost. Set width and height for the viewport. Set selector to return only that element. The page is not shown. The PNG is attached for the user and the model.",
+    "Capture one viewport of a page that is already being served. http or https, including localhost. One shot per review. Do not retry with another host, a taller window, or a new selector when the image is blank or unchanged. A blank image is a capture miss, not the page design. Height is the window (max 1200), not the document. A URL hash scrolls that section into the window. Do not start a server from bash for this tool.",
   todowrite:
-    "Update the session todo list incrementally. Each item has a stable id. Use add for new items, update to change existing ones by id, remove to delete by id, and clear: true to wipe the list. Empty args is a no-op, not a clear. Priority is numeric 0-10. The list is shown to the user and persisted across restarts.",
+    "Update the session todo list incrementally. Each item has a stable id. Use add for new items, update to change existing ones by id, remove to delete by id, and clear: true to wipe the list. Empty args is a no-op, not a clear. An error names the known ids. Priority is numeric 0-10. The list is shown to the user and persisted across restarts.",
   validate_mermaid:
     "Check one mermaid diagram with the same parser the chat uses. Call this before a mermaid fence goes in the reply. status ok means the source parsed. status error returns the parser message. Fix the source and call again. Do not put a failed diagram in the reply.",
-  bash: "Run one shell command in the workspace. Exact blocked commands never run. Exact allowed commands skip the prompt. Destructive, networked, or redirecting commands wait for the user to deny, allow once, or allow for this chat.",
+  bash: "Run one shell command in the workspace. Exact blocked commands never run. Exact allowed commands skip the prompt. Destructive, networked, or redirecting commands wait for the user to deny, allow once, or allow for this chat. Do not start a dev server or background a process with &, nohup, or disown.",
   grep: "Search file contents with ripgrep. pattern is a regex. path defaults to the workspace. glob includes only matching paths (a leading ! excludes). caseInsensitive ignores letter case. count is the number of matching lines. matches is a sample of at most 100 lines. Uses the configured worker cores.",
 };
 

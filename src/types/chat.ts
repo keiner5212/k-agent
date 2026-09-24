@@ -17,7 +17,7 @@ export type ChatAttachment = {
   file?: string;
 };
 
-export type ChatChunkKind = "content" | "reasoning" | "tool" | "question" | "todo";
+export type ChatChunkKind = "content" | "reasoning" | "tool" | "tool_result" | "question" | "todo";
 
 export type TodoStatus = "pending" | "in_progress" | "completed" | "cancelled";
 
@@ -121,6 +121,29 @@ const toolCallFromRecord = (parsed: {
     call.thoughtSignature = parsed.thoughtSignature;
   }
   return call;
+};
+
+export const parseToolResultChunk = (text: string): ChatToolCall | null => {
+  try {
+    const parsed = JSON.parse(text) as {
+      id?: unknown;
+      name?: unknown;
+      argument?: unknown;
+      arguments?: unknown;
+      thoughtSignature?: unknown;
+      output?: unknown;
+      display?: ToolDisplay;
+    };
+    const call = toolCallFromRecord(parsed);
+    if (!call) return null;
+    if (typeof parsed.output === "string") call.output = parsed.output;
+    if (parsed.display && typeof parsed.display === "object") {
+      call.display = parsed.display;
+    }
+    return call;
+  } catch {
+    return null;
+  }
 };
 
 export const parseToolChunkText = (text: string): ChatToolCall => {

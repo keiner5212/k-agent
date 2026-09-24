@@ -13,6 +13,8 @@ Run one shell command in the workspace. The command string is checked against th
 - Treat `Accept for this chat` as a session grant for later dangerous commands. The block list still wins.
 - Cap combined stdout and stderr at `50000` chars and stop the process after `30` seconds.
 - Return `status`, `exitCode`, and `output`.
+- Refuse a background job (`&`, `nohup`, `disown`) before any prompt.
+- Still run an exact allow-list match, even when that string would otherwise look like a background job.
 
 ## Does not
 
@@ -21,6 +23,7 @@ Run one shell command in the workspace. The command string is checked against th
 - Match the allow or block list by prefix or regex. The settings copy says the full string.
 - Persist output. The result is the tool response only.
 - Bypass a block list entry because the session already allowed dangerous commands.
+- Start a background job. A single `&`, `nohup`, or `disown` returns an error. `&&` and `2>&1` still follow the normal rules.
 
 ## Options
 
@@ -50,6 +53,7 @@ See `response.toon` for the concrete wire shape the LLM sees.
 - `bash could not start <shell>`: the shell program failed to spawn.
 - `bash timed out after 30s.`: the process was killed at the time limit.
 - `bash: a dangerous command must run on the async dispatch path.`: the sync path refused to prompt.
+- `bash does not start background jobs.`: the command backgrounds with `&`, `nohup`, or `disown`.
 
 ## Source
 

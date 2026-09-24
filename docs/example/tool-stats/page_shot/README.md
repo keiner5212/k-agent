@@ -4,9 +4,10 @@ Capture one http or https page in a hidden WebKit view and return a PNG.
 
 ## Does
 
-- Loads the URL in a hidden utility window: no decorations, no taskbar entry, parked off-screen. The page is not shown.
-- Viewport default is `1280x720`. Width is clamped to `320-1600`. Height is clamped to `240-1200`.
-- Waits for the load to finish, then `waitMs` (default `300`, max `5000`) before capture.
+- Loads the URL in a hidden utility window: no decorations, no taskbar entry, on-screen at opacity 0 so WebKit still paints. The page is not shown.
+- Viewport default is `1280x720`. Width is clamped to `320-1600`. Height is clamped to `240-1200`. Height is the window, not the document.
+- Waits for the load to finish, scrolls a URL hash into view, then waits `waitMs` (default `300`, max `5000`) before capture.
+- Rejects a nearly solid black or white frame. That frame is a capture miss, not the page.
 - With no `selector`, returns the visible viewport.
 - With `selector`, uses the same viewport and crops the PNG to that element's box.
 - Returns the PNG to the model as an image part and shows the same image in the chat tool row.
@@ -15,9 +16,11 @@ Capture one http or https page in a hidden WebKit view and return a PNG.
 ## Does not
 
 - Run on hosts without Linux WebKit. Other platforms return `page_shot currently requires Linux WebKit.`
-- Click, type, or scroll. Intentional.
+- Click or type. Intentional. A URL hash is the only scroll, and it runs before the shot.
 - Read page text. Use `fetch_url` for a public article, or `http_request` for a raw response.
-- Show a browser window. The capture stays offscreen.
+- Show a browser window. The capture stays hidden.
+- Capture the full document. Use one viewport shot. A hash scrolls that section into the window.
+- Start a server. The page must already be listening. Use `bash` only for a command that finishes.
 
 ## Options
 
@@ -54,6 +57,7 @@ The chat row renders `display.imageData`. See `response.toon` for the text field
 - `page_shot selector matched no element.`: selector missed.
 - `page_shot selector matched an empty element.`: box has no size.
 - `page_shot snapshot: <error>`: WebKit snapshot failed.
+- `page_shot captured a blank frame.`: the pixels were nearly one flat black or white. Retry once with a higher `waitMs`.
 
 ## Source
 

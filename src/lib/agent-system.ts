@@ -113,6 +113,16 @@ const TODOS = tagged(
   ].join("\n"),
 );
 
+const VISUAL = tagged(
+  "visual-check",
+  [
+    "Use `page_shot` only on a page that is already being served. One shot per review.",
+    "Do not repeat it with a different host, height, or selector.",
+    "A blank or identical image is a capture miss. Do not edit the page to remove a black box from a bad shot.",
+    "Do not start a dev server, preview, or background process from `bash`.",
+  ].join("\n"),
+);
+
 const MERMAID = tagged(
   "mermaid",
   [
@@ -168,6 +178,7 @@ export const composeAgentSystem = (
   if (personality.length > 0) parts.push(tagged("personality", personality));
   if (RENDERING.length > 0) parts.push(RENDERING);
   if (hasTool(agent, "validate_mermaid")) parts.push(MERMAID);
+  if (hasTool(agent, "page_shot")) parts.push(VISUAL);
   return parts.join("\n\n");
 };
 

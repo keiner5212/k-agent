@@ -249,6 +249,17 @@ struct Staged {
     diff: TodoDiff,
 }
 
+fn id_list(items: &[TodoItem]) -> String {
+    if items.is_empty() {
+        return "none".to_string();
+    }
+    items
+        .iter()
+        .map(|item| item.id.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 fn stage(args: TodoWriteArgs, current: Vec<TodoItem>) -> Result<Staged, String> {
     let remove_ids = sanitize_remove_ids(args.remove);
     let mut next = current;
@@ -278,8 +289,9 @@ fn stage(args: TodoWriteArgs, current: Vec<TodoItem>) -> Result<Staged, String> 
     for update in &updates {
         let Some(target) = next.iter().find(|item| item.id == update.id) else {
             return Err(format!(
-                "todowrite: cannot update unknown id `{}`.",
-                update.id
+                "todowrite: cannot update unknown id `{}`. Known ids: {}.",
+                update.id,
+                id_list(&next)
             ));
         };
         diff.updated.push(apply_update_to_snapshot(target, update));
@@ -287,8 +299,9 @@ fn stage(args: TodoWriteArgs, current: Vec<TodoItem>) -> Result<Staged, String> 
     for update in updates {
         let Some(target) = next.iter_mut().find(|item| item.id == update.id) else {
             return Err(format!(
-                "todowrite: cannot update unknown id `{}`.",
-                update.id
+                "todowrite: cannot update unknown id `{}`. Known ids: {}.",
+                update.id,
+                id_list(&next)
             ));
         };
         if let Some(value) = update.content {
@@ -333,8 +346,9 @@ fn build_additions(raw: Vec<TodoAdd>, current: &[TodoItem]) -> Result<Vec<TodoIt
         }
         if current.iter().any(|existing| existing.id == item.id) {
             return Err(format!(
-                "todowrite: id `{}` already exists. Use `update` instead of `add`.",
-                item.id
+                "todowrite: id `{}` already exists. Use `update` instead of `add`. Known ids: {}.",
+                item.id,
+                id_list(current)
             ));
         }
         built.push(item);
@@ -358,7 +372,10 @@ fn plan_updates(raw: Vec<TodoUpdate>, current: &[TodoItem]) -> Result<Vec<Resolv
             return Err("todowrite update entries need a non-empty `id`.".into());
         }
         if !current.iter().any(|item| item.id == id) {
-            return Err(format!("todowrite: cannot update unknown id `{id}`."));
+            return Err(format!(
+                "todowrite: cannot update unknown id `{id}`. Known ids: {}.",
+                id_list(current)
+            ));
         }
         let content = entry.content.map(|value| value.trim().to_string());
         if let Some(value) = &content {

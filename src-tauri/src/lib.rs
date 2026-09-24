@@ -655,7 +655,9 @@ fn restore_last_workspace(app: &tauri::AppHandle) {
         return;
     }
     let home = default_workspace();
-    *guard = crate::pathutil::canonicalize_path(&home).ok().or(Some(home));
+    *guard = crate::pathutil::canonicalize_path(&home)
+        .ok()
+        .or(Some(home));
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

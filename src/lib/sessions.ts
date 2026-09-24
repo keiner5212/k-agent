@@ -40,6 +40,7 @@ import {
 import { getWorkerCoreSnapshot } from "@/lib/worker-cores";
 import {
   parseToolChunkText,
+  parseToolResultChunk,
   type AskUserAnswerEntry,
   type AskUserQuestion,
   type AskUserQuestionChunk,
@@ -961,6 +962,35 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       const onChunk = new Channel<ChatChunk>();
       onChunk.onmessage = (chunk) => {
         if (!chunk.text || get().sendingSessionId !== sessionId) return;
+        if (chunk.kind === "tool_result") {
+          const update = parseToolResultChunk(chunk.text);
+          if (update) {
+            let matched = false;
+            for (const round of rounds) {
+              const index = round.calls.findIndex((call) => call.id && call.id === update.id);
+              if (index < 0) continue;
+              const current = round.calls[index];
+              if (!current) continue;
+              const calls = round.calls.slice();
+              calls[index] = {
+                ...current,
+                output: update.output ?? current.output,
+                display: update.display ?? current.display,
+              };
+              round.calls = calls;
+              matched = true;
+              break;
+            }
+            if (!matched) {
+              const round = ensureActiveRound();
+              round.calls = [...round.calls, update];
+            }
+          }
+          cancelPaint();
+          commitBuffer();
+          publishStreaming(rounds[activeRoundIndex]?.content ?? null);
+          return;
+        }
         const isReasoning = chunk.kind === "reasoning";
         const isTool = chunk.kind === "tool";
         if (isReasoning || isTool) {

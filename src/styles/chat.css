@@ -898,10 +898,18 @@ button.change-bar__stat:focus-visible {
 
 /* Chat thread */
 
+.chat-thread-host {
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .chat-thread {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 1;
   padding: var(--space-6);
   min-height: 0;
   overflow-y: auto;
@@ -938,7 +946,7 @@ button.change-bar__stat:focus-visible {
 .chat-thread--active {
   align-items: stretch;
   justify-content: flex-start;
-  flex-direction: column-reverse;
+  flex-direction: column;
   overflow-anchor: none;
   padding-bottom: var(--space-10);
 }
@@ -946,10 +954,41 @@ button.change-bar__stat:focus-visible {
 .chat-thread__messages {
   display: flex;
   flex-direction: column;
+  justify-content: flex-end;
   gap: var(--space-3);
   width: 100%;
+  min-height: 100%;
   max-width: calc(100vw - var(--sessions-sidebar-width) - 2rem - (2 * var(--space-6)));
   margin: 0 auto;
+}
+
+.chat-jump {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: var(--space-4);
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid color-mix(in oklch, var(--accent) 38%, var(--border));
+  border-radius: var(--radius-md);
+  background-color: var(--surface-elevated);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  box-shadow: 0 8px 24px color-mix(in oklch, var(--text-primary) 14%, transparent);
+}
+
+.chat-jump:hover {
+  color: var(--accent);
+}
+
+.chat-jump:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .chat-message {
@@ -1042,6 +1081,18 @@ button.change-bar__stat:focus-visible {
   height: auto;
   margin-top: var(--space-2);
   border-radius: var(--radius-sm);
+}
+
+.chat-tools__preview {
+  margin: var(--space-1) 0 var(--space-2);
+  max-height: 8.5rem;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
 }
 
 .chat-tools__item::before {

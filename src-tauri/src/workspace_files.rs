@@ -346,7 +346,9 @@ mod tests {
         let hits = search_tree(&root, "index");
         let _ = fs::remove_dir_all(&root);
         assert!(hits.iter().any(|entry| entry.path == "index.ts"));
-        assert!(hits.iter().all(|entry| !entry.path.contains("node_modules")));
+        assert!(hits
+            .iter()
+            .all(|entry| !entry.path.contains("node_modules")));
     }
 
     #[test]
@@ -363,7 +365,9 @@ mod tests {
         let hits = search_tree(&root, "read");
         let _ = fs::remove_dir_all(&root);
         assert_eq!(
-            hits.iter().map(|entry| entry.path.as_str()).collect::<Vec<_>>(),
+            hits.iter()
+                .map(|entry| entry.path.as_str())
+                .collect::<Vec<_>>(),
             vec!["mini-server/README.md"]
         );
     }

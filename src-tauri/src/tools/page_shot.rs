@@ -10,7 +10,7 @@ use super::{
 
 pub const NAME: &str = "page_shot";
 
-const DESCRIPTION: &str = "Capture a hidden WebKit view of one http or https page and return a PNG. Set width and height for the window. Set selector to crop to that element. The page is not shown; only the image is returned.";
+const DESCRIPTION: &str = "Capture one viewport of a page that is already being served and return a PNG. One shot per review. Do not retry with another host, a taller window, or a new selector when the image is blank or unchanged. A blank image is a capture miss, not the page. Height is the window (max 1200), not the document. A URL hash scrolls that section into the window. Do not start a server from bash for this tool.";
 
 const DEFAULT_WIDTH: i32 = 1280;
 const DEFAULT_HEIGHT: i32 = 720;
@@ -27,9 +27,9 @@ impl Tool for PageShotTool {
                 "properties": {
                     "url": { "type": "string", "description": "Page URL. http or https, including localhost." },
                     "width": { "type": "integer", "description": "Viewport width in pixels. Default 1280. Range 320-1600." },
-                    "height": { "type": "integer", "description": "Viewport height in pixels. Default 720. Range 240-1200." },
-                    "selector": { "type": "string", "description": "Optional CSS selector. When set, the image is only that element." },
-                    "waitMs": { "type": "integer", "description": "Extra wait after load before capture. Default 300. Max 5000." }
+                    "height": { "type": "integer", "description": "Viewport height in pixels. Default 720. Range 240-1200. This is the window, not the page length." },
+                    "selector": { "type": "string", "description": "Optional CSS selector. When set, the image is only that element. Prefer one full viewport shot." },
+                    "waitMs": { "type": "integer", "description": "Extra wait after load before capture. Default 300. Max 5000. Raise once if the shot is blank." }
                 },
                 "required": ["url"]
             }),
@@ -207,7 +207,8 @@ fn shoot(
     window.set_keep_below(true);
     window.set_type_hint(gdk::WindowTypeHint::Utility);
     window.set_default_size(width, height);
-    window.move_(-16000, -16000);
+    window.move_(0, 0);
+    window.set_opacity(0.0);
     let view = WebView::new();
     window.add(&view);
     window.show_all();
@@ -239,10 +240,23 @@ fn shoot(
         let view = view.clone();
         let selector = selector.clone();
         let state = state.clone();
-        glib::timeout_add_local(Duration::from_millis(wait_ms), move || {
-            queue_snapshot(view.clone(), selector.clone(), state.clone());
-            glib::ControlFlow::Break
-        });
+        let shot_view = view.clone();
+        let script = "(function(){var h=location.hash;if(!h||h.length<2)return 'ok';var id=decodeURIComponent(h.slice(1));var el=document.getElementById(id);if(!el){try{el=document.querySelector('#'+CSS.escape(id))}catch(e){el=null}}if(el&&el.scrollIntoView)el.scrollIntoView({block:'start'});return 'ok'})()";
+        view.evaluate_javascript(
+            script,
+            None,
+            None,
+            None::<&gio::Cancellable>,
+            move |_result| {
+                let view = shot_view;
+                let selector = selector.clone();
+                let state = state.clone();
+                glib::timeout_add_local(Duration::from_millis(wait_ms), move || {
+                    queue_snapshot(view.clone(), selector.clone(), state.clone());
+                    glib::ControlFlow::Break
+                });
+            },
+        );
     });
     view.load_uri(url);
     Ok(())
@@ -350,10 +364,65 @@ fn encode_surface(
 
     use cairo::ImageSurface;
 
-    let image = ImageSurface::try_from(surface)
+    let mut image = ImageSurface::try_from(surface)
         .map_err(|_| "page_shot snapshot was not an image.".to_string())?;
+    if surface_is_blank(&mut image) {
+        return Err(
+            "page_shot captured a blank frame. Retry once with a higher waitMs. A blank frame is not the page."
+                .into(),
+        );
+    }
     let (x, y, w, h) = rect.unwrap_or((0, 0, image.width(), image.height()));
     encode_crop(&image, x, y, w, h)
+}
+
+#[cfg(target_os = "linux")]
+fn surface_is_blank(image: &mut cairo::ImageSurface) -> bool {
+    let width = image.width();
+    let height = image.height();
+    if width < 1 || height < 1 {
+        return true;
+    }
+    let stride = image.stride() as usize;
+    let Ok(data) = image.data() else {
+        return false;
+    };
+    let step_x = (width / 48).max(1) as usize;
+    let step_y = (height / 48).max(1) as usize;
+    let mut pixels = Vec::new();
+    for y in (0..height as usize).step_by(step_y) {
+        for x in (0..width as usize).step_by(step_x) {
+            let offset = y * stride + x * 4;
+            if offset + 2 >= data.len() {
+                continue;
+            }
+            // ARgb32 is native-endian, so little-endian bytes are B, G, R.
+            let b = data[offset];
+            let g = data[offset + 1];
+            let r = data[offset + 2];
+            pixels.push((r, g, b));
+        }
+    }
+    frame_is_blank(&pixels)
+}
+
+fn frame_is_blank(pixels: &[(u8, u8, u8)]) -> bool {
+    if pixels.is_empty() {
+        return true;
+    }
+    let mut near_flat = 0u32;
+    let mut min_l = 255u16;
+    let mut max_l = 0u16;
+    for (r, g, b) in pixels {
+        let l = (u16::from(*r) + u16::from(*g) + u16::from(*b)) / 3;
+        min_l = min_l.min(l);
+        max_l = max_l.max(l);
+        if l < 12 || l > 246 {
+            near_flat += 1;
+        }
+    }
+    let spread = max_l.saturating_sub(min_l);
+    near_flat * 100 / pixels.len() as u32 >= 97 && spread < 18
 }
 
 #[cfg(target_os = "linux")]
@@ -383,4 +452,23 @@ fn encode_crop(
         .write_to_png(&mut png)
         .map_err(|error| format!("page_shot encode: {error}"))?;
     Ok(png)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::frame_is_blank;
+
+    #[test]
+    fn solid_black_or_white_is_blank() {
+        assert!(frame_is_blank(&vec![(0, 0, 0); 40]));
+        assert!(frame_is_blank(&vec![(255, 255, 255); 40]));
+    }
+
+    #[test]
+    fn painted_page_is_kept() {
+        let mut pixels = vec![(246, 241, 231); 30];
+        pixels.push((40, 28, 22));
+        pixels.push((120, 72, 48));
+        assert!(!frame_is_blank(&pixels));
+    }
 }

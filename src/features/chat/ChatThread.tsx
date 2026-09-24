@@ -1,6 +1,15 @@
-import { memo, useCallback, useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, Film, Sparkles } from "lucide-react";
+import { ArrowDown, FileText, Film, Sparkles } from "lucide-react";
 import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
 import { useAskUserStore } from "@/lib/ask-user";
 import { runRenderMarkdownJob } from "@/lib/jobs";
@@ -289,6 +298,20 @@ const MessageBody = memo(function MessageBody({
   );
 });
 
+const STICK_PX = 64;
+const JUMP_PX = 240;
+
+const assistantIsWriting = (message: ChatMessage): boolean => {
+  if (!message.streaming || message.role !== "assistant") return false;
+  const rounds = message.toolRounds;
+  const last = rounds && rounds.length > 0 ? rounds[rounds.length - 1] : undefined;
+  if (!last) {
+    return message.content.length > 0 || (message.reasoning?.length ?? 0) > 0;
+  }
+  if ((last.calls?.length ?? 0) > 0) return false;
+  return (last.content?.length ?? 0) > 0 || last.reasoning.length > 0;
+};
+
 const InterruptHint = (): ReactNode => {
   const { t } = useTranslation();
   const armed = useSessionsStore((state) => state.interruptArmedAt);
@@ -317,6 +340,102 @@ const InterruptHint = (): ReactNode => {
   );
 };
 
+const ActiveThread = ({
+  messages,
+  waiting,
+  error,
+  sessionId,
+  themeEpoch,
+  onFullscreenMermaid,
+}: {
+  messages: ChatMessage[];
+  waiting: boolean;
+  error?: string;
+  sessionId: string | null;
+  themeEpoch: number;
+  onFullscreenMermaid: (source: string) => void;
+}): ReactNode => {
+  const { t } = useTranslation();
+  const [showJump, setShowJump] = useState(false);
+  const scrollerRef = useRef<HTMLElement>(null);
+  const stickRef = useRef(true);
+  const pinningRef = useRef(false);
+  const pinBottom = useCallback((): void => {
+    const node = scrollerRef.current;
+    if (!node || !stickRef.current) return;
+    pinningRef.current = true;
+    node.scrollTop = node.scrollHeight;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        pinningRef.current = false;
+      });
+    });
+  }, []);
+  const onThreadScroll = useCallback((): void => {
+    if (pinningRef.current) return;
+    const node = scrollerRef.current;
+    if (!node) return;
+    const distance = node.scrollHeight - node.clientHeight - node.scrollTop;
+    stickRef.current = distance < STICK_PX;
+    const jumped = distance > JUMP_PX;
+    setShowJump((current) => (current === jumped ? current : jumped));
+  }, []);
+  const jumpToBottom = useCallback((): void => {
+    stickRef.current = true;
+    setShowJump(false);
+    const node = scrollerRef.current;
+    if (!node) return;
+    pinningRef.current = true;
+    node.scrollTop = node.scrollHeight;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        pinningRef.current = false;
+      });
+    });
+  }, []);
+  useLayoutEffect(() => {
+    pinBottom();
+  }, [messages, waiting, error, pinBottom]);
+
+  return (
+    <>
+      <section
+        ref={scrollerRef}
+        className="chat-thread chat-thread--active"
+        aria-live="polite"
+        onScroll={onThreadScroll}
+      >
+        <div className="chat-thread__messages">
+          {messages.map((message) => (
+            <article
+              key={message.id}
+              className={`chat-message chat-message--${message.role}${message.kind === "shell" ? " chat-message--shell" : ""}${message.streaming ? " chat-message--streaming" : ""}${message.interrupted ? " chat-message--interrupted" : ""}`}
+              data-role={message.role}
+            >
+              <MessageBody
+                message={message}
+                sessionId={sessionId}
+                themeEpoch={themeEpoch}
+                onFullscreenMermaid={onFullscreenMermaid}
+              />
+              <MessageActions message={message} />
+            </article>
+          ))}
+          {waiting ? <ChatWaitingLine /> : null}
+          <InterruptHint />
+          {error ? <p className="chat-thread__error">{error}</p> : null}
+        </div>
+      </section>
+      {showJump ? (
+        <button type="button" className="chat-jump" onClick={jumpToBottom}>
+          <ArrowDown size={14} strokeWidth={1.75} aria-hidden="true" />
+          <span>{t("chat.thread.jumpToBottom")}</span>
+        </button>
+      ) : null}
+    </>
+  );
+};
+
 export const ChatThread = (): ReactNode => {
   const { t } = useTranslation();
   const messages = useSessionsStore(selectActiveMessages);
@@ -338,9 +457,7 @@ export const ChatThread = (): ReactNode => {
     return () => observer.disconnect();
   }, []);
   const waiting =
-    sending &&
-    sendingSessionId === activeSessionId &&
-    !messages.some((message) => message.streaming);
+    sending && sendingSessionId === activeSessionId && !messages.some(assistantIsWriting);
   const openFullscreenMermaid = useCallback((source: string): void => {
     setFullscreenSource(source);
     setFullscreenOpen(true);
@@ -348,43 +465,34 @@ export const ChatThread = (): ReactNode => {
 
   if (messages.length === 0 && !error) {
     return (
-      <section className="chat-thread" aria-live="polite">
-        <div className="chat-thread__empty">
-          <Sparkles size={20} strokeWidth={1.5} />
-          <h2 className="chat-thread__empty-title">{t("chat.thread.emptyTitle")}</h2>
-          <p className="chat-thread__empty-description">{t("chat.thread.emptyDescription")}</p>
-        </div>
-      </section>
+      <div className="chat-thread-host">
+        <section className="chat-thread" aria-live="polite">
+          <div className="chat-thread__empty">
+            <Sparkles size={20} strokeWidth={1.5} />
+            <h2 className="chat-thread__empty-title">{t("chat.thread.emptyTitle")}</h2>
+            <p className="chat-thread__empty-description">{t("chat.thread.emptyDescription")}</p>
+          </div>
+        </section>
+      </div>
     );
   }
 
   return (
-    <section className="chat-thread chat-thread--active" aria-live="polite">
-      <div className="chat-thread__messages">
-        {messages.map((message) => (
-          <article
-            key={message.id}
-            className={`chat-message chat-message--${message.role}${message.kind === "shell" ? " chat-message--shell" : ""}${message.streaming ? " chat-message--streaming" : ""}${message.interrupted ? " chat-message--interrupted" : ""}`}
-            data-role={message.role}
-          >
-            <MessageBody
-              message={message}
-              sessionId={activeSessionId}
-              themeEpoch={mermaidTheme}
-              onFullscreenMermaid={openFullscreenMermaid}
-            />
-            <MessageActions message={message} />
-          </article>
-        ))}
-        {waiting ? <ChatWaitingLine /> : null}
-        <InterruptHint />
-        {error ? <p className="chat-thread__error">{error}</p> : null}
-      </div>
+    <div className="chat-thread-host">
+      <ActiveThread
+        key={activeSessionId ?? ""}
+        messages={messages}
+        waiting={waiting}
+        error={error}
+        sessionId={activeSessionId}
+        themeEpoch={mermaidTheme}
+        onFullscreenMermaid={openFullscreenMermaid}
+      />
       <MermaidFullscreenDialog
         source={fullscreenSource}
         open={fullscreenOpen}
         onOpenChange={setFullscreenOpen}
       />
-    </section>
+    </div>
   );
 };

@@ -1163,6 +1163,11 @@ fn emit_chunk(on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>, kind: &str, tex
     }
 }
 
+fn emit_tool_result(on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>, call: &PersistedToolCall) {
+    let text = serde_json::to_string(call).unwrap_or_default();
+    emit_chunk(on_chunk, "tool_result", &text);
+}
+
 fn emit_tool_call(on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>, call: &ModelToolCall) {
     let argument = tool_call_argument(&call.name, &call.arguments);
     let text = json!({
@@ -2076,7 +2081,7 @@ async fn commit_tool_calls(
                 meta.skill_name = Some(argument.clone());
             }
         }
-        persisted_calls.push(PersistedToolCall {
+        let persisted = PersistedToolCall {
             id: tc.id.clone(),
             name: tc.name.clone(),
             argument: if argument.is_empty() {
@@ -2088,7 +2093,9 @@ async fn commit_tool_calls(
             thought_signature: nonempty_text(Some(&tc.thought_signature)).map(str::to_string),
             output: outcome_text.clone(),
             display,
-        });
+        };
+        emit_tool_result(on_chunk, &persisted);
+        persisted_calls.push(persisted);
         turns.push(Turn {
             assistant: false,
             content: String::new(),

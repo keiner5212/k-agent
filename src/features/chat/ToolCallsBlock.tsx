@@ -153,6 +153,19 @@ const previewFromOutput = (call: ChatToolCall): string => {
   return error || raw;
 };
 
+const INLINE_SKIP = new Set(["write", "edit", "todowrite", "page_shot", "skill", "ask_user"]);
+
+const inlineSnippet = (call: ChatToolCall): string => {
+  if (INLINE_SKIP.has(call.name) || call.display?.imageData) return "";
+  const text = previewFromOutput(call).trim();
+  if (text.length === 0) return "";
+  const lines = text.split("\n");
+  let body = lines.slice(0, 8).join("\n");
+  if (body.length > 600) body = `${body.slice(0, 600)}...`;
+  else if (lines.length > 8) body = `${body}\n...`;
+  return body;
+};
+
 const toolCallLabel = (call: ChatToolCall, lineRange = ""): string => {
   const name = call.name;
   if (name === "skill") {
@@ -255,6 +268,7 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
               : "";
           const label = toolCallLabel(call, lineRange);
           const canOpen = Boolean(call.output) || Boolean(isAction && call.id);
+          const snippet = inlineSnippet(call);
           return (
             <li
               key={call.id ?? `${call.name}-${index}`}
@@ -294,6 +308,7 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
                   <span className="chat-tools__tokens">~{formatContextWindow(tokens)}</span>
                 ) : null}
               </span>
+              {snippet ? <pre className="chat-tools__preview">{snippet}</pre> : null}
               {display?.imageData ? (
                 <img
                   className="chat-tools__shot"

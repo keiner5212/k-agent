@@ -770,7 +770,8 @@
     },
     "thread": {
       "emptyTitle": "Inicia una conversación",
-      "emptyDescription": "Elige un modelo y escribe un mensaje abajo."
+      "emptyDescription": "Elige un modelo y escribe un mensaje abajo.",
+      "jumpToBottom": "Ir al final"
     },
     "message": {
       "copy": "Copiar mensaje",

@@ -12,7 +12,7 @@ use super::{
 
 pub const NAME: &str = "bash";
 
-const DESCRIPTION: &str = "Run one shell command in the workspace. Exact blockedCommands never run. Exact allowedCommands run without a prompt. Other commands run immediately unless they look destructive, networked, or redirect output; those wait for the user to deny, allow once, or allow for this chat. Output is capped.";
+const DESCRIPTION: &str = "Run one shell command in the workspace. Exact blockedCommands never run. Exact allowedCommands run without a prompt. Other commands run immediately unless they look destructive, networked, or redirect output; those wait for the user to deny, allow once, or allow for this chat. Do not start a dev server or background a process with &, nohup, or disown. Output is capped.";
 
 const MAX_OUTPUT_CHARS: usize = 50_000;
 const TIMEOUT: Duration = Duration::from_secs(30);
@@ -40,6 +40,7 @@ enum Decision {
     Blocked,
     Confirm,
     Empty,
+    Background,
 }
 
 pub struct BashTool;
@@ -70,6 +71,9 @@ impl Tool for BashTool {
         match classify(command, &ctx.allowed_commands, &ctx.blocked_commands) {
             Decision::Empty => error_outcome("bash `command` is empty."),
             Decision::Blocked => error_outcome("bash refused: command is on the block list."),
+            Decision::Background => error_outcome(
+                "bash does not start background jobs. Do not use &, nohup, or disown.",
+            ),
             Decision::Confirm => {
                 error_outcome("bash: a dangerous command must run on the async dispatch path.")
             }
@@ -87,6 +91,9 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     match classify(command, &ctx.allowed_commands, &ctx.blocked_commands) {
         Decision::Empty => error_outcome("bash `command` is empty."),
         Decision::Blocked => error_outcome("bash refused: command is on the block list."),
+        Decision::Background => {
+            error_outcome("bash does not start background jobs. Do not use &, nohup, or disown.")
+        }
         Decision::Confirm => {
             if shell_session_granted(ctx) {
                 return run_command(ctx, command);
@@ -125,11 +132,60 @@ fn classify(command: &str, allowed: &[String], blocked: &[String]) -> Decision {
     if allowed.iter().any(|item| item == trimmed) {
         return Decision::Allowed;
     }
+    if is_background_job(trimmed) {
+        return Decision::Background;
+    }
     if is_dangerous(trimmed) {
         Decision::Confirm
     } else {
         Decision::Run
     }
+}
+
+fn is_background_job(command: &str) -> bool {
+    if has_single_ampersand(command) {
+        return true;
+    }
+    for segment in split_segments(command) {
+        let tokens = tokenize(segment);
+        let Some(name) = command_name(&tokens) else {
+            continue;
+        };
+        if name.eq_ignore_ascii_case("nohup") || name.eq_ignore_ascii_case("disown") {
+            return true;
+        }
+    }
+    false
+}
+
+fn has_single_ampersand(command: &str) -> bool {
+    let chars: Vec<char> = command.chars().collect();
+    let mut quote: Option<char> = None;
+    let mut index = 0usize;
+    while index < chars.len() {
+        let ch = chars[index];
+        if let Some(mark) = quote {
+            if ch == mark {
+                quote = None;
+            }
+            index += 1;
+            continue;
+        }
+        if ch == '\'' || ch == '"' {
+            quote = Some(ch);
+            index += 1;
+            continue;
+        }
+        if ch == '&' {
+            let prev = if index > 0 { chars[index - 1] } else { '\0' };
+            let next = chars.get(index + 1).copied().unwrap_or('\0');
+            if prev != '&' && next != '&' && prev != '>' && next != '>' {
+                return true;
+            }
+        }
+        index += 1;
+    }
+    false
 }
 
 fn is_dangerous(command: &str) -> bool {
@@ -510,5 +566,18 @@ mod tests {
     fn git_status_runs() {
         assert_eq!(classify("git status", &[], &[]), Decision::Run);
         assert_eq!(classify("git commit -m x", &[], &[]), Decision::Confirm);
+    }
+
+    #[test]
+    fn background_jobs_are_refused() {
+        assert_eq!(
+            classify("npm run dev > /tmp/vite.log 2>&1 &", &[], &[]),
+            Decision::Background
+        );
+        assert_eq!(
+            classify("nohup npx vite preview --port 4173 &", &[], &[]),
+            Decision::Background
+        );
+        assert_eq!(classify("echo a && echo b", &[], &[]), Decision::Run);
     }
 }
