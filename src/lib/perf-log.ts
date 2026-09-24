@@ -7,8 +7,9 @@ export const perfLog = (
   scope: string,
   durationMs: number,
   detail?: Record<string, string | number | boolean>,
+  minMs = PERF_THRESHOLD_MS,
 ): void => {
-  if (durationMs < PERF_THRESHOLD_MS || !isTauri()) return;
+  if (durationMs < minMs || !isTauri()) return;
   const suffix = detail
     ? ` ${Object.entries(detail)
         .map(([key, value]) => `${key}=${String(value)}`)

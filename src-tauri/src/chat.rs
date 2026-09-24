@@ -2034,7 +2034,15 @@ async fn commit_tool_calls(
                     call.model.attachment_types.clone()
                 },
             };
+            let started = std::time::Instant::now();
             let outcome = tools::execute(&tc.name, &tc.arguments, &tool_ctx).await;
+            let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
+            if elapsed_ms >= 8.0 {
+                eprintln!(
+                    "[perf] tool name={} {elapsed_ms:.1}ms cores={}",
+                    tc.name, call.parallelism
+                );
+            }
             if let Some(snapshot) = outcome.snapshot {
                 if let Some(sid) = session_id {
                     let _ = crate::sessions::write_file_revision(

@@ -47,10 +47,17 @@ export const ContextUsage = (): ReactNode => {
   const responseLanguage = useSettingsStore((state) => state.responseLanguage);
   const model = useMemo(() => resolveSelectedModel(providers, selection), [providers, selection]);
   const started = messages.length > 0;
+  const agent = useMemo(
+    () => (started ? resolveAgentMeta(selectedAgent, agentContexts, t) : null),
+    [agentContexts, selectedAgent, started, t],
+  );
+  const loadedSkillKey = useMemo(() => {
+    if (!started) return "";
+    return loadedSkillNamesFromMessages(messages).join("\0");
+  }, [messages, started]);
   const extras = useMemo(() => {
-    if (!started) return {};
-    const agent = resolveAgentMeta(selectedAgent, agentContexts, t);
-    const loadedSkills = loadedSkillNamesFromMessages(messages);
+    if (!started || !agent) return {};
+    const loadedSkills = loadedSkillKey.length > 0 ? loadedSkillKey.split("\0") : [];
     const agentSystem = composeAgentSystem(agent, skillContexts, loadedSkills);
     const appContext = appContextDirective(responseLanguage);
     const systemParts: string[] = [];
@@ -62,20 +69,18 @@ export const ContextUsage = (): ReactNode => {
       systemPrompt: estimateTokensFromText(systemParts.join("\n\n")),
       languageDirective: estimateTokensFromText(language),
       rules: estimateTokensFromText(rules),
-      toolDefinitions: estimateToolDefinitionTokens(agent?.tools ?? []),
+      toolDefinitions: estimateToolDefinitionTokens(agent.tools ?? []),
       mcpTools: estimateMcpToolTokens(mcpServers),
     };
   }, [
-    agentContexts,
+    agent,
     agentsMdFiles,
     forceResponseLanguage,
+    loadedSkillKey,
     mcpServers,
-    messages,
     responseLanguage,
-    selectedAgent,
     skillContexts,
     started,
-    t,
   ]);
   const usage = useMemo(
     () =>

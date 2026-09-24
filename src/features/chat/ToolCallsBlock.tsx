@@ -4,7 +4,8 @@ import type { LineKind } from "@/components/LineEditor";
 import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
 import { TodoList } from "@/features/chat/TodoList";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
-import { diffEditorValue, readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
+import { runDiffLinesJob } from "@/lib/jobs";
+import { readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
 import { skillNameFromCall, type ChatToolCall } from "@/types/chat";
 import { formatContextWindow } from "@/types/providers";
 
@@ -210,7 +211,7 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
           return;
         }
         const before = await readSessionFileRevision(sessionId, call.id, "before");
-        const packed = diffEditorValue(before.content, after.content);
+        const packed = (await runDiffLinesJob(before.content, after.content)).value;
         setPreview({
           titleKey: "chat.tools.editTitle",
           value: packed.value,

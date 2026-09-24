@@ -46,14 +46,19 @@ const addTitleToExternalLinks = (html: string, hint: string): string =>
     return `<a${attrs} title="${escapeAttribute(hint)}">`;
   });
 
-export const renderMarkdown = (source: string, linkTitleHint?: string): string => {
-  if (source.length === 0) return "";
-  const raw = marked.parse(source, { async: false });
-  const html = typeof raw === "string" ? raw : "";
-  const sanitized = DOMPurify.sanitize(html, {
+export const finishMarkdown = (parsedHtml: string, linkTitleHint?: string): string => {
+  if (parsedHtml.length === 0) return "";
+  const sanitized = DOMPurify.sanitize(parsedHtml, {
     ADD_ATTR: ["data-source", "data-hash"],
   });
   const withMermaid = replaceMermaidBlocks(sanitized);
   if (!linkTitleHint || linkTitleHint.length === 0) return withMermaid;
   return addTitleToExternalLinks(withMermaid, linkTitleHint);
+};
+
+export const renderMarkdown = (source: string, linkTitleHint?: string): string => {
+  if (source.length === 0) return "";
+  const raw = marked.parse(source, { async: false });
+  const html = typeof raw === "string" ? raw : "";
+  return finishMarkdown(html, linkTitleHint);
 };

@@ -4,9 +4,9 @@ import { FileDiff } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import type { LineKind } from "@/components/LineEditor";
 import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
+import { runDiffLinesJob } from "@/lib/jobs";
 import {
   collectSessionChanges,
-  diffEditorValue,
   readSessionFileRevision,
   type SessionChangedFile,
 } from "@/lib/session-files";
@@ -35,7 +35,7 @@ export const ChangeBar = (): ReactNode => {
         readSessionFileRevision(sessionId, file.callId, "before"),
         readSessionFileRevision(sessionId, file.callId, "after"),
       ]);
-      const packed = diffEditorValue(before.content, after.content);
+      const packed = (await runDiffLinesJob(before.content, after.content)).value;
       setDiff({
         path: file.path,
         value: packed.value,

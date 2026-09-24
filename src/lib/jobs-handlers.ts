@@ -16,7 +16,10 @@ export type JobName =
   | "resolveLanguageServer"
   | "lspRequest"
   | "listWorkspaceFiles"
-  | "listWorkspaceConfig";
+  | "listWorkspaceConfig"
+  | "renderMarkdown"
+  | "highlightLines"
+  | "diffLines";
 
 export type ListBundle<T> = {
   contexts: T[];
@@ -43,6 +46,27 @@ export type LspRequestPayload = {
 
 export type ListWorkspaceFilesPayload = {
   relativeDir: string;
+};
+
+export type RenderMarkdownPayload = {
+  source: string;
+  linkTitleHint?: string;
+};
+
+export type HighlightLinesPayload = {
+  text: string;
+  language: string | null;
+};
+
+export type DiffLinesPayload = {
+  before: string;
+  after: string;
+  context?: number;
+};
+
+export type Timed<T> = {
+  value: T;
+  computeMs: number;
 };
 
 export type WorkspaceConfigBundle = {
@@ -158,6 +182,40 @@ export const handleJob = async (name: JobName, payload: unknown, host: Host): Pr
         host.invoke("get_workspace_path"),
       ]);
       return { skills, agents, agentsMd, workspacePath };
+    }
+    case "renderMarkdown": {
+      const body =
+        payload && typeof payload === "object"
+          ? (payload as RenderMarkdownPayload)
+          : { source: "" };
+      const { parseMarkdownOffThread } = await import("./markdown-offthread");
+      const started = performance.now();
+      const html = parseMarkdownOffThread(String(body.source ?? ""));
+      return { value: html, computeMs: performance.now() - started } satisfies Timed<string>;
+    }
+    case "highlightLines": {
+      const body =
+        payload && typeof payload === "object"
+          ? (payload as HighlightLinesPayload)
+          : { text: "", language: null };
+      const { highlightLines } = await import("./syntax-highlight");
+      const started = performance.now();
+      const lines = highlightLines(String(body.text ?? ""), body.language);
+      return { value: lines, computeMs: performance.now() - started } satisfies Timed<string[]>;
+    }
+    case "diffLines": {
+      const body =
+        payload && typeof payload === "object"
+          ? (payload as DiffLinesPayload)
+          : { before: "", after: "" };
+      const { diffEditorValue } = await import("./session-diff");
+      const started = performance.now();
+      const value = diffEditorValue(
+        String(body.before ?? ""),
+        String(body.after ?? ""),
+        body.context,
+      );
+      return { value, computeMs: performance.now() - started };
     }
     default: {
       const exhaustive: never = name;

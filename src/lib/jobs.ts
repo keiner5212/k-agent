@@ -1,11 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
   handleJob,
+  type DiffLinesPayload,
   type Host,
   type JobName,
   type ListBundle,
+  type Timed,
   type WorkspaceConfigBundle,
 } from "./jobs-handlers";
+import type { DiffEditorValue } from "./session-diff";
+import { perfLog } from "./perf-log";
 import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "./platform";
 import type { AgentContext } from "@/types/agents";
 import type { AgentsMdFile } from "@/types/agents-md";
@@ -148,3 +152,79 @@ export const runListWorkspaceDirJob = (relativeDir = ""): Promise<WorkspaceEntry
 
 export const runListWorkspaceConfigJob = (): Promise<WorkspaceConfigBundle> =>
   runJob("listWorkspaceConfig");
+
+const logJob = (scope: string, started: number, computeMs: number, chars: number): void => {
+  perfLog(scope, performance.now() - started, { chars, computeMs: Math.round(computeMs) }, 8);
+};
+
+export const runRenderMarkdownJob = (
+  source: string,
+  linkTitleHint?: string,
+): Promise<Timed<string>> => {
+  const started = performance.now();
+  return runJob<Timed<string>>("renderMarkdown", { source, linkTitleHint }).then((result) => {
+    logJob("ui.markdown", started, result.computeMs, source.length);
+    return result;
+  });
+};
+
+export const runHighlightLinesJob = (
+  text: string,
+  language: string | null,
+): Promise<Timed<string[]>> => {
+  const started = performance.now();
+  return runJob<Timed<string[]>>("highlightLines", { text, language }).then((result) => {
+    logJob("ui.highlight", started, result.computeMs, text.length);
+    return result;
+  });
+};
+
+export const runDiffLinesJob = (
+  before: string,
+  after: string,
+  context = 3,
+): Promise<Timed<DiffEditorValue>> => {
+  const started = performance.now();
+  const payload: DiffLinesPayload = { before, after, context };
+  return runJob<Timed<DiffEditorValue>>("diffLines", payload).then((result) => {
+    logJob("ui.diff", started, result.computeMs, before.length + after.length);
+    return result;
+  });
+};
+
+export type LatestJob = {
+  push: () => void;
+  stop: () => void;
+};
+
+export const scheduleLatest = (delayMs: number, run: () => Promise<void>): LatestJob => {
+  let timer = 0;
+  let running = false;
+  let dirty = false;
+  let stopped = false;
+  const kick = (): void => {
+    if (stopped || running) return;
+    running = true;
+    dirty = false;
+    void run().finally(() => {
+      running = false;
+      if (!stopped && dirty) kick();
+    });
+  };
+  return {
+    push: () => {
+      if (stopped) return;
+      dirty = true;
+      if (timer || running) return;
+      timer = window.setTimeout(() => {
+        timer = 0;
+        kick();
+      }, delayMs);
+    },
+    stop: () => {
+      stopped = true;
+      if (timer) window.clearTimeout(timer);
+      timer = 0;
+    },
+  };
+};

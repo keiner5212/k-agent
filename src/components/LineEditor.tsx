@@ -1,8 +1,9 @@
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useUndoRedoKeydown } from "@/lib/use-undo-redo-keydown";
 import { useUndoableText } from "@/lib/undoable-text";
 import { useSettingsStore } from "@/lib/settings";
-import { highlightLine, highlightLines, resolveLanguage } from "@/lib/syntax-highlight";
+import { runHighlightLinesJob, scheduleLatest } from "@/lib/jobs";
+import { resolveLanguage } from "@/lib/syntax-language";
 
 export type LineKind = "context" | "add" | "remove";
 
@@ -21,6 +22,9 @@ type LineEditorProps = {
 
 const originLine = (startLine: number | undefined): number =>
   startLine && startLine > 0 ? Math.floor(startLine) : 1;
+
+const escapeHtml = (value: string): string =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 const markForKind = (kind: LineKind): string => {
   if (kind === "add") return "+";
@@ -59,9 +63,37 @@ export const LineEditor = ({
     return value.split("\n");
   }, [value]);
 
-  const highlightedLines = useMemo(() => {
-    if (!resolvedLanguage) return null;
-    return highlightLines(value, resolvedLanguage);
+  const [highlight, setHighlight] = useState<{ key: string; lines: string[] } | null>(null);
+  const valueRef = useRef(value);
+  const languageRef = useRef(resolvedLanguage);
+  const jobRef = useRef<ReturnType<typeof scheduleLatest> | null>(null);
+  const highlightKey = `${resolvedLanguage ?? ""}\0${value}`;
+  const highlightedLines = highlight?.key === highlightKey ? highlight.lines : null;
+
+  useEffect(() => {
+    let alive = true;
+    const job = scheduleLatest(32, async () => {
+      const text = valueRef.current;
+      const language = languageRef.current;
+      if (!language) return;
+      const next = await runHighlightLinesJob(text, language);
+      if (!alive || valueRef.current !== text || languageRef.current !== language) return;
+      setHighlight({ key: `${language}\0${text}`, lines: next.value });
+    });
+    jobRef.current = job;
+    job.push();
+    return () => {
+      alive = false;
+      job.stop();
+      if (jobRef.current === job) jobRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    valueRef.current = value;
+    languageRef.current = resolvedLanguage;
+    if (!resolvedLanguage) return;
+    jobRef.current?.push();
   }, [value, resolvedLanguage]);
 
   const syncOverlay = (): void => {
@@ -143,7 +175,8 @@ export const LineEditor = ({
         {logicalLines.map((text, index) => {
           const kind = lineKinds[index] ?? "context";
           const number = lineNumbers?.[index] ?? origin + index;
-          const lineHtml = highlightedLines?.[index] ?? highlightLine(text, null);
+          const lineHtml =
+            highlightedLines?.[index] ?? (text.length === 0 ? "&nbsp;" : escapeHtml(text));
           return (
             <div key={index} className="line-editor__row" data-kind={kind}>
               <span className="line-editor__gutter-line">{number}</span>

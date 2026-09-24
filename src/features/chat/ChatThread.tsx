@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type MouseEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FileText, Film, Sparkles } from "lucide-react";
 import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
 import { useAskUserStore } from "@/lib/ask-user";
-import { renderMarkdown } from "@/lib/markdown";
+import { runRenderMarkdownJob } from "@/lib/jobs";
+import { finishMarkdown } from "@/lib/markdown";
+import { perfLog } from "@/lib/perf-log";
 import {
   decodeMermaidSource,
   fillMermaidPlaceholders,
@@ -31,9 +33,32 @@ const AssistantMarkdown = ({
   onFullscreenMermaid: (source: string) => void;
 }): ReactNode => {
   const { t } = useTranslation();
-  const html = useMemo(() => renderMarkdown(content, t("links.openInBrowserHint")), [content, t]);
+  const linkHint = t("links.openInBrowserHint");
   const fullscreenLabel = t("chat.mermaid.fullscreenLabel");
-  const [viewHtml, setViewHtml] = useState(html);
+  const [html, setHtml] = useState("");
+
+  useEffect(() => {
+    if (streaming || content.length === 0) return;
+    let alive = true;
+    const hint = linkHint;
+    void runRenderMarkdownJob(content, hint).then((next) => {
+      if (!alive) return;
+      const sanitizeStarted = performance.now();
+      const safe = finishMarkdown(next.value, hint);
+      perfLog(
+        "ui.markdown.sanitize",
+        performance.now() - sanitizeStarted,
+        { chars: next.value.length },
+        8,
+      );
+      setHtml(safe);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [content, linkHint, streaming]);
+
+  const [viewHtml, setViewHtml] = useState("");
   const [readyKey, setReadyKey] = useState("");
   const renderKey = `${themeEpoch}\n${fullscreenLabel}\n${html}`;
 
@@ -60,6 +85,9 @@ const AssistantMarkdown = ({
   };
 
   if (content.length === 0) return null;
+  if (streaming || html.length === 0) {
+    return <div className="chat-message__content">{content}</div>;
+  }
   return (
     <div
       className="chat-message__content chat-message__markdown"
@@ -214,7 +242,7 @@ const MessageBody = ({
             const calls = round.calls ?? [];
             const isLastRound = index === lastRoundIndex;
             return (
-              <div key={calls[0]?.id ?? `round-${index}`}>
+              <div key={`round-${index}`}>
                 <ThinkingBlock
                   reasoning={round.reasoning}
                   streaming={Boolean(message.streaming) && isLastRound}
