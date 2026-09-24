@@ -24,7 +24,7 @@ use k_agent_lib::tools::{
     execute, ToolContext, ASK_USER_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME,
     EDIT_TOOL_NAME, FETCH_URL_TOOL_NAME, GRAPHQL_TOOL_NAME, HTTP_REQUEST_TOOL_NAME,
     INTERNET_SEARCH_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME, PAGE_SHOT_TOOL_NAME, READ_TOOL_NAME,
-    SKILL_TOOL_NAME, TODO_TOOL_NAME, WRITE_TOOL_NAME,
+    SKILL_TOOL_NAME, TODO_TOOL_NAME, VALIDATE_MERMAID_TOOL_NAME, WRITE_TOOL_NAME,
 };
 
 const REALISTIC_FILE_BODY: &str = "# Draft: sample skill body\n\
@@ -602,11 +602,20 @@ async fn dumps_tool_examples() {
         write_stats(PAGE_SHOT_TOOL_NAME, &stats, &outcome, &ctx_docs);
     }
 
+    // validate_mermaid: real parser. A small flowchart that the chat can render.
+    {
+        let args = r#"{"source":"flowchart LR\n  A[Status line] --> B[Headers]"}"#;
+        let (stats, outcome) =
+            measure(async { execute(VALIDATE_MERMAID_TOOL_NAME, args, &ctx_docs).await }).await;
+        write_input(VALIDATE_MERMAID_TOOL_NAME, args);
+        write_stats(VALIDATE_MERMAID_TOOL_NAME, &stats, &outcome, &ctx_docs);
+    }
+
     // Clean up the scratch directory so cargo test leaves docs/ tidy.
     cleanup_scratch(&scratch);
 
     eprintln!(
-        "[tool-examples] dumped all 13 tools at {}",
+        "[tool-examples] dumped all 14 tools at {}",
         output_dir().display()
     );
 }

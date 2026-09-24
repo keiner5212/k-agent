@@ -698,6 +698,10 @@
       "todowrite": {
         "label": "Plan de tareas",
         "description": "Actualiza la lista de tareas de la sesion de forma incremental. Cada item tiene un id estable. add para nuevos, update para cambiar existentes por id, remove para borrar por id, clear: true para vaciar la lista. Args vacios es no-op, no un clear. Prioridad es numerica 0-10."
+      },
+      "validate_mermaid": {
+        "label": "Revisar diagrama",
+        "description": "Parsea un diagrama mermaid antes de mostrarlo en el chat. La respuesta puede incluir el diagrama solo si esto devuelve ok."
       }
     },
     "delete": {
@@ -995,6 +999,7 @@
       "createFolderTitle": "Carpeta",
       "deleteTitle": "Eliminar",
       "todoTitle": "Plan",
+      "validateMermaidTitle": "Revision del diagrama",
       "outputTitle": "Salida de la herramienta"
     },
     "todos": {

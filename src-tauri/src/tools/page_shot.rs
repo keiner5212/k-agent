@@ -193,8 +193,8 @@ fn shoot(
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    use gtk::prelude::*;
     use gtk::prelude::WidgetExtManual;
+    use gtk::prelude::*;
     use webkit2gtk::WebViewExt;
     use webkit2gtk::{LoadEvent, WebView};
 

@@ -113,6 +113,15 @@ const TODOS = tagged(
   ].join("\n"),
 );
 
+const MERMAID = tagged(
+  "mermaid",
+  [
+    "Before a `mermaid` fence goes in the reply, call `validate_mermaid` with that exact source.",
+    "Include the fence only when the tool returns status ok.",
+    "If it returns error, fix the source and validate again. Do not show a diagram that failed the check.",
+  ].join("\n"),
+);
+
 const hasTool = (agent: AgentMeta, name: string): boolean => agent.tools.includes(name);
 
 const RENDERING = tagged(
@@ -158,6 +167,7 @@ export const composeAgentSystem = (
   const personality = agent.personality.trim();
   if (personality.length > 0) parts.push(tagged("personality", personality));
   if (RENDERING.length > 0) parts.push(RENDERING);
+  if (hasTool(agent, "validate_mermaid")) parts.push(MERMAID);
   return parts.join("\n\n");
 };
 

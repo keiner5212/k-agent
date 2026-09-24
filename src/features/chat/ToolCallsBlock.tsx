@@ -37,6 +37,7 @@ const TOOL_SYMBOL: Record<string, string> = {
   create_folder: "\u25A4 ",
   delete: "\u2715 ",
   todowrite: "\u25C7 ",
+  validate_mermaid: "\u25A1 ",
 };
 
 const READ_LINE_RE = /^(\d+): (.*)$/;
@@ -162,7 +163,9 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
             ? "chat.tools.listTitle"
             : call.name === "todowrite"
               ? "chat.tools.todoTitle"
-              : "chat.tools.outputTitle";
+              : call.name === "validate_mermaid"
+                ? "chat.tools.validateMermaidTitle"
+                : "chat.tools.outputTitle";
     const parsedRead = call.name === "read" ? readToolView(call.output ?? "") : null;
     setPreview({
       titleKey,

@@ -138,6 +138,9 @@
       .render {
         border-left-color: #73daca;
       }
+      .diagram {
+        border-left-color: #2ac3de;
+      }
       .note {
         margin: 16px 0 0;
         color: var(--muted);
@@ -192,6 +195,10 @@
         <li>
           <span class="swatch" style="background: #73daca"></span
           ><span><code>rendering</code> chat markdown rules</span>
+        </li>
+        <li>
+          <span class="swatch" style="background: #2ac3de"></span
+          ><span><code>mermaid</code> validate_mermaid before a fence</span>
         </li>
       </ul>
       <article class="prompt">
@@ -330,6 +337,18 @@ Chat output is GitHub-flavored markdown.
 - Fenced `mermaid` blocks render as diagrams after the message finishes streaming. Use them for flows, sequences, and structure that a picture explains faster than prose.
 - Do not repeat the same idea in prose when the diagram already shows it.
 &lt;/rendering&gt;</pre>
+        </section>
+        <section class="block diagram">
+          <header>
+            <span class="tag">mermaid</span>
+            <span class="src">src/lib/agent-system.ts, only if validate_mermaid is enabled</span>
+          </header>
+          <pre>
+&lt;mermaid&gt;
+Before a `mermaid` fence goes in the reply, call `validate_mermaid` with that exact source.
+Include the fence only when the tool returns status ok.
+If it returns error, fix the source and validate again. Do not show a diagram that failed the check.
+&lt;/mermaid&gt;</pre>
         </section>
       </article>
       <p class="note">

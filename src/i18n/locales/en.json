@@ -698,6 +698,10 @@
       "todowrite": {
         "label": "Plan tasks",
         "description": "Update the session todo list incrementally. Each item has a stable id. add for new items, update to change existing ones by id, remove to delete by id, clear: true to wipe the list. Empty args is a no-op, not a clear. Priority is numeric 0-10."
+      },
+      "validate_mermaid": {
+        "label": "Check diagram",
+        "description": "Parse a mermaid diagram before it is shown in chat. The reply may include the diagram only after this returns ok."
       }
     },
     "delete": {
@@ -995,6 +999,7 @@
       "createFolderTitle": "Folder",
       "deleteTitle": "Delete",
       "todoTitle": "Plan",
+      "validateMermaidTitle": "Diagram check",
       "outputTitle": "Tool output"
     },
     "todos": {

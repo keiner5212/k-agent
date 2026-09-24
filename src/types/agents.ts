@@ -17,6 +17,7 @@ export const AGENT_TOOL_IDS = [
   "graphql",
   "page_shot",
   "todowrite",
+  "validate_mermaid",
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
@@ -29,6 +30,7 @@ export const PLAN_AGENT_TOOL_IDS: readonly AgentToolId[] = [
   "todowrite",
   "internet_search",
   "fetch_url",
+  "validate_mermaid",
 ];
 
 export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
@@ -56,6 +58,8 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
     "Capture a hidden view of one http or https page, including localhost. Set width and height for the viewport. Set selector to return only that element. The page is not shown. The PNG is attached for the user and the model.",
   todowrite:
     "Update the session todo list incrementally. Each item has a stable id. Use add for new items, update to change existing ones by id, remove to delete by id, and clear: true to wipe the list. Empty args is a no-op, not a clear. Priority is numeric 0-10. The list is shown to the user and persisted across restarts.",
+  validate_mermaid:
+    "Check one mermaid diagram with the same parser the chat uses. Call this before a mermaid fence goes in the reply. status ok means the source parsed. status error returns the parser message. Fix the source and call again. Do not put a failed diagram in the reply.",
 };
 
 export const MAX_AGENT_SKILLS = 10;
