@@ -27,6 +27,26 @@ const fileName = (path: string): string => {
   return parts[parts.length - 1] || path;
 };
 
+const TOOL_TITLE: Record<string, string> = {
+  skill: "chat.tools.skillTitle",
+  read: "chat.tools.readTitle",
+  list_directory: "chat.tools.listTitle",
+  write: "chat.tools.writeTitle",
+  edit: "chat.tools.editTitle",
+  create_folder: "chat.tools.createFolderTitle",
+  delete: "chat.tools.deleteTitle",
+  todowrite: "chat.tools.todoTitle",
+  validate_mermaid: "chat.tools.validateMermaidTitle",
+  bash: "chat.tools.bashTitle",
+  grep: "chat.tools.grepTitle",
+  fetch_url: "chat.tools.fetchTitle",
+  internet_search: "chat.tools.searchTitle",
+  http_request: "chat.tools.httpTitle",
+  graphql: "chat.tools.graphqlTitle",
+  page_shot: "chat.tools.shotTitle",
+  ask_user: "chat.tools.askTitle",
+};
+
 const TOOL_SYMBOL: Record<string, string> = {
   skill: "\u2726 ",
   read: "\u25CB ",
@@ -73,13 +93,63 @@ const readToolView = (raw: string): { content: string; startLine: number | undef
   return { content: cleaned.join("\n"), startLine };
 };
 
-const previewFromOutput = (call: ChatToolCall): string => {
-  if (call.name === "skill")
-    return toonFieldValue(call.output ?? "", "body") || (call.output ?? "");
-  if (call.name === "list_directory") {
-    return toonFieldValue(call.output ?? "", "entries") || (call.output ?? "");
+const argString = (call: ChatToolCall, key: string): string => {
+  const raw = call.arguments ?? (call.argument?.startsWith("{") ? call.argument : undefined);
+  if (!raw) return "";
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const value = parsed[key];
+    return typeof value === "string" ? value.trim() : "";
+  } catch {
+    return "";
   }
-  return call.output ?? "";
+};
+
+const fieldOr = (raw: string, key: string, fallback: string): string => {
+  const value = toonFieldValue(raw, key);
+  return value.length > 0 ? value : fallback;
+};
+
+const previewFromOutput = (call: ChatToolCall): string => {
+  const raw = call.output ?? "";
+  const error = toonFieldValue(raw, "error");
+  if (call.name === "skill") return fieldOr(raw, "body", error || raw);
+  if (call.name === "list_directory") return fieldOr(raw, "entries", error || raw);
+  if (call.name === "grep") return fieldOr(raw, "matches", error || raw);
+  if (call.name === "internet_search") return fieldOr(raw, "items", error || raw);
+  if (call.name === "http_request" || call.name === "graphql") {
+    return fieldOr(raw, "body", error || raw);
+  }
+  if (call.name === "fetch_url") {
+    if (error) return error;
+    const title = toonFieldValue(raw, "title");
+    const content = toonFieldValue(raw, "content");
+    if (title && content) return `${title}\n\n${content}`;
+    return content || raw;
+  }
+  if (call.name === "ask_user")
+    return fieldOr(raw, "answers", toonFieldValue(raw, "status") || raw);
+  if (call.name === "validate_mermaid") return error || toonFieldValue(raw, "status") || raw;
+  if (call.name === "page_shot") return error || toonFieldValue(raw, "url") || raw;
+  if (call.name === "todowrite") {
+    const todos = call.display?.todos;
+    if (todos && todos.length > 0) {
+      return todos.map((item) => `${item.status}  ${item.content}`).join("\n");
+    }
+    return fieldOr(raw, "summary", error || raw);
+  }
+  if (call.name === "bash") {
+    const command = argString(call, "command") || call.argument?.trim() || "";
+    const output = toonFieldValue(raw, "output");
+    const exitCode = toonFieldValue(raw, "exitCode");
+    const lines: string[] = [];
+    if (command) lines.push(`$ ${command}`);
+    if (exitCode) lines.push(`exit ${exitCode}`);
+    const body = output || error;
+    if (body) lines.push(body);
+    return lines.join("\n") || raw;
+  }
+  return error || raw;
 };
 
 const toolCallLabel = (call: ChatToolCall, lineRange = ""): string => {
@@ -94,6 +164,16 @@ const toolCallLabel = (call: ChatToolCall, lineRange = ""): string => {
     return lineRange ? `${name} "${path}" ${lineRange}` : `${name} "${path}"`;
   }
   if (name === "list_directory") return path ? `${name} "${path}"` : name;
+  if (name === "bash") {
+    const command = argString(call, "command");
+    if (!command) return name;
+    const shown = command.length > 80 ? `${command.slice(0, 77)}...` : command;
+    return `${name} "${shown}"`;
+  }
+  if (name === "grep") {
+    const pattern = argString(call, "pattern");
+    return pattern ? `${name} "${pattern}"` : name;
+  }
   if (call.display?.kind === "action") {
     return path ? `${name} ${fileName(path)}` : name;
   }
@@ -108,20 +188,12 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
 
   const openPreview = async (call: ChatToolCall): Promise<void> => {
     const display = call.display;
-    if (display?.kind === "action" && call.id && sessionId) {
-      if (call.name === "create_folder" || call.name === "delete") {
-        setPreview({
-          titleKey:
-            call.name === "delete" ? "chat.tools.deleteTitle" : "chat.tools.createFolderTitle",
-          value: call.output ?? "",
-          path: display.path,
-        });
-        return;
-      }
+    const fileEdit = call.name === "write" || call.name === "edit";
+    if (fileEdit && display?.kind === "action" && call.id && sessionId) {
       if (display.status !== "ok") {
         setPreview({
           titleKey: call.name === "edit" ? "chat.tools.editTitle" : "chat.tools.writeTitle",
-          value: display.path ? `${display.path}\n${t("chat.tools.error")}` : t("chat.tools.error"),
+          value: toonFieldValue(call.output ?? "", "error") || t("chat.tools.error"),
           path: display.path,
         });
         return;
@@ -149,30 +221,17 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
         return;
       } catch {
         setPreview({
-          titleKey: "chat.tools.outputTitle",
-          value: call.output ?? "",
+          titleKey: TOOL_TITLE[call.name] ?? "chat.tools.outputTitle",
+          value: previewFromOutput(call),
           path: display.path,
         });
         return;
       }
     }
-    const titleKey =
-      call.name === "skill"
-        ? "chat.tools.skillTitle"
-        : call.name === "read"
-          ? "chat.tools.readTitle"
-          : call.name === "list_directory"
-            ? "chat.tools.listTitle"
-            : call.name === "todowrite"
-              ? "chat.tools.todoTitle"
-              : call.name === "validate_mermaid"
-                ? "chat.tools.validateMermaidTitle"
-                : call.name === "bash"
-                  ? "chat.tools.bashTitle"
-                  : call.name === "grep"
-                    ? "chat.tools.grepTitle"
-                    : "chat.tools.outputTitle";
-    const parsedRead = call.name === "read" ? readToolView(call.output ?? "") : null;
+    const titleKey = TOOL_TITLE[call.name] ?? "chat.tools.outputTitle";
+    const raw = call.output ?? "";
+    const parsedRead =
+      call.name === "read" && toonFieldValue(raw, "content") ? readToolView(raw) : null;
     setPreview({
       titleKey,
       value: parsedRead?.content ?? previewFromOutput(call),

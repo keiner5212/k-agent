@@ -10,7 +10,8 @@ Replace an exact string in an existing file with multiple relaxations for whites
 - Detects whether the file uses `\n` or `\r\n` line endings and converts `oldString` / `newString` to match before applying the replacement.
 - Locks the target file with a per-path mutex for the duration of the replacement so concurrent edit/write calls cannot interleave.
 - Captures before/after snapshots to `sessions/{id}/files/{callId}.before` and `{callId}.after`.
-- Emits `added` and `removed` line counts from a hunk-style diff.
+- Emits `added` and `removed` as the changed lines in this call. Several edits in one file count each change, not the span from the first change to the last.
+- Groups edits by resolved path. `count` is that file count, and only when more than one file is written.
 
 ## Does not
 
@@ -31,14 +32,15 @@ Replace an exact string in an existing file with multiple relaxations for whites
 
 ## Response
 
-| Field     | Type    | Notes                                     |
-| --------- | ------- | ----------------------------------------- |
-| `path`    | string  | Workspace-relative path that was edited.  |
-| `status`  | string  | Always `ok` on success.                   |
-| `added`   | integer | Lines added by the edit (display-only).   |
-| `removed` | integer | Lines removed by the edit (display-only). |
+| Field     | Type    | Notes                                                             |
+| --------- | ------- | ----------------------------------------------------------------- |
+| `path`    | string  | Workspace-relative path that was edited.                          |
+| `status`  | string  | Always `ok` on success.                                           |
+| `added`   | integer | Changed lines added in this call.                                 |
+| `removed` | integer | Changed lines removed in this call.                               |
+| `count`   | integer | File count. Present only when the call writes more than one file. |
 
-The TOON response body is `path` + `status` + `added` + `removed` (the integer fields are display-only and absent from the wire text; the runtime surfaces them in the frontend `ToolDisplay`).
+The TOON response body is `path` + `status` + `added` + `removed`. A single-file call has no `count` field.
 
 See `response.toon` for the concrete wire shape the LLM sees.
 

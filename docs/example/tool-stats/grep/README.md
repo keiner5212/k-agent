@@ -1,43 +1,48 @@
 # grep
 
-Search file contents with ripgrep. The job count is the configured worker-core limit, clamped to `1..=16`.
+Search file contents with the ripgrep engine compiled into the app. The job count is the configured worker-core limit, clamped to `1..=16`.
 
 ## Does
 
-- Search with the `grep`, `grep-regex`, `grep-searcher`, and `ignore` crates compiled into the app. There is no system `rg` binary.
-- Walk files on a pool sized to the chat request parallelism so the search uses the configured cores.
+- Search with the `grep`, `grep-regex`, `grep-searcher`, and `ignore` crates. There is no system `rg` binary.
+- Walk files on a pool sized to the chat request parallelism.
 - Default `path` to the workspace root. Absolute and workspace-relative paths are accepted.
-- Accept an optional `glob` such as `*.rs` or `*.{ts,tsx}`.
-- Always skip `.git/**`, `node_modules/**`, and `target/**`.
-- Cap each file at 20 matches and the whole response at 100 lines.
-- Clip each output line at 400 characters.
-- Return `count: 0` and an empty `matches` block when ripgrep exits 1 (no matches).
+- Treat `glob` as an include filter. `*.md` returns only markdown files. `*.{rs,toml}` is one glob. A leading `!` excludes (`!*.json`).
+- Honor `caseInsensitive`. Default is case-sensitive. `token` does not match `TOKEN` unless the flag is true.
+- Count every match. `count` is that total, not the number of lines printed.
+- Return a sample in `matches`: at most 20 lines from each file and 100 lines overall. `truncated` is `true` when `count` is larger than the sample.
+- Skip `.git`, `node_modules`, `target`, and `dist`. Hidden files and gitignore rules still apply.
+- Clip each sample line at 400 characters. Sort the sample by path, then line.
+- Return `count: 0`, `truncated: false`, and an empty `matches` block when nothing matches.
 - Ask before searching outside the workspace, same as `read`.
 
 ## Does not
 
-- Search with a shell pipeline. `pattern` and `path` are argv, so a leading dash cannot become a flag (`--` separates them).
-- Shell out to a system `rg`. The search engine is part of the app binary.
-- Follow symlinks into other trees beyond what ripgrep does by default.
-- Return binary matches. Ripgrep's default binary skip stays in place.
-- Use more cores than the settings limit. `list_directory` is the other tool that already spends the same pool on parallel directory walks.
+- Stop the walk at 100 matches. The walk finishes so `count` stays exact. Only the printed sample is capped.
+- Shell out to a system `rg` or to `bash`.
+- Offer word-boundary, count-only, or files-only flags. Use a tighter `pattern`, or `bash` when the full line list must be streamed.
+- Follow symlinks beyond the `ignore` crate default.
+- Return binary matches. The searcher skips binary files.
+- Use more cores than the settings limit.
+- Cache results. Each call walks again.
 
 ## Options
 
-| Name      | Type   | Required | Default        | Notes                                              |
-| --------- | ------ | -------- | -------------- | -------------------------------------------------- |
-| `pattern` | string | yes      | -              | Ripgrep regex.                                     |
-| `path`    | string | no       | workspace root | File or directory. Absolute or workspace-relative. |
-| `glob`    | string | no       | -              | Extra `--glob`. Noise directories stay excluded.   |
+| Name              | Type    | Required | Default        | Notes                                              |
+| ----------------- | ------- | -------- | -------------- | -------------------------------------------------- |
+| `pattern`         | string  | yes      | -              | Regex. Case-sensitive unless `caseInsensitive`.    |
+| `path`            | string  | no       | workspace root | File or directory. Absolute or workspace-relative. |
+| `glob`            | string  | no       | -              | Include filter. A leading `!` excludes.            |
+| `caseInsensitive` | boolean | no       | false          | Match letters regardless of case.                  |
 
 ## Response
 
-| Field       | Type    | Notes                                                            |
-| ----------- | ------- | ---------------------------------------------------------------- |
-| `pattern`   | string  | The pattern that was searched.                                   |
-| `count`     | integer | Matches included in this response, at most 100.                  |
-| `truncated` | string  | `true` when more lines existed than the cap. `false` otherwise.  |
-| `matches`   | string  | `path:line:text` lines from ripgrep. Empty when nothing matched. |
+| Field       | Type    | Notes                                                              |
+| ----------- | ------- | ------------------------------------------------------------------ |
+| `pattern`   | string  | The pattern that was searched.                                     |
+| `count`     | integer | Total matches in the walk, including lines left out of the sample. |
+| `truncated` | string  | `true` when `matches` is a sample of a larger `count`.             |
+| `matches`   | string  | `path:line:text` sample. Empty when nothing matched.               |
 
 See `response.toon` for the concrete wire shape the LLM sees.
 
@@ -46,6 +51,7 @@ See `response.toon` for the concrete wire shape the LLM sees.
 - `grep requires a string pattern.`: `pattern` was missing or not a string.
 - `grep pattern is empty.`: `pattern` was blank after trim.
 - `grep: <regex error>`: the pattern is not a valid regex.
+- `grep: <glob error>`: `glob` could not be compiled.
 - `grep outside the workspace must run on the async dispatch path.`: the sync path will not prompt.
 - `User denied access outside the workspace.`: the user denied the outside-workspace prompt.
 

@@ -32,6 +32,46 @@ const currentMermaidTheme = (): "dark" | "default" => {
   return "dark";
 };
 
+let measureContext: CanvasRenderingContext2D | null | undefined;
+
+const fallbackTextBox = (element: SVGGraphicsElement): SVGRect => {
+  const fontSize = parseFloat(getComputedStyle(element).fontSize) || 12;
+  const visible = (element.textContent ?? "").replace(/\u200b/g, "");
+  let width = fontSize * 0.35;
+  if (visible.trim().length > 0) {
+    if (measureContext === undefined) {
+      measureContext = document.createElement("canvas").getContext("2d");
+    }
+    if (measureContext) {
+      const style = getComputedStyle(element);
+      measureContext.font = `${style.fontStyle} ${style.fontWeight} ${fontSize}px ${style.fontFamily}`;
+      width = Math.max(measureContext.measureText(visible).width, 1);
+    } else {
+      width = Math.max(visible.length * fontSize * 0.5, 1);
+    }
+  }
+  return { x: 0, y: -fontSize, width, height: fontSize } as SVGRect;
+};
+
+// WebKit getBBox is 0x0 for a space and for U+200B, and mermaid throws on that.
+type GetBBox = (this: SVGGraphicsElement, options?: SVGBoundingBoxOptions) => SVGRect;
+
+const patchTextMeasure = (): void => {
+  const proto = SVGGraphicsElement.prototype as SVGGraphicsElement & { __kAgentBBox?: boolean };
+  if (proto.__kAgentBBox) return;
+  const native = Object.getOwnPropertyDescriptor(SVGGraphicsElement.prototype, "getBBox")?.value as
+    GetBBox | undefined;
+  if (!native) return;
+  proto.getBBox = function (this: SVGGraphicsElement, options?: SVGBoundingBoxOptions): SVGRect {
+    const box = native.call(this, options);
+    if (box.width !== 0 || box.height !== 0) return box;
+    const name = this.localName;
+    if ((name !== "text" && name !== "tspan") || (this.textContent ?? "").length === 0) return box;
+    return fallbackTextBox(this);
+  };
+  proto.__kAgentBBox = true;
+};
+
 const buildConfig = (theme: "dark" | "default"): MermaidConfig => {
   const styles =
     typeof document !== "undefined" ? getComputedStyle(document.documentElement) : null;
@@ -43,6 +83,7 @@ const buildConfig = (theme: "dark" | "default"): MermaidConfig => {
     startOnLoad: false,
     theme,
     securityLevel: "strict",
+    suppressErrorRendering: true,
     fontFamily: readVar("--font-sans", "sans-serif"),
     themeVariables: {
       background: readVar("--surface", "#161a20"),
@@ -80,7 +121,18 @@ export const resetMermaidTheme = (): void => {
 const escapeAttr = (value: string): string =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+const dropMermaidScratch = (id: string): void => {
+  if (typeof document === "undefined") return;
+  document.getElementById(`d${id}`)?.remove();
+  document.getElementById(`i${id}`)?.remove();
+  document.getElementById(id)?.remove();
+  document
+    .querySelectorAll("body > div[id^='dmermaid-'], body > iframe[id^='imermaid-'], body > svg")
+    .forEach((node) => node.remove());
+};
+
 const renderOne = async (source: string): Promise<string> => {
+  if (typeof SVGGraphicsElement !== "undefined") patchTextMeasure();
   const mermaid = await initIfNeeded();
   const id = `mermaid-${Date.now().toString(36)}-${(idCounter++).toString(36)}`;
   try {
@@ -89,6 +141,8 @@ const renderOne = async (source: string): Promise<string> => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return `<pre class="mermaid-error">${escapeAttr(message)}</pre>`;
+  } finally {
+    dropMermaidScratch(id);
   }
 };
 

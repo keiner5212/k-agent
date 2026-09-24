@@ -198,16 +198,48 @@ pub fn line_add_remove(before: &str, after: &str) -> (u32, u32) {
     if before == after {
         return (0, 0);
     }
-    let old_lines: Vec<&str> = before.split('\n').collect();
-    let new_lines: Vec<&str> = after.split('\n').collect();
-    let old_empty = before.is_empty();
-    let new_empty = after.is_empty();
-    if old_empty {
+    if before.is_empty() {
         return (line_count(after), 0);
     }
-    if new_empty {
+    if after.is_empty() {
         return (0, line_count(before));
     }
+    let old_lines: Vec<&str> = before.split('\n').collect();
+    let new_lines: Vec<&str> = after.split('\n').collect();
+    let cells = old_lines.len().saturating_mul(new_lines.len());
+    if cells > 4_000_000 {
+        return span_add_remove(&old_lines, &new_lines);
+    }
+    let shared = lcs_len(&old_lines, &new_lines);
+    (
+        (new_lines.len() - shared) as u32,
+        (old_lines.len() - shared) as u32,
+    )
+}
+
+fn lcs_len(left: &[&str], right: &[&str]) -> usize {
+    let (short, long) = if left.len() <= right.len() {
+        (left, right)
+    } else {
+        (right, left)
+    };
+    let mut prev = vec![0usize; short.len() + 1];
+    let mut curr = vec![0usize; short.len() + 1];
+    for line in long {
+        for (index, other) in short.iter().enumerate() {
+            curr[index + 1] = if line == other {
+                prev[index] + 1
+            } else {
+                curr[index].max(prev[index + 1])
+            };
+        }
+        std::mem::swap(&mut prev, &mut curr);
+        curr.fill(0);
+    }
+    prev[short.len()]
+}
+
+fn span_add_remove(old_lines: &[&str], new_lines: &[&str]) -> (u32, u32) {
     let mut start = 0usize;
     while start < old_lines.len() && start < new_lines.len() && old_lines[start] == new_lines[start]
     {
@@ -531,6 +563,13 @@ mod tests {
         let before = "a\nb\nc\n";
         let after = "a\nB\nc\n";
         assert_eq!(line_add_remove(before, after), (1, 1));
+    }
+
+    #[test]
+    fn line_add_remove_counts_each_hunk() {
+        let before = "a\nkeep\nb\nkeep\nc\n";
+        let after = "A\nkeep\nB\nkeep\nC\n";
+        assert_eq!(line_add_remove(before, after), (3, 3));
     }
 
     #[test]

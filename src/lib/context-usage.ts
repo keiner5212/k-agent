@@ -298,7 +298,14 @@ const GREP_TOOL_PARAMETERS = {
   properties: {
     pattern: { type: "string", description: "Ripgrep regex." },
     path: { type: "string", description: "File or directory. Default workspace root." },
-    glob: { type: "string", description: "Optional glob such as *.rs." },
+    glob: {
+      type: "string",
+      description: "Include only paths matching this glob. A leading ! excludes.",
+    },
+    caseInsensitive: {
+      type: "boolean",
+      description: "Match letters regardless of case. Default false.",
+    },
   },
   required: ["pattern"],
 } as const;

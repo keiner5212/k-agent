@@ -1486,29 +1486,29 @@ button.change-bar__stat:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-3);
+  width: max-content;
+  max-width: 100%;
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  overflow: auto;
-  min-height: 320px;
+  overflow: hidden;
 }
 
 .mermaid-fullscreen__svg {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
+  display: block;
+  max-width: 100%;
 }
 
 .mermaid-fullscreen__svg[data-status="rendering"] {
+  min-width: 160px;
   min-height: 80px;
 }
 
 .mermaid-fullscreen__svg svg {
   display: block;
-  max-width: 100%;
-  height: auto;
+  width: 100%;
+  height: 100%;
+  max-width: none;
   color: var(--text-primary);
 }
 

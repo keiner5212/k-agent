@@ -64,7 +64,7 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   validate_mermaid:
     "Check one mermaid diagram with the same parser the chat uses. Call this before a mermaid fence goes in the reply. status ok means the source parsed. status error returns the parser message. Fix the source and call again. Do not put a failed diagram in the reply.",
   bash: "Run one shell command in the workspace. Exact blocked commands never run. Exact allowed commands skip the prompt. Destructive, networked, or redirecting commands wait for the user to deny, allow once, or allow for this chat.",
-  grep: "Search file contents with ripgrep. pattern is a regex. path defaults to the workspace. glob limits files. Uses the configured worker cores.",
+  grep: "Search file contents with ripgrep. pattern is a regex. path defaults to the workspace. glob includes only matching paths (a leading ! excludes). caseInsensitive ignores letter case. count is the total number of matches. matches is a sample of at most 100 lines. Uses the configured worker cores.",
 };
 
 export const MAX_AGENT_SKILLS = 10;

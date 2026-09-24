@@ -709,7 +709,7 @@
       },
       "grep": {
         "label": "Search files",
-        "description": "Search file contents with ripgrep using the configured worker cores."
+        "description": "Search file contents. glob includes only matching paths. caseInsensitive ignores letter case. count is the total."
       }
     },
     "delete": {
@@ -1010,6 +1010,12 @@
       "validateMermaidTitle": "Diagram check",
       "bashTitle": "Shell",
       "grepTitle": "Search",
+      "fetchTitle": "Page",
+      "searchTitle": "Search",
+      "httpTitle": "HTTP",
+      "graphqlTitle": "GraphQL",
+      "shotTitle": "Screenshot",
+      "askTitle": "Question",
       "outputTitle": "Tool output"
     },
     "todos": {

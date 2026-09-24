@@ -709,7 +709,7 @@
       },
       "grep": {
         "label": "Buscar en archivos",
-        "description": "Busca en el contenido de archivos con ripgrep usando los nucleos configurados."
+        "description": "Busca en el contenido. glob incluye solo las rutas que coinciden. caseInsensitive ignora mayusculas. count es el total."
       }
     },
     "delete": {
@@ -1010,6 +1010,12 @@
       "validateMermaidTitle": "Revision del diagrama",
       "bashTitle": "Shell",
       "grepTitle": "Busqueda",
+      "fetchTitle": "Pagina",
+      "searchTitle": "Busqueda",
+      "httpTitle": "HTTP",
+      "graphqlTitle": "GraphQL",
+      "shotTitle": "Captura",
+      "askTitle": "Pregunta",
       "outputTitle": "Salida de la herramienta"
     },
     "todos": {
