@@ -12,7 +12,7 @@ mod write;
 
 pub mod ask_user;
 mod background;
-mod bash;
+pub(crate) mod bash;
 mod create_folder;
 mod delete;
 mod grep;
