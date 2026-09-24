@@ -74,6 +74,7 @@ export const DEFAULT_AGENT = "builtin:build";
 
 export const CHAT_BACKGROUND_FILENAME_PATTERN = /^chat-background\.(png|jpg|jpeg|webp)$/;
 
+export const DEFAULT_LAST_WORKSPACE_PATH: string | null = null;
 export const DEFAULT_CHAT_BACKGROUND_IMAGE: string | null = null;
 export const DEFAULT_CHAT_BACKGROUND_OPACITY = 0.5;
 
@@ -156,6 +157,7 @@ export type Settings = {
   defaultAgent: string;
   chatBackgroundImage: string | null;
   chatBackgroundOpacity: number;
+  lastWorkspacePath: string | null;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -191,4 +193,5 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultAgent: DEFAULT_AGENT,
   chatBackgroundImage: DEFAULT_CHAT_BACKGROUND_IMAGE,
   chatBackgroundOpacity: DEFAULT_CHAT_BACKGROUND_OPACITY,
+  lastWorkspacePath: DEFAULT_LAST_WORKSPACE_PATH,
 };

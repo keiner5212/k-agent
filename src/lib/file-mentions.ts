@@ -1,4 +1,3 @@
-import { perfLog } from "@/lib/perf-log";
 import type { WorkspaceEntry } from "@/types/workspace-files";
 import { joinWorkspacePath, toPosixPath } from "@/lib/path";
 
@@ -21,7 +20,6 @@ export type MentionListingContext = {
 const MENTION_PATH_RE = /@([^\s@]+)/g;
 export const MENTION_RESULT_LIMIT = 20;
 export const ROOT_DIR = "";
-const FILTER_LOG_MS = 8;
 
 export type MentionFilterResult = {
   items: WorkspaceEntry[];
@@ -92,30 +90,14 @@ export const filterDirEntries = (
   entries: readonly WorkspaceEntry[],
   prefix: string,
 ): MentionFilterResult => {
-  const start = performance.now();
   const lowerPrefix = prefix.toLowerCase();
   const items: WorkspaceEntry[] = [];
   for (const entry of entries) {
-    if (lowerPrefix.length > 0 && !entryName(entry.path).toLowerCase().startsWith(lowerPrefix)) {
+    if (lowerPrefix.length > 0 && !entryName(entry.path).toLowerCase().includes(lowerPrefix)) {
       continue;
     }
     items.push(entry);
-    if (items.length > MENTION_RESULT_LIMIT) {
-      perfLog("fileMentions.filter", performance.now() - start, {
-        prefix,
-        scanned: entries.length,
-        tooMany: true,
-      });
-      return { items: [], tooMany: true };
-    }
-  }
-  const elapsed = performance.now() - start;
-  if (elapsed >= FILTER_LOG_MS) {
-    perfLog("fileMentions.filter", elapsed, {
-      prefix,
-      scanned: entries.length,
-      matches: items.length,
-    });
+    if (items.length > MENTION_RESULT_LIMIT) return { items: [], tooMany: true };
   }
   return { items, tooMany: false };
 };

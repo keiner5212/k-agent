@@ -263,8 +263,8 @@ commands.allow = ["set_workspace_path"]
 
 [[permission]]
 identifier = "allow-list-workspace-files"
-description = "List files and folders in the current workspace for chat mentions."
-commands.allow = ["list_workspace_files"]
+description = "List and search files in the current workspace for chat mentions."
+commands.allow = ["list_workspace_files", "search_workspace_files"]
 
 [[permission]]
 identifier = "allow-webview-log"

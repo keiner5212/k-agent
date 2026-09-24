@@ -9,6 +9,7 @@ import {
   DEFAULT_CHAT_BACKGROUND_IMAGE,
   DEFAULT_CHAT_BACKGROUND_OPACITY,
   DEFAULT_FONT_FAMILY,
+  DEFAULT_LAST_WORKSPACE_PATH,
   DEFAULT_FORCE_RESPONSE_LANGUAGE,
   DEFAULT_AGENT,
   DEFAULT_BUILD_AGENT_ENABLED,
@@ -98,6 +99,14 @@ const sanitizeWindowBounds = (value: unknown): WindowBounds => {
     height,
     maximized: typeof obj.maximized === "boolean" ? obj.maximized : false,
   };
+};
+
+const sanitizeLastWorkspacePath = (value: unknown): string | null => {
+  if (typeof value !== "string") return DEFAULT_LAST_WORKSPACE_PATH;
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > 4096) return DEFAULT_LAST_WORKSPACE_PATH;
+  if (trimmed.includes("\0") || /[\n\r]/.test(trimmed)) return DEFAULT_LAST_WORKSPACE_PATH;
+  return trimmed;
 };
 
 const sanitizeChatBackgroundImage = (value: unknown): string | null => {
@@ -265,6 +274,7 @@ const sanitizeSettings = (raw: unknown): Settings => {
     defaultAgent: sanitizeDefaultAgent(obj.defaultAgent),
     chatBackgroundImage: sanitizeChatBackgroundImage(obj.chatBackgroundImage),
     chatBackgroundOpacity: sanitizeChatBackgroundOpacity(obj.chatBackgroundOpacity),
+    lastWorkspacePath: sanitizeLastWorkspacePath(obj.lastWorkspacePath),
   };
 };
 
@@ -305,6 +315,7 @@ export type SettingsStore = Settings & {
   setDefaultAgent: (agent: string) => void;
   setChatBackgroundImage: (filename: string | null, url: string | null) => void;
   setChatBackgroundOpacity: (opacity: number) => void;
+  setLastWorkspacePath: (path: string) => void;
   resetKeybindings: () => void;
   resetAll: () => void;
 };
@@ -428,6 +439,7 @@ const snapshot = (state: SettingsStore): Settings => ({
   defaultAgent: state.defaultAgent,
   chatBackgroundImage: state.chatBackgroundImage,
   chatBackgroundOpacity: state.chatBackgroundOpacity,
+  lastWorkspacePath: state.lastWorkspacePath,
 });
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
@@ -660,6 +672,13 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       chatBackgroundLoading: false,
     });
     applyChrome(get(), url);
+    void persist(snapshot(get()));
+  },
+
+  setLastWorkspacePath: (path) => {
+    const next = sanitizeLastWorkspacePath(path);
+    if (!next || next === get().lastWorkspacePath) return;
+    set({ lastWorkspacePath: next });
     void persist(snapshot(get()));
   },
 

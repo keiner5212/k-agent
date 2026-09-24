@@ -3,7 +3,6 @@ import { create } from "zustand";
 import { dirsToLoadForMention } from "@/lib/file-mentions";
 import { runListWorkspaceDirJob, runSearchWorkspaceFilesJob } from "@/lib/jobs";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
-import { perfLog } from "@/lib/perf-log";
 import { acquireWorkerCores } from "@/lib/worker-cores";
 import type { WorkspaceEntry } from "@/types/workspace-files";
 
@@ -75,7 +74,6 @@ export const useWorkspaceFilesStore = create<WorkspaceFilesStore>((set, get) => 
     }
 
     const loadPromise = (async () => {
-      const start = performance.now();
       const hadCache = Boolean(get().dirs[normalized]);
       if (!hadCache) {
         set((current) => ({
@@ -102,20 +100,11 @@ export const useWorkspaceFilesStore = create<WorkspaceFilesStore>((set, get) => 
           loadingDirs: current.loadingDirs.filter((dir) => dir !== normalized),
           error: undefined,
         }));
-        perfLog("workspaceFiles.loadDir", performance.now() - start, {
-          dir: normalized || ".",
-          count: entries.length,
-          cores: lease.cores,
-          swr: hadCache,
-        });
       } catch (error) {
         set((current) => ({
           loadingDirs: current.loadingDirs.filter((dir) => dir !== normalized),
           error: current.dirs[normalized] ? current.error : ipcErrorMessage(error),
         }));
-        perfLog("workspaceFiles.loadDir.error", performance.now() - start, {
-          dir: normalized || ".",
-        });
       } finally {
         lease.release();
       }
@@ -136,16 +125,8 @@ export const useWorkspaceFilesStore = create<WorkspaceFilesStore>((set, get) => 
   },
 
   ensureMentionScope: async (query) => {
-    const start = performance.now();
     const dirs = dirsToLoadForMention(query, get().hasDir);
     await Promise.all(dirs.map((dir) => get().ensureDirLoaded(dir)));
-    const elapsed = performance.now() - start;
-    if (elapsed >= 8) {
-      perfLog("workspaceFiles.ensureMentionScope", elapsed, {
-        query,
-        dirs: dirs.length,
-      });
-    }
   },
 
   searchMention: async (query) => {
@@ -157,24 +138,14 @@ export const useWorkspaceFilesStore = create<WorkspaceFilesStore>((set, get) => 
     }
     const gen = mentionSearchGen + 1;
     mentionSearchGen = gen;
-    const start = performance.now();
     const lease = acquireWorkerCores("searchWorkspaceFiles", 1);
     try {
       const entries = await runSearchWorkspaceFilesJob(normalized);
       if (gen !== mentionSearchGen) return;
       set({ mentionQuery: normalized, mentionHits: entries });
-      perfLog("workspaceFiles.searchMention", performance.now() - start, {
-        query: normalized,
-        count: entries.length,
-        cores: lease.cores,
-      });
-    } catch (error) {
+    } catch {
       if (gen !== mentionSearchGen) return;
       set({ mentionQuery: normalized, mentionHits: [] });
-      perfLog("workspaceFiles.searchMention.error", performance.now() - start, {
-        query: normalized,
-        error: ipcErrorMessage(error),
-      });
     } finally {
       lease.release();
     }

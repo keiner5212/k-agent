@@ -37,7 +37,6 @@ import {
   summaryTranscript,
   toChatTurns,
 } from "@/lib/session-turns";
-import { perfLog } from "@/lib/perf-log";
 import { getWorkerCoreSnapshot } from "@/lib/worker-cores";
 import {
   parseToolChunkText,
@@ -961,73 +960,91 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         });
       const onChunk = new Channel<ChatChunk>();
       onChunk.onmessage = (chunk) => {
-        const started = performance.now();
-        try {
-          if (!chunk.text || get().sendingSessionId !== sessionId) return;
-          const isReasoning = chunk.kind === "reasoning";
-          const isTool = chunk.kind === "tool";
-          if (isReasoning || isTool) {
-            thinkingStartedAt ??= Date.now();
-          } else if (thinkingStartedAt !== undefined && thinkingEndedAt === undefined) {
-            thinkingEndedAt = Date.now();
-          }
-          if (chunk.kind === "question") {
-            cancelPaint();
-            commitBuffer();
-            const pending = handleAskUserChunk(chunk.text, assistantId, sessionId);
-            if (pending) {
-              const activeRound = ensureActiveRound();
-              const calls = activeRound.calls.map((call) => ({ ...call }));
-              let index = -1;
-              for (let cursor = calls.length - 1; cursor >= 0; cursor -= 1) {
-                if (calls[cursor]?.name === "ask_user") {
-                  index = cursor;
-                  break;
-                }
-              }
-              const current = index >= 0 ? calls[index] : undefined;
-              if (current && index >= 0) {
-                calls[index] = {
-                  ...current,
-                  id: pending.callId,
-                  arguments: pending.arguments || current.arguments,
-                  thoughtSignature: pending.thoughtSignature || current.thoughtSignature,
-                };
-                activeRound.calls = calls;
+        if (!chunk.text || get().sendingSessionId !== sessionId) return;
+        const isReasoning = chunk.kind === "reasoning";
+        const isTool = chunk.kind === "tool";
+        if (isReasoning || isTool) {
+          thinkingStartedAt ??= Date.now();
+        } else if (thinkingStartedAt !== undefined && thinkingEndedAt === undefined) {
+          thinkingEndedAt = Date.now();
+        }
+        if (chunk.kind === "question") {
+          cancelPaint();
+          commitBuffer();
+          const pending = handleAskUserChunk(chunk.text, assistantId, sessionId);
+          if (pending) {
+            const activeRound = ensureActiveRound();
+            const calls = activeRound.calls.map((call) => ({ ...call }));
+            let index = -1;
+            for (let cursor = calls.length - 1; cursor >= 0; cursor -= 1) {
+              if (calls[cursor]?.name === "ask_user") {
+                index = cursor;
+                break;
               }
             }
+            const current = index >= 0 ? calls[index] : undefined;
+            if (current && index >= 0) {
+              calls[index] = {
+                ...current,
+                id: pending.callId,
+                arguments: pending.arguments || current.arguments,
+                thoughtSignature: pending.thoughtSignature || current.thoughtSignature,
+              };
+              activeRound.calls = calls;
+            }
+          }
+          const nextSessions = get().sessions.map((session) => {
+            if (session.id !== sessionId) return session;
+            const index = session.messages.findIndex((message) => message.id === assistantId);
+            const pendingAsk = pending
+              ? { callId: pending.callId, questions: pending.questions }
+              : undefined;
+            if (index < 0) {
+              return {
+                ...session,
+                messages: [
+                  ...session.messages,
+                  {
+                    id: assistantId,
+                    role: "assistant" as const,
+                    content: "",
+                    toolRounds: snapshotRounds(),
+                    streaming: true,
+                    ...(pendingAsk ? { pendingAsk } : {}),
+                  },
+                ],
+              };
+            }
+            const messages = session.messages.slice();
+            const current = messages[index];
+            if (!current) return session;
+            messages[index] = {
+              ...current,
+              toolRounds: snapshotRounds(),
+              streaming: true,
+              ...(pendingAsk ? { pendingAsk } : {}),
+            };
+            return { ...session, messages };
+          });
+          set({ sessions: nextSessions });
+          void persistSnapshot(snapshotFromState(nextSessions, get().activeSessionId ?? sessionId));
+          return;
+        }
+        if (chunk.kind === "todo") {
+          cancelPaint();
+          commitBuffer();
+          const parsed = parseTodoChunk(chunk.text);
+          if (parsed) {
+            const { todos } = parsed;
             const nextSessions = get().sessions.map((session) => {
               if (session.id !== sessionId) return session;
               const index = session.messages.findIndex((message) => message.id === assistantId);
-              const pendingAsk = pending
-                ? { callId: pending.callId, questions: pending.questions }
-                : undefined;
-              if (index < 0) {
-                return {
-                  ...session,
-                  messages: [
-                    ...session.messages,
-                    {
-                      id: assistantId,
-                      role: "assistant" as const,
-                      content: "",
-                      toolRounds: snapshotRounds(),
-                      streaming: true,
-                      ...(pendingAsk ? { pendingAsk } : {}),
-                    },
-                  ],
-                };
-              }
+              if (index < 0) return session;
               const messages = session.messages.slice();
               const current = messages[index];
               if (!current) return session;
-              messages[index] = {
-                ...current,
-                toolRounds: snapshotRounds(),
-                streaming: true,
-                ...(pendingAsk ? { pendingAsk } : {}),
-              };
-              return { ...session, messages };
+              messages[index] = { ...current, todos };
+              return { ...session, messages, todos };
             });
             set({ sessions: nextSessions });
             void persistSnapshot(
@@ -1035,62 +1052,32 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
             );
             return;
           }
-          if (chunk.kind === "todo") {
-            cancelPaint();
-            commitBuffer();
-            const parsed = parseTodoChunk(chunk.text);
-            if (parsed) {
-              const { todos } = parsed;
-              const nextSessions = get().sessions.map((session) => {
-                if (session.id !== sessionId) return session;
-                const index = session.messages.findIndex((message) => message.id === assistantId);
-                if (index < 0) return session;
-                const messages = session.messages.slice();
-                const current = messages[index];
-                if (!current) return session;
-                messages[index] = { ...current, todos };
-                return { ...session, messages, todos };
-              });
-              set({ sessions: nextSessions });
-              void persistSnapshot(
-                snapshotFromState(nextSessions, get().activeSessionId ?? sessionId),
-              );
-              return;
-            }
-          }
-          if (lastChunkKind === "tool" && !isTool) {
-            commitBuffer();
-            activeRoundIndex += 1;
-            roundStartedAt = undefined;
-          }
-          const activeRound = ensureActiveRound();
-          if (isReasoning) {
-            if (roundStartedAt === undefined) roundStartedAt = Date.now();
-            reasoningParts.push(chunk.text);
-          } else if (isTool) {
-            recordRoundThinkingMs(activeRound, Date.now());
-            roundStartedAt = undefined;
-            const toolCall = parseToolChunkText(chunk.text);
-            if (toolCall) activeRound.calls = [...activeRound.calls, toolCall];
-          } else if (chunk.kind === "content") {
-            contentParts.push(chunk.text);
-          }
-          lastChunkKind = chunk.kind;
-          if (!isTool) {
-            schedulePaint();
-            return;
-          }
-          cancelPaint();
-          commitBuffer();
-          publishStreaming(activeRound.content ?? null);
-        } finally {
-          perfLog(
-            "ui.chatChunk",
-            performance.now() - started,
-            { kind: chunk.kind, chars: chunk.text?.length ?? 0 },
-            8,
-          );
         }
+        if (lastChunkKind === "tool" && !isTool) {
+          commitBuffer();
+          activeRoundIndex += 1;
+          roundStartedAt = undefined;
+        }
+        const activeRound = ensureActiveRound();
+        if (isReasoning) {
+          if (roundStartedAt === undefined) roundStartedAt = Date.now();
+          reasoningParts.push(chunk.text);
+        } else if (isTool) {
+          recordRoundThinkingMs(activeRound, Date.now());
+          roundStartedAt = undefined;
+          const toolCall = parseToolChunkText(chunk.text);
+          if (toolCall) activeRound.calls = [...activeRound.calls, toolCall];
+        } else if (chunk.kind === "content") {
+          contentParts.push(chunk.text);
+        }
+        lastChunkKind = chunk.kind;
+        if (!isTool) {
+          schedulePaint();
+          return;
+        }
+        cancelPaint();
+        commitBuffer();
+        publishStreaming(activeRound.content ?? null);
       };
 
       const { forceResponseLanguage, responseLanguage, reminderInterval } =

@@ -243,7 +243,6 @@ Also:
 - No new global caches, clients, or wrappers. Search first. Reuse `worker-cores`, `runJob`, and per-dir workspace file cache.
 - Zustand: select fields, do not subscribe to the whole store in hot views.
 - Heavy disk/CPU work (skills, agents, fonts, token estimates, workspace files, future jobs): `runJob` in `src/lib/jobs.ts`. Add a `JobName` and a `handleJob` case. Tauri IPC stays on the UI thread; the worker asks for it with `kind: "invoke"`.
-- Perf logs (`perfLog`) only for slow work. Do not log every keystroke.
 
 ## CSS conventions
 

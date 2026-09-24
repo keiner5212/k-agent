@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "@/lib/platform";
 import { runListSkillsJob } from "@/lib/jobs";
+import { useSettingsStore } from "@/lib/settings";
 import type { SkillContext, SkillMeta } from "@/types/skills";
 
 type FetchPayload = {
@@ -62,6 +63,8 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
     if (!isTauri()) return { error: DESKTOP_REQUIRED };
     try {
       await invoke("set_workspace_path", { path });
+      const canonical = await invoke<string | null>("get_workspace_path");
+      if (canonical) useSettingsStore.getState().setLastWorkspacePath(canonical);
       const { hydrateWorkspaceConfig, invalidateWorkspaceConfig } =
         await import("@/lib/workspace-config");
       invalidateWorkspaceConfig();

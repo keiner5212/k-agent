@@ -2,7 +2,6 @@ import { useAgentsMdStore } from "@/lib/agents-md";
 import { useAgentsStore } from "@/lib/agents";
 import { runListWorkspaceConfigJob } from "@/lib/jobs";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
-import { perfLog } from "@/lib/perf-log";
 import { useSkillsStore } from "@/lib/skills";
 import { acquireWorkerCores } from "@/lib/worker-cores";
 
@@ -28,7 +27,6 @@ const hydrateOnce = async (force: boolean): Promise<void> => {
   if (!force && loadedAt > 0 && performance.now() - loadedAt < CONFIG_TTL_MS) {
     return;
   }
-  const start = performance.now();
   if (!isTauri()) {
     applyEmpty();
     hasHydrated = true;
@@ -64,12 +62,6 @@ const hydrateOnce = async (force: boolean): Promise<void> => {
     });
     hasHydrated = true;
     loadedAt = performance.now();
-    perfLog("workspaceConfig.hydrate", performance.now() - start, {
-      cores: lease.cores,
-      skills: bundle.skills.length,
-      agents: bundle.agents.length,
-      agentsMd: bundle.agentsMd.length,
-    });
   } catch (error) {
     const message = ipcErrorMessage(error);
     useSkillsStore.setState({ loading: false, error: message });

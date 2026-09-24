@@ -52,6 +52,31 @@ const scheduleIdle = (run: () => void): (() => void) => {
   return () => window.clearTimeout(id);
 };
 
+const nameHas = (path: string, needle: string): boolean => {
+  const slash = path.lastIndexOf("/");
+  const name = (slash === -1 ? path : path.slice(slash + 1)).toLowerCase();
+  return name.includes(needle);
+};
+
+const hitsForQuery = (
+  query: string,
+  mentionQuery: string,
+  mentionHits: readonly WorkspaceEntry[],
+): WorkspaceEntry[] => {
+  if (mentionHits.length === 0) return [];
+  if (mentionQuery === query) return [...mentionHits];
+  const folded = query.toLowerCase();
+  const slash = folded.lastIndexOf("/");
+  const dir = slash === -1 ? "" : folded.slice(0, slash);
+  const needle = slash === -1 ? folded : folded.slice(slash + 1);
+  return mentionHits.filter((entry) => {
+    const path = entry.path.toLowerCase();
+    if (dir && path !== dir && !path.startsWith(`${dir}/`)) return false;
+    if (!needle) return true;
+    return nameHas(path, needle);
+  });
+};
+
 const collectWorkspaceEntries = (dirs: Record<string, CachedDir>): WorkspaceEntry[] => {
   const entries: WorkspaceEntry[] = [];
   for (const key of Object.keys(dirs)) {
@@ -96,8 +121,12 @@ export const useFileMentions = ({
 
   const searchQuery = mentionSearchQuery(activeMention?.query ?? "");
   const filterResult = useMemo(() => {
-    const scoped = dirs[listing.parentDir]?.entries ?? [];
-    const hits = searchQuery && mentionQuery === searchQuery ? mentionHits : [];
+    const current = dirs[listing.parentDir]?.entries ?? [];
+    const scoped =
+      listing.prefix.length > 0 && !searchQuery?.includes("/")
+        ? collectWorkspaceEntries(dirs)
+        : current;
+    const hits = searchQuery ? hitsForQuery(searchQuery, mentionQuery, mentionHits) : [];
     return mergeMentionEntries(scoped, listing.prefix, hits);
   }, [dirs, listing.parentDir, listing.prefix, mentionHits, mentionQuery, searchQuery]);
   const items = filterResult.items;

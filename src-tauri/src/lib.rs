@@ -629,6 +629,35 @@ fn default_workspace() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
 }
 
+fn saved_last_workspace(app: &tauri::AppHandle) -> Option<PathBuf> {
+    let raw = load_ui_settings(app)?
+        .get("lastWorkspacePath")?
+        .as_str()?
+        .trim()
+        .to_string();
+    if raw.is_empty() {
+        return None;
+    }
+    let path = resolve_existing_path(&raw)?;
+    path.is_dir().then_some(path)
+}
+
+fn restore_last_workspace(app: &tauri::AppHandle) {
+    let state = app.state::<LocalWorkspace>();
+    let Ok(mut guard) = state.path.lock() else {
+        return;
+    };
+    if guard.is_some() {
+        return;
+    }
+    if let Some(saved) = saved_last_workspace(app) {
+        *guard = Some(saved);
+        return;
+    }
+    let home = default_workspace();
+    *guard = crate::pathutil::canonicalize_path(&home).ok().or(Some(home));
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     require_easter_egg();
@@ -642,12 +671,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .manage(LocalWorkspace {
-            path: Mutex::new(parse_workspace_arg().or_else(|| {
-                let home = default_workspace();
-                crate::pathutil::canonicalize_path(&home)
-                    .ok()
-                    .or(Some(home))
-            })),
+            path: Mutex::new(parse_workspace_arg()),
         })
         .manage(lsp_client::LspHub::new())
         .manage(CancelRegistry::default())
@@ -723,6 +747,7 @@ pub fn run() {
             maintenance::clear_app_cache,
         ])
         .setup(|app| {
+            restore_last_workspace(app.handle());
             if let Ok(config_dir) = paths::config_dir(app.handle()) {
                 let _ = std::fs::create_dir_all(&config_dir);
             }

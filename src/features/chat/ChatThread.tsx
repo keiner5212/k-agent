@@ -5,7 +5,6 @@ import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
 import { useAskUserStore } from "@/lib/ask-user";
 import { runRenderMarkdownJob } from "@/lib/jobs";
 import { finishMarkdown } from "@/lib/markdown";
-import { perfLog } from "@/lib/perf-log";
 import {
   decodeMermaidSource,
   fillMermaidPlaceholders,
@@ -43,15 +42,7 @@ const AssistantMarkdown = ({
     const hint = linkHint;
     void runRenderMarkdownJob(content, hint).then((next) => {
       if (!alive) return;
-      const sanitizeStarted = performance.now();
-      const safe = finishMarkdown(next.value, hint);
-      perfLog(
-        "ui.markdown.sanitize",
-        performance.now() - sanitizeStarted,
-        { chars: next.value.length },
-        8,
-      );
-      setHtml(safe);
+      setHtml(finishMarkdown(next.value, hint));
     });
     return () => {
       alive = false;

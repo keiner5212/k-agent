@@ -58,6 +58,8 @@ export const App = (): ReactNode => {
   const [aboutOpen, setAboutOpen] = useState(false);
   const language = useSettingsStore((state) => state.language);
   const hydrate = useSettingsStore((state) => state.hydrate);
+  const settingsHydrated = useSettingsStore((state) => state.hydrated);
+  const setLastWorkspacePath = useSettingsStore((state) => state.setLastWorkspacePath);
   const sidebarOpen = useSettingsStore((state) => state.sessionSidebarOpen);
   const setSidebarOpen = useSettingsStore((state) => state.setSessionSidebarOpen);
   const hydrateSelection = useSelectionStore((state) => state.hydrate);
@@ -73,6 +75,13 @@ export const App = (): ReactNode => {
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    if (!settingsHydrated || !isTauri()) return;
+    void invoke<string | null>("get_workspace_path").then((path) => {
+      if (path) setLastWorkspacePath(path);
+    });
+  }, [setLastWorkspacePath, settingsHydrated]);
 
   useEffect(() => {
     void hydrateSelection();

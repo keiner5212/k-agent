@@ -166,20 +166,9 @@ struct ScoredEntry {
     score: u32,
 }
 
-fn is_subsequence(path: &str, needle: &str) -> bool {
-    let mut rest = path;
-    for ch in needle.chars() {
-        match rest.find(ch) {
-            Some(index) => rest = &rest[index + ch.len_utf8()..],
-            None => return false,
-        }
-    }
-    true
-}
-
 fn score_path(path: &str, query: &str) -> Option<u32> {
-    let path_l = path.to_ascii_lowercase();
-    let query_l = query.to_ascii_lowercase();
+    let path_l = path.to_lowercase();
+    let query_l = query.to_lowercase();
     let (dir, needle) = match query_l.rsplit_once('/') {
         Some((dir, needle)) if !dir.is_empty() && !needle.is_empty() => (Some(dir), needle),
         _ => (None, query_l.as_str()),
@@ -200,14 +189,8 @@ fn score_path(path: &str, query: &str) -> Option<u32> {
     if name.starts_with(needle) {
         return Some(1);
     }
-    if path_l.contains(query_l.as_str()) {
-        return Some(2);
-    }
     if name.contains(needle) {
-        return Some(3);
-    }
-    if needle.len() >= 2 && is_subsequence(&path_l, needle) {
-        return Some(4);
+        return Some(2);
     }
     None
 }
@@ -347,5 +330,41 @@ mod tests {
             .iter()
             .any(|entry| entry.path == "src/components/Button.tsx"));
         assert!(hits.iter().all(|entry| entry.path != "readme.md"));
+    }
+
+    #[test]
+    fn search_skips_lib_dirs() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("k-agent-mention-skip-{nanos}"));
+        let skipped = root.join("node_modules").join("leftpad");
+        fs::create_dir_all(&skipped).expect("dir");
+        fs::write(skipped.join("index.js"), "x").expect("file");
+        fs::write(root.join("index.ts"), "x").expect("file");
+        let hits = search_tree(&root, "index");
+        let _ = fs::remove_dir_all(&root);
+        assert!(hits.iter().any(|entry| entry.path == "index.ts"));
+        assert!(hits.iter().all(|entry| !entry.path.contains("node_modules")));
+    }
+
+    #[test]
+    fn search_matches_name_ignoring_case() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("k-agent-mention-case-{nanos}"));
+        let nested = root.join("mini-server");
+        fs::create_dir_all(&nested).expect("dir");
+        fs::write(nested.join("README.md"), "x").expect("file");
+        fs::write(root.join("Reporte.pdf"), "x").expect("file");
+        let hits = search_tree(&root, "read");
+        let _ = fs::remove_dir_all(&root);
+        assert_eq!(
+            hits.iter().map(|entry| entry.path.as_str()).collect::<Vec<_>>(),
+            vec!["mini-server/README.md"]
+        );
     }
 }

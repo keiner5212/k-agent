@@ -9,7 +9,6 @@ import {
   type WorkspaceConfigBundle,
 } from "./jobs-handlers";
 import type { DiffEditorValue } from "./session-diff";
-import { perfLog } from "./perf-log";
 import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "./platform";
 import type { AgentContext } from "@/types/agents";
 import type { AgentsMdFile } from "@/types/agents-md";
@@ -156,43 +155,23 @@ export const runSearchWorkspaceFilesJob = (query: string): Promise<WorkspaceEntr
 export const runListWorkspaceConfigJob = (): Promise<WorkspaceConfigBundle> =>
   runJob("listWorkspaceConfig");
 
-const logJob = (scope: string, started: number, computeMs: number, chars: number): void => {
-  perfLog(scope, performance.now() - started, { chars, computeMs: Math.round(computeMs) }, 8);
-};
-
 export const runRenderMarkdownJob = (
   source: string,
   linkTitleHint?: string,
-): Promise<Timed<string>> => {
-  const started = performance.now();
-  return runJob<Timed<string>>("renderMarkdown", { source, linkTitleHint }).then((result) => {
-    logJob("ui.markdown", started, result.computeMs, source.length);
-    return result;
-  });
-};
+): Promise<Timed<string>> => runJob("renderMarkdown", { source, linkTitleHint });
 
 export const runHighlightLinesJob = (
   text: string,
   language: string | null,
-): Promise<Timed<string[]>> => {
-  const started = performance.now();
-  return runJob<Timed<string[]>>("highlightLines", { text, language }).then((result) => {
-    logJob("ui.highlight", started, result.computeMs, text.length);
-    return result;
-  });
-};
+): Promise<Timed<string[]>> => runJob("highlightLines", { text, language });
 
 export const runDiffLinesJob = (
   before: string,
   after: string,
   context = 3,
 ): Promise<Timed<DiffEditorValue>> => {
-  const started = performance.now();
   const payload: DiffLinesPayload = { before, after, context };
-  return runJob<Timed<DiffEditorValue>>("diffLines", payload).then((result) => {
-    logJob("ui.diff", started, result.computeMs, before.length + after.length);
-    return result;
-  });
+  return runJob("diffLines", payload);
 };
 
 export type LatestJob = {
