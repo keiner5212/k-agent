@@ -20,7 +20,7 @@ Capture one http or https page in a hidden WebKit view and return a PNG.
 - Read page text. Use `fetch_url` for a public article, or `http_request` for a raw response.
 - Show a browser window. The capture stays hidden.
 - Capture the full document. Use one viewport shot. A hash scrolls that section into the window.
-- Start a server. The page must already be listening. Use `bash` only for a command that finishes.
+- Start a server. The page must already be listening. Use `background` for a dev server. It stops when the turn ends.
 
 ## Options
 

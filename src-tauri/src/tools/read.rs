@@ -12,7 +12,7 @@ use super::{
 
 pub const NAME: &str = "read";
 
-const DESCRIPTION: &str = "Read a file. Text stays line-numbered text. An image is attached only when the model accepts image input. A PDF is attached only when the model accepts pdf input. A docx is extracted to text when the model accepts documents. Path is absolute or workspace-relative. Paths outside the workspace wait for the user. Optional offset and limit for text. Text capped at 50 KB. Images capped at 20 MB.";
+const DESCRIPTION: &str = "Read a file. Text stays line-numbered text. An image is attached only when the model accepts image input. A PDF is attached only when the model accepts pdf input. A docx is extracted to text when the model accepts documents. Path is absolute or workspace-relative. Paths outside the workspace wait for the user. Optional offset and limit for text. Text capped at 50 KB. Images capped at 20 MB. Use this instead of cat, head, tail, or wc.";
 
 const DEFAULT_LIMIT: usize = 2000;
 const MAX_LINE_LENGTH: usize = 2000;

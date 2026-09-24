@@ -16,10 +16,11 @@ Empty blocks are omitted.
 6. `<workspace-skills>` - skills under `{workspace}/.agents/skills/` that are not already loaded.
 7. `<clarify>` - call `ask_user` when the request is not fully clear. Omitted when the agent has no `ask_user` tool.
 8. `<todos>` - call `todowrite` whenever a step starts, finishes, drops, or changes. Omitted when the agent has no `todowrite` tool.
-9. `<personality>` - the agent persona body, unchanged.
-10. `<rendering>` - how chat markdown is shown.
-11. `<mermaid>` - call `validate_mermaid` before a mermaid fence. Omitted when the agent has no `validate_mermaid` tool.
-12. `<app-context>` - extra app notes. Omitted while that list is empty.
+9. `<tools>` - use `list_directory`, `read`, `grep`, `write`, `edit`, `create_folder`, and `delete` instead of `bash`. Omitted when the agent has no `bash` tool. Lines for missing tools are omitted.
+10. `<personality>` - the agent persona body, unchanged.
+11. `<rendering>` - how chat markdown is shown.
+12. `<mermaid>` - call `validate_mermaid` before a mermaid fence. Omitted when the agent has no `validate_mermaid` tool.
+13. `<app-context>` - extra app notes. Omitted while that list is empty.
 
 Tool JSON schemas go on the request `tools` field, not in this string. A skill body arrives later, as the result of a `skill` call.
 

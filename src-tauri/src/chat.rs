@@ -1992,6 +1992,7 @@ async fn commit_tool_calls(
     turns: &mut Vec<Turn>,
     model_calls: &[ModelToolCall],
     emit: bool,
+    turn: std::sync::Arc<tools::TurnSlot>,
 ) -> Vec<PersistedToolCall> {
     let mut persisted_calls = Vec::new();
     for tc in model_calls {
@@ -2038,6 +2039,7 @@ async fn commit_tool_calls(
                 } else {
                     call.model.attachment_types.clone()
                 },
+                turn: Some(turn.clone()),
             };
             let outcome = tools::execute(&tc.name, &tc.arguments, &tool_ctx).await;
             if let Some(snapshot) = outcome.snapshot {
@@ -2144,6 +2146,7 @@ async fn send_message(
 
     let mut turns = call.turns.to_vec();
     let mut tool_rounds: Vec<ToolRoundTrace> = Vec::new();
+    let turn = tools::TurnSlot::start();
 
     loop {
         if resume_confirmed {
@@ -2170,6 +2173,7 @@ async fn send_message(
                     &mut turns,
                     &model_calls,
                     false,
+                    turn.clone(),
                 )
                 .await;
                 tool_rounds.push(ToolRoundTrace {
@@ -2265,6 +2269,7 @@ async fn send_message(
             &mut turns,
             &model_calls,
             true,
+            turn.clone(),
         )
         .await;
 

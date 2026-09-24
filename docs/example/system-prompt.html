@@ -132,6 +132,9 @@
       .todos {
         border-left-color: #9aa5ce;
       }
+      .tools {
+        border-left-color: #ffc777;
+      }
       .persona {
         border-left-color: #f7768e;
       }
@@ -187,6 +190,10 @@
         <li>
           <span class="swatch" style="background: #9aa5ce"></span
           ><span><code>todos</code> todowrite keeps the list current</span>
+        </li>
+        <li>
+          <span class="swatch" style="background: #ffc777"></span
+          ><span><code>tools</code> dedicated tools instead of bash</span>
         </li>
         <li>
           <span class="swatch" style="background: #f7768e"></span
@@ -303,6 +310,25 @@ Keep the session todo list matched to the work.
 When you start, finish, drop, or change a step, call `todowrite` in that same turn.
 Do not leave a finished step as pending or in_progress.
 &lt;/todos&gt;</pre>
+        </section>
+        <section class="block tools">
+          <header>
+            <span class="tag">tools</span>
+            <span class="src">src/lib/agent-system.ts, only if bash is enabled</span>
+          </header>
+          <pre>
+&lt;tools&gt;
+Use the dedicated tool. Do not use `bash` for work another tool already does.
+List a directory with `list_directory`. Do not use `ls`, `find`, or `tree`.
+Read a file with `read`. Do not use `cat`, `head`, `tail`, or `wc`.
+Search file contents with `grep`. Do not run `grep` or `rg` in the shell.
+Create or overwrite a file with `write`.
+Change file contents with `edit`.
+Make a directory with `create_folder`.
+Remove a file or empty directory with `delete`.
+`bash` is for a command that must run and finish, such as install, build, test, or git.
+A process that must stay up uses `background`, not `bash`.
+&lt;/tools&gt;</pre>
         </section>
         <section class="block persona">
           <header>

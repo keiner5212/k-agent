@@ -21,10 +21,10 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use k_agent_lib::tools::ask_user::{execute_async as ask_user_execute_async, AskUserAnswerEntry};
 use k_agent_lib::tools::{
-    execute, ToolContext, ASK_USER_TOOL_NAME, BASH_TOOL_NAME, CREATE_FOLDER_TOOL_NAME,
-    DELETE_TOOL_NAME, EDIT_TOOL_NAME, FETCH_URL_TOOL_NAME, GRAPHQL_TOOL_NAME, GREP_TOOL_NAME,
-    HTTP_REQUEST_TOOL_NAME, INTERNET_SEARCH_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME,
-    PAGE_SHOT_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME, TODO_TOOL_NAME,
+    execute, ToolContext, ASK_USER_TOOL_NAME, BACKGROUND_TOOL_NAME, BASH_TOOL_NAME,
+    CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, EDIT_TOOL_NAME, FETCH_URL_TOOL_NAME,
+    GRAPHQL_TOOL_NAME, GREP_TOOL_NAME, HTTP_REQUEST_TOOL_NAME, INTERNET_SEARCH_TOOL_NAME,
+    LIST_DIRECTORY_TOOL_NAME, PAGE_SHOT_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME, TODO_TOOL_NAME,
     VALIDATE_MERMAID_TOOL_NAME, WRITE_TOOL_NAME,
 };
 
@@ -617,6 +617,15 @@ async fn dumps_tool_examples() {
         write_stats(BASH_TOOL_NAME, &stats, &outcome, &ctx_docs);
     }
 
+    // background: exits during the startup window, so nothing is left running.
+    {
+        let args = r#"{"command":"printf ok"}"#;
+        let (stats, outcome) =
+            measure(async { execute(BACKGROUND_TOOL_NAME, args, &ctx_docs).await }).await;
+        write_input(BACKGROUND_TOOL_NAME, args);
+        write_stats(BACKGROUND_TOOL_NAME, &stats, &outcome, &ctx_docs);
+    }
+
     // grep: ripgrep over the docs tree, using the harness parallelism as -j.
     {
         let args = r#"{"pattern":"validate_mermaid","path":".","glob":"*.md"}"#;
@@ -639,7 +648,7 @@ async fn dumps_tool_examples() {
     cleanup_scratch(&scratch);
 
     eprintln!(
-        "[tool-examples] dumped all 16 tools at {}",
+        "[tool-examples] dumped all 17 tools at {}",
         output_dir().display()
     );
 }

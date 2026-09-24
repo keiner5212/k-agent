@@ -10,7 +10,7 @@ use super::{
 
 pub const NAME: &str = "page_shot";
 
-const DESCRIPTION: &str = "Capture one viewport of a page that is already being served and return a PNG. One shot per review. Do not retry with another host, a taller window, or a new selector when the image is blank or unchanged. A blank image is a capture miss, not the page. Height is the window (max 1200), not the document. A URL hash scrolls that section into the window. Do not start a server from bash for this tool.";
+const DESCRIPTION: &str = "Capture one viewport of a page that is already being served and return a PNG. One shot per review. Do not retry with another host, a taller window, or a new selector when the image is blank or unchanged. A blank image is a capture miss, not the page. Height is the window (max 1200), not the document. A URL hash scrolls that section into the window. Start a server with background. It is killed when the turn ends. Do not use bash for that.";
 
 const DEFAULT_WIDTH: i32 = 1280;
 const DEFAULT_HEIGHT: i32 = 720;

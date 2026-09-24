@@ -119,7 +119,7 @@ const VISUAL = tagged(
     "Use `page_shot` only on a page that is already being served. One shot per review.",
     "Do not repeat it with a different host, height, or selector.",
     "A blank or identical image is a capture miss. Do not edit the page to remove a black box from a bad shot.",
-    "Do not start a dev server, preview, or background process from `bash`.",
+    "Start a dev server with `background`. It is killed when the turn ends. Do not use `bash` for that.",
   ].join("\n"),
 );
 
@@ -133,6 +133,30 @@ const MERMAID = tagged(
 );
 
 const hasTool = (agent: AgentMeta, name: string): boolean => agent.tools.includes(name);
+
+const buildToolChoice = (agent: AgentMeta): string => {
+  const lines = ["Use the dedicated tool. Do not use `bash` for work another tool already does."];
+  if (hasTool(agent, "list_directory")) {
+    lines.push("List a directory with `list_directory`. Do not use `ls`, `find`, or `tree`.");
+  }
+  if (hasTool(agent, "read")) {
+    lines.push("Read a file with `read`. Do not use `cat`, `head`, `tail`, or `wc`.");
+  }
+  if (hasTool(agent, "grep")) {
+    lines.push("Search file contents with `grep`. Do not run `grep` or `rg` in the shell.");
+  }
+  if (hasTool(agent, "write")) lines.push("Create or overwrite a file with `write`.");
+  if (hasTool(agent, "edit")) lines.push("Change file contents with `edit`.");
+  if (hasTool(agent, "create_folder")) lines.push("Make a directory with `create_folder`.");
+  if (hasTool(agent, "delete")) lines.push("Remove a file or empty directory with `delete`.");
+  lines.push(
+    "`bash` is for a command that must run and finish, such as install, build, test, or git.",
+  );
+  if (hasTool(agent, "background")) {
+    lines.push("A process that must stay up uses `background`, not `bash`.");
+  }
+  return tagged("tools", lines.join("\n"));
+};
 
 const RENDERING = tagged(
   "rendering",
@@ -174,6 +198,7 @@ export const composeAgentSystem = (
   if (workspaceSkills.length > 0) parts.push(workspaceSkills);
   if (hasTool(agent, "ask_user")) parts.push(CLARIFY);
   if (hasTool(agent, "todowrite")) parts.push(TODOS);
+  if (hasTool(agent, "bash")) parts.push(buildToolChoice(agent));
   const personality = agent.personality.trim();
   if (personality.length > 0) parts.push(tagged("personality", personality));
   if (RENDERING.length > 0) parts.push(RENDERING);

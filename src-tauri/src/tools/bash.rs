@@ -12,7 +12,7 @@ use super::{
 
 pub const NAME: &str = "bash";
 
-const DESCRIPTION: &str = "Run one shell command in the workspace. Exact blockedCommands never run. Exact allowedCommands run without a prompt. Other commands run immediately unless they look destructive, networked, or redirect output; those wait for the user to deny, allow once, or allow for this chat. Do not start a dev server or background a process with &, nohup, or disown. Output is capped.";
+const DESCRIPTION: &str = "Run one shell command in the workspace and wait for it to finish. Exact blockedCommands never run. Exact allowedCommands run without a prompt. Destructive commands, real file redirects, and non-local network commands wait for the user. `2>&1` and redirects to `/dev/null` do not ask. curl or wget to localhost, 127.0.0.1, or ::1 does not ask. Do not start a dev server here. Use background for a process that must stay up until the turn ends. Do not use &, nohup, or disown. Do not list, read, search, write, edit, or delete files here. Use list_directory, read, grep, write, edit, create_folder, and delete. bash is for install, build, test, and git. Output is capped.";
 
 const MAX_OUTPUT_CHARS: usize = 50_000;
 const TIMEOUT: Duration = Duration::from_secs(30);
@@ -34,7 +34,7 @@ const GIT_SAFE: &[&str] = &[
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Decision {
+pub(crate) enum Decision {
     Run,
     Allowed,
     Blocked,
@@ -121,7 +121,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     }
 }
 
-fn classify(command: &str, allowed: &[String], blocked: &[String]) -> Decision {
+pub(crate) fn classify(command: &str, allowed: &[String], blocked: &[String]) -> Decision {
     let trimmed = command.trim();
     if trimmed.is_empty() {
         return Decision::Empty;
@@ -192,7 +192,7 @@ fn is_dangerous(command: &str) -> bool {
     if has_unquoted(command, "$(") || command.contains('`') {
         return true;
     }
-    if has_redirect(command) {
+    if has_file_redirect(command) {
         return true;
     }
     if pipes_to_shell(command) {
@@ -203,6 +203,12 @@ fn is_dangerous(command: &str) -> bool {
         let Some(name) = command_name(&tokens) else {
             continue;
         };
+        if name.eq_ignore_ascii_case("curl") || name.eq_ignore_ascii_case("wget") {
+            if !loopback_fetch(&tokens) {
+                return true;
+            }
+            continue;
+        }
         if DANGEROUS.iter().any(|item| name.eq_ignore_ascii_case(item)) {
             return true;
         }
@@ -340,28 +346,86 @@ fn has_unquoted(command: &str, needle: &str) -> bool {
     false
 }
 
-fn has_redirect(command: &str) -> bool {
-    let mut quote: Option<char> = None;
+fn has_file_redirect(command: &str) -> bool {
     let chars: Vec<char> = command.chars().collect();
-    for (index, ch) in chars.iter().enumerate() {
+    let mut quote: Option<char> = None;
+    let mut index = 0usize;
+    while index < chars.len() {
+        let ch = chars[index];
         if let Some(mark) = quote {
-            if *ch == mark {
+            if ch == mark {
                 quote = None;
             }
+            index += 1;
             continue;
         }
-        if *ch == '\'' || *ch == '"' {
-            quote = Some(*ch);
+        if ch == '\'' || ch == '"' {
+            quote = Some(ch);
+            index += 1;
             continue;
         }
-        if *ch == '>' {
+        if ch == '>' && !harmless_redirect(&chars[index..]) {
             return true;
         }
-        if *ch == '<' && chars.get(index + 1) == Some(&'<') {
+        if ch == '<' && chars.get(index + 1) == Some(&'<') {
+            return true;
+        }
+        index += 1;
+    }
+    false
+}
+
+fn harmless_redirect(from_gt: &[char]) -> bool {
+    let mut index = 1usize;
+    if from_gt.get(index) == Some(&'>') {
+        index += 1;
+    }
+    if from_gt.get(index) == Some(&'&') {
+        index += 1;
+        if from_gt.get(index).is_some_and(|ch| ch.is_ascii_digit()) {
             return true;
         }
     }
-    false
+    while from_gt.get(index).is_some_and(|ch| ch.is_whitespace()) {
+        index += 1;
+    }
+    let rest: String = from_gt[index..].iter().collect();
+    let token = rest
+        .split(|ch: char| ch.is_whitespace() || ch == ';' || ch == '|' || ch == '&')
+        .next()
+        .unwrap_or("");
+    let token = token.trim_matches('"').trim_matches('\'');
+    token == "/dev/null"
+}
+
+fn loopback_fetch(tokens: &[String]) -> bool {
+    let mut urls = Vec::new();
+    let mut index = 0usize;
+    while index < tokens.len() {
+        let token = &tokens[index];
+        if token == "-o" || token == "--output" || token == "-O" {
+            let dest = tokens.get(index + 1).map(String::as_str).unwrap_or("");
+            if dest != "/dev/null" {
+                return false;
+            }
+        }
+        if token.starts_with("http://") || token.starts_with("https://") {
+            urls.push(token.as_str());
+        }
+        index += 1;
+    }
+    !urls.is_empty() && urls.iter().all(|url| is_loopback_url(url))
+}
+
+fn is_loopback_url(url: &str) -> bool {
+    let Ok(parsed) = reqwest::Url::parse(url) else {
+        return false;
+    };
+    let Some(host) = parsed.host_str() else {
+        return false;
+    };
+    let host = host.trim_matches(|ch| ch == '[' || ch == ']');
+    host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1" || host == "::1"
 }
 
 fn pipes_to_shell(command: &str) -> bool {
@@ -517,7 +581,7 @@ fn shell_grants() -> &'static Mutex<std::collections::HashSet<String>> {
     GRANTS.get_or_init(|| Mutex::new(std::collections::HashSet::new()))
 }
 
-fn shell_session_granted(ctx: &ToolContext<'_>) -> bool {
+pub(crate) fn shell_session_granted(ctx: &ToolContext<'_>) -> bool {
     let Some(session_id) = ctx.session_id.as_deref().filter(|id| !id.is_empty()) else {
         return false;
     };
@@ -556,6 +620,18 @@ mod tests {
     fn rm_and_redirects_need_confirm() {
         assert_eq!(classify("rm file", &[], &[]), Decision::Confirm);
         assert_eq!(classify("echo hi > out", &[], &[]), Decision::Confirm);
+        assert_eq!(
+            classify("npm run build 2>&1 | tail -20", &[], &[]),
+            Decision::Run
+        );
+        assert_eq!(
+            classify("ss -tlnp 2>/dev/null | head -20", &[], &[]),
+            Decision::Run
+        );
+        assert_eq!(
+            classify("curl -s -o /dev/null http://[::1]:5173/", &[], &[]),
+            Decision::Run
+        );
         assert_eq!(
             classify("curl https://example.com", &[], &[]),
             Decision::Confirm

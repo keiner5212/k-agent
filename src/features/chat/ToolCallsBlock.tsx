@@ -39,6 +39,7 @@ const TOOL_TITLE: Record<string, string> = {
   todowrite: "chat.tools.todoTitle",
   validate_mermaid: "chat.tools.validateMermaidTitle",
   bash: "chat.tools.bashTitle",
+  background: "chat.tools.backgroundTitle",
   grep: "chat.tools.grepTitle",
   fetch_url: "chat.tools.fetchTitle",
   internet_search: "chat.tools.searchTitle",
@@ -60,6 +61,7 @@ const TOOL_SYMBOL: Record<string, string> = {
   todowrite: "\u25C7 ",
   validate_mermaid: "\u25A1 ",
   bash: "\u25B8 ",
+  background: "\u25B8 ",
   grep: "\u2315 ",
 };
 
@@ -139,12 +141,14 @@ const previewFromOutput = (call: ChatToolCall): string => {
     }
     return fieldOr(raw, "summary", error || raw);
   }
-  if (call.name === "bash") {
+  if (call.name === "bash" || call.name === "background") {
     const command = argString(call, "command") || call.argument?.trim() || "";
     const output = toonFieldValue(raw, "output");
     const exitCode = toonFieldValue(raw, "exitCode");
+    const pid = toonFieldValue(raw, "pid");
     const lines: string[] = [];
     if (command) lines.push(`$ ${command}`);
+    if (pid) lines.push(`pid ${pid}`);
     if (exitCode) lines.push(`exit ${exitCode}`);
     const body = output || error;
     if (body) lines.push(body);
@@ -178,7 +182,7 @@ const toolCallLabel = (call: ChatToolCall, lineRange = ""): string => {
     return lineRange ? `${name} "${path}" ${lineRange}` : `${name} "${path}"`;
   }
   if (name === "list_directory") return path ? `${name} "${path}"` : name;
-  if (name === "bash") {
+  if (name === "bash" || name === "background") {
     const command = argString(call, "command");
     if (!command) return name;
     const shown = command.length > 80 ? `${command.slice(0, 77)}...` : command;

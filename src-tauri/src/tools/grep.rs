@@ -15,7 +15,7 @@ use super::{
 
 pub const NAME: &str = "grep";
 
-const DESCRIPTION: &str = "Search file contents with the ripgrep engine compiled into the app. pattern is a regex. path defaults to the workspace. glob is an include filter (*.rs, *.{ts,tsx}); a leading ! excludes. caseInsensitive matches either letter case. count is the number of matching lines. matches is a sample: at most 20 lines per file and 100 lines overall. No system rg binary.";
+const DESCRIPTION: &str = "Search file contents with the ripgrep engine compiled into the app. pattern is a regex. path defaults to the workspace. glob is an include filter (*.rs, *.{ts,tsx}); a leading ! excludes. caseInsensitive matches either letter case. count is the number of matching lines. matches is a sample: at most 20 lines per file and 100 lines overall. No system rg binary. Use this instead of grep or rg in bash.";
 
 const MAX_MATCHES: usize = 100;
 const MAX_PER_FILE: usize = 20;

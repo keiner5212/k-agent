@@ -11,6 +11,7 @@ mod validate_mermaid;
 mod write;
 
 pub mod ask_user;
+mod background;
 mod bash;
 mod create_folder;
 mod delete;
@@ -19,6 +20,8 @@ pub mod todo;
 
 #[path = "tool-utils/mod.rs"]
 mod tool_utils;
+
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -48,6 +51,8 @@ pub const PAGE_SHOT_TOOL_NAME: &str = page_shot::NAME;
 pub const TODO_TOOL_NAME: &str = todo::NAME;
 pub const VALIDATE_MERMAID_TOOL_NAME: &str = validate_mermaid::NAME;
 pub const BASH_TOOL_NAME: &str = bash::NAME;
+pub const BACKGROUND_TOOL_NAME: &str = background::NAME;
+pub use background::TurnSlot;
 pub const GREP_TOOL_NAME: &str = grep::NAME;
 pub const LIST_DIRECTORY_MAX_PARALLELISM: usize = list_directory::MAX_PARALLELISM;
 
@@ -88,6 +93,7 @@ pub struct ToolContext<'a> {
     pub shell_program: String,
     pub input_modalities: Vec<String>,
     pub attachment_types: Vec<String>,
+    pub turn: Option<Arc<TurnSlot>>,
 }
 
 #[derive(Debug, Clone)]
@@ -139,6 +145,7 @@ impl ToolContext<'static> {
                 "pdf".into(),
                 "document".into(),
             ],
+            turn: None,
         }
     }
 }
@@ -293,6 +300,7 @@ fn all_tools() -> Vec<Box<dyn Tool>> {
         Box::new(todo::TodoTool),
         Box::new(validate_mermaid::ValidateMermaidTool),
         Box::new(bash::BashTool),
+        Box::new(background::BackgroundTool),
         Box::new(grep::GrepTool),
     ]
 }
@@ -343,6 +351,9 @@ pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> Tool
     }
     if name == bash::NAME {
         return bash::execute_async(arguments, ctx).await;
+    }
+    if name == background::NAME {
+        return background::execute_async(arguments, ctx).await;
     }
     if name == grep::NAME {
         return grep::execute_async(arguments, ctx).await;

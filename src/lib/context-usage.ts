@@ -285,6 +285,17 @@ const TODO_TOOL_PARAMETERS = {
   required: ["todos"],
 } as const;
 
+const BACKGROUND_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    command: {
+      type: "string",
+      description: "One command to keep until the turn ends. No &, nohup, or disown.",
+    },
+  },
+  required: ["command"],
+} as const;
+
 const BASH_TOOL_PARAMETERS = {
   type: "object",
   properties: {
@@ -339,6 +350,7 @@ const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   todowrite: TODO_TOOL_PARAMETERS,
   validate_mermaid: VALIDATE_MERMAID_TOOL_PARAMETERS,
   bash: BASH_TOOL_PARAMETERS,
+  background: BACKGROUND_TOOL_PARAMETERS,
   grep: GREP_TOOL_PARAMETERS,
 };
 

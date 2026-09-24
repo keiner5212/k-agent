@@ -709,7 +709,11 @@
       },
       "bash": {
         "label": "Shell",
-        "description": "Run one shell command in the workspace. Blocked commands never run. Allowed commands skip the prompt. Dangerous commands ask first."
+        "description": "Run one shell command that must finish, such as install, build, test, or git. Do not use it to list, read, or search files."
+      },
+      "background": {
+        "label": "Background",
+        "description": "Keep one process until the turn ends, then stop it. Use this for a dev server. Do not use & or nohup."
       },
       "grep": {
         "label": "Search files",
@@ -1018,6 +1022,7 @@
       "todoTitle": "Plan",
       "validateMermaidTitle": "Diagram check",
       "bashTitle": "Shell",
+      "backgroundTitle": "Background",
       "grepTitle": "Search",
       "fetchTitle": "Page",
       "searchTitle": "Search",

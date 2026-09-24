@@ -9,7 +9,7 @@ Run one shell command in the workspace. The command string is checked against th
 - Refuse a blocked command even when the same string is also allowed.
 - Run an allowed command with no prompt, including commands that would otherwise look dangerous.
 - Run a command that is not listed and does not look dangerous.
-- Ask the user to deny, allow once, or allow for this chat when the command looks destructive, networked, or redirects output.
+- Ask the user to deny, allow once, or allow for this chat when the command looks destructive, hits a non-local network, or writes a file. `2>&1` and a redirect to `/dev/null` do not ask. `curl` or `wget` to `localhost`, `127.0.0.1`, or `::1` does not ask.
 - Treat `Accept for this chat` as a session grant for later dangerous commands. The block list still wins.
 - Cap combined stdout and stderr at `50000` chars and stop the process after `30` seconds.
 - Return `status`, `exitCode`, and `output`.
@@ -23,7 +23,9 @@ Run one shell command in the workspace. The command string is checked against th
 - Match the allow or block list by prefix or regex. The settings copy says the full string.
 - Persist output. The result is the tool response only.
 - Bypass a block list entry because the session already allowed dangerous commands.
-- Start a background job. A single `&`, `nohup`, or `disown` returns an error. `&&` and `2>&1` still follow the normal rules.
+- Start a background job. A single `&`, `nohup`, or `disown` returns an error. `&&` and `2>&1` still follow the normal rules. A process that must stay up uses `background`.
+- List, read, or search files. Use `list_directory`, `read`, and `grep`.
+- Create, change, or delete files. Use `write`, `edit`, `create_folder`, and `delete`.
 
 ## Options
 

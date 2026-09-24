@@ -12,6 +12,7 @@ List directory entries. Optional recursive walk with bounded depth and parallel 
 - With `recursive: true`, walks the tree in parallel using `min(configured_parallelism, host_logical_cpus, 16)` workers. Workers run in `thread::scope` chunks.
 - Clamps `maxDepth` to `1..=10`. The default is `3`.
 - Resolves symlinks for the `is_dir` flag without following the link during the recursive walk.
+- This is the directory listing. Do not use `ls`, `find`, or `tree` in `bash`.
 
 ## Does not
 

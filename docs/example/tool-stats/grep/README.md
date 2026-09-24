@@ -20,7 +20,7 @@ Search file contents with the ripgrep engine compiled into the app. The job coun
 
 - Stop the walk at 100 matches. The walk finishes so `count` stays exact. Only the printed sample is capped.
 - Shell out to a system `rg` or to `bash`.
-- Offer word-boundary, count-only, or files-only flags. Use a tighter `pattern`, or `bash` when the full line list must be streamed.
+- Offer word-boundary, count-only, or files-only flags. Use a tighter `pattern`. The sample cap is intentional.
 - Follow symlinks beyond the `ignore` crate default.
 - Return binary matches. The searcher skips binary files.
 - Use more cores than the settings limit.

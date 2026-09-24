@@ -13,7 +13,7 @@ use super::{
 
 pub const NAME: &str = "list_directory";
 
-const DESCRIPTION: &str = "List a directory as tagged paths the model can pass to read or edit. Each line is [dir] or [file], indented when recursive. summary counts directories and files. Path is absolute or workspace-relative (default: workspace root). Paths outside the workspace wait for the user. recursive walks the tree; maxDepth default 3, max 10. Skips noise dirs. Capped at 5000 lines. Walks subtrees in parallel using configured worker cores.";
+const DESCRIPTION: &str = "List a directory as tagged paths the model can pass to read or edit. Each line is [dir] or [file], indented when recursive. summary counts directories and files. Path is absolute or workspace-relative (default: workspace root). Paths outside the workspace wait for the user. recursive walks the tree; maxDepth default 3, max 10. Skips noise dirs. Capped at 5000 lines. Walks subtrees in parallel using configured worker cores. Use this instead of ls, find, or tree.";
 
 const MAX_ENTRIES_PER_DIR: usize = 2_000;
 const MAX_OUTPUT_LINES: usize = 5_000;
