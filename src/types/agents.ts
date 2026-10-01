@@ -49,7 +49,7 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   list_directory:
     "List a directory, or find files by glob. *.rs matches any depth. At most 200 glob hits. Outside the workspace, waits for the user to allow or deny. Use this instead of ls, find, or tree.",
   ask_user:
-    "Ask the user when the request is ambiguous or needs a choice. Do not guess. 1 to 4 questions. Blocks until they answer. Put the recommended option first. Each question can offer options and an optional free-text answer.",
+    "Ask the user when any part of the request is unclear or you would otherwise assume it. Do not guess. 1 to 4 questions. Blocks until they answer. Put the option you would have assumed first. Free text is on unless allowFreeText is false.",
   create_folder:
     "Create a directory at an absolute or workspace-relative path. Outside the workspace, waits for the user to allow or deny. Idempotent.",
   delete:
@@ -57,7 +57,7 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   fetch_url:
     "Read one public page as title, short text (8000 characters), and up to 8 links. HTTPS by default. Repeat URLs within 1 hour come from cache. Loopback and private hosts stay blocked. Use after internet_search, or when a URL is already known.",
   internet_search:
-    "Find current public URLs. Snippets are at most 160 characters and are not the page. Call fetch_url on one chosen URL. Do not fetch every result. Repeat queries within 1 hour come from cache.",
+    "Find current public URLs. Snippets are at most 160 characters. Do not answer from a snippet. Call fetch_url on the one best URL before you answer. Do not fetch every result. Repeat queries within 1 hour come from cache.",
   http_request:
     "Call an HTTP API, including localhost. Not for reading a public article (use fetch_url) and not for finding pages (use internet_search). Method, headers, query, and body are optional. GET and HEAD run immediately. Any other method waits for the user to deny, allow once, or allow for this chat.",
   graphql:

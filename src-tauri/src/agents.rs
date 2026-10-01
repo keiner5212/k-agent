@@ -658,12 +658,12 @@ fn builtin_agent(name: &str) -> Option<AgentMeta> {
     let (id, personality, tools): (&str, &str, Vec<String>) = match name {
         "build" => (
             "build",
-            "Finish the task in the workspace. Use tools. Return only the result.",
+            "",
             AGENT_TOOLS.iter().map(|tool| (*tool).to_string()).collect(),
         ),
         "plan" => (
             "plan",
-            "Inspect the workspace and return a plan. Do not edit files.",
+            "",
             [
                 SKILL_TOOL_NAME,
                 READ_TOOL_NAME,

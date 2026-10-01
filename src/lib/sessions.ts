@@ -8,7 +8,7 @@ import {
   buildWorkspaceNotes,
   composeAgentSystem,
 } from "@/lib/agent-system";
-import { resolveAgentMeta } from "@/lib/builtin-agents";
+import { listAllBuiltinAgents, resolveAgentMeta } from "@/lib/builtin-agents";
 import { useAgentsMdStore } from "@/lib/agents-md";
 import { useAgentsStore } from "@/lib/agents";
 import { useComposerStore, type ComposerMode } from "@/lib/composer";
@@ -1196,6 +1196,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           allowedCommands: useSettingsStore.getState().allowedCommands,
           blockedCommands: useSettingsStore.getState().blockedCommands,
           shellProgram: useSettingsStore.getState().shellProgram,
+          agentPersonalities: Object.fromEntries(
+            listAllBuiltinAgents(t).map((agent) => [agent.name, agent.personality]),
+          ),
         },
         onChunk,
       });

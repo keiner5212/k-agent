@@ -103,8 +103,9 @@ const buildFlow = (hasAgentSkills: boolean, shape: PromptShape): string =>
   );
 
 const CLARIFY = [
-  "Work out exactly what the user is asking before you act.",
-  "If any part is not fully clear, call `ask_user` and wait for the answer. Do not guess.",
+  "Before you act, list what you would have to assume: goal, scope, files, behavior, names, and success.",
+  "Call `ask_user` for every gap. One question per gap. Put the option you would have assumed first. Leave free text on.",
+  "Wait for the answer. Do not start the work, and do not pick for the user.",
 ].join("\n");
 
 const TODOS = [
@@ -194,7 +195,9 @@ const buildAgentRoster = (
 const buildToolChoice = (agent: AgentMeta, shape: PromptShape): string => {
   const lines = ["Use the dedicated tool. Do not use `bash` for work another tool already does."];
   if (hasTool(agent, "list_directory")) {
-    lines.push("List a directory with `list_directory`. Do not use `ls`, `find`, or `tree`.");
+    lines.push(
+      "List a directory with `list_directory`. Find files by name with its `glob` (`*.rs` matches any depth). Do not use `ls`, `find`, or `tree`.",
+    );
   }
   if (hasTool(agent, "read")) {
     lines.push("Read a file with `read`. Do not use `cat`, `head`, `tail`, or `wc`.");

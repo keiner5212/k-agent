@@ -9,7 +9,7 @@ use super::{toon_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, Too
 
 pub const NAME: &str = "internet_search";
 
-const DESCRIPTION: &str = "Find current public URLs. Returns titles, URLs, and snippets of at most 160 characters. Snippets are not the page. Call fetch_url on one chosen URL to read it. Do not fetch every result. HTTPS by default; public HTTP results appear only when HTTP fetch is enabled in settings. Off-topic engine results are dropped. Repeat queries within 1 hour are served from cache.";
+const DESCRIPTION: &str = "Find current public URLs. Returns titles, URLs, and snippets of at most 160 characters. Do not answer from a snippet. Call fetch_url on the one best URL and read that page before you answer. Do not fetch every result. HTTPS by default; public HTTP results appear only when HTTP fetch is enabled in settings. Off-topic engine results are dropped. Repeat queries within 1 hour are served from cache.";
 
 const MAX_PAGES: usize = 2;
 const MAX_QUERY_LENGTH: usize = 200;

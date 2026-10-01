@@ -100,6 +100,7 @@ pub struct ToolContext<'a> {
     pub attachment_types: Vec<String>,
     pub turn: Option<Arc<TurnSlot>>,
     pub nested: Option<NestedScope>,
+    pub agent_personalities: std::sync::Arc<std::collections::HashMap<String, String>>,
 }
 
 #[derive(Clone)]
@@ -329,6 +330,7 @@ impl ToolContext<'static> {
             ],
             turn: None,
             nested: None,
+            agent_personalities: std::sync::Arc::new(std::collections::HashMap::new()),
         }
     }
 }

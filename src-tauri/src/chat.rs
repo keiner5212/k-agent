@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -91,6 +94,8 @@ pub struct SendChatInput {
     pub http_write_allowed: bool,
     #[serde(default)]
     pub resume_confirmed: bool,
+    #[serde(default)]
+    pub agent_personalities: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -207,6 +212,24 @@ struct ChatCall<'a> {
     shell_program: &'a str,
     nested: Option<tools::NestedScope>,
     question_chunk: Option<&'a tauri::ipc::Channel<ChatChunk>>,
+    agent_personalities: Arc<HashMap<String, String>>,
+}
+
+fn personality_map(raw: HashMap<String, String>) -> Arc<HashMap<String, String>> {
+    let mut out = HashMap::new();
+    for (key, value) in raw {
+        let name = key.trim().to_ascii_lowercase();
+        let text = value.trim().to_string();
+        if name.is_empty() || text.is_empty() {
+            continue;
+        }
+        out.insert(name, text);
+    }
+    Arc::new(out)
+}
+
+fn no_personalities() -> Arc<HashMap<String, String>> {
+    Arc::new(HashMap::new())
 }
 
 fn tool_parallelism(worker_cores: Option<u32>) -> usize {
@@ -2146,6 +2169,7 @@ async fn commit_tool_calls(
                 turn: Some(turn.clone()),
                 nested: call.nested.clone(),
                 question_chunk: call.question_chunk,
+                agent_personalities: Arc::clone(&call.agent_personalities),
             };
             if let Err(message) = tools::gate_tool(&tool_ctx, &tc.name).await {
                 let persisted = denied_call(tc, &message);
@@ -2337,6 +2361,7 @@ async fn send_message(
             shell_program: call.shell_program,
             nested: call.nested.clone(),
             question_chunk: call.question_chunk,
+            agent_personalities: Arc::clone(&call.agent_personalities),
         };
         let round_started = std::time::Instant::now();
         let output = dispatch_with_retry(provider, &round_call, on_chunk).await?;
@@ -2526,6 +2551,7 @@ pub async fn generate_session_title(
         shell_program: "",
         nested: None,
         question_chunk: None,
+        agent_personalities: no_personalities(),
     };
     let title = normalize_generated_title(
         &send_message(
@@ -2606,6 +2632,7 @@ pub async fn summarize_conversation(
         shell_program: "",
         nested: None,
         question_chunk: None,
+        agent_personalities: no_personalities(),
     };
     let summary = normalize_generated_text(
         &send_message(
@@ -2771,6 +2798,7 @@ pub async fn generate_app_content(
         shell_program: "",
         nested: None,
         question_chunk: None,
+        agent_personalities: no_personalities(),
     };
     let text = normalize_generated_text(
         &send_message(
@@ -2978,7 +3006,11 @@ pub(crate) async fn run_task(
     description: &str,
     prompt: &str,
 ) -> Result<TaskRun, String> {
-    let agent = crate::agents::find_agent_by_name(app, agent_name)?;
+    let mut agent = crate::agents::find_agent_by_name(app, agent_name)?;
+    let key = agent.name.to_ascii_lowercase();
+    if let Some(text) = ctx.agent_personalities.get(&key) {
+        agent.personality.clone_from(text);
+    }
     let mut tool_names: Vec<String> = agent
         .tools
         .into_iter()
@@ -3044,6 +3076,7 @@ pub(crate) async fn run_task(
         shell_program: &ctx.shell_program,
         nested: Some(nested),
         question_chunk: ctx.on_chunk,
+        agent_personalities: Arc::clone(&ctx.agent_personalities),
     };
     let output = send_message(
         app,
@@ -3206,6 +3239,7 @@ pub async fn send_chat_message(
             effort: effort_label.clone(),
         }),
         question_chunk: None,
+        agent_personalities: personality_map(input.agent_personalities.clone()),
     };
     log_chat_config(&provider, &input, &call);
     let send_fut = send_message(

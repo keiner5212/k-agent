@@ -288,8 +288,9 @@ Workspace skills in this project. Load a matching one with `skill` when the task
           </header>
           <pre>
 &lt;clarify&gt;
-Work out exactly what the user is asking before you act.
-If any part is not fully clear, call `ask_user` and wait for the answer. Do not guess.
+Before you act, list what you would have to assume: goal, scope, files, behavior, names, and success.
+Call `ask_user` for every gap. One question per gap. Put the option you would have assumed first. Leave free text on.
+Wait for the answer. Do not start the work, and do not pick for the user.
 &lt;/clarify&gt;</pre>
         </section>
         <section class="block todos">
@@ -313,7 +314,7 @@ Send the list again when a step starts, finishes, or is dropped. An empty list c
           <pre>
 &lt;tools&gt;
 Use the dedicated tool. Do not use `bash` for work another tool already does.
-List a directory with `list_directory`. Do not use `ls`, `find`, or `tree`.
+List a directory with `list_directory`. Find files by name with its `glob` (`*.rs` matches any depth). Do not use `ls`, `find`, or `tree`.
 Read a file with `read`. Do not use `cat`, `head`, `tail`, or `wc`.
 Search file contents with `grep`. Do not run `grep` or `rg` in the shell.
 Create or overwrite a file with `write`.
