@@ -90,6 +90,7 @@ export type ToolDisplay = {
   imageData?: string;
   todos?: TodoItem[];
   diagnostics?: ToolDiagnostic[];
+  childSessionId?: string;
 };
 
 export type ToolDiagnostic = {

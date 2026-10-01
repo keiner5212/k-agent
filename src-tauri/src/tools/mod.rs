@@ -108,6 +108,7 @@ pub struct NestedScope {
     pub system: Option<String>,
     pub tool_names: Vec<String>,
     pub task_depth: u8,
+    pub effort: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -248,6 +249,8 @@ pub struct ToolDisplay {
     pub todos: Option<Vec<crate::tools::todo::TodoItem>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub diagnostics: Option<Vec<ToolDiagnostic>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub child_session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1172,6 +1172,20 @@ button.change-bar__stat:focus-visible {
   color: var(--warning);
 }
 
+.task-chat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: min(70vh, 40rem);
+  overflow: auto;
+}
+
+.task-chat__status {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
 .chat-thread__reserve {
   display: flex;
   align-items: center;

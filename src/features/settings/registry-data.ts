@@ -347,6 +347,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         descriptionKey: "settings.appGenerationModel.description",
         keywords: ["model", "app", "generation", "skills", "agents", "generacion", "interno"],
       },
+      {
+        id: "taskModel",
+        type: "modelChoice",
+        titleKey: "settings.taskModel.label",
+        descriptionKey: "settings.taskModel.description",
+        keywords: ["model", "task", "subagent", "agent", "child", "subagente"],
+      },
     ],
   },
   {

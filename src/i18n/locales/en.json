@@ -270,6 +270,13 @@
         "useChatModel": "Use chat model"
       }
     },
+    "taskModel": {
+      "label": "Subagent model",
+      "description": "Model used when a task starts another agent. Empty uses the parent chat model.",
+      "options": {
+        "useParent": "Same as parent"
+      }
+    },
     "lspEnabled": {
       "label": "Use language servers",
       "description": "Lets the orchestrator use LSP for navigation, rename, and diagnostics on your code in chat."
@@ -1044,6 +1051,8 @@
       "patchTitle": "Patch",
       "lspTitle": "LSP",
       "taskTitle": "Task",
+      "taskChat": "Subagent chat",
+      "taskMissing": "This subagent chat is gone.",
       "outputTitle": "Tool output",
       "tokenHint": "About {{count}} tokens",
       "lspClean": "LSP clean"

@@ -270,6 +270,13 @@
         "useChatModel": "Usar modelo del chat"
       }
     },
+    "taskModel": {
+      "label": "Modelo del subagente",
+      "description": "Modelo con el que se lanza un task. Vacio usa el modelo del chat padre.",
+      "options": {
+        "useParent": "Mismo que el padre"
+      }
+    },
     "lspEnabled": {
       "label": "Usar servidores de lenguaje",
       "description": "Permite al orquestador usar LSP para navegar, renombrar y diagnosticar tu código en el chat."
@@ -1044,6 +1051,8 @@
       "patchTitle": "Parche",
       "lspTitle": "LSP",
       "taskTitle": "Tarea",
+      "taskChat": "Chat del subagente",
+      "taskMissing": "Este chat del subagente ya no esta.",
       "outputTitle": "Salida de la herramienta",
       "tokenHint": "Unos {{count}} tokens",
       "lspClean": "LSP limpio"

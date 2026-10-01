@@ -2898,8 +2898,9 @@ pub(crate) async fn run_task(
     scope: &tools::NestedScope,
     ctx: &tools::ToolContext<'_>,
     agent_name: &str,
+    description: &str,
     prompt: &str,
-) -> Result<String, String> {
+) -> Result<TaskRun, String> {
     let agent = crate::agents::find_agent_by_name(app, agent_name)?;
     let mut tool_names: Vec<String> = agent
         .tools
@@ -2914,16 +2915,16 @@ pub(crate) async fn run_task(
             .cloned()
             .collect();
     }
-    let (provider, model) = load_provider_model(app, &scope.provider_id, &scope.model_id)
+    let (provider_id, model_id, same_parent) = task_model_choice(app, scope);
+    let (provider, model) = load_provider_model(app, &provider_id, &model_id)
         .await
         .map_err(|error| error.to_string())?;
-    let options = crate::request_profile::ChatRequestOptions::default();
+    let mut options = crate::request_profile::ChatRequestOptions::default();
+    if same_parent {
+        options.effort.clone_from(&scope.effort);
+    }
     let plan = request_plan(&provider, &model, &options, output_tokens(&model));
-    let system = if agent.personality.trim().is_empty() {
-        scope.system.clone()
-    } else {
-        Some(agent.personality)
-    };
+    let system = Some(child_system(agent_name, &agent.personality));
     let turns = vec![Turn {
         assistant: false,
         content: prompt.to_string(),
@@ -2934,11 +2935,16 @@ pub(crate) async fn run_task(
         tool_result: None,
     }];
     let nested = tools::NestedScope {
-        provider_id: scope.provider_id.clone(),
-        model_id: scope.model_id.clone(),
+        provider_id,
+        model_id,
         system: system.clone(),
         tool_names: tool_names.clone(),
         task_depth: scope.task_depth.saturating_add(1),
+        effort: plan
+            .reasoning_effort
+            .clone()
+            .or_else(|| plan.anthropic_effort.clone())
+            .or_else(|| plan.gemini_level.clone()),
     };
     let effort = plan
         .reasoning_effort
@@ -2970,11 +2976,77 @@ pub(crate) async fn run_task(
         ctx.outside_workspace_allowed,
         ctx.http_write_allowed,
         false,
-        Some(4),
+        Some(8),
     )
     .await
     .map_err(|error| error.to_string())?;
-    Ok(clip_task_text(&output.content))
+    let text = clip_task_text(&output.content);
+    let parent_id = ctx.session_id.clone().unwrap_or_default();
+    let workspace = ctx
+        .session_id
+        .as_deref()
+        .and_then(|id| crate::sessions::read_session_record(app, id).ok())
+        .and_then(|session| session.workspace_path);
+    let child_session_id = if parent_id.is_empty() {
+        None
+    } else {
+        crate::sessions::write_child_session(
+            app,
+            &parent_id,
+            description,
+            prompt,
+            &output.content,
+            &output.reasoning,
+            &output.reasoning_signature,
+            output.tool_rounds.clone(),
+            workspace,
+        )
+        .ok()
+    };
+    Ok(TaskRun {
+        text,
+        child_session_id,
+    })
+}
+
+pub(crate) struct TaskRun {
+    pub text: String,
+    pub child_session_id: Option<String>,
+}
+
+fn child_system(name: &str, personality: &str) -> String {
+    let body = personality.trim();
+    let tail = "Finish the task. Return the result. Do not start another task.";
+    if body.is_empty() {
+        format!("You are {name}. {tail}")
+    } else {
+        format!("{body}\n\n{tail}")
+    }
+}
+
+fn task_model_choice(app: &AppHandle, scope: &tools::NestedScope) -> (String, String, bool) {
+    let parent = (scope.provider_id.clone(), scope.model_id.clone());
+    let Some(settings) = crate::load_ui_settings(app) else {
+        return (parent.0, parent.1, true);
+    };
+    let Some(model) = settings.get("taskModel") else {
+        return (parent.0, parent.1, true);
+    };
+    let provider_id = model
+        .get("providerId")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .trim();
+    let model_id = model
+        .get("modelId")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .trim();
+    if provider_id.is_empty() || model_id.is_empty() {
+        return (parent.0, parent.1, true);
+    }
+    let same = provider_id == parent.0 && model_id == parent.1;
+    (provider_id.to_string(), model_id.to_string(), same)
 }
 
 fn clip_task_text(text: &str) -> String {
@@ -3053,6 +3125,7 @@ pub async fn send_chat_message(
             system: system.clone(),
             tool_names: tool_names.clone(),
             task_depth: 0,
+            effort: effort_label.clone(),
         }),
     };
     log_chat_config(&provider, &input, &call);

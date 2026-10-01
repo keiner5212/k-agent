@@ -53,7 +53,9 @@ use providers::{
     delete_provider, delete_provider_model, list_providers, refresh_provider_models,
     refresh_single_model, save_provider, set_model_favorite, upsert_provider_model,
 };
-use sessions::{load_sessions, read_session_attachment, read_session_file_revision, save_sessions};
+use sessions::{
+    load_sessions, read_session, read_session_attachment, read_session_file_revision, save_sessions,
+};
 use shell::run_shell_command;
 
 static MINIMIZE_TO_TRAY: AtomicBool = AtomicBool::new(false);
@@ -733,6 +735,7 @@ pub fn run() {
             workspace_files::search_workspace_files,
             load_sessions,
             save_sessions,
+            read_session,
             read_session_attachment,
             read_session_file_revision,
             send_chat_message,

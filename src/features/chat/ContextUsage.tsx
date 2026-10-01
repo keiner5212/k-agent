@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/Dialog";
-import { buildAgentsMdRules, composeAgentSystem } from "@/lib/agent-system";
+import { agentRoster, buildAgentsMdRules, composeAgentSystem } from "@/lib/agent-system";
 import { useAgentsMdStore } from "@/lib/agents-md";
 import { useAgentsStore } from "@/lib/agents";
 import { appContextDirective } from "@/lib/app-context";
@@ -60,7 +60,12 @@ export const ContextUsage = (): ReactNode => {
   const extras = useMemo(() => {
     if (!started || !agent) return {};
     const loadedSkills = loadedSkillKey.length > 0 ? loadedSkillKey.split("\0") : [];
-    const agentSystem = composeAgentSystem(agent, skillContexts, loadedSkills);
+    const agentSystem = composeAgentSystem(
+      agent,
+      skillContexts,
+      loadedSkills,
+      agentRoster(agentContexts, agent.name),
+    );
     const appContext = appContextDirective(responseLanguage);
     const systemParts: string[] = [];
     if (agentSystem.length > 0) systemParts.push(agentSystem);
@@ -76,6 +81,7 @@ export const ContextUsage = (): ReactNode => {
     };
   }, [
     agent,
+    agentContexts,
     agentsMdFiles,
     forceResponseLanguage,
     loadedSkillKey,

@@ -16,7 +16,9 @@ export const SessionsSidebar = (): ReactNode => {
   const sortedSessions = useMemo(() => {
     const scope =
       workspacePath ?? sessions.find((session) => session.id === activeSessionId)?.workspacePath;
-    return sortSessions(sessions.filter((session) => sessionInWorkspace(session, scope)));
+    return sortSessions(
+      sessions.filter((session) => !session.parentSessionId && sessionInWorkspace(session, scope)),
+    );
   }, [activeSessionId, sessions, workspacePath]);
   const create = useSessionsStore((state) => state.create);
   const select = useSessionsStore((state) => state.select);

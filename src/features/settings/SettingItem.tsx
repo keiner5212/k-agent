@@ -216,6 +216,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const titleGenerationModel = useSettingsStore((state) => state.titleGenerationModel);
   const titleUseFirstMessage = useSettingsStore((state) => state.titleUseFirstMessage);
   const appGenerationModel = useSettingsStore((state) => state.appGenerationModel);
+  const taskModel = useSettingsStore((state) => state.taskModel);
   const lspEnabled = useSettingsStore((state) => state.lspEnabled);
   const httpFetchEnabled = useSettingsStore((state) => state.httpFetchEnabled);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
@@ -239,6 +240,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setTitleGenerationModel = useSettingsStore((state) => state.setTitleGenerationModel);
   const setTitleUseFirstMessage = useSettingsStore((state) => state.setTitleUseFirstMessage);
   const setAppGenerationModel = useSettingsStore((state) => state.setAppGenerationModel);
+  const setTaskModel = useSettingsStore((state) => state.setTaskModel);
   const setLspEnabled = useSettingsStore((state) => state.setLspEnabled);
   const setHttpFetchEnabled = useSettingsStore((state) => state.setHttpFetchEnabled);
   const providers = useProvidersStore((state) => state.providers);
@@ -324,11 +326,16 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
         {item.type === "modelChoice" ? (
           <Select
             id={`setting-${item.id}`}
-            value={modelChoiceValue(item.id, { titleGenerationModel, appGenerationModel })}
+            value={modelChoiceValue(item.id, {
+              titleGenerationModel,
+              appGenerationModel,
+              taskModel,
+            })}
             onChange={(next) =>
               onModelChoiceChange(item.id, next, {
                 setTitleGenerationModel,
                 setAppGenerationModel,
+                setTaskModel,
               })
             }
             options={modelChoiceOptions(item, t, providers)}
@@ -776,6 +783,7 @@ const listKeys = (id: string): string => `settings.${id}`;
 type ModelChoiceState = {
   titleGenerationModel: SelectedModel | null;
   appGenerationModel: SelectedModel | null;
+  taskModel: SelectedModel | null;
 };
 
 const encodeModel = (model: SelectedModel | null): string => {
@@ -799,6 +807,8 @@ const modelChoiceValue = (id: string, state: ModelChoiceState): string => {
       return encodeModel(state.titleGenerationModel);
     case "appGenerationModel":
       return encodeModel(state.appGenerationModel);
+    case "taskModel":
+      return encodeModel(state.taskModel);
     default:
       return "";
   }
@@ -810,6 +820,7 @@ const onModelChoiceChange = (
   setters: {
     setTitleGenerationModel: (m: SelectedModel | null) => void;
     setAppGenerationModel: (m: SelectedModel | null) => void;
+    setTaskModel: (m: SelectedModel | null) => void;
   },
 ): void => {
   const model = decodeModel(next);
@@ -820,6 +831,9 @@ const onModelChoiceChange = (
     case "appGenerationModel":
       setters.setAppGenerationModel(model);
       return;
+    case "taskModel":
+      setters.setTaskModel(model);
+      return;
   }
 };
 
@@ -828,9 +842,11 @@ const modelChoiceOptions = (
   t: (key: string) => string,
   providers: Provider[],
 ): { value: string; label: ReactNode }[] => {
-  const options: { value: string; label: ReactNode }[] = [
-    { value: "", label: t(`${listKeys(item.id)}.options.useChatModel`) },
-  ];
+  const emptyKey =
+    item.id === "taskModel"
+      ? "settings.taskModel.options.useParent"
+      : `${listKeys(item.id)}.options.useChatModel`;
+  const options: { value: string; label: ReactNode }[] = [{ value: "", label: t(emptyKey) }];
   for (const provider of providers) {
     for (const model of provider.models) {
       options.push({

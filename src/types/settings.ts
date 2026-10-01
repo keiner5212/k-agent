@@ -61,6 +61,7 @@ export const DEFAULT_LIMIT_PROVIDER_DATA_USE = false;
 export const DEFAULT_TITLE_GENERATION_MODEL: SelectedModel | null = null;
 export const DEFAULT_TITLE_USE_FIRST_MESSAGE = false;
 export const DEFAULT_APP_GENERATION_MODEL: SelectedModel | null = null;
+export const DEFAULT_TASK_MODEL: SelectedModel | null = null;
 
 export const DEFAULT_LSP_ENABLED = false;
 
@@ -148,6 +149,7 @@ export type Settings = {
   titleGenerationModel: SelectedModel | null;
   titleUseFirstMessage: boolean;
   appGenerationModel: SelectedModel | null;
+  taskModel: SelectedModel | null;
   lspEnabled: boolean;
   httpFetchEnabled: boolean;
   keybindings: Keybindings;
@@ -184,6 +186,7 @@ export const DEFAULT_SETTINGS: Settings = {
   titleGenerationModel: DEFAULT_TITLE_GENERATION_MODEL,
   titleUseFirstMessage: DEFAULT_TITLE_USE_FIRST_MESSAGE,
   appGenerationModel: DEFAULT_APP_GENERATION_MODEL,
+  taskModel: DEFAULT_TASK_MODEL,
   lspEnabled: DEFAULT_LSP_ENABLED,
   httpFetchEnabled: DEFAULT_HTTP_FETCH_ENABLED,
   keybindings: DEFAULT_KEYBINDINGS,

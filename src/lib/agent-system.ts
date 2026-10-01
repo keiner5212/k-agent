@@ -126,6 +126,64 @@ const VISUAL = tagged(
 
 const hasTool = (agent: AgentMeta, name: string): boolean => agent.tools.includes(name);
 
+export type AgentRosterEntry = {
+  name: string;
+  purpose: string;
+};
+
+const clipPurpose = (text: string): string => {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (flat.length <= 160) return flat;
+  return `${flat.slice(0, 159)}...`;
+};
+
+const purposeOf = (agent: AgentMeta): string => {
+  const description = agent.description.trim();
+  if (description.length > 0) return clipPurpose(description);
+  const line = agent.personality
+    .split("\n")
+    .map((item) => item.trim())
+    .find((item) => item.length > 0);
+  return clipPurpose(line ?? "");
+};
+
+export const agentRoster = (
+  contexts: readonly AgentContext[],
+  currentName: string,
+): AgentRosterEntry[] => {
+  const out: AgentRosterEntry[] = [];
+  const seen = new Set<string>();
+  const skip = currentName.trim().toLowerCase();
+  for (const ctx of contexts) {
+    for (const agent of ctx.agents) {
+      const name = agent.name.trim();
+      const key = name.toLowerCase();
+      if (name.length === 0 || key === skip || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ name, purpose: purposeOf(agent) });
+      if (out.length === 24) return out;
+    }
+  }
+  return out;
+};
+
+const buildAgentRoster = (agent: AgentMeta, roster: readonly AgentRosterEntry[]): string => {
+  if (!hasTool(agent, "task") || roster.length === 0) return "";
+  const lines = roster.map((item) => {
+    const purpose = item.purpose.length > 0 ? item.purpose : item.name;
+    return `- \`${item.name}\`: ${purpose}`;
+  });
+  return tagged(
+    "agents",
+    [
+      "Call `task` with `agent` set to one of these names when the job matches that purpose.",
+      "Do not invent a name. A one-step read or edit stays in this chat.",
+      "",
+      ...lines,
+    ].join("\n"),
+  );
+};
+
 const buildToolChoice = (agent: AgentMeta): string => {
   const lines = ["Use the dedicated tool. Do not use `bash` for work another tool already does."];
   if (hasTool(agent, "list_directory")) {
@@ -143,7 +201,9 @@ const buildToolChoice = (agent: AgentMeta): string => {
     );
   }
   if (hasTool(agent, "task")) {
-    lines.push("Use `task` for a multi-step side job. Do not use it for one read or one search.");
+    lines.push(
+      "Use `task` for a multi-step side job. The `agent` name must be one listed in <agents>.",
+    );
   }
   if (hasTool(agent, "write")) lines.push("Create or overwrite a file with `write`.");
   if (hasTool(agent, "edit")) lines.push("Change one exact span with `edit`.");
@@ -184,6 +244,7 @@ export const composeAgentSystem = (
   agent: AgentMeta | null,
   skillContexts: SkillContext[],
   loadedSkillNames: readonly string[] = [],
+  roster: readonly AgentRosterEntry[] = [],
 ): string => {
   if (!agent) return "";
   const loaded = new Set(loadedSkillNames.map((name) => name.trim()).filter(Boolean));
@@ -200,6 +261,8 @@ export const composeAgentSystem = (
   if (hasTool(agent, "ask_user")) parts.push(CLARIFY);
   if (hasTool(agent, "todowrite")) parts.push(TODOS);
   if (hasTool(agent, "bash")) parts.push(buildToolChoice(agent));
+  const agents = buildAgentRoster(agent, roster);
+  if (agents.length > 0) parts.push(agents);
   const personality = agent.personality.trim();
   if (personality.length > 0) parts.push(tagged("personality", personality));
   if (RENDERING.length > 0) parts.push(RENDERING);

@@ -59,6 +59,8 @@ pub struct SessionRecord {
     pub todos_history: Vec<crate::tools::todo::TodoHistoryEvent>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workspace_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,6 +184,7 @@ fn empty_snapshot() -> SessionsSnapshot {
             todos: Vec::new(),
             todos_history: Vec::new(),
             workspace_path: None,
+            parent_session_id: None,
         }],
     }
 }
@@ -192,6 +195,7 @@ fn index_from_snapshot(snapshot: &SessionsSnapshot) -> SessionsIndex {
         sessions: snapshot
             .sessions
             .iter()
+            .filter(|session| session.parent_session_id.is_none())
             .map(|session| SessionIndexEntry {
                 id: session.id.clone(),
                 title: session.title.clone(),
@@ -273,7 +277,91 @@ fn write_session_record(app: &AppHandle, session: &mut SessionRecord) -> Result<
     std::fs::write(path, json).map_err(|e| SessionError::Io(e.to_string()))
 }
 
-fn read_session_record(app: &AppHandle, id: &str) -> Result<SessionRecord, SessionError> {
+pub fn write_child_session(
+    app: &AppHandle,
+    parent_session_id: &str,
+    title: &str,
+    prompt: &str,
+    content: &str,
+    reasoning: &str,
+    reasoning_signature: &str,
+    tool_rounds: Vec<crate::chat::ToolRoundTrace>,
+    workspace_path: Option<String>,
+) -> Result<String, SessionError> {
+    if !is_safe_id(parent_session_id) {
+        return Err(SessionError::Path("invalid session id".into()));
+    }
+    let id = Uuid::new_v4().to_string();
+    let preview = clip_preview(content);
+    let user = empty_message(Uuid::new_v4().to_string(), "user", prompt.to_string());
+    let mut assistant = empty_message(Uuid::new_v4().to_string(), "assistant", content.to_string());
+    assistant.reasoning = nonempty(reasoning.to_string());
+    assistant.reasoning_signature = nonempty(reasoning_signature.to_string());
+    assistant.tool_rounds = tool_rounds;
+    let mut session = SessionRecord {
+        id: id.clone(),
+        title: clip_title(title),
+        preview,
+        updated_at: chrono::Utc::now().timestamp(),
+        messages: vec![user, assistant],
+        outside_workspace_allowed: false,
+        http_write_allowed: false,
+        todos: Vec::new(),
+        todos_history: Vec::new(),
+        workspace_path,
+        parent_session_id: Some(parent_session_id.to_string()),
+    };
+    write_session_record(app, &mut session)?;
+    Ok(id)
+}
+
+fn nonempty(text: String) -> Option<String> {
+    if text.trim().is_empty() {
+        None
+    } else {
+        Some(text)
+    }
+}
+
+fn clip_title(title: &str) -> String {
+    let trimmed = title.split_whitespace().collect::<Vec<_>>().join(" ");
+    if trimmed.chars().count() <= 60 {
+        return trimmed;
+    }
+    let clipped: String = trimmed.chars().take(59).collect();
+    format!("{clipped}...")
+}
+
+fn clip_preview(text: &str) -> String {
+    let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if flat.chars().count() <= 140 {
+        return flat;
+    }
+    let clipped: String = flat.chars().take(139).collect();
+    format!("{clipped}...")
+}
+
+fn empty_message(id: String, role: &str, content: String) -> SessionMessage {
+    SessionMessage {
+        id,
+        role: role.to_string(),
+        content,
+        reasoning: None,
+        reasoning_signature: None,
+        thinking_ms: None,
+        kind: None,
+        shell_ai_summary: None,
+        attachments: Vec::new(),
+        tool_rounds: Vec::new(),
+        pending_ask: None,
+        resume_tools: false,
+    }
+}
+
+pub(crate) fn read_session_record(
+    app: &AppHandle,
+    id: &str,
+) -> Result<SessionRecord, SessionError> {
     let path = session_dir(app, id)?.join(SESSION_FILE);
     if !path.exists() {
         return Ok(SessionRecord {
@@ -287,6 +375,7 @@ fn read_session_record(app: &AppHandle, id: &str) -> Result<SessionRecord, Sessi
             todos: Vec::new(),
             todos_history: Vec::new(),
             workspace_path: None,
+            parent_session_id: None,
         });
     }
     let raw = std::fs::read_to_string(&path).map_err(|e| SessionError::Io(e.to_string()))?;
@@ -333,6 +422,7 @@ fn save_snapshot_sync(
     if snapshot.sessions.is_empty() {
         return Err(SessionError::Parse("sessions must not be empty".into()));
     }
+    prefer_root(snapshot);
     if !snapshot
         .sessions
         .iter()
@@ -353,7 +443,50 @@ fn save_snapshot_sync(
     }
     write_index(app, snapshot)?;
     prune_removed_session_dirs(app, &keep, &previously_listed)?;
+    delete_orphan_children(app, &keep)?;
     Ok(())
+}
+
+fn delete_orphan_children(app: &AppHandle, live_ids: &HashSet<String>) -> Result<(), SessionError> {
+    let root = sessions_root(app)?;
+    if !root.exists() {
+        return Ok(());
+    }
+    let entries = std::fs::read_dir(&root).map_err(|e| SessionError::Io(e.to_string()))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| SessionError::Io(e.to_string()))?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !is_safe_id(&name) {
+            continue;
+        }
+        let Ok(session) = read_session_record(app, &name) else {
+            continue;
+        };
+        let Some(parent) = session.parent_session_id else {
+            continue;
+        };
+        if live_ids.contains(&parent) {
+            continue;
+        }
+        let _ = std::fs::remove_dir_all(entry.path());
+    }
+    Ok(())
+}
+
+fn prefer_root(snapshot: &mut SessionsSnapshot) {
+    let active_is_child = snapshot.sessions.iter().any(|session| {
+        session.id == snapshot.active_session_id && session.parent_session_id.is_some()
+    });
+    if !active_is_child {
+        return;
+    }
+    if let Some(root) = snapshot
+        .sessions
+        .iter()
+        .find(|session| session.parent_session_id.is_none())
+    {
+        snapshot.active_session_id = root.id.clone();
+    }
 }
 
 fn load_from_session_dirs(app: &AppHandle) -> Result<SessionsSnapshot, SessionError> {
@@ -418,7 +551,22 @@ fn load_snapshot_sync(app: &AppHandle) -> Result<SessionsSnapshot, SessionError>
             snapshot.active_session_id = index.active_session_id;
         }
     }
+    prefer_root(&mut snapshot);
     Ok(snapshot)
+}
+
+#[tauri::command]
+pub async fn read_session(
+    app: AppHandle,
+    session_id: String,
+) -> Result<SessionRecord, SessionError> {
+    if !is_safe_id(&session_id) {
+        return Err(SessionError::Path("invalid session id".into()));
+    }
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || read_session_record(&handle, &session_id))
+        .await
+        .map_err(|e| SessionError::Io(e.to_string()))?
 }
 
 fn safe_rel_path(rel: &str) -> Result<&str, SessionError> {

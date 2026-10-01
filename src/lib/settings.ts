@@ -262,6 +262,7 @@ const sanitizeSettings = (raw: unknown): Settings => {
       DEFAULT_TITLE_USE_FIRST_MESSAGE,
     ),
     appGenerationModel: sanitizeModelChoice(obj.appGenerationModel),
+    taskModel: sanitizeModelChoice(obj.taskModel),
     lspEnabled: sanitizeBoolean(obj.lspEnabled, DEFAULT_LSP_ENABLED),
     httpFetchEnabled: sanitizeBoolean(obj.httpFetchEnabled, DEFAULT_HTTP_FETCH_ENABLED),
     keybindings: sanitizeKeybindings(obj.keybindings),
@@ -306,6 +307,7 @@ export type SettingsStore = Settings & {
   setTitleGenerationModel: (model: SelectedModel | null) => void;
   setTitleUseFirstMessage: (enabled: boolean) => void;
   setAppGenerationModel: (model: SelectedModel | null) => void;
+  setTaskModel: (model: SelectedModel | null) => void;
   setLspEnabled: (enabled: boolean) => void;
   setHttpFetchEnabled: (enabled: boolean) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
@@ -430,6 +432,7 @@ const snapshot = (state: SettingsStore): Settings => ({
   titleGenerationModel: state.titleGenerationModel,
   titleUseFirstMessage: state.titleUseFirstMessage,
   appGenerationModel: state.appGenerationModel,
+  taskModel: state.taskModel,
   lspEnabled: state.lspEnabled,
   httpFetchEnabled: state.httpFetchEnabled,
   keybindings: state.keybindings,
@@ -626,6 +629,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setAppGenerationModel: (model) => {
     set({ appGenerationModel: sanitizeModelChoice(model) });
+    void persist(snapshot(get()));
+  },
+
+  setTaskModel: (model) => {
+    set({ taskModel: sanitizeModelChoice(model) });
     void persist(snapshot(get()));
   },
 

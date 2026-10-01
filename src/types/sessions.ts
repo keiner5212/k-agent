@@ -16,6 +16,7 @@ export type SessionRecord = {
   outsideWorkspaceAllowed?: boolean;
   httpWriteAllowed?: boolean;
   workspacePath?: string;
+  parentSessionId?: string;
 };
 
 export type SessionSummary = Pick<SessionRecord, "id" | "title" | "preview" | "updatedAt">;
@@ -84,7 +85,9 @@ export const activateWorkspace = (
     ? sessions.find((session) => session.id === activeSessionId)
     : undefined;
   if (!key) {
-    if (current) return { sessions, activeSessionId: current.id, changed: false };
+    if (current && !current.parentSessionId) {
+      return { sessions, activeSessionId: current.id, changed: false };
+    }
     const session: SessionRecord = {
       id: createId(),
       title: "",
@@ -98,10 +101,12 @@ export const activateWorkspace = (
       changed: true,
     };
   }
-  if (current && sessionInWorkspace(current, key)) {
+  if (current && !current.parentSessionId && sessionInWorkspace(current, key)) {
     return { sessions, activeSessionId: current.id, changed: false };
   }
-  const newest = sortSessions(sessions.filter((session) => sessionInWorkspace(session, key)))[0];
+  const newest = sortSessions(
+    sessions.filter((session) => !session.parentSessionId && sessionInWorkspace(session, key)),
+  )[0];
   if (newest) return { sessions, activeSessionId: newest.id, changed: true };
   const session: SessionRecord = {
     id: createId(),

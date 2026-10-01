@@ -12,7 +12,7 @@ Do not use this for one read, one grep, or one file edit. \
 agent is that agent's name. prompt is the full task, including what to return. \
 description is 3 to 5 words. The child cannot start another task. \
 Its tool calls are not shown here. Return a short summary to the user yourself. \
-At most 4 model rounds.\
+At most 8 model rounds. The user can open the child chat from this call.\
 ";
 
 const MAX_PROMPT_CHARS: usize = 12_000;
@@ -82,17 +82,18 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     let Some(app) = ctx.app else {
         return super::context_error(None, "task needs the desktop shell.");
     };
-    match crate::chat::run_task(app, &scope, ctx, agent, prompt).await {
-        Ok(text) => ToolOutcome {
+    match crate::chat::run_task(app, &scope, ctx, agent, description, prompt).await {
+        Ok(run) => ToolOutcome {
             text: toon_doc(&[
                 ("agent", ToonValue::Str(agent)),
                 ("description", ToonValue::Str(description)),
                 ("status", ToonValue::Str("ok")),
-                ("result", ToonValue::Block(&text)),
+                ("result", ToonValue::Block(&run.text)),
             ]),
             display: ToolDisplay {
                 kind: TOOL_KIND_CONTEXT.to_string(),
                 status: Some("ok".into()),
+                child_session_id: run.child_session_id,
                 ..ToolDisplay::default()
             },
             snapshot: None,

@@ -1,14 +1,22 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { invoke } from "@tauri-apps/api/core";
 import { Dialog } from "@/components/Dialog";
 import type { LineKind } from "@/components/LineEditor";
 import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
 import { resolveVisionModel, toolCallTokens } from "@/lib/context-usage";
-import { runDiffLinesJob } from "@/lib/jobs";
+import { runDiffLinesJob, runRenderMarkdownJob } from "@/lib/jobs";
+import { finishMarkdown } from "@/lib/markdown";
 import { useProvidersStore } from "@/lib/providers";
 import { readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
 import { useSelectionStore } from "@/lib/selected-model";
-import { skillNameFromCall, type ChatToolCall, type ToolDisplay } from "@/types/chat";
+import {
+  skillNameFromCall,
+  type ChatMessage,
+  type ChatToolCall,
+  type ToolDisplay,
+} from "@/types/chat";
+import type { SessionRecord } from "@/types/sessions";
 import { formatContextWindow } from "@/types/providers";
 
 type ToolCallsBlockProps = {
@@ -223,6 +231,7 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
   const { t } = useTranslation();
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [image, setImage] = useState<{ titleKey: string; data: string } | null>(null);
+  const [taskSessionId, setTaskSessionId] = useState<string | null>(null);
   const selection = useSelectionStore((state) => state.selection);
   const providers = useProvidersStore((state) => state.providers);
   const vision = useMemo(() => resolveVisionModel(providers, selection), [providers, selection]);
@@ -230,6 +239,10 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
 
   const openPreview = async (call: ChatToolCall): Promise<void> => {
     const display = call.display;
+    if (call.name === "task" && display?.childSessionId) {
+      setTaskSessionId(display.childSessionId);
+      return;
+    }
     const fileEdit = call.name === "write" || call.name === "edit";
     if (fileEdit && display?.kind === "action" && call.id && sessionId) {
       if (display.status !== "ok") {
@@ -379,7 +392,111 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
           />
         ) : null}
       </Dialog>
+      <TaskChatDialog
+        key={taskSessionId ?? "closed"}
+        sessionId={taskSessionId}
+        onClose={() => setTaskSessionId(null)}
+      />
     </>
+  );
+};
+
+const TaskMarkdown = ({ content }: { content: string }): ReactNode => {
+  const { t } = useTranslation();
+  const linkHint = t("links.openInBrowserHint");
+  const [html, setHtml] = useState("");
+  useEffect(() => {
+    if (content.length === 0) return;
+    let alive = true;
+    void runRenderMarkdownJob(content, linkHint).then((next) => {
+      if (!alive) return;
+      setHtml(finishMarkdown(next.value, linkHint));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [content, linkHint]);
+  if (content.length === 0) return null;
+  if (html.length === 0) return <div className="chat-message__content">{content}</div>;
+  return (
+    <div
+      className="chat-message__content chat-message__markdown"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+};
+
+const TaskMessage = ({
+  message,
+  sessionId,
+}: {
+  message: ChatMessage;
+  sessionId: string;
+}): ReactNode => {
+  const rounds = message.toolRounds ?? [];
+  const lastRound = rounds[rounds.length - 1]?.content;
+  const trailing = rounds.length > 0 && message.content !== (lastRound ?? "");
+  return (
+    <div className={`chat-message chat-message--${message.role}`}>
+      {message.role === "user" ? (
+        message.content ? (
+          <p className="chat-message__content">{message.content}</p>
+        ) : null
+      ) : (
+        <>
+          {rounds.map((round, index) => (
+            <div key={`round-${index}`}>
+              <TaskMarkdown content={round.content ?? ""} />
+              <ToolCallsBlock sessionId={sessionId} calls={round.calls ?? []} />
+            </div>
+          ))}
+          {rounds.length === 0 || trailing ? <TaskMarkdown content={message.content} /> : null}
+        </>
+      )}
+    </div>
+  );
+};
+
+const TaskChatDialog = ({
+  sessionId,
+  onClose,
+}: {
+  sessionId: string | null;
+  onClose: () => void;
+}): ReactNode => {
+  const { t } = useTranslation();
+  const [session, setSession] = useState<SessionRecord | null>(null);
+  const [missing, setMissing] = useState(false);
+  useEffect(() => {
+    if (!sessionId) return;
+    let alive = true;
+    void invoke<SessionRecord>("read_session", { sessionId })
+      .then((next) => {
+        if (alive) setSession(next);
+      })
+      .catch(() => {
+        if (alive) setMissing(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [sessionId]);
+  return (
+    <Dialog
+      open={sessionId !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      titleKey="chat.tools.taskChat"
+      size="wide"
+    >
+      <div className="task-chat">
+        {missing ? <p className="task-chat__status">{t("chat.tools.taskMissing")}</p> : null}
+        {session?.messages.map((message) => (
+          <TaskMessage key={message.id} message={message} sessionId={sessionId ?? ""} />
+        ))}
+      </div>
+    </Dialog>
   );
 };
 

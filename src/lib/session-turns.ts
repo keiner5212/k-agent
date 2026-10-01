@@ -31,6 +31,7 @@ type LooseSession = {
   outsideWorkspaceAllowed?: boolean;
   httpWriteAllowed?: boolean;
   workspacePath?: unknown;
+  parentSessionId?: unknown;
 };
 
 export const sessionMessages = (
@@ -137,6 +138,9 @@ export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => (
   httpWriteAllowed: session.httpWriteAllowed === true,
   ...(typeof session.workspacePath === "string" && session.workspacePath.trim().length > 0
     ? { workspacePath: session.workspacePath }
+    : {}),
+  ...(typeof session.parentSessionId === "string" && session.parentSessionId.trim().length > 0
+    ? { parentSessionId: session.parentSessionId.trim() }
     : {}),
 });
 

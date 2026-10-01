@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
-import { buildAgentsMdRules, composeAgentSystem } from "@/lib/agent-system";
+import { agentRoster, buildAgentsMdRules, composeAgentSystem } from "@/lib/agent-system";
 import { resolveAgentMeta } from "@/lib/builtin-agents";
 import { useAgentsMdStore } from "@/lib/agents-md";
 import { useAgentsStore } from "@/lib/agents";
@@ -637,7 +637,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
 
   remove: async (id) => {
     const { sessions, activeSessionId, sendingSessionId, shellRunningSessionId } = get();
-    const nextSessions = sessions.filter((session) => session.id !== id);
+    const nextSessions = sessions.filter(
+      (session) => session.id !== id && session.parentSessionId !== id,
+    );
     const stopSending = sendingSessionId === id;
     const stopShell = shellRunningSessionId === id;
     if (stopSending || stopShell) {
@@ -647,7 +649,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         console.warn("cancel_running_task failed", error);
       }
     }
-    const here = nextSessions.filter((session) => sessionInWorkspace(session, workspacePathNow()));
+    const here = nextSessions.filter(
+      (session) => !session.parentSessionId && sessionInWorkspace(session, workspacePathNow()),
+    );
     if (here.length === 0) {
       const session = emptySession();
       const seeded = sortSessions([session, ...nextSessions]);
@@ -1127,7 +1131,12 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       const agent = resolveAgentMeta(selectedAgent, agentContexts, t);
       let historyMessages = sessionMessages(withUser.find((session) => session.id === sessionId));
       const loadedSkills = loadedSkillNamesFromMessages(historyMessages);
-      const baseSystem = composeAgentSystem(agent, skillContexts, loadedSkills);
+      const baseSystem = composeAgentSystem(
+        agent,
+        skillContexts,
+        loadedSkills,
+        agentRoster(agentContexts, agent?.name ?? ""),
+      );
       const rules = buildAgentsMdRules(useAgentsMdStore.getState().files);
       const system = composeSystemWithLanguage(
         baseSystem,

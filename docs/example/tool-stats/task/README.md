@@ -8,18 +8,20 @@ Run one saved agent on a side task and return its final text.
 - `build` and `plan` are builtin. Any other name is a saved agent under `~/.k-agent/agents`.
 - The child uses that agent's tools, minus `task`.
 - The child starts with a fresh prompt. It does not see the parent transcript.
-- At most 4 model rounds. The result is capped at 6000 characters.
+- At most 8 model rounds. The result is capped at 6000 characters.
 - File writes from the child land in the same session snapshots.
 - `plan` cannot edit files. `build` can.
 - A saved agent is matched by name or id, case ignored.
 - The child does not receive MCP tools. It uses the agent's own tool list.
 - `build` gets every agent tool except `task`. `plan` gets read, search, and `lsp` only.
-- The parent must summarize the result. The child text is not a user-visible chat message.
+- The child transcript is its own session. Open it from the task row. It is not in the sidebar.
+- Deleting the parent chat deletes that child session.
+- The model is the subagent model setting, or the parent model when that setting is empty.
 
 ## Does not
 
 - Start another task from inside a task. The error is `task cannot start another task.`
-- Stream the child's tokens into the parent chat. The parent sees one tool result.
+- Stream the child's tokens into the parent chat. The parent row is one result. The transcript opens after the task ends.
 - Replace one `read` or one `grep`. Those stay direct calls.
 - Run without a chat session. The example harness returns that error.
 
@@ -49,7 +51,7 @@ See `response.toon`.
 - `task needs a chat session.`
 - `task cannot start another task.`
 - `No saved agent named <name>.`
-- `Stopped after 4 tool rounds.`
+- `Stopped after 8 tool rounds.`
 - `task must run on the async path.`
 - `task needs the desktop shell.`
 - `task agent name is empty.`
