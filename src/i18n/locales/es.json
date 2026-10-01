@@ -45,11 +45,47 @@
       "skills": "Habilidades",
       "agents": "Agentes",
       "agentsMd": "AGENTS.md",
+      "commands": "Comandos",
       "keybindings": "Atajos de teclado",
       "debug": "Depuración"
     },
     "appearance": {
       "description": "Aspecto visual de la aplicacion: tema, imagen de fondo del chat y su transparencia."
+    },
+    "commands": {
+      "description": "Comandos incluidos y prompts que agregas. Los de funcion no llaman al modelo.",
+      "name": "Nombre",
+      "descriptionLabel": "Descripcion",
+      "template": "Texto del prompt",
+      "add": "Agregar comando",
+      "nameTaken": "Ese nombre esta vacio, no es valido, o ya existe.",
+      "templateRequired": "El texto del prompt es obligatorio.",
+      "kind": {
+        "function": "Funcion",
+        "prompt": "Prompt"
+      },
+      "table": {
+        "name": "Nombre",
+        "description": "Descripcion",
+        "kind": "Tipo",
+        "actions": "Acciones"
+      },
+      "actions": {
+        "edit": "Editar",
+        "delete": "Eliminar"
+      },
+      "form": {
+        "createTitle": "Agregar comando",
+        "editTitle": "Editar comando",
+        "cancel": "Cancelar",
+        "save": "Guardar"
+      },
+      "delete": {
+        "title": "Quitar comando",
+        "body": "Quitar /{{name}}?",
+        "cancel": "Cancelar",
+        "confirm": "Quitar"
+      }
     },
     "language": {
       "description": "Elige el idioma de la interfaz.",
@@ -806,14 +842,16 @@
     "message": {
       "copy": "Copiar mensaje",
       "copied": "Copiado",
-      "rewind": "Retroceder el historial hasta este mensaje"
+      "rewind": "Retroceder el historial hasta este mensaje",
+      "retry": "Deshacer y enviar este mensaje de nuevo"
     },
     "rewind": {
       "title": "Retroceder el historial?",
       "body_one": "Esto eliminara el mensaje seleccionado y 1 posterior del historial del chat.",
       "body_other": "Esto eliminara el mensaje seleccionado y los {{count}} posteriores del historial del chat.",
       "cancel": "Cancelar",
-      "confirm": "Retroceder"
+      "confirm": "Retroceder",
+      "skipped": "No se puede restaurar {{paths}}. Los archivos actuales no coinciden con el estado guardado."
     },
     "thinking": {
       "label": "Pensando",
@@ -968,6 +1006,18 @@
       },
       "undo": {
         "description": "Retrocede el historial hasta (e incluyendo) el ultimo mensaje del usuario"
+      },
+      "redo": {
+        "description": "Restaura el ultimo turno deshecho si los archivos siguen igual"
+      },
+      "stop": {
+        "description": "Detiene la respuesta en curso"
+      },
+      "init": {
+        "description": "Explora el proyecto y escribe AGENTS.md"
+      },
+      "custom": {
+        "description": "Comando de prompt propio"
       }
     },
     "effort": {

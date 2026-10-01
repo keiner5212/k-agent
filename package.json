@@ -1,7 +1,7 @@
 {
   "name": "k-agent",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "AI coding model orchestrator desktop app",
   "scripts": {
@@ -15,7 +15,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "tauri": "tauri",
-    "dev:tauri": "tauri dev",
+    "dev:tauri": "K_AGENT_FOREGROUND=1 tauri dev",
     "build:tauri": "tauri build"
   },
   "dependencies": {

@@ -75,6 +75,7 @@ impl Tool for WriteTool {
             }
         }
         let before = fs::read_to_string(&resolved).unwrap_or_default();
+        super::note_checkpoint(ctx, &resolved, &rel);
         match fs::write(&resolved, content) {
             Ok(()) => {
                 let (added, removed) = line_add_remove(&before, content);

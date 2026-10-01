@@ -364,6 +364,12 @@ fn apply_files(ctx: &ToolContext<'_>, files: &[PatchFile]) -> ToolOutcome {
             }
         }
     }
+    for item in &planned {
+        super::note_checkpoint(ctx, &item.dest, &item.rel);
+        if item.source != item.dest {
+            super::note_checkpoint(ctx, &item.source, &ctx.relative_path(&item.source));
+        }
+    }
     let mut written: Vec<(PathBuf, Option<String>)> = Vec::new();
     for item in &planned {
         if item.remove_source && item.after.is_empty() && item.source == item.dest {

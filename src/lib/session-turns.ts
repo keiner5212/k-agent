@@ -1,5 +1,12 @@
 import type { ChatMessage, ChatTurn, TodoDiff, TodoItem } from "@/types/chat";
-import type { SessionRecord, SessionsSnapshot, TodoHistoryEvent } from "@/types/sessions";
+import type {
+  FileTouch,
+  RedoRecord,
+  SessionRecord,
+  SessionsSnapshot,
+  TodoHistoryEvent,
+  TurnCheckpoint,
+} from "@/types/sessions";
 
 type LooseTodoItem = {
   id?: unknown;
@@ -32,6 +39,8 @@ type LooseSession = {
   httpWriteAllowed?: boolean;
   workspacePath?: unknown;
   parentSessionId?: unknown;
+  fileCheckpoints?: unknown;
+  redo?: unknown;
 };
 
 export const sessionMessages = (
@@ -126,23 +135,79 @@ const sanitizeTodoHistory = (value: unknown): TodoHistoryEvent[] => {
   return events;
 };
 
-export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => ({
-  id: session.id,
-  title: session.title ?? "",
-  preview: session.preview ?? "",
-  updatedAt: typeof session.updatedAt === "number" ? session.updatedAt : 0,
-  messages: sessionMessages(session),
-  todos: sanitizeTodoItems(session.todos),
-  todosHistory: sanitizeTodoHistory(session.todosHistory),
-  outsideWorkspaceAllowed: session.outsideWorkspaceAllowed === true,
-  httpWriteAllowed: session.httpWriteAllowed === true,
-  ...(typeof session.workspacePath === "string" && session.workspacePath.trim().length > 0
-    ? { workspacePath: session.workspacePath }
-    : {}),
-  ...(typeof session.parentSessionId === "string" && session.parentSessionId.trim().length > 0
-    ? { parentSessionId: session.parentSessionId.trim() }
-    : {}),
-});
+const sanitizeFileTouch = (value: unknown): FileTouch | null => {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Partial<FileTouch>;
+  if (
+    typeof item.path !== "string" ||
+    typeof item.beforeHash !== "string" ||
+    typeof item.afterHash !== "string"
+  ) {
+    return null;
+  }
+  if (!item.path || !item.beforeHash || !item.afterHash) return null;
+  return {
+    path: item.path,
+    beforeHash: item.beforeHash,
+    afterHash: item.afterHash,
+  };
+};
+
+const sanitizeCheckpoints = (value: unknown): TurnCheckpoint[] => {
+  if (!Array.isArray(value)) return [];
+  const checkpoints: TurnCheckpoint[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const item = entry as { turnId?: unknown; checkpointId?: unknown; files?: unknown };
+    if (typeof item.turnId !== "string" || !item.turnId || !Array.isArray(item.files)) continue;
+    if (typeof item.checkpointId !== "string" || !item.checkpointId) continue;
+    const files = item.files
+      .map(sanitizeFileTouch)
+      .filter((file): file is FileTouch => file !== null);
+    if (files.length === 0) continue;
+    checkpoints.push({ turnId: item.turnId, checkpointId: item.checkpointId, files });
+  }
+  return checkpoints;
+};
+
+const sanitizeRedo = (value: unknown): RedoRecord | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const item = value as { messages?: unknown; checkpoints?: unknown };
+  if (!Array.isArray(item.messages)) return undefined;
+  const messages = item.messages.filter(
+    (message): message is ChatMessage =>
+      Boolean(message) &&
+      typeof message === "object" &&
+      typeof (message as ChatMessage).id === "string" &&
+      typeof (message as ChatMessage).role === "string" &&
+      typeof (message as ChatMessage).content === "string",
+  );
+  return { messages, checkpoints: sanitizeCheckpoints(item.checkpoints) };
+};
+
+export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => {
+  const fileCheckpoints = sanitizeCheckpoints(session.fileCheckpoints);
+  const redo = sanitizeRedo(session.redo);
+  return {
+    id: session.id,
+    title: session.title ?? "",
+    preview: session.preview ?? "",
+    updatedAt: typeof session.updatedAt === "number" ? session.updatedAt : 0,
+    messages: sessionMessages(session),
+    todos: sanitizeTodoItems(session.todos),
+    todosHistory: sanitizeTodoHistory(session.todosHistory),
+    outsideWorkspaceAllowed: session.outsideWorkspaceAllowed === true,
+    httpWriteAllowed: session.httpWriteAllowed === true,
+    ...(typeof session.workspacePath === "string" && session.workspacePath.trim().length > 0
+      ? { workspacePath: session.workspacePath }
+      : {}),
+    ...(typeof session.parentSessionId === "string" && session.parentSessionId.trim().length > 0
+      ? { parentSessionId: session.parentSessionId.trim() }
+      : {}),
+    ...(fileCheckpoints.length > 0 ? { fileCheckpoints } : {}),
+    ...(redo && redo.messages.length > 0 ? { redo } : {}),
+  };
+};
 
 export const sanitizeSessionsSnapshot = (snapshot: {
   activeSessionId: string;

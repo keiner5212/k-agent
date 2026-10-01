@@ -1,4 +1,5 @@
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
+import type { PromptCommand } from "@/types/settings";
 
 export type ActiveSlashCommand = {
   start: number;
@@ -13,9 +14,25 @@ export type SlashCommandDef = {
   name: string;
   kind: SlashCommandKind;
   descriptionKey: string;
+  descriptionText?: string;
   template: string;
   estimatedTokens: number;
 };
+
+const INIT_TEMPLATE = `Explore this workspace and write or update AGENTS.md at the workspace root.
+
+Read the existing AGENTS.md first when it exists, then merge. Do not drop useful rules.
+
+Find:
+- How the project is built and tested
+- Code style and naming
+- Design system: spacing, type, color, and components to reuse
+- Conventions the next session must follow
+
+Use list_directory, read, and grep. Write AGENTS.md with the write tool.
+Keep it short and specific to this repo.
+
+$ARGUMENTS`;
 
 const REVIEW_TEMPLATE = `You are a code reviewer. Review code changes and return an actionable report.
 
@@ -63,8 +80,30 @@ const buildActionCommand = (id: string, name: string, descriptionKey: string): S
 
 export const SLASH_COMMANDS: SlashCommandDef[] = [
   buildSlashCommand("review", "review", "chat.slashCommands.review.description", REVIEW_TEMPLATE),
+  buildSlashCommand("init", "init", "chat.slashCommands.init.description", INIT_TEMPLATE),
   buildActionCommand("undo", "undo", "chat.slashCommands.undo.description"),
+  buildActionCommand("redo", "redo", "chat.slashCommands.redo.description"),
+  buildActionCommand("stop", "stop", "chat.slashCommands.stop.description"),
 ];
+
+export const withPromptCommands = (custom: readonly PromptCommand[]): SlashCommandDef[] => {
+  const taken = new Set(SLASH_COMMANDS.map((command) => command.name.toLowerCase()));
+  const extra: SlashCommandDef[] = [];
+  for (const command of custom) {
+    const key = command.name.toLowerCase();
+    if (taken.has(key)) continue;
+    taken.add(key);
+    const built = buildSlashCommand(
+      command.name,
+      command.name,
+      "chat.slashCommands.custom.description",
+      command.template,
+    );
+    built.descriptionText = command.description || command.name;
+    extra.push(built);
+  }
+  return [...SLASH_COMMANDS, ...extra];
+};
 
 export const SLASH_COMMAND_RESULT_LIMIT = 20;
 
@@ -85,10 +124,13 @@ export const parseActiveSlashCommand = (
   return { start: slashIndex, end: cursor, query };
 };
 
-export const filterSlashCommands = (query: string): SlashCommandDef[] => {
+export const filterSlashCommands = (
+  query: string,
+  commands: readonly SlashCommandDef[] = SLASH_COMMANDS,
+): SlashCommandDef[] => {
   const lower = query.toLowerCase();
   const items: SlashCommandDef[] = [];
-  for (const command of SLASH_COMMANDS) {
+  for (const command of commands) {
     if (lower.length > 0 && !command.name.toLowerCase().startsWith(lower)) continue;
     items.push(command);
     if (items.length >= SLASH_COMMAND_RESULT_LIMIT) break;
@@ -96,17 +138,22 @@ export const filterSlashCommands = (query: string): SlashCommandDef[] => {
   return items;
 };
 
-export const slashCommandByName = (name: string): SlashCommandDef | undefined =>
-  SLASH_COMMANDS.find((command) => command.name === name);
+export const slashCommandByName = (
+  name: string,
+  commands: readonly SlashCommandDef[] = SLASH_COMMANDS,
+): SlashCommandDef | undefined => commands.find((command) => command.name === name);
 
 const ACTION_TOKEN_RE = /\s*\((?:~\d+(?:\.\d+)?(?:[KMB])?)\)\s*$/;
 
-export const matchActionSlashCommand = (text: string): SlashCommandDef | null => {
+export const matchActionSlashCommand = (
+  text: string,
+  commands: readonly SlashCommandDef[] = SLASH_COMMANDS,
+): SlashCommandDef | null => {
   const trimmed = text.trim();
   if (trimmed.length === 0) return null;
   const match = trimmed.match(/^\/([a-zA-Z][\w-]*)/);
   if (!match) return null;
-  const command = slashCommandByName(match[1] ?? "");
+  const command = slashCommandByName(match[1] ?? "", commands);
   if (!command || command.kind !== "action") return null;
   const rest = trimmed.slice(match[0].length).replace(ACTION_TOKEN_RE, "").trim();
   if (rest.length > 0) return null;

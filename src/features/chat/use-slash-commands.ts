@@ -4,8 +4,10 @@ import {
   parseActiveSlashCommand,
   SLASH_COMMAND_NAMES,
   SLASH_COMMAND_RESULT_LIMIT,
+  withPromptCommands,
   type SlashCommandDef,
 } from "@/lib/slash-commands";
+import { useSettingsStore } from "@/lib/settings";
 import {
   applySlashToken,
   buildSkillNameSet,
@@ -50,6 +52,8 @@ export const useSlashCommands = ({
   enabled = true,
   onApply,
 }: UseSlashCommandsArgs): UseSlashCommandsResult => {
+  const promptCommands = useSettingsStore((state) => state.promptCommands);
+  const commands = useMemo(() => withPromptCommands(promptCommands), [promptCommands]);
   const skillContexts = useSkillsStore((state) => state.contexts);
   const skillsError = useSkillsStore((state) => state.error);
   const skillsLoading = useSkillsStore((state) => state.loading);
@@ -63,8 +67,8 @@ export const useSlashCommands = ({
 
   const allSkills = useMemo(() => flattenSkills(skillContexts), [skillContexts]);
   const commandFilter = useMemo(
-    () => filterSlashCommands(activeSlash?.query ?? ""),
-    [activeSlash?.query],
+    () => filterSlashCommands(activeSlash?.query ?? "", commands),
+    [activeSlash?.query, commands],
   );
   const skillFilter = useMemo(
     () => filterSkills(allSkills, activeSlash?.query ?? ""),
@@ -90,10 +94,11 @@ export const useSlashCommands = ({
 
   const skillNames = useMemo(() => buildSkillNameSet(allSkills), [allSkills]);
   const slashNames = useMemo(() => {
-    const out = new Set<string>(SLASH_COMMAND_NAMES);
+    const out = new Set<string>(commands.map((command) => command.name));
+    for (const name of SLASH_COMMAND_NAMES) out.add(name);
     for (const name of skillNames) out.add(name);
     return out;
-  }, [skillNames]);
+  }, [commands, skillNames]);
 
   useEffect(() => {
     if (!enabled) return;

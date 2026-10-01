@@ -36,6 +36,7 @@ export type SettingsSectionDef = {
     | "skills"
     | "agents"
     | "agentsMd"
+    | "commands"
     | "keybindings"
     | "debug";
   titleKey: string;

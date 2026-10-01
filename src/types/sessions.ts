@@ -1,5 +1,22 @@
 import type { ChatMessage, TodoDiff, TodoItem } from "./chat";
 
+export type FileTouch = {
+  path: string;
+  beforeHash: string;
+  afterHash: string;
+};
+
+export type TurnCheckpoint = {
+  turnId: string;
+  checkpointId: string;
+  files: FileTouch[];
+};
+
+export type RedoRecord = {
+  messages: ChatMessage[];
+  checkpoints: TurnCheckpoint[];
+};
+
 export type TodoHistoryEvent = {
   timestamp: number;
   diff: TodoDiff;
@@ -17,6 +34,8 @@ export type SessionRecord = {
   httpWriteAllowed?: boolean;
   workspacePath?: string;
   parentSessionId?: string;
+  fileCheckpoints?: TurnCheckpoint[];
+  redo?: RedoRecord;
 };
 
 export type SessionSummary = Pick<SessionRecord, "id" | "title" | "preview" | "updatedAt">;

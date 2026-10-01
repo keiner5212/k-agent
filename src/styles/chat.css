@@ -1411,6 +1411,7 @@ button.change-bar__stat:focus-visible {
 
 .chat-message--user .chat-message__actions {
   justify-content: flex-end;
+  opacity: 1;
 }
 
 .chat-message--assistant .chat-message__actions {
