@@ -89,6 +89,14 @@ export type ToolDisplay = {
   linesRemoved?: number;
   imageData?: string;
   todos?: TodoItem[];
+  diagnostics?: ToolDiagnostic[];
+};
+
+export type ToolDiagnostic = {
+  path: string;
+  line: number;
+  severity: string;
+  message: string;
 };
 
 export type ChatToolCall = {

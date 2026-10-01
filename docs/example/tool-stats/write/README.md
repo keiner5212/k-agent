@@ -32,7 +32,7 @@ Create or fully overwrite a file. Path is absolute or workspace-relative.
 | `added`   | integer | Lines added by the write (hunk diff). Display-only; not part of the TOON response. |
 | `removed` | integer | Lines removed by the write (hunk diff). Display-only.                              |
 
-The TOON response body is two fields: `path` + `status: "ok"`.
+The TOON response body is two fields: `path` + `status: "ok"`. When a language server publishes diagnostics for this write, a `diagnostics` block is appended: `none`, or one line per note (`severity`, 1-based line, path, message). The chat row shows the same notes.
 
 See `response.toon` for the concrete wire shape the LLM sees.
 

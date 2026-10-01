@@ -58,8 +58,16 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
         .and_then(Value::as_str)
         .unwrap_or("")
         .trim();
-    super::tool_utils::workspace::guard(ctx, raw, "Delete", true, || DeleteTool.execute(&args, ctx))
-        .await
+    let outcome = super::tool_utils::workspace::guard(ctx, raw, "Delete", true, || {
+        DeleteTool.execute(&args, ctx)
+    })
+    .await;
+    if outcome.display.status.as_deref() == Some("ok") {
+        if let Ok(target) = parse_target(&args, ctx) {
+            super::notify_lsp(ctx, &target.resolved, true).await;
+        }
+    }
+    outcome
 }
 
 struct DeleteTarget {

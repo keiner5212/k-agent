@@ -714,6 +714,18 @@
       "grep": {
         "label": "Buscar en archivos",
         "description": "Busca en el contenido. glob incluye solo las rutas que coinciden. caseInsensitive ignora mayusculas. count es el total."
+      },
+      "apply_patch": {
+        "label": "Aplicar parche",
+        "description": "Agrega, cambia o borra varios archivos en un parche. Un tramo exacto sigue usando Editar archivo."
+      },
+      "lsp": {
+        "label": "Servidor de lenguaje",
+        "description": "Pide definicion, referencias, hover o simbolos a un servidor instalado."
+      },
+      "task": {
+        "label": "Tarea",
+        "description": "Entrega un trabajo de varios pasos a otro agente guardado y espera su texto final."
       }
     },
     "delete": {
@@ -1029,8 +1041,12 @@
       "graphqlTitle": "GraphQL",
       "shotTitle": "Captura",
       "askTitle": "Pregunta",
+      "patchTitle": "Parche",
+      "lspTitle": "LSP",
+      "taskTitle": "Tarea",
       "outputTitle": "Salida de la herramienta",
-      "tokenHint": "Unos {{count}} tokens"
+      "tokenHint": "Unos {{count}} tokens",
+      "lspClean": "LSP limpio"
     },
     "todos": {
       "title": "Tareas",

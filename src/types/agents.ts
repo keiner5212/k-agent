@@ -20,6 +20,9 @@ export const AGENT_TOOL_IDS = [
   "bash",
   "background",
   "grep",
+  "apply_patch",
+  "lsp",
+  "task",
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
@@ -33,6 +36,7 @@ export const PLAN_AGENT_TOOL_IDS: readonly AgentToolId[] = [
   "internet_search",
   "fetch_url",
   "grep",
+  "lsp",
 ];
 
 export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
@@ -66,6 +70,10 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   background:
     "Start one command and keep it until this turn ends, then kill it. Use this for a dev server or preview. Do not append &, nohup, or disown. The command is the process itself, for example npm run dev. Returns the pid and the first 1200ms of output.",
   grep: "Search file contents with ripgrep. pattern is a regex. path defaults to the workspace. glob includes only matching paths (a leading ! excludes). filesOnly returns paths and skips line text. count is matching lines. matches is a sample of at most 100 lines, or 100 paths when filesOnly. Uses the configured worker cores. Use this instead of grep or rg in bash.",
+  apply_patch:
+    "Apply one patch that adds, updates, or deletes several files. All files are checked before any write. Update hunks need context lines. One exact span in one file still uses edit.",
+  lsp: "Ask the installed language server for a definition, references, hover, or symbols. line and character are 1-based. If no server is installed for the file, the error says so.",
+  task: "Hand a multi-step side job to another saved agent and wait for its final text. Do not use this for one read, one grep, or one edit. The child cannot start another task.",
 };
 
 export const MAX_AGENT_SKILLS = 10;

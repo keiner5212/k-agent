@@ -714,6 +714,18 @@
       "grep": {
         "label": "Search files",
         "description": "Search file contents. glob includes only matching paths. caseInsensitive ignores letter case. count is the total."
+      },
+      "apply_patch": {
+        "label": "Apply patch",
+        "description": "Add, update, or delete several files in one patch. One exact span still uses Edit file."
+      },
+      "lsp": {
+        "label": "Language server",
+        "description": "Ask an installed language server for a definition, references, hover, or symbols."
+      },
+      "task": {
+        "label": "Task",
+        "description": "Hand a multi-step side job to another saved agent and wait for its final text."
       }
     },
     "delete": {
@@ -1029,8 +1041,12 @@
       "graphqlTitle": "GraphQL",
       "shotTitle": "Screenshot",
       "askTitle": "Question",
+      "patchTitle": "Patch",
+      "lspTitle": "LSP",
+      "taskTitle": "Task",
       "outputTitle": "Tool output",
-      "tokenHint": "About {{count}} tokens"
+      "tokenHint": "About {{count}} tokens",
+      "lspClean": "LSP clean"
     },
     "todos": {
       "title": "Todos",

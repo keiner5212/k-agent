@@ -21,11 +21,11 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use k_agent_lib::tools::ask_user::{execute_async as ask_user_execute_async, AskUserAnswerEntry};
 use k_agent_lib::tools::{
-    execute, ToolContext, ASK_USER_TOOL_NAME, BACKGROUND_TOOL_NAME, BASH_TOOL_NAME,
-    CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, EDIT_TOOL_NAME, FETCH_URL_TOOL_NAME,
+    execute, ToolContext, APPLY_PATCH_TOOL_NAME, ASK_USER_TOOL_NAME, BACKGROUND_TOOL_NAME,
+    BASH_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, EDIT_TOOL_NAME, FETCH_URL_TOOL_NAME,
     GRAPHQL_TOOL_NAME, GREP_TOOL_NAME, HTTP_REQUEST_TOOL_NAME, INTERNET_SEARCH_TOOL_NAME,
-    LIST_DIRECTORY_TOOL_NAME, PAGE_SHOT_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME, TODO_TOOL_NAME,
-    WRITE_TOOL_NAME,
+    LIST_DIRECTORY_TOOL_NAME, LSP_TOOL_NAME, PAGE_SHOT_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME,
+    TASK_TOOL_NAME, TODO_TOOL_NAME, WRITE_TOOL_NAME,
 };
 
 const REALISTIC_FILE_BODY: &str = "# Draft: sample skill body\n\
@@ -444,10 +444,8 @@ async fn dumps_tool_examples() {
         write_stats(WRITE_TOOL_NAME, &stats, &outcome, &ctx_scratch);
     }
 
-    // edit: rewrites a multi-line section in the draft above. Uses the
-    // indentation-flexible replacer: oldString omits the leading indent that
-    // the file has, so the simple replacer misses and the relaxed replacer
-    // kicks in.
+    // edit: rewrites a multi-line section in the draft above. oldString is the
+    // exact file text. A whitespace miss is an error.
     {
         let old_string =
             "    1. Read each touched file once for shape. Skim public surface, skip\n\
@@ -634,11 +632,41 @@ async fn dumps_tool_examples() {
         write_stats(GREP_TOOL_NAME, &stats, &outcome, &ctx_docs);
     }
 
+    {
+        let patch = "\
+*** Begin Patch
+*** Add File: patch-new.txt
++from patch
+*** End Patch
+";
+        let args = serde_json::json!({ "patchText": patch }).to_string();
+        let (stats, outcome) =
+            measure(async { execute(APPLY_PATCH_TOOL_NAME, &args, &ctx_scratch).await }).await;
+        write_input(APPLY_PATCH_TOOL_NAME, &args);
+        write_stats(APPLY_PATCH_TOOL_NAME, &stats, &outcome, &ctx_scratch);
+    }
+
+    {
+        let args = r#"{"operation":"hover","filePath":"missing.rs","line":1,"character":1}"#;
+        let (stats, outcome) =
+            measure(async { execute(LSP_TOOL_NAME, args, &ctx_docs).await }).await;
+        write_input(LSP_TOOL_NAME, args);
+        write_stats(LSP_TOOL_NAME, &stats, &outcome, &ctx_docs);
+    }
+
+    {
+        let args = r#"{"description":"check tools","prompt":"Say ok.","agent":"build"}"#;
+        let (stats, outcome) =
+            measure(async { execute(TASK_TOOL_NAME, args, &ctx_docs).await }).await;
+        write_input(TASK_TOOL_NAME, args);
+        write_stats(TASK_TOOL_NAME, &stats, &outcome, &ctx_docs);
+    }
+
     // Clean up the scratch directory so cargo test leaves docs/ tidy.
     cleanup_scratch(&scratch);
 
     eprintln!(
-        "[tool-examples] dumped all 16 tools at {}",
+        "[tool-examples] dumped all 19 tools at {}",
         output_dir().display()
     );
 }

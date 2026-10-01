@@ -114,8 +114,16 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
         .and_then(Value::as_str)
         .unwrap_or("")
         .trim();
-    super::tool_utils::workspace::guard(ctx, raw, "Write", true, || WriteTool.execute(&args, ctx))
-        .await
+    let mut outcome = super::tool_utils::workspace::guard(ctx, raw, "Write", true, || {
+        WriteTool.execute(&args, ctx)
+    })
+    .await;
+    if outcome.display.status.as_deref() == Some("ok") {
+        if let Ok(path) = resolve_path(ctx, raw) {
+            super::attach_lsp_diagnostics(ctx, &mut outcome, &[path]).await;
+        }
+    }
+    outcome
 }
 
 fn resolve_path(ctx: &ToolContext<'_>, raw: &str) -> Result<PathBuf, String> {

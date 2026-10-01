@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::{json, Value};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{oneshot, Mutex};
@@ -17,18 +17,43 @@ use crate::lsp::{
 };
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
+const DIAG_WAIT: Duration = Duration::from_millis(700);
+const MAX_DIAGS: usize = 8;
 
 pub struct LspHub {
     sessions: Mutex<HashMap<String, Arc<LspSession>>>,
+}
+
+struct StoredDiag {
+    fresh: bool,
+    notes: Vec<RawDiag>,
 }
 
 struct LspSession {
     stdin: Mutex<ChildStdin>,
     pending: std::sync::Mutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>,
     next_id: AtomicU64,
-    opened: Mutex<HashSet<String>>,
+    opened: Mutex<HashMap<String, i32>>,
+    diagnostics: Mutex<HashMap<String, StoredDiag>>,
     language_id: String,
     _child: Mutex<Child>,
+}
+
+#[derive(Clone)]
+pub struct RawDiag {
+    pub line: u32,
+    pub severity: String,
+    pub message: String,
+}
+
+pub struct PathDiagnostics {
+    pub path: PathBuf,
+    pub notes: Vec<RawDiag>,
+}
+
+struct Touch {
+    session: Arc<LspSession>,
+    uri: String,
 }
 
 impl LspHub {
@@ -155,7 +180,8 @@ async fn start_session(
         stdin: Mutex::new(stdin),
         pending: std::sync::Mutex::new(HashMap::new()),
         next_id: AtomicU64::new(1),
-        opened: Mutex::new(HashSet::new()),
+        opened: Mutex::new(HashMap::new()),
+        diagnostics: Mutex::new(HashMap::new()),
         language_id,
         _child: Mutex::new(child),
     });
@@ -167,6 +193,14 @@ async fn start_session(
                 Ok(value) => value,
                 Err(_) => break,
             };
+            if let Some((uri, notes)) = published_diagnostics(&message) {
+                reader_session
+                    .diagnostics
+                    .lock()
+                    .await
+                    .insert(uri, StoredDiag { fresh: true, notes });
+                continue;
+            }
             if let Some(id) = rpc_id(message.get("id")) {
                 let sender = reader_session
                     .pending
@@ -195,11 +229,17 @@ async fn start_session(
             "rootUri": root_uri,
             "capabilities": {
                 "textDocument": {
+                    "synchronization": { "didSave": true },
+                    "definition": { "linkSupport": false },
+                    "references": {},
+                    "implementation": {},
+                    "documentSymbol": {},
                     "hover": { "contentFormat": ["markdown", "plaintext"] },
-                    "definition": {},
+                    "callHierarchy": {},
                     "rename": {},
                     "publishDiagnostics": {}
-                }
+                },
+                "workspace": { "symbol": {} }
             },
             "initializationOptions": spec.initialization_options.clone().unwrap_or(Value::Null)
         }
@@ -308,13 +348,18 @@ async fn ensure_open(session: &LspSession, path: &Path) -> Result<String, LspErr
     let uri = file_uri(path);
     {
         let opened = session.opened.lock().await;
-        if opened.contains(&uri) {
+        if opened.contains_key(&uri) {
             return Ok(uri);
         }
     }
     let text = tokio::fs::read_to_string(path)
         .await
         .map_err(|error| LspError::Io(error.to_string()))?;
+    open_document(session, &uri, &text).await?;
+    Ok(uri)
+}
+
+async fn open_document(session: &LspSession, uri: &str, text: &str) -> Result<(), LspError> {
     notify(
         session,
         "textDocument/didOpen",
@@ -328,8 +373,182 @@ async fn ensure_open(session: &LspSession, path: &Path) -> Result<String, LspErr
         }),
     )
     .await?;
-    session.opened.lock().await.insert(uri.clone());
-    Ok(uri)
+    session.opened.lock().await.insert(uri.to_string(), 1);
+    Ok(())
+}
+
+pub async fn sync_disk_change(app: &AppHandle, path: &Path, deleted: bool) {
+    let _ = push_change(app, path, deleted).await;
+}
+
+pub async fn diagnostics_after_write(
+    app: &AppHandle,
+    paths: &[PathBuf],
+) -> Option<Vec<PathDiagnostics>> {
+    if !lsp_enabled(app) || paths.is_empty() {
+        return None;
+    }
+    let mut touches = Vec::new();
+    for path in paths {
+        let deleted = !path.exists();
+        if let Some(touch) = push_change(app, path, deleted).await {
+            touches.push((path.clone(), touch));
+        }
+    }
+    if touches.is_empty() {
+        return None;
+    }
+    let deadline = tokio::time::Instant::now() + DIAG_WAIT;
+    loop {
+        if touches_fresh(&touches).await {
+            break;
+        }
+        if tokio::time::Instant::now() >= deadline {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(40)).await;
+    }
+    let mut found = Vec::new();
+    for (path, touch) in touches {
+        let map = touch.session.diagnostics.lock().await;
+        let Some(slot) = map.get(&touch.uri) else {
+            continue;
+        };
+        if !slot.fresh {
+            continue;
+        }
+        found.push(PathDiagnostics {
+            path,
+            notes: slot.notes.clone(),
+        });
+    }
+    if found.is_empty() {
+        None
+    } else {
+        Some(found)
+    }
+}
+
+async fn touches_fresh(touches: &[(PathBuf, Touch)]) -> bool {
+    for (_, touch) in touches {
+        let map = touch.session.diagnostics.lock().await;
+        if !map.get(&touch.uri).is_some_and(|slot| slot.fresh) {
+            return false;
+        }
+    }
+    true
+}
+
+async fn push_change(app: &AppHandle, path: &Path, deleted: bool) -> Option<Touch> {
+    if !lsp_enabled(app) {
+        return None;
+    }
+    let hub = app.try_state::<LspHub>()?;
+    let resolved = resolve_for_path(app, path).ok()??;
+    let session = session_for(hub.inner(), app, &resolved).await.ok()?;
+    let uri = file_uri(path);
+    if deleted {
+        let mut opened = session.opened.lock().await;
+        if opened.remove(&uri).is_none() {
+            return None;
+        }
+        drop(opened);
+        let _ = notify(
+            &session,
+            "textDocument/didClose",
+            json!({ "textDocument": { "uri": uri } }),
+        )
+        .await;
+        return None;
+    }
+    let text = tokio::fs::read_to_string(path).await.ok()?;
+    session.diagnostics.lock().await.insert(
+        uri.clone(),
+        StoredDiag {
+            fresh: false,
+            notes: Vec::new(),
+        },
+    );
+    let version = {
+        let mut opened = session.opened.lock().await;
+        if let Some(version) = opened.get_mut(&uri) {
+            *version += 1;
+            *version
+        } else {
+            0
+        }
+    };
+    let sent = if version == 0 {
+        open_document(&session, &uri, &text).await.is_ok()
+    } else {
+        notify(
+            &session,
+            "textDocument/didChange",
+            json!({
+                "textDocument": { "uri": uri, "version": version },
+                "contentChanges": [{ "text": text }]
+            }),
+        )
+        .await
+        .is_ok()
+    };
+    if !sent {
+        return None;
+    }
+    Some(Touch { session, uri })
+}
+
+fn published_diagnostics(message: &Value) -> Option<(String, Vec<RawDiag>)> {
+    if message.get("method")?.as_str()? != "textDocument/publishDiagnostics" {
+        return None;
+    }
+    let params = message.get("params")?;
+    let uri = params.get("uri")?.as_str()?.to_string();
+    let items = params
+        .get("diagnostics")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let mut notes = Vec::new();
+    for item in items {
+        let severity = match item.get("severity").and_then(Value::as_u64).unwrap_or(1) {
+            1 => "error",
+            2 => "warning",
+            3 => "info",
+            _ => "hint",
+        };
+        let line = item
+            .get("range")
+            .and_then(|range| range.get("start"))
+            .and_then(|start| start.get("line"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0) as u32
+            + 1;
+        let message = item
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if message.is_empty() {
+            continue;
+        }
+        let message = message.chars().take(180).collect::<String>();
+        notes.push(RawDiag {
+            line,
+            severity: severity.to_string(),
+            message,
+        });
+    }
+    notes.sort_by_key(|note| match note.severity.as_str() {
+        "error" => 0,
+        "warning" => 1,
+        "info" => 2,
+        _ => 3,
+    });
+    notes.truncate(MAX_DIAGS);
+    Some((uri, notes))
 }
 
 fn inject_uri(params: Value, uri: &str) -> Value {

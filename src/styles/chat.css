@@ -1153,6 +1153,25 @@ button.change-bar__stat:focus-visible {
   gap: var(--space-2);
 }
 
+.chat-tools__lsp {
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-tools__lsp--clean {
+  margin: var(--space-1) 0 0;
+  color: var(--success);
+}
+
+.chat-tools__lsp-item--error {
+  color: var(--danger);
+}
+
+.chat-tools__lsp-item--warning {
+  color: var(--warning);
+}
+
 .chat-thread__reserve {
   display: flex;
   align-items: center;

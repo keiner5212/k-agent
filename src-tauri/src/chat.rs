@@ -205,6 +205,7 @@ struct ChatCall<'a> {
     allowed_commands: &'a [String],
     blocked_commands: &'a [String],
     shell_program: &'a str,
+    nested: Option<tools::NestedScope>,
 }
 
 fn tool_parallelism(worker_cores: Option<u32>) -> usize {
@@ -2086,8 +2087,9 @@ async fn commit_tool_calls(
                     call.model.attachment_types.clone()
                 },
                 turn: Some(turn.clone()),
+                nested: call.nested.clone(),
             };
-            let outcome = tools::execute(&tc.name, &tc.arguments, &tool_ctx).await;
+            let outcome = Box::pin(tools::execute(&tc.name, &tc.arguments, &tool_ctx)).await;
             if let Some(snapshot) = outcome.snapshot {
                 if let Some(sid) = session_id {
                     let _ = crate::sessions::write_file_revision(
@@ -2174,6 +2176,7 @@ async fn send_message(
     outside_workspace_allowed: bool,
     http_write_allowed: bool,
     resume_confirmed: bool,
+    max_rounds: Option<u32>,
 ) -> Result<ChatOutput, ChatError> {
     if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
@@ -2193,8 +2196,21 @@ async fn send_message(
     let mut turns = call.turns.to_vec();
     let mut tool_rounds: Vec<ToolRoundTrace> = Vec::new();
     let turn = tools::TurnSlot::start();
+    let mut rounds = 0u32;
 
     loop {
+        if let Some(max) = max_rounds {
+            if rounds >= max {
+                return Ok(ChatOutput {
+                    content: format!("Stopped after {max} tool rounds."),
+                    reasoning: String::new(),
+                    reasoning_signature: String::new(),
+                    tool_calls: Vec::new(),
+                    tool_rounds,
+                });
+            }
+        }
+        rounds += 1;
         if resume_confirmed {
             let pending = turns.last().and_then(|last| {
                 if last.assistant && !last.tool_calls.is_empty() {
@@ -2246,6 +2262,7 @@ async fn send_message(
             allowed_commands: call.allowed_commands,
             blocked_commands: call.blocked_commands,
             shell_program: call.shell_program,
+            nested: call.nested.clone(),
         };
         let round_started = std::time::Instant::now();
         let output = dispatch_with_retry(provider, &round_call, on_chunk).await?;
@@ -2433,11 +2450,14 @@ pub async fn generate_session_title(
         allowed_commands: &[],
         blocked_commands: &[],
         shell_program: "",
+        nested: None,
     };
     let title = normalize_generated_title(
-        &send_message(&app, &provider, &call, None, None, false, false, false)
-            .await?
-            .content,
+        &send_message(
+            &app, &provider, &call, None, None, false, false, false, None,
+        )
+        .await?
+        .content,
     );
     if title.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -2509,11 +2529,14 @@ pub async fn summarize_conversation(
         allowed_commands: &[],
         blocked_commands: &[],
         shell_program: "",
+        nested: None,
     };
     let summary = normalize_generated_text(
-        &send_message(&app, &provider, &call, None, None, false, false, false)
-            .await?
-            .content,
+        &send_message(
+            &app, &provider, &call, None, None, false, false, false, None,
+        )
+        .await?
+        .content,
     );
     if summary.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -2670,11 +2693,14 @@ pub async fn generate_app_content(
         allowed_commands: &[],
         blocked_commands: &[],
         shell_program: "",
+        nested: None,
     };
     let text = normalize_generated_text(
-        &send_message(&app, &provider, &call, None, None, false, false, false)
-            .await?
-            .content,
+        &send_message(
+            &app, &provider, &call, None, None, false, false, false, None,
+        )
+        .await?
+        .content,
     );
     if text.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -2867,6 +2893,99 @@ struct GeminiFunctionCall {
     args: serde_json::Value,
 }
 
+pub(crate) async fn run_task(
+    app: &AppHandle,
+    scope: &tools::NestedScope,
+    ctx: &tools::ToolContext<'_>,
+    agent_name: &str,
+    prompt: &str,
+) -> Result<String, String> {
+    let agent = crate::agents::find_agent_by_name(app, agent_name)?;
+    let mut tool_names: Vec<String> = agent
+        .tools
+        .into_iter()
+        .filter(|name| name != tools::TASK_TOOL_NAME)
+        .collect();
+    if tool_names.is_empty() {
+        tool_names = scope
+            .tool_names
+            .iter()
+            .filter(|name| name.as_str() != tools::TASK_TOOL_NAME)
+            .cloned()
+            .collect();
+    }
+    let (provider, model) = load_provider_model(app, &scope.provider_id, &scope.model_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    let options = crate::request_profile::ChatRequestOptions::default();
+    let plan = request_plan(&provider, &model, &options, output_tokens(&model));
+    let system = if agent.personality.trim().is_empty() {
+        scope.system.clone()
+    } else {
+        Some(agent.personality)
+    };
+    let turns = vec![Turn {
+        assistant: false,
+        content: prompt.to_string(),
+        reasoning: String::new(),
+        reasoning_signature: String::new(),
+        attachments: Vec::new(),
+        tool_calls: Vec::new(),
+        tool_result: None,
+    }];
+    let nested = tools::NestedScope {
+        provider_id: scope.provider_id.clone(),
+        model_id: scope.model_id.clone(),
+        system: system.clone(),
+        tool_names: tool_names.clone(),
+        task_depth: scope.task_depth.saturating_add(1),
+    };
+    let effort = plan
+        .reasoning_effort
+        .clone()
+        .or_else(|| plan.anthropic_effort.clone())
+        .or_else(|| plan.gemini_level.clone());
+    let call = ChatCall {
+        model: &model,
+        turns: &turns,
+        system: system.as_deref(),
+        effort: effort.as_deref(),
+        max_output: plan.max_output,
+        enable_reasoning: plan.enable_reasoning,
+        plan: &plan,
+        tool_names: &tool_names,
+        mcp_tools: &[],
+        parallelism: ctx.parallelism,
+        allowed_commands: &ctx.allowed_commands,
+        blocked_commands: &ctx.blocked_commands,
+        shell_program: &ctx.shell_program,
+        nested: Some(nested),
+    };
+    let output = send_message(
+        app,
+        &provider,
+        &call,
+        None,
+        ctx.session_id.as_deref(),
+        ctx.outside_workspace_allowed,
+        ctx.http_write_allowed,
+        false,
+        Some(4),
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+    Ok(clip_task_text(&output.content))
+}
+
+fn clip_task_text(text: &str) -> String {
+    const MAX: usize = 6_000;
+    if text.chars().count() <= MAX {
+        return text.to_string();
+    }
+    let clipped: String = text.chars().take(MAX).collect();
+    format!("{clipped}... (truncated)")
+}
+
 #[tauri::command]
 pub async fn send_chat_message(
     app: AppHandle,
@@ -2928,6 +3047,13 @@ pub async fn send_chat_message(
         allowed_commands: &input.allowed_commands,
         blocked_commands: &input.blocked_commands,
         shell_program: &input.shell_program,
+        nested: Some(tools::NestedScope {
+            provider_id: input.provider_id.clone(),
+            model_id: input.model_id.clone(),
+            system: system.clone(),
+            tool_names: tool_names.clone(),
+            task_depth: 0,
+        }),
     };
     log_chat_config(&provider, &input, &call);
     let send_fut = send_message(
@@ -2939,6 +3065,7 @@ pub async fn send_chat_message(
         input.outside_workspace_allowed,
         input.http_write_allowed,
         input.resume_confirmed,
+        None,
     );
     tokio::pin!(send_fut);
     let output = match cancel_rx {

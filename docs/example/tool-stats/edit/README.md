@@ -40,7 +40,7 @@ Replace an exact string in an existing file. Whitespace and indentation must mat
 | `removed` | integer | Changed lines removed in this call.                               |
 | `count`   | integer | File count. Present only when the call writes more than one file. |
 
-The TOON response body is `path` + `status` + `added` + `removed`. A single-file call has no `count` field.
+The TOON response body is `path` + `status` + `added` + `removed`. A single-file call has no `count` field. When a language server publishes diagnostics, a `diagnostics` block is appended: `none`, or one line per note. The chat row shows the same notes.
 
 See `response.toon` for the concrete wire shape the LLM sees.
 

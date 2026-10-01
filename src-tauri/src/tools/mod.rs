@@ -1,3 +1,4 @@
+mod apply_patch;
 mod edit;
 mod fetch_url;
 mod graphql;
@@ -15,6 +16,8 @@ pub(crate) mod bash;
 mod create_folder;
 mod delete;
 mod grep;
+mod lsp;
+mod task;
 pub mod todo;
 
 #[path = "tool-utils/mod.rs"]
@@ -52,6 +55,9 @@ pub const BASH_TOOL_NAME: &str = bash::NAME;
 pub const BACKGROUND_TOOL_NAME: &str = background::NAME;
 pub use background::TurnSlot;
 pub const GREP_TOOL_NAME: &str = grep::NAME;
+pub const APPLY_PATCH_TOOL_NAME: &str = apply_patch::NAME;
+pub const LSP_TOOL_NAME: &str = lsp::NAME;
+pub const TASK_TOOL_NAME: &str = task::NAME;
 pub const LIST_DIRECTORY_MAX_PARALLELISM: usize = list_directory::MAX_PARALLELISM;
 
 pub const TOOL_KIND_CONTEXT: &str = "context";
@@ -92,6 +98,16 @@ pub struct ToolContext<'a> {
     pub input_modalities: Vec<String>,
     pub attachment_types: Vec<String>,
     pub turn: Option<Arc<TurnSlot>>,
+    pub nested: Option<NestedScope>,
+}
+
+#[derive(Clone)]
+pub struct NestedScope {
+    pub provider_id: String,
+    pub model_id: String,
+    pub system: Option<String>,
+    pub tool_names: Vec<String>,
+    pub task_depth: u8,
 }
 
 #[derive(Debug, Clone)]
@@ -112,6 +128,62 @@ impl ToolContext<'_> {
     pub fn relative_path(&self, path: &std::path::Path) -> String {
         crate::pathutil::relative_to_workspace(path, self.workspace_path().as_deref())
     }
+}
+
+pub(crate) async fn notify_lsp(ctx: &ToolContext<'_>, path: &std::path::Path, deleted: bool) {
+    let Some(app) = ctx.app else {
+        return;
+    };
+    crate::lsp_client::sync_disk_change(app, path, deleted).await;
+}
+
+pub(crate) async fn attach_lsp_diagnostics(
+    ctx: &ToolContext<'_>,
+    outcome: &mut ToolOutcome,
+    paths: &[std::path::PathBuf],
+) {
+    let Some(app) = ctx.app else {
+        return;
+    };
+    let Some(found) = crate::lsp_client::diagnostics_after_write(app, paths).await else {
+        return;
+    };
+    let mut notes = Vec::new();
+    for file in found {
+        let rel = ctx.relative_path(&file.path);
+        for note in file.notes {
+            notes.push(ToolDiagnostic {
+                path: rel.clone(),
+                line: note.line,
+                severity: note.severity,
+                message: note.message,
+            });
+            if notes.len() == 12 {
+                break;
+            }
+        }
+        if notes.len() == 12 {
+            break;
+        }
+    }
+    let body = if notes.is_empty() {
+        "none".to_string()
+    } else {
+        notes
+            .iter()
+            .map(|note| {
+                format!(
+                    "{} L{} {}: {}",
+                    note.severity, note.line, note.path, note.message
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    outcome.display.diagnostics = Some(notes);
+    outcome.text.push_str("\ndiagnostics:\n");
+    outcome.text.push_str(&body);
+    outcome.text.push('\n');
 }
 
 pub(crate) fn tool_cache_dir(app: Option<&AppHandle>, name: &str) -> Option<std::path::PathBuf> {
@@ -144,6 +216,7 @@ impl ToolContext<'static> {
                 "document".into(),
             ],
             turn: None,
+            nested: None,
         }
     }
 }
@@ -173,6 +246,17 @@ pub struct ToolDisplay {
     pub image_data: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub todos: Option<Vec<crate::tools::todo::TodoItem>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagnostics: Option<Vec<ToolDiagnostic>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolDiagnostic {
+    pub path: String,
+    pub line: u32,
+    pub severity: String,
+    pub message: String,
 }
 
 #[derive(Debug, Clone)]
@@ -299,6 +383,9 @@ fn all_tools() -> Vec<Box<dyn Tool>> {
         Box::new(bash::BashTool),
         Box::new(background::BackgroundTool),
         Box::new(grep::GrepTool),
+        Box::new(apply_patch::ApplyPatchTool),
+        Box::new(lsp::LspTool),
+        Box::new(task::TaskTool),
     ]
 }
 
@@ -351,6 +438,15 @@ pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> Tool
     }
     if name == grep::NAME {
         return grep::execute_async(arguments, ctx).await;
+    }
+    if name == apply_patch::NAME {
+        return apply_patch::execute_async(arguments, ctx).await;
+    }
+    if name == lsp::NAME {
+        return lsp::execute_async(arguments, ctx).await;
+    }
+    if name == task::NAME {
+        return task::execute_async(arguments, ctx).await;
     }
     let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
     for tool in all_tools() {

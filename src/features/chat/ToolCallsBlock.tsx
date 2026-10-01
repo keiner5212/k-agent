@@ -8,7 +8,7 @@ import { runDiffLinesJob } from "@/lib/jobs";
 import { useProvidersStore } from "@/lib/providers";
 import { readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
 import { useSelectionStore } from "@/lib/selected-model";
-import { skillNameFromCall, type ChatToolCall } from "@/types/chat";
+import { skillNameFromCall, type ChatToolCall, type ToolDisplay } from "@/types/chat";
 import { formatContextWindow } from "@/types/providers";
 
 type ToolCallsBlockProps = {
@@ -49,6 +49,9 @@ const TOOL_TITLE: Record<string, string> = {
   graphql: "chat.tools.graphqlTitle",
   page_shot: "chat.tools.shotTitle",
   ask_user: "chat.tools.askTitle",
+  apply_patch: "chat.tools.patchTitle",
+  lsp: "chat.tools.lspTitle",
+  task: "chat.tools.taskTitle",
 };
 
 const TOOL_SYMBOL: Record<string, string> = {
@@ -155,6 +158,36 @@ const previewFromOutput = (call: ChatToolCall): string => {
     return lines.join("\n") || raw;
   }
   return error || raw;
+};
+
+const lspClass = (severity: string): string => {
+  if (severity === "error") return "chat-tools__lsp-item chat-tools__lsp-item--error";
+  if (severity === "warning") return "chat-tools__lsp-item chat-tools__lsp-item--warning";
+  return "chat-tools__lsp-item";
+};
+
+const LspNotes = ({
+  display,
+  cleanLabel,
+}: {
+  display: ToolDisplay | undefined;
+  cleanLabel: string;
+}): ReactNode => {
+  const notes = display?.diagnostics;
+  if (!notes) return null;
+  if (notes.length === 0) {
+    return <p className="chat-tools__lsp chat-tools__lsp--clean">{cleanLabel}</p>;
+  }
+  return (
+    <ul className="chat-tools__lsp">
+      {notes.slice(0, 8).map((item, index) => (
+        <li key={`${item.line}-${index}`} className={lspClass(item.severity)}>
+          {item.severity} L{item.line}
+          {item.path && item.path !== display?.path ? ` ${item.path}` : ""}: {item.message}
+        </li>
+      ))}
+    </ul>
+  );
 };
 
 const toolCallLabel = (call: ChatToolCall, lineRange = ""): string => {
@@ -312,6 +345,7 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
                   </span>
                 ) : null}
               </span>
+              <LspNotes display={display} cleanLabel={t("chat.tools.lspClean")} />
             </li>
           );
         })}

@@ -9,10 +9,11 @@ use thiserror::Error;
 use crate::pathutil;
 use crate::skills::{estimate_tokens, global_skills_root, list_skills_in, parse_yaml_scalar};
 use crate::tools::{
-    ASK_USER_TOOL_NAME, BASH_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, EDIT_TOOL_NAME,
-    FETCH_URL_TOOL_NAME, GRAPHQL_TOOL_NAME, GREP_TOOL_NAME, HTTP_REQUEST_TOOL_NAME,
-    INTERNET_SEARCH_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME, PAGE_SHOT_TOOL_NAME, READ_TOOL_NAME,
-    SKILL_TOOL_NAME, TODO_TOOL_NAME, WRITE_TOOL_NAME,
+    APPLY_PATCH_TOOL_NAME, ASK_USER_TOOL_NAME, BACKGROUND_TOOL_NAME, BASH_TOOL_NAME,
+    CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, EDIT_TOOL_NAME, FETCH_URL_TOOL_NAME,
+    GRAPHQL_TOOL_NAME, GREP_TOOL_NAME, HTTP_REQUEST_TOOL_NAME, INTERNET_SEARCH_TOOL_NAME,
+    LIST_DIRECTORY_TOOL_NAME, LSP_TOOL_NAME, PAGE_SHOT_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME,
+    TASK_TOOL_NAME, TODO_TOOL_NAME, WRITE_TOOL_NAME,
 };
 
 pub const MAX_AGENT_SKILLS: usize = 10;
@@ -36,7 +37,11 @@ const AGENT_TOOLS: &[&str] = &[
     PAGE_SHOT_TOOL_NAME,
     TODO_TOOL_NAME,
     BASH_TOOL_NAME,
+    BACKGROUND_TOOL_NAME,
     GREP_TOOL_NAME,
+    APPLY_PATCH_TOOL_NAME,
+    LSP_TOOL_NAME,
+    TASK_TOOL_NAME,
 ];
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -629,6 +634,63 @@ pub async fn list_agents(app: AppHandle) -> Result<Vec<AgentContext>, AgentError
     tokio::task::spawn_blocking(move || collect_agent_contexts(&app))
         .await
         .map_err(|error| AgentError::Io(error.to_string()))?
+}
+
+pub(crate) fn find_agent_by_name(app: &AppHandle, name: &str) -> Result<AgentMeta, String> {
+    let wanted = name.trim().to_ascii_lowercase();
+    if wanted.is_empty() {
+        return Err("task agent name is empty.".into());
+    }
+    if let Some(agent) = builtin_agent(&wanted) {
+        return Ok(agent);
+    }
+    let contexts = collect_agent_contexts(app).map_err(|error| error.to_string())?;
+    contexts
+        .into_iter()
+        .flat_map(|context| context.agents)
+        .find(|agent| {
+            agent.name.eq_ignore_ascii_case(&wanted) || agent.id.eq_ignore_ascii_case(&wanted)
+        })
+        .ok_or_else(|| format!("No saved agent named `{name}`."))
+}
+
+fn builtin_agent(name: &str) -> Option<AgentMeta> {
+    let (id, personality, tools): (&str, &str, Vec<String>) = match name {
+        "build" => (
+            "build",
+            "Finish the task in the workspace. Use tools. Return only the result.",
+            AGENT_TOOLS.iter().map(|tool| (*tool).to_string()).collect(),
+        ),
+        "plan" => (
+            "plan",
+            "Inspect the workspace and return a plan. Do not edit files.",
+            [
+                SKILL_TOOL_NAME,
+                READ_TOOL_NAME,
+                LIST_DIRECTORY_TOOL_NAME,
+                ASK_USER_TOOL_NAME,
+                TODO_TOOL_NAME,
+                INTERNET_SEARCH_TOOL_NAME,
+                FETCH_URL_TOOL_NAME,
+                GREP_TOOL_NAME,
+                LSP_TOOL_NAME,
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+        ),
+        _ => return None,
+    };
+    Some(AgentMeta {
+        id: id.to_string(),
+        path: format!("k-agent/builtin/agents/{id}"),
+        name: id.to_string(),
+        description: id.to_string(),
+        personality: personality.to_string(),
+        estimated_tokens: 0,
+        skills: Vec::new(),
+        tools,
+    })
 }
 
 fn collect_agent_contexts(app: &AppHandle) -> Result<Vec<AgentContext>, AgentError> {

@@ -92,7 +92,17 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
             return probe;
         }
     }
-    EditTool.execute(&args, ctx)
+    let mut outcome = EditTool.execute(&args, ctx);
+    if outcome.display.status.as_deref() == Some("ok") {
+        let mut paths = Vec::new();
+        for path in &seen {
+            if let Ok(resolved) = resolve_path(ctx, path) {
+                paths.push(resolved);
+            }
+        }
+        super::attach_lsp_diagnostics(ctx, &mut outcome, &paths).await;
+    }
+    outcome
 }
 
 struct EditRequest {

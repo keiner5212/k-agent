@@ -137,8 +137,19 @@ const buildToolChoice = (agent: AgentMeta): string => {
   if (hasTool(agent, "grep")) {
     lines.push("Search file contents with `grep`. Do not run `grep` or `rg` in the shell.");
   }
+  if (hasTool(agent, "lsp")) {
+    lines.push(
+      "Use `lsp` for a definition, references, or hover when a language server is installed.",
+    );
+  }
+  if (hasTool(agent, "task")) {
+    lines.push("Use `task` for a multi-step side job. Do not use it for one read or one search.");
+  }
   if (hasTool(agent, "write")) lines.push("Create or overwrite a file with `write`.");
-  if (hasTool(agent, "edit")) lines.push("Change file contents with `edit`.");
+  if (hasTool(agent, "edit")) lines.push("Change one exact span with `edit`.");
+  if (hasTool(agent, "apply_patch")) {
+    lines.push("Change several files in one diff with `apply_patch`.");
+  }
   if (hasTool(agent, "create_folder")) lines.push("Make a directory with `create_folder`.");
   if (hasTool(agent, "delete")) lines.push("Remove a file or empty directory with `delete`.");
   lines.push(

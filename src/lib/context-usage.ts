@@ -333,6 +333,39 @@ const GREP_TOOL_PARAMETERS = {
   required: ["pattern"],
 } as const;
 
+const APPLY_PATCH_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    patchText: {
+      type: "string",
+      description: "Full patch, from *** Begin Patch through *** End Patch.",
+    },
+  },
+  required: ["patchText"],
+} as const;
+
+const LSP_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    operation: { type: "string", description: "LSP operation." },
+    filePath: { type: "string", description: "Absolute or workspace-relative file." },
+    line: { type: "integer", description: "1-based line." },
+    character: { type: "integer", description: "1-based character." },
+    query: { type: "string", description: "workspaceSymbol filter." },
+  },
+  required: ["operation", "filePath"],
+} as const;
+
+const TASK_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    description: { type: "string", description: "3 to 5 words." },
+    prompt: { type: "string", description: "Full task for the other agent." },
+    agent: { type: "string", description: "Name of a saved agent." },
+  },
+  required: ["description", "prompt", "agent"],
+} as const;
+
 const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   skill: SKILL_TOOL_PARAMETERS,
   read: READ_TOOL_PARAMETERS,
@@ -351,6 +384,9 @@ const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   bash: BASH_TOOL_PARAMETERS,
   background: BACKGROUND_TOOL_PARAMETERS,
   grep: GREP_TOOL_PARAMETERS,
+  apply_patch: APPLY_PATCH_TOOL_PARAMETERS,
+  lsp: LSP_TOOL_PARAMETERS,
+  task: TASK_TOOL_PARAMETERS,
 };
 
 export const CONTEXT_CATEGORY_IDS = [
