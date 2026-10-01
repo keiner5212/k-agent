@@ -1,6 +1,6 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Copy, Maximize2, RotateCcw, RotateCw } from "lucide-react";
+import { Check, Copy, Maximize2, RefreshCw, Undo2 } from "lucide-react";
 import { IconButton } from "@/components/IconButton";
 import { parseShellMessage } from "@/lib/shell";
 import { useShellOutputStore } from "@/lib/shell-output";
@@ -33,6 +33,12 @@ export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
   const isSendingHere = sending && sendingSessionId === activeSessionId;
   const [copied, setCopied] = useState(false);
+  const [copyPop, setCopyPop] = useState(0);
+  const copyTimer = useRef(0);
+
+  useEffect(() => {
+    return () => window.clearTimeout(copyTimer.current);
+  }, []);
 
   const hasContent = message.content.trim().length > 0;
   const isUser = message.role === "user";
@@ -46,7 +52,9 @@ export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
     const ok = await copyText(message.content);
     if (!ok) return;
     setCopied(true);
-    window.setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
+    setCopyPop((tick) => tick + 1);
+    window.clearTimeout(copyTimer.current);
+    copyTimer.current = window.setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
   }, [canCopy, message.content]);
 
   const handleRewind = useCallback(() => {
@@ -79,30 +87,36 @@ export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
       {canCopy ? (
         <IconButton
           label={copied ? t("chat.message.copied") : t("chat.message.copy")}
-          className="chat-message__action"
+          className={
+            copied ? "chat-message__action chat-message__action--copied" : "chat-message__action"
+          }
           onClick={() => {
             void handleCopy();
           }}
         >
-          <Copy size={14} strokeWidth={1.5} />
+          {copied ? (
+            <Check key={copyPop} size={14} strokeWidth={1.5} />
+          ) : (
+            <Copy size={14} strokeWidth={1.5} />
+          )}
         </IconButton>
       ) : null}
       {canRewind ? (
         <IconButton
           label={t("chat.message.rewind")}
-          className="chat-message__action"
+          className="chat-message__action chat-message__action--rewind"
           onClick={handleRewind}
         >
-          <RotateCcw size={14} strokeWidth={1.5} />
+          <Undo2 size={14} strokeWidth={1.5} />
         </IconButton>
       ) : null}
       {canRewind ? (
         <IconButton
           label={t("chat.message.retry")}
-          className="chat-message__action"
+          className="chat-message__action chat-message__action--retry"
           onClick={handleRetry}
         >
-          <RotateCw size={14} strokeWidth={1.5} />
+          <RefreshCw size={14} strokeWidth={1.5} />
         </IconButton>
       ) : null}
     </div>

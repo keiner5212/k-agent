@@ -55,11 +55,11 @@ export const applySlashToken = (
   text: string,
   span: SlashSpan,
   name: string,
-  tokens: number,
+  tokens?: number,
 ): { next: string; cursor: number } => {
   const before = text.slice(0, span.start);
   const after = text.slice(span.end);
-  const token = `/${name} ${formatInlineTokenCount(tokens)} `;
+  const token = tokens === undefined ? `/${name} ` : `/${name} ${formatInlineTokenCount(tokens)} `;
   const next = `${before}${token}${after}`;
   return { next, cursor: before.length + token.length };
 };

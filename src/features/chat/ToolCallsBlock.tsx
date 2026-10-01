@@ -5,8 +5,7 @@ import { Dialog } from "@/components/Dialog";
 import type { LineKind } from "@/components/LineEditor";
 import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
 import { resolveVisionModel, toolCallTokens } from "@/lib/context-usage";
-import { runDiffLinesJob, runRenderMarkdownJob } from "@/lib/jobs";
-import { finishMarkdown } from "@/lib/markdown";
+import { runDiffLinesJob } from "@/lib/jobs";
 import { useProvidersStore } from "@/lib/providers";
 import { readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
 import { useSelectionStore } from "@/lib/selected-model";
@@ -18,6 +17,7 @@ import {
 } from "@/types/chat";
 import type { SessionRecord } from "@/types/sessions";
 import { formatContextWindow } from "@/types/providers";
+import { ChatMarkdown } from "./ChatMarkdown";
 
 type ToolCallsBlockProps = {
   calls: ChatToolCall[];
@@ -404,31 +404,6 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
   );
 };
 
-const TaskMarkdown = ({ content }: { content: string }): ReactNode => {
-  const { t } = useTranslation();
-  const linkHint = t("links.openInBrowserHint");
-  const [html, setHtml] = useState("");
-  useEffect(() => {
-    if (content.length === 0) return;
-    let alive = true;
-    void runRenderMarkdownJob(content, linkHint).then((next) => {
-      if (!alive) return;
-      setHtml(finishMarkdown(next.value, linkHint));
-    });
-    return () => {
-      alive = false;
-    };
-  }, [content, linkHint]);
-  if (content.length === 0) return null;
-  if (html.length === 0) return <div className="chat-message__content">{content}</div>;
-  return (
-    <div
-      className="chat-message__content chat-message__markdown"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-};
-
 const TaskMessage = ({
   message,
   sessionId,
@@ -449,11 +424,11 @@ const TaskMessage = ({
         <>
           {rounds.map((round, index) => (
             <div key={`round-${index}`}>
-              <TaskMarkdown content={round.content ?? ""} />
+              <ChatMarkdown content={round.content ?? ""} />
               <ToolCallsBlock sessionId={sessionId} calls={round.calls ?? []} />
             </div>
           ))}
-          {rounds.length === 0 || trailing ? <TaskMarkdown content={message.content} /> : null}
+          {rounds.length === 0 || trailing ? <ChatMarkdown content={message.content} /> : null}
         </>
       )}
     </div>

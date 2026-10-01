@@ -121,7 +121,12 @@ export const useSlashCommands = ({
       if (!activeSlash) return;
       const picked =
         item.kind === "command"
-          ? applySlashToken(value, activeSlash, item.command.name, item.command.estimatedTokens)
+          ? applySlashToken(
+              value,
+              activeSlash,
+              item.command.name,
+              item.command.kind === "action" ? undefined : item.command.estimatedTokens,
+            )
           : applySlashToken(value, activeSlash, item.skill.name, item.skill.estimatedTokens);
       onApply(picked.next, picked.cursor);
       setSelection({ key: "", index: 0 });

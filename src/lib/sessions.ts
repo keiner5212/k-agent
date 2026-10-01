@@ -12,6 +12,7 @@ import { listAllBuiltinAgents, resolveAgentMeta } from "@/lib/builtin-agents";
 import { useAgentsMdStore } from "@/lib/agents-md";
 import { useAgentsStore } from "@/lib/agents";
 import { useComposerStore, type ComposerMode } from "@/lib/composer";
+import { expandPromptCommandsInTurns } from "@/lib/expand-composer";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
 import { resolveOutgoingMentions } from "@/lib/resolve-outgoing-mentions";
 import { notifyResponseFinished } from "@/lib/notifications";
@@ -1214,7 +1215,11 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           selection,
         );
       }
-      const chatTurns = applySystemReminder(toChatTurns(historyMessages), system, reminderInterval);
+      const chatTurns = applySystemReminder(
+        expandPromptCommandsInTurns(toChatTurns(historyMessages)),
+        system,
+        reminderInterval,
+      );
       const result = await invoke<SendChatResult>("send_chat_message", {
         input: {
           providerId: selection.providerId,

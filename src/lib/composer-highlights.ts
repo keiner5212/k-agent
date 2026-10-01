@@ -1,7 +1,12 @@
 import { isExactMentionPath } from "@/lib/file-mentions";
 import type { MentionSegment } from "@/lib/file-mentions";
+import { ACTION_SLASH_NAMES } from "@/lib/slash-commands";
 
 const SLASH_MENTION_RE = /\/([a-zA-Z][\w-]*)\s+\([^)]+\)/g;
+const BARE_ACTION_RE = new RegExp(
+  `(?:^|(?<=\\s))/(?:${ACTION_SLASH_NAMES.join("|")})(?![\\w-])`,
+  "g",
+);
 const FILE_MENTION_RE = /@([^\s@]+)/g;
 
 export const segmentComposerHighlights = (
@@ -22,6 +27,12 @@ export const segmentComposerHighlights = (
     if (slashNames.has(name) || slashNames.has(name.toLowerCase())) {
       mark(index, index + (match[0]?.length ?? 0));
     }
+  }
+
+  BARE_ACTION_RE.lastIndex = 0;
+  for (const match of text.matchAll(BARE_ACTION_RE)) {
+    const index = match.index ?? 0;
+    mark(index, index + (match[0]?.length ?? 0));
   }
 
   for (const match of text.matchAll(FILE_MENTION_RE)) {

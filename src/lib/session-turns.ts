@@ -274,6 +274,44 @@ export const summaryTranscript = (messages: ChatMessage[]): string => {
   return [first, ...recent].join("\n");
 };
 
+const REMINDER_OPEN = "<system-reminder>";
+const REMINDER_CLOSE = "</system-reminder>";
+
+const stripSystemReminders = (content: string): string => {
+  let result = "";
+  let index = 0;
+  while (index < content.length) {
+    const start = content.indexOf(REMINDER_OPEN, index);
+    if (start === -1) {
+      result += content.slice(index);
+      break;
+    }
+    result += content.slice(index, start);
+    let depth = 1;
+    let cursor = start + REMINDER_OPEN.length;
+    while (cursor < content.length && depth > 0) {
+      const nextOpen = content.indexOf(REMINDER_OPEN, cursor);
+      const nextClose = content.indexOf(REMINDER_CLOSE, cursor);
+      if (nextClose === -1) {
+        cursor = content.length;
+        break;
+      }
+      if (nextOpen !== -1 && nextOpen < nextClose) {
+        depth += 1;
+        cursor = nextOpen + REMINDER_OPEN.length;
+        continue;
+      }
+      depth -= 1;
+      cursor = nextClose + REMINDER_CLOSE.length;
+    }
+    index = cursor;
+  }
+  return result
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
 export const applySystemReminder = (
   turns: ChatTurn[],
   system: string,
@@ -290,15 +328,19 @@ export const applySystemReminder = (
     lastUser = index;
   }
   if (userCount === 0 || userCount % interval !== 0 || lastUser < 0) return turns;
-  const target = turns[lastUser];
-  if (!target) return turns;
   const reminder = `<system-reminder>\n${text}\n</system-reminder>`;
-  const next = turns.slice();
-  next[lastUser] = {
-    ...target,
-    content: target.content.trim().length > 0 ? `${target.content}\n\n${reminder}` : reminder,
-  };
-  return next;
+  return turns.map((turn, index) => {
+    const stripped = turn.content.includes(REMINDER_OPEN)
+      ? stripSystemReminders(turn.content)
+      : turn.content;
+    if (index !== lastUser) {
+      return stripped === turn.content ? turn : { ...turn, content: stripped };
+    }
+    return {
+      ...turn,
+      content: stripped.length > 0 ? `${stripped}\n\n${reminder}` : reminder,
+    };
+  });
 };
 
 export const toChatTurns = (messages: ChatMessage[]): ChatTurn[] => {

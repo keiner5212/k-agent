@@ -1,4 +1,5 @@
 import { toPosixPath } from "@/lib/path";
+import { ACTION_SLASH_NAMES } from "@/lib/slash-commands";
 
 export type MentionEditResult = {
   next: string;
@@ -6,6 +7,10 @@ export type MentionEditResult = {
 };
 
 const SLASH_MENTION_RE = /\/[a-zA-Z][\w-]*\s+\([^)]+\)\s?/g;
+const BARE_ACTION_RE = new RegExp(
+  `(?:^|(?<=\\s))/(?:${ACTION_SLASH_NAMES.join("|")})(?![\\w-])\\s?`,
+  "g",
+);
 const FILE_MENTION_RE = /@([^\s@]+)/g;
 
 const trimFileMentionPath = (path: string): string | null => {
@@ -26,6 +31,15 @@ export const tryMentionBackspace = (text: string, cursor: number): MentionEditRe
   if (cursor <= 0) return null;
 
   for (const match of text.matchAll(SLASH_MENTION_RE)) {
+    const start = match.index ?? 0;
+    const end = start + (match[0]?.length ?? 0);
+    if (cursor > start && cursor <= end) {
+      return { next: text.slice(0, start) + text.slice(end), cursor: start };
+    }
+  }
+
+  BARE_ACTION_RE.lastIndex = 0;
+  for (const match of text.matchAll(BARE_ACTION_RE)) {
     const start = match.index ?? 0;
     const end = start + (match[0]?.length ?? 0);
     if (cursor > start && cursor <= end) {

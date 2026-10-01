@@ -86,6 +86,10 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
   buildActionCommand("stop", "stop", "chat.slashCommands.stop.description"),
 ];
 
+export const ACTION_SLASH_NAMES: readonly string[] = SLASH_COMMANDS.filter(
+  (command) => command.kind === "action",
+).map((command) => command.name);
+
 export const withPromptCommands = (custom: readonly PromptCommand[]): SlashCommandDef[] => {
   const taken = new Set(SLASH_COMMANDS.map((command) => command.name.toLowerCase()));
   const extra: SlashCommandDef[] = [];
