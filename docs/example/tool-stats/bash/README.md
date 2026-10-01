@@ -24,6 +24,7 @@ Run one shell command in the workspace. The command string is checked against th
 - Persist output. The result is the tool response only.
 - Bypass a block list entry because the session already allowed dangerous commands.
 - Start a background job. A single `&`, `nohup`, or `disown` returns an error. `&&` and `2>&1` still follow the normal rules. A process that must stay up uses `background`.
+- Kill a pid that `background` still owns. That process stops when the turn ends.
 - List, read, or search files. Use `list_directory`, `read`, and `grep`.
 - Create, change, or delete files. Use `write`, `edit`, `create_folder`, and `delete`.
 
@@ -56,6 +57,7 @@ See `response.toon` for the concrete wire shape the LLM sees.
 - `bash timed out after 30s.`: the process was killed at the time limit.
 - `bash: a dangerous command must run on the async dispatch path.`: the sync path refused to prompt.
 - `bash does not start background jobs.`: the command backgrounds with `&`, `nohup`, or `disown`.
+- `bash refused: pid`: the command tried to kill a pid `background` still owns.
 
 ## Source
 

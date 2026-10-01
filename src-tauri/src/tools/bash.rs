@@ -12,7 +12,7 @@ use super::{
 
 pub const NAME: &str = "bash";
 
-const DESCRIPTION: &str = "Run one shell command in the workspace and wait for it to finish. Exact blockedCommands never run. Exact allowedCommands run without a prompt. Destructive commands, real file redirects, and non-local network commands wait for the user. `2>&1` and redirects to `/dev/null` do not ask. curl or wget to localhost, 127.0.0.1, or ::1 does not ask. Do not start a dev server here. Use background for a process that must stay up until the turn ends. Do not use &, nohup, or disown. Do not list, read, search, write, edit, or delete files here. Use list_directory, read, grep, write, edit, create_folder, and delete. bash is for install, build, test, and git. Output is capped.";
+const DESCRIPTION: &str = "Run one shell command in the workspace and wait for it to finish. Exact blockedCommands never run. Exact allowedCommands run without a prompt. Destructive commands, real file redirects, and non-local network commands wait for the user. `2>&1` and redirects to `/dev/null` do not ask. curl or wget to localhost, 127.0.0.1, or ::1 does not ask. Do not start a dev server here. Use background for a process that must stay up until the turn ends. Do not kill a pid returned by background. That process is stopped when the turn ends. Do not use &, nohup, or disown. Do not list, read, search, write, edit, or delete files here. Use list_directory, read, grep, write, edit, create_folder, and delete. bash is for install, build, test, and git. Output is capped.";
 
 const MAX_OUTPUT_CHARS: usize = 50_000;
 const TIMEOUT: Duration = Duration::from_secs(30);
@@ -88,6 +88,9 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
         return error_outcome("bash requires a string `command`.");
     };
     let command = command.trim();
+    if let Some(message) = background_kill_refusal(command, ctx) {
+        return error_outcome(&message);
+    }
     match classify(command, &ctx.allowed_commands, &ctx.blocked_commands) {
         Decision::Empty => error_outcome("bash `command` is empty."),
         Decision::Blocked => error_outcome("bash refused: command is on the block list."),
@@ -119,6 +122,33 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
         }
         Decision::Run | Decision::Allowed => run_command(ctx, command),
     }
+}
+
+fn background_kill_refusal(command: &str, ctx: &ToolContext<'_>) -> Option<String> {
+    let turn = ctx.turn.as_ref()?;
+    for segment in split_segments(command) {
+        let tokens = tokenize(segment);
+        let Some(name) = command_name(&tokens) else {
+            continue;
+        };
+        if !name.eq_ignore_ascii_case("kill") && !name.eq_ignore_ascii_case("pkill") {
+            continue;
+        }
+        for token in &tokens {
+            if token.starts_with('-') {
+                continue;
+            }
+            let Ok(pid) = token.parse::<u32>() else {
+                continue;
+            };
+            if turn.owns_pid(pid) {
+                return Some(format!(
+                    "bash refused: pid {pid} belongs to background. It is killed when the turn ends. Do not kill it."
+                ));
+            }
+        }
+    }
+    None
 }
 
 pub(crate) fn classify(command: &str, allowed: &[String], blocked: &[String]) -> Decision {

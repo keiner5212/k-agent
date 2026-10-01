@@ -15,7 +15,7 @@ use super::{
 
 pub const NAME: &str = "background";
 
-const DESCRIPTION: &str = "Start one command in the workspace and keep it running until this turn ends, then kill it. Use this for a dev server or preview. Do not use bash for that. Do not append &, nohup, or disown. The command is the process itself, for example `npm run dev`. Returns the pid and output from the first 1200ms.";
+const DESCRIPTION: &str = "Start one command in the workspace and keep it running until this turn ends, then kill it. Use this for a dev server or preview. Do not use bash for that. Do not append &, nohup, or disown. The command is the process itself, for example `npm run dev`. Returns the pid and output from the first 1200ms. The process is killed when the turn ends. Do not kill that pid. Do not use bash to stop it.";
 
 const STARTUP_WAIT: Duration = Duration::from_millis(1200);
 const OUTPUT_CAP: usize = 8_000;
@@ -28,6 +28,7 @@ pub struct TurnSlot {
 }
 
 struct RunningProc {
+    pid: u32,
     child: Child,
     output: Arc<Mutex<String>>,
     readers: Vec<JoinHandle<()>>,
@@ -73,6 +74,16 @@ impl TurnSlot {
         match self.procs.lock() {
             Ok(mut procs) => procs.push(proc),
             Err(poisoned) => poisoned.into_inner().push(proc),
+        }
+    }
+
+    pub fn owns_pid(&self, pid: u32) -> bool {
+        if pid == 0 {
+            return false;
+        }
+        match self.procs.lock() {
+            Ok(procs) => procs.iter().any(|proc| proc.pid == pid),
+            Err(poisoned) => poisoned.into_inner().iter().any(|proc| proc.pid == pid),
         }
     }
 }
@@ -273,6 +284,7 @@ fn launch(
         std::thread::sleep(Duration::from_millis(40));
     }
     Ok(Launch::Running(RunningProc {
+        pid: child.id(),
         child,
         output,
         readers,
@@ -318,6 +330,12 @@ fn running_outcome(pid: u32, output: &str) -> ToolOutcome {
     let text = toon_doc(&[
         ("status", ToonValue::Str("running")),
         ("pid", ToonValue::Int(pid as i64)),
+        (
+            "lifetime",
+            ToonValue::Str(
+                "killed when this turn ends. Do not kill this pid. Do not use bash to stop it.",
+            ),
+        ),
         ("output", ToonValue::Block(output)),
     ]);
     ToolOutcome {

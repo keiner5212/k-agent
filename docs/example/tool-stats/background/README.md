@@ -36,6 +36,7 @@ Start one workspace command and keep it until the chat turn ends, then kill the 
 | ---------- | ------- | ------------------------------------------------------------------------ |
 | `status`   | string  | `running` while the process lives. `ok` or `error` if it already exited. |
 | `pid`      | integer | Process id. Present only while `status` is `running`.                    |
+| `lifetime` | string  | While `running`: killed when the turn ends. Do not kill the pid.         |
 | `exitCode` | integer | Present when the process exited during startup.                          |
 | `output`   | string  | Stdout and stderr from the startup window. Capped at 8000 chars.         |
 | `error`    | string  | Refusal or startup message. Present when the process did not start.      |

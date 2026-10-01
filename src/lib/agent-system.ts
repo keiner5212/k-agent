@@ -119,7 +119,7 @@ const VISUAL = [
   "Use `page_shot` only on a page that is already being served. One shot per review.",
   "Do not repeat it with a different host, height, or selector.",
   "A blank or identical image is a capture miss. Do not edit the page to remove a black box from a bad shot.",
-  "Start a dev server with `background`. It is killed when the turn ends. Do not use `bash` for that.",
+  "Start a dev server with `background`. It is killed when the turn ends. Do not kill its pid. Do not use `bash` for that.",
 ].join("\n");
 
 const RENDERING_BODY = [
@@ -226,7 +226,9 @@ const buildToolChoice = (agent: AgentMeta, shape: PromptShape): string => {
     "`bash` is for a command that must run and finish, such as install, build, test, or git.",
   );
   if (hasTool(agent, "background")) {
-    lines.push("A process that must stay up uses `background`, not `bash`.");
+    lines.push(
+      "A process that must stay up uses `background`, not `bash`. That process is killed when the turn ends. Do not kill its pid.",
+    );
   }
   return tagged("tools", lines.join("\n"), shape);
 };

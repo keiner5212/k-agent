@@ -81,7 +81,7 @@ Change file contents with `edit`.
 Make a directory with `create_folder`.
 Remove a file or empty directory with `delete`.
 `bash` is for a command that must run and finish, such as install, build, test, or git.
-A process that must stay up uses `background`, not `bash`.
+A process that must stay up uses `background`, not `bash`. That process is killed when the turn ends. Do not kill its pid.
 </tools>
 
 <personality>

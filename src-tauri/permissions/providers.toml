@@ -54,6 +54,7 @@ permissions = [
   "allow-prepare-chat-attachments",
   "allow-load-sessions",
   "allow-save-sessions",
+  "allow-read-session",
   "allow-read-session-attachment",
   "allow-read-session-file-revision",
   "allow-generate-session-title",
@@ -350,6 +351,11 @@ commands.allow = ["load_sessions"]
 identifier = "allow-save-sessions"
 description = "Persist chat sessions."
 commands.allow = ["save_sessions"]
+
+[[permission]]
+identifier = "allow-read-session"
+description = "Read one persisted chat session, including a subagent child."
+commands.allow = ["read_session"]
 
 [[permission]]
 identifier = "allow-read-session-attachment"
