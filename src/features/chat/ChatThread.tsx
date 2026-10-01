@@ -12,11 +12,10 @@ import { ArrowDown, FileText, Film, Sparkles } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
 import { useAskUserStore } from "@/lib/ask-user";
-import { runRenderMarkdownJob } from "@/lib/jobs";
-import { finishMarkdown } from "@/lib/markdown";
 import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import type { ChatAttachment, ChatMessage } from "@/types/chat";
 import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
+import { ChatMarkdown } from "./ChatMarkdown";
 import { ChatWaitingLine } from "./ChatWaitingLine";
 import { MessageActions } from "./MessageActions";
 import { QuestionDialog } from "./QuestionDialog";
@@ -47,36 +46,6 @@ const formatChatError = (
     return t("chat.error.api", { status });
   }
   return clipDetail(text);
-};
-
-const AssistantMarkdown = ({ content }: { content: string }): ReactNode => {
-  const { t } = useTranslation();
-  const linkHint = t("links.openInBrowserHint");
-  const [html, setHtml] = useState("");
-
-  useEffect(() => {
-    if (content.length === 0) return;
-    let alive = true;
-    const hint = linkHint;
-    void runRenderMarkdownJob(content, hint).then((next) => {
-      if (!alive) return;
-      setHtml(finishMarkdown(next.value, hint));
-    });
-    return () => {
-      alive = false;
-    };
-  }, [content, linkHint]);
-
-  if (content.length === 0) return null;
-  if (html.length === 0) {
-    return <div className="chat-message__content">{content}</div>;
-  }
-  return (
-    <div
-      className="chat-message__content chat-message__markdown"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
 };
 
 const ThinkingBlock = ({
@@ -256,12 +225,12 @@ const MessageBody = memo(function MessageBody({
                   streaming={Boolean(message.streaming) && isLastRound}
                   thinkingMs={!message.streaming ? round.thinkingMs : undefined}
                 />
-                <AssistantMarkdown content={round.content ?? ""} />
+                <ChatMarkdown content={round.content ?? ""} />
                 <ToolCallsBlock sessionId={sessionId} calls={calls} />
               </div>
             );
           })}
-          {showTrailingContent ? <AssistantMarkdown content={message.content} /> : null}
+          {showTrailingContent ? <ChatMarkdown content={message.content} /> : null}
           <InterruptedFooter interrupted={message.interrupted ?? false} />
         </>
       );
@@ -274,7 +243,7 @@ const MessageBody = memo(function MessageBody({
           thinkingMs={message.thinkingMs}
         />
         <ToolCallsBlock sessionId={sessionId} calls={message.toolCalls ?? []} />
-        <AssistantMarkdown content={message.content} />
+        <ChatMarkdown content={message.content} />
         <InterruptedFooter interrupted={message.interrupted ?? false} />
       </>
     );

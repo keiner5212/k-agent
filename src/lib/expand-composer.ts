@@ -2,6 +2,9 @@ import { slashCommandByName, withPromptCommands } from "@/lib/slash-commands";
 import { useSettingsStore } from "@/lib/settings";
 import { findSkillByName, flattenSkills } from "@/lib/skill-mentions";
 import { useSkillsStore } from "@/lib/skills";
+import type { ChatTurn } from "@/types/chat";
+
+const slashTokenRe = (): RegExp => /\/([a-zA-Z][\w-]*)\s+\([^)]+\)/g;
 
 const trailingSameLineArgs = (text: string, from: number): { args: string; consumed: number } => {
   const tail = text.slice(from);
@@ -11,19 +14,55 @@ const trailingSameLineArgs = (text: string, from: number): { args: string; consu
   return { args: sameLine.trim(), consumed };
 };
 
+export const expandPromptCommands = (text: string): string => {
+  let expanded = text;
+  const tokenRe = slashTokenRe();
+  let searchFrom = 0;
+  while (true) {
+    tokenRe.lastIndex = searchFrom;
+    const match = tokenRe.exec(expanded);
+    if (!match) break;
+    const index = match.index;
+    const name = match[1] ?? "";
+    const tokenLength = match[0]?.length ?? 0;
+    const command = slashCommandByName(
+      name,
+      withPromptCommands(useSettingsStore.getState().promptCommands),
+    );
+    if (!command || command.kind !== "template") {
+      searchFrom = index + tokenLength;
+      continue;
+    }
+    const afterToken = index + tokenLength;
+    const { args, consumed } = trailingSameLineArgs(expanded, afterToken);
+    const replacement = command.template.replace("$ARGUMENTS", args);
+    const end = afterToken + consumed;
+    expanded = `${expanded.slice(0, index)}${replacement}${expanded.slice(end)}`;
+    searchFrom = index + replacement.length;
+  }
+  return expanded;
+};
+
+export const expandPromptCommandsInTurns = (turns: readonly ChatTurn[]): ChatTurn[] =>
+  turns.map((turn) => {
+    if (turn.role !== "user" || turn.toolResult || !turn.content.includes("/")) return turn;
+    const content = expandPromptCommands(turn.content);
+    return content === turn.content ? turn : { ...turn, content };
+  });
+
 export const expandComposerText = async (
   text: string,
 ): Promise<{ text: string; error?: string }> => {
-  let expanded = text;
+  let expanded = expandPromptCommands(text);
   const skills = flattenSkills(useSkillsStore.getState().contexts);
   const readFile = useSkillsStore.getState().readFile;
   const skillContents = new Map<string, string>();
-  const slashTokenRe = /\/([a-zA-Z][\w-]*)\s+\([^)]+\)/g;
+  const tokenRe = slashTokenRe();
 
   let searchFrom = 0;
   while (true) {
-    slashTokenRe.lastIndex = searchFrom;
-    const match = slashTokenRe.exec(expanded);
+    tokenRe.lastIndex = searchFrom;
+    const match = tokenRe.exec(expanded);
     if (!match) break;
     const index = match.index;
     const name = match[1] ?? "";
@@ -33,12 +72,7 @@ export const expandComposerText = async (
       withPromptCommands(useSettingsStore.getState().promptCommands),
     );
     if (command) {
-      const afterToken = index + tokenLength;
-      const { args, consumed } = trailingSameLineArgs(expanded, afterToken);
-      const replacement = command.template.replace("$ARGUMENTS", args);
-      const end = afterToken + consumed;
-      expanded = `${expanded.slice(0, index)}${replacement}${expanded.slice(end)}`;
-      searchFrom = index + replacement.length;
+      searchFrom = index + tokenLength;
       continue;
     }
     const skill = findSkillByName(skills, name);

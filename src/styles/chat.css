@@ -1005,6 +1005,8 @@ button.change-bar__stat:focus-visible {
   background-color: var(--surface-elevated);
   transform-origin: center;
   animation: chat-message-in var(--duration-base) var(--ease-out) backwards;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .chat-message--user {
@@ -1060,6 +1062,9 @@ button.change-bar__stat:focus-visible {
   color: var(--text-primary);
   white-space: pre-wrap;
   overflow-wrap: break-word;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .chat-tools {
@@ -1346,6 +1351,7 @@ button.change-bar__stat:focus-visible {
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-break: break-word;
+  cursor: text;
 }
 
 .chat-message__attachments {
@@ -1400,6 +1406,13 @@ button.change-bar__stat:focus-visible {
   color: var(--text-secondary);
 }
 
+.chat-message__actions,
+.chat-thinking,
+.chat-message__attachment-open {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .chat-message__actions {
   display: flex;
   align-items: center;
@@ -1407,6 +1420,7 @@ button.change-bar__stat:focus-visible {
   margin-top: var(--space-2);
   opacity: 0;
   transition: opacity var(--ease-quick, 0.18s) var(--ease-standard, ease);
+  cursor: default;
 }
 
 .chat-message--user .chat-message__actions {
@@ -1431,6 +1445,37 @@ button.change-bar__stat:focus-visible {
 
 .chat-message__action:hover:not(:disabled) {
   color: var(--text-primary);
+}
+
+.chat-message__action--rewind {
+  color: var(--text-secondary);
+}
+
+.chat-message__action--retry {
+  color: var(--accent);
+}
+
+.chat-message__action--copied {
+  color: var(--accent);
+}
+
+.chat-message__action--copied svg {
+  animation: chat-copy-pop var(--duration-enter) var(--ease-out);
+}
+
+@keyframes chat-copy-pop {
+  0% {
+    transform: scale(0.72);
+    opacity: 0.35;
+  }
+  55% {
+    transform: scale(1.16);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .chat-message__markdown {
@@ -1501,6 +1546,56 @@ button.change-bar__stat:focus-visible {
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+}
+
+.md-code {
+  position: relative;
+  margin: 0 0 var(--space-2);
+}
+
+.md-code__copy {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background-color: color-mix(in oklch, var(--surface-elevated) 88%, transparent);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.md-code__copy:hover {
+  color: var(--text-primary);
+}
+
+.md-code__copy.is-copied {
+  color: var(--accent);
+}
+
+.md-code__glyph--check {
+  display: none;
+}
+
+.md-code__copy.is-copied .md-code__glyph--copy {
+  display: none;
+}
+
+.md-code__copy.is-copied .md-code__glyph--check {
+  display: block;
+  animation: chat-copy-pop var(--duration-enter) var(--ease-out);
+}
+
+.chat-message__markdown .md-code pre {
+  margin: 0;
+  padding-right: calc(var(--space-3) + 1.6rem);
 }
 
 .chat-message__markdown pre code {

@@ -841,6 +841,7 @@
     },
     "message": {
       "copy": "Copy message",
+      "copyCode": "Copy code",
       "copied": "Copied",
       "rewind": "Rewind history up to this message",
       "retry": "Undo and send this message again"

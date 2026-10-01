@@ -187,6 +187,29 @@ describe("context memory", () => {
     const early = applySystemReminder(turns.slice(0, 7), "Reply in English.", 8);
     expect(early[6]?.content).toBe("m6");
   });
+
+  it("drops earlier system reminders when a new one is attached", () => {
+    const turns = [
+      {
+        role: "user" as const,
+        content:
+          "m0\n\n<system-reminder>\n<system-reminder>\nold\n</system-reminder>\n</system-reminder>",
+      },
+      { role: "user" as const, content: "m1\n\n<system-reminder>\nstale\n</system-reminder>" },
+      ...Array.from({ length: 6 }, (_, index) => ({
+        role: "user" as const,
+        content: `m${index + 2}`,
+      })),
+    ];
+    const reminded = applySystemReminder(turns, "Reply in English.", 8);
+    expect(reminded[0]?.content).toBe("m0");
+    expect(reminded[1]?.content).toBe("m1");
+    expect(reminded[7]?.content.startsWith("m7\n\n<system-reminder>")).toBe(true);
+    expect(reminded[7]?.content).toContain("Reply in English.");
+    expect(reminded.slice(0, 7).some((turn) => turn.content.includes("<system-reminder>"))).toBe(
+      false,
+    );
+  });
 });
 
 describe("toChatTurns", () => {

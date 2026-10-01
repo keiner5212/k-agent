@@ -11,7 +11,7 @@ The colored version of the example below is [reminder.html](./reminder.html).
 1. Take the system string already built for this send. That is language (if force-response-language is on), global and workspace `AGENTS.md`, then `composeAgentSystem` (`<agent-flow>`, skills not yet loaded, `<clarify>`, `<todos>`, `<tools>`, `<agents>`, `<personality>`, `<rendering>`, `<visual-check>`), then MCP tools and workspace notes when those exist. Personality is already inside that string. A skill that was loaded stays in the chat as its tool result. Its own text says when to call `skill` again.
 2. Read `reminderInterval` from settings. The default is 8. The select allows 1 through 500. `0` or an empty system string skips the reminder.
 3. Count user turns whose role is `user` and that are not a tool result.
-4. When that count is greater than 0 and `count % interval == 0`, append the reminder to the last such user turn.
+4. When that count is greater than 0 and `count % interval == 0`, remove every existing `<system-reminder>` block from the turns, then append the reminder to the last such user turn. Only that latest block stays.
 5. Assistant turns and tool-result turns do not move the counter and do not receive the reminder.
 
 The appended text is:
@@ -45,4 +45,4 @@ You are the build agent. Be concise.
 </system-reminder>
 ```
 
-The first three user turns stay unchanged. The next reminder lands on user turn 8, then 12, and so on.
+Earlier turns stay unchanged until the next reminder. When that reminder is attached, older `<system-reminder>` blocks are removed. The next reminder lands on user turn 8, then 12, and so on. Only the latest one stays.

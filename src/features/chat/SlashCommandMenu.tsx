@@ -96,9 +96,11 @@ export const SlashCommandMenu = memo(
                     <Terminal size={14} strokeWidth={1.5} className="file-mention-menu__icon" />
                     <span className="file-mention-menu__path">
                       {highlightMatch(command.name, query)}
-                      <span className="file-mention-menu__meta">
-                        {formatInlineTokenCount(command.estimatedTokens)}
-                      </span>
+                      {command.kind === "template" ? (
+                        <span className="file-mention-menu__meta">
+                          {formatInlineTokenCount(command.estimatedTokens)}
+                        </span>
+                      ) : null}
                     </span>
                     <span className="file-mention-menu__hint">
                       {command.descriptionText ?? t(command.descriptionKey)}
