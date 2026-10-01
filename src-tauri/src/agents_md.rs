@@ -133,6 +133,16 @@ fn delete_agents_md_sync(app: &AppHandle, kind: AgentsMdKind) -> Result<(), Agen
     Ok(())
 }
 
+pub(crate) fn agents_md_text(app: &AppHandle, kind: AgentsMdKind) -> String {
+    let Ok(dir) = resolve_dir(app, kind) else {
+        return String::new();
+    };
+    match read_agents_md(kind, &dir) {
+        Ok(file) if file.exists => file.content,
+        _ => String::new(),
+    }
+}
+
 #[tauri::command]
 pub fn read_workspace_notes(app: AppHandle) -> String {
     let Some(root) = crate::pathutil::workspace_from_app(&app) else {

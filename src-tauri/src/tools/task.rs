@@ -10,9 +10,9 @@ const DESCRIPTION: &str = "\
 Hand a multi-step side job to another saved agent and wait for its result text. \
 Do not use this for one read, one grep, or one file edit. \
 agent is that agent's name. prompt is the full task, including what to return. \
-description is 3 to 5 words. The child uses the parent instructions plus a subagent clause. \
-The child cannot start another task. Several task calls run one at a time. \
-Each returns its text before the next starts. At most 8 model rounds. \
+description is 3 to 5 words. The child is that agent: its skills, personality, and tools. \
+It does not inherit the parent system prompt. It cannot start another task. \
+Several task calls run one at a time. Each returns its text before the next starts. \
 The user can open the child chat from this call while it runs.\
 ";
 

@@ -46,6 +46,7 @@
     "allow-delete-skill",
     "allow-list-agents",
     "allow-list-agents-md",
+    "allow-read-workspace-notes",
     "allow-write-agents-md",
     "allow-delete-agents-md",
     "allow-read-agent-meta",

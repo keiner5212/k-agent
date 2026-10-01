@@ -30,6 +30,7 @@ permissions = [
   "allow-delete-skill",
   "allow-list-agents",
   "allow-list-agents-md",
+  "allow-read-workspace-notes",
   "allow-write-agents-md",
   "allow-delete-agents-md",
   "allow-read-agent-meta",
@@ -221,6 +222,11 @@ commands.allow = ["list_agents"]
 identifier = "allow-list-agents-md"
 description = "Detect and read global and workspace AGENTS.md files."
 commands.allow = ["list_agents_md"]
+
+[[permission]]
+identifier = "allow-read-workspace-notes"
+description = "Read workspace NOTES.md for the chat system prompt."
+commands.allow = ["read_workspace_notes"]
 
 [[permission]]
 identifier = "allow-write-agents-md"

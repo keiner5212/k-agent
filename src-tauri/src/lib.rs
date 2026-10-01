@@ -1,3 +1,4 @@
+mod agent_prompt;
 mod agents;
 mod agents_md;
 mod attachments;
