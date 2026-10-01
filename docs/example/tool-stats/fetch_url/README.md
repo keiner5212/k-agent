@@ -5,7 +5,7 @@ Fetch one public HTTPS page and return its title, description, main text, and sa
 ## Does
 
 - Reads one public URL. HTTPS and port 443 by default. Public HTTP on port 80 is accepted only when `httpFetchEnabled` is on. Loopback, private hosts, and IP literals stay refused.
-- Returns the canonical URL plus title (max 300 chars), description (max 500), main content (max 8 000), and up to 8 outbound links. Outbound links follow the same HTTP policy as the fetch.
+- Returns the canonical URL plus title (max 300 chars), description (max 500), main content (max 16 000), and up to 8 outbound links. Outbound links follow the same HTTP policy as the fetch.
 - Decodes HTML entities and walks the DOM. Drops nav, footer, header, script, style, figures, and embed images before reading text.
 - Picks the main block from `main`, `article`, or common article containers, then walks the DOM. Nested tags stay intact. Drops nav, footer, figures, embed images, and other chrome before reading text.
 - Persists every successful fetch to the app data `cache/fetch-url/{hash}.json` with a 1-hour TTL. Subsequent calls hit the cache before touching the network.
@@ -34,7 +34,7 @@ Fetch one public HTTPS page and return its title, description, main text, and sa
 | `url`         | string | Canonical URL after redirects.                                                                                                                    |
 | `title`       | string | Up to 300 chars; prefers `og:title`, falls back to `<title>` then `<h1>`.                                                                         |
 | `description` | string | Up to 500 chars; prefers `meta description` / `og:description`, falls back to first paragraph over 80 chars.                                      |
-| `content`     | string | Up to 8 000 chars; stripped of navigation, footer, and other noise. Multi-line block.                                                             |
+| `content`     | string | Up to 16 000 chars; stripped of navigation, footer, and other noise. Multi-line block.                                                            |
 | `links`       | string | Up to 8 article links, formatted as `- text (url)` lines. Skips `javascript:`, `http://`, image files, and chrome labels such as `Enlarge Image`. |
 
 See `response.toon` for the concrete wire shape the LLM sees.

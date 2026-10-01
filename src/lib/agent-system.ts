@@ -212,7 +212,7 @@ const buildToolChoice = (agent: AgentMeta, shape: PromptShape): string => {
   }
   if (hasTool(agent, "task")) {
     lines.push(
-      "Use `task` for a multi-step side job. The `agent` name must be one listed in <agents>.",
+      "Use `task` for a multi-step side job. The `agent` name must be one listed in <agents>. Several calls run one at a time.",
     );
   }
   if (hasTool(agent, "write")) lines.push("Create or overwrite a file with `write`.");

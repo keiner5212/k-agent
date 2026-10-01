@@ -7,7 +7,7 @@ use crate::tools::fetch_url::{allows_result_url_with, FetchPolicy, ParsedLink, P
 
 const MAX_TITLE_LENGTH: usize = 300;
 const MAX_DESCRIPTION_LENGTH: usize = 500;
-const MAX_CONTENT_LENGTH: usize = 8_000;
+const MAX_CONTENT_LENGTH: usize = 16_000;
 const MAX_LINK_TEXT_LENGTH: usize = 200;
 const MAX_LINKS: usize = 8;
 const MIN_MAIN_CHARS: usize = 80;

@@ -55,7 +55,7 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   delete:
     "Delete a file or empty directory. Outside the workspace, waits for the user to allow or deny. The deleted file's line count is subtracted from the context counter.",
   fetch_url:
-    "Read one public page as title, short text (8000 characters), and up to 8 links. HTTPS by default. Repeat URLs within 1 hour come from cache. Loopback and private hosts stay blocked. Use after internet_search, or when a URL is already known.",
+    "Read one public page as title, short text (16000 characters), and up to 8 links. HTTPS by default. Repeat URLs within 1 hour come from cache. Loopback and private hosts stay blocked. Use after internet_search, or when a URL is already known.",
   internet_search:
     "Find current public URLs. Snippets are at most 160 characters. Do not answer from a snippet. Call fetch_url on the one best URL before you answer. Do not fetch every result. Repeat queries within 1 hour come from cache.",
   http_request:
@@ -73,7 +73,7 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   apply_patch:
     "Apply one patch that adds, updates, or deletes several files. All files are checked before any write. Update hunks need context lines. One exact span in one file still uses edit.",
   lsp: "Ask the installed language server for a definition, references, hover, or symbols. line and character are 1-based. If no server is installed for the file, the error says so.",
-  task: "Hand a multi-step side job to another saved agent and wait for its final text. Do not use this for one read, one grep, or one edit. The child cannot start another task.",
+  task: "Hand a multi-step side job to another saved agent and wait for its result text. Do not use this for one read, one grep, or one edit. Several task calls run one at a time. The child cannot start another task.",
 };
 
 export const MAX_AGENT_SKILLS = 10;

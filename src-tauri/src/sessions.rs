@@ -277,6 +277,51 @@ fn write_session_record(app: &AppHandle, session: &mut SessionRecord) -> Result<
     std::fs::write(path, json).map_err(|e| SessionError::Io(e.to_string()))
 }
 
+pub fn begin_child_session(
+    app: &AppHandle,
+    parent_session_id: &str,
+    title: &str,
+    prompt: &str,
+    workspace_path: Option<String>,
+) -> Result<String, SessionError> {
+    write_child_session(
+        app,
+        parent_session_id,
+        title,
+        prompt,
+        "",
+        "",
+        "",
+        Vec::new(),
+        workspace_path,
+    )
+}
+
+pub fn update_child_session(
+    app: &AppHandle,
+    id: &str,
+    content: &str,
+    reasoning: &str,
+    reasoning_signature: &str,
+    tool_rounds: Vec<crate::chat::ToolRoundTrace>,
+) -> Result<(), SessionError> {
+    let mut session = read_session_record(app, id)?;
+    if let Some(assistant) = session
+        .messages
+        .iter_mut()
+        .rev()
+        .find(|message| message.role == "assistant")
+    {
+        assistant.content = content.to_string();
+        assistant.reasoning = nonempty(reasoning.to_string());
+        assistant.reasoning_signature = nonempty(reasoning_signature.to_string());
+        assistant.tool_rounds = tool_rounds;
+    }
+    session.preview = clip_preview(content);
+    session.updated_at = chrono::Utc::now().timestamp();
+    write_session_record(app, &mut session)
+}
+
 pub fn write_child_session(
     app: &AppHandle,
     parent_session_id: &str,

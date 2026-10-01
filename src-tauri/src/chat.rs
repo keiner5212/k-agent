@@ -213,6 +213,7 @@ struct ChatCall<'a> {
     nested: Option<tools::NestedScope>,
     question_chunk: Option<&'a tauri::ipc::Channel<ChatChunk>>,
     agent_personalities: Arc<HashMap<String, String>>,
+    child_session_id: Option<String>,
 }
 
 fn personality_map(raw: HashMap<String, String>) -> Arc<HashMap<String, String>> {
@@ -2263,6 +2264,27 @@ async fn commit_tool_calls(
     persisted_calls
 }
 
+fn publish_child(
+    app: &AppHandle,
+    call: &ChatCall<'_>,
+    content: &str,
+    reasoning: &str,
+    signature: &str,
+    rounds: &[ToolRoundTrace],
+) {
+    let Some(id) = call.child_session_id.as_deref() else {
+        return;
+    };
+    let _ = crate::sessions::update_child_session(
+        app,
+        id,
+        content,
+        reasoning,
+        signature,
+        rounds.to_vec(),
+    );
+}
+
 async fn send_message(
     app: &AppHandle,
     provider: &Provider,
@@ -2342,6 +2364,7 @@ async fn send_message(
                     calls: persisted_calls,
                     thinking_ms: None,
                 });
+                publish_child(app, call, "", "", "", &tool_rounds);
                 continue;
             }
         }
@@ -2362,6 +2385,7 @@ async fn send_message(
             nested: call.nested.clone(),
             question_chunk: call.question_chunk,
             agent_personalities: Arc::clone(&call.agent_personalities),
+            child_session_id: call.child_session_id.clone(),
         };
         let round_started = std::time::Instant::now();
         let output = dispatch_with_retry(provider, &round_call, on_chunk).await?;
@@ -2376,6 +2400,14 @@ async fn send_message(
                 if on_chunk.is_none() {
                     emit_chunk(on_chunk, "content", &content);
                 }
+                publish_child(
+                    app,
+                    call,
+                    &content,
+                    &output.reasoning,
+                    &output.reasoning_signature,
+                    &tool_rounds,
+                );
                 return Ok(ChatOutput {
                     content,
                     reasoning: output.reasoning,
@@ -2384,6 +2416,14 @@ async fn send_message(
                     tool_rounds,
                 });
             }
+            publish_child(
+                app,
+                call,
+                &output.content,
+                &output.reasoning,
+                &output.reasoning_signature,
+                &tool_rounds,
+            );
             return Ok(ChatOutput {
                 content: output.content,
                 reasoning: output.reasoning,
@@ -2442,6 +2482,14 @@ async fn send_message(
             calls: persisted_calls,
             thinking_ms: Some(thinking_ms),
         });
+        publish_child(
+            app,
+            call,
+            &output.content,
+            &output.reasoning,
+            &output.reasoning_signature,
+            &tool_rounds,
+        );
     }
 }
 
@@ -2552,6 +2600,7 @@ pub async fn generate_session_title(
         nested: None,
         question_chunk: None,
         agent_personalities: no_personalities(),
+        child_session_id: None,
     };
     let title = normalize_generated_title(
         &send_message(
@@ -2633,6 +2682,7 @@ pub async fn summarize_conversation(
         nested: None,
         question_chunk: None,
         agent_personalities: no_personalities(),
+        child_session_id: None,
     };
     let summary = normalize_generated_text(
         &send_message(
@@ -2799,6 +2849,7 @@ pub async fn generate_app_content(
         nested: None,
         question_chunk: None,
         agent_personalities: no_personalities(),
+        child_session_id: None,
     };
     let text = normalize_generated_text(
         &send_message(
@@ -2998,6 +3049,11 @@ struct GeminiFunctionCall {
     args: serde_json::Value,
 }
 
+fn task_queue() -> &'static tokio::sync::Mutex<()> {
+    static SLOT: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+    SLOT.get_or_init(|| tokio::sync::Mutex::new(()))
+}
+
 pub(crate) async fn run_task(
     app: &AppHandle,
     scope: &tools::NestedScope,
@@ -3006,6 +3062,7 @@ pub(crate) async fn run_task(
     description: &str,
     prompt: &str,
 ) -> Result<TaskRun, String> {
+    let _queue = task_queue().lock().await;
     let mut agent = crate::agents::find_agent_by_name(app, agent_name)?;
     let key = agent.name.to_ascii_lowercase();
     if let Some(text) = ctx.agent_personalities.get(&key) {
@@ -3033,7 +3090,37 @@ pub(crate) async fn run_task(
         options.effort.clone_from(&scope.effort);
     }
     let plan = request_plan(&provider, &model, &options, output_tokens(&model));
-    let system = Some(child_system(agent_name, &agent.personality));
+    let parent_system = scope.system.clone().unwrap_or_default();
+    let system = Some(child_system(&parent_system, agent_name, &agent.personality));
+    let parent_id = ctx.session_id.clone().unwrap_or_default();
+    let workspace = ctx
+        .session_id
+        .as_deref()
+        .and_then(|id| crate::sessions::read_session_record(app, id).ok())
+        .and_then(|session| session.workspace_path);
+    let child_session_id = if parent_id.is_empty() {
+        None
+    } else {
+        crate::sessions::begin_child_session(app, &parent_id, description, prompt, workspace).ok()
+    };
+    if let Some(id) = child_session_id.as_ref() {
+        emit_tool_result(
+            ctx.on_chunk,
+            &PersistedToolCall {
+                id: ctx.call_id.clone(),
+                name: tools::TASK_TOOL_NAME.to_string(),
+                argument: None,
+                arguments: None,
+                thought_signature: None,
+                output: String::new(),
+                display: Some(ToolDisplay {
+                    kind: tools::TOOL_KIND_CONTEXT.to_string(),
+                    child_session_id: Some(id.clone()),
+                    ..ToolDisplay::default()
+                }),
+            },
+        );
+    }
     let turns = vec![Turn {
         assistant: false,
         content: prompt.to_string(),
@@ -3077,13 +3164,14 @@ pub(crate) async fn run_task(
         nested: Some(nested),
         question_chunk: ctx.on_chunk,
         agent_personalities: Arc::clone(&ctx.agent_personalities),
+        child_session_id: child_session_id.clone(),
     };
     let output = send_message(
         app,
         &provider,
         &call,
         None,
-        ctx.session_id.as_deref(),
+        child_session_id.as_deref().or(ctx.session_id.as_deref()),
         ctx.outside_workspace_allowed,
         ctx.http_write_allowed,
         false,
@@ -3092,28 +3180,16 @@ pub(crate) async fn run_task(
     .await
     .map_err(|error| error.to_string())?;
     let text = clip_task_text(&output.content);
-    let parent_id = ctx.session_id.clone().unwrap_or_default();
-    let workspace = ctx
-        .session_id
-        .as_deref()
-        .and_then(|id| crate::sessions::read_session_record(app, id).ok())
-        .and_then(|session| session.workspace_path);
-    let child_session_id = if parent_id.is_empty() {
-        None
-    } else {
-        crate::sessions::write_child_session(
+    if let Some(id) = child_session_id.as_deref() {
+        let _ = crate::sessions::update_child_session(
             app,
-            &parent_id,
-            description,
-            prompt,
+            id,
             &output.content,
             &output.reasoning,
             &output.reasoning_signature,
             output.tool_rounds.clone(),
-            workspace,
-        )
-        .ok()
-    };
+        );
+    }
     Ok(TaskRun {
         text,
         child_session_id,
@@ -3125,14 +3201,25 @@ pub(crate) struct TaskRun {
     pub child_session_id: Option<String>,
 }
 
-fn child_system(name: &str, personality: &str) -> String {
-    let body = personality.trim();
-    let tail = "Finish the task. Return the result. Do not start another task.";
-    if body.is_empty() {
-        format!("You are {name}. {tail}")
-    } else {
-        format!("{body}\n\n{tail}")
+fn child_system(parent: &str, name: &str, personality: &str) -> String {
+    let clause = format!(
+        "You are the subagent `{name}`.\n\
+Be careful. You are not the parent chat.\n\
+The instructions above are the same ones the parent loaded.\n\
+Do only the task in the user message. Do not widen it. Do not start another task.\n\
+Return the result text. The parent uses that text."
+    );
+    let mut parts = Vec::new();
+    let parent = parent.trim();
+    if !parent.is_empty() {
+        parts.push(parent.to_string());
     }
+    parts.push(format!("<subagent>\n{clause}\n</subagent>"));
+    let voice = personality.trim();
+    if !voice.is_empty() {
+        parts.push(format!("<personality>\n{voice}\n</personality>"));
+    }
+    parts.join("\n\n")
 }
 
 fn task_model_choice(app: &AppHandle, scope: &tools::NestedScope) -> (String, String, bool) {
@@ -3240,6 +3327,7 @@ pub async fn send_chat_message(
         }),
         question_chunk: None,
         agent_personalities: personality_map(input.agent_personalities.clone()),
+        child_session_id: None,
     };
     log_chat_config(&provider, &input, &call);
     let send_fut = send_message(

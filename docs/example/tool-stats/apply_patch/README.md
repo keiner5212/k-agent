@@ -11,7 +11,7 @@ Apply one patch that adds, updates, or deletes files. Every file is checked befo
 - Deletes a file with `*** Delete File: path`.
 - Plans every file in memory. A bad hunk writes nothing.
 - A failed write restores files already written in that call.
-- Notifies the language server after a successful write or delete when LSP is enabled and a server is installed.
+- After a successful write, asks the language server to format the file, then refreshes diagnostics. A delete only notifies the server.
 - Paths outside the workspace wait for the user.
 - Keeps a trailing newline on updated files.
 - A move writes the new path, then removes the old path.

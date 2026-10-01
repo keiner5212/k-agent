@@ -381,6 +381,118 @@ pub async fn sync_disk_change(app: &AppHandle, path: &Path, deleted: bool) {
     let _ = push_change(app, path, deleted).await;
 }
 
+pub async fn format_files(app: &AppHandle, paths: &[PathBuf]) -> Vec<PathBuf> {
+    let mut changed = Vec::new();
+    if !lsp_enabled(app) || paths.is_empty() {
+        return changed;
+    }
+    for path in paths {
+        if path.is_file() && format_one(app, path).await {
+            changed.push(path.clone());
+        }
+    }
+    changed
+}
+
+async fn format_one(app: &AppHandle, path: &Path) -> bool {
+    let Some(touch) = push_change(app, path, false).await else {
+        return false;
+    };
+    let Ok(result) = request(
+        &touch.session,
+        "textDocument/formatting",
+        json!({
+            "textDocument": { "uri": touch.uri },
+            "options": { "tabSize": 4, "insertSpaces": true }
+        }),
+    )
+    .await
+    else {
+        return false;
+    };
+    let Some(edits) = result.as_array() else {
+        return false;
+    };
+    if edits.is_empty() {
+        return false;
+    }
+    let Ok(original) = tokio::fs::read_to_string(path).await else {
+        return false;
+    };
+    let Some(next) = apply_text_edits(&original, edits) else {
+        return false;
+    };
+    if next == original {
+        return false;
+    }
+    tokio::fs::write(path, next).await.is_ok()
+}
+
+fn apply_text_edits(text: &str, edits: &[Value]) -> Option<String> {
+    let mut spans = Vec::new();
+    for edit in edits {
+        let range = edit.get("range")?;
+        let new_text = edit.get("newText")?.as_str()?.to_string();
+        let start = lsp_offset(text, range.get("start")?)?;
+        let end = lsp_offset(text, range.get("end")?)?;
+        if end < start || end > text.len() {
+            return None;
+        }
+        spans.push((start, end, new_text));
+    }
+    spans.sort_by(|left, right| right.0.cmp(&left.0));
+    let mut out = text.to_string();
+    for (start, end, new_text) in spans {
+        out.replace_range(start..end, &new_text);
+    }
+    Some(out)
+}
+
+fn lsp_offset(text: &str, pos: &Value) -> Option<usize> {
+    let line = pos.get("line")?.as_u64()? as usize;
+    let character = pos.get("character")?.as_u64()? as usize;
+    let mut byte = 0usize;
+    let mut index = 0usize;
+    let lines: Vec<&str> = text.split_inclusive('\n').collect();
+    if line > lines.len() {
+        return None;
+    }
+    if line == lines.len() {
+        return if character == 0 {
+            Some(text.len())
+        } else {
+            None
+        };
+    }
+    for row in &lines {
+        if index == line {
+            let body = row.trim_end_matches(['\n', '\r']);
+            return Some(byte + utf16_to_byte(body, character)?);
+        }
+        byte += row.len();
+        index += 1;
+    }
+    None
+}
+
+fn utf16_to_byte(line: &str, character: usize) -> Option<usize> {
+    let mut units = 0usize;
+    for (offset, ch) in line.char_indices() {
+        if units == character {
+            return Some(offset);
+        }
+        units += ch.len_utf16();
+        if units > character {
+            return None;
+        }
+    }
+    if units == character {
+        Some(line.len())
+    } else {
+        None
+    }
+}
+
 pub async fn diagnostics_after_write(
     app: &AppHandle,
     paths: &[PathBuf],

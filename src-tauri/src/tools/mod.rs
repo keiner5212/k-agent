@@ -148,6 +148,24 @@ pub(crate) async fn attach_lsp_diagnostics(
     let Some(app) = ctx.app else {
         return;
     };
+    let formatted = crate::lsp_client::format_files(app, paths).await;
+    if formatted.len() == 1 && paths.len() == 1 {
+        if let Some(snapshot) = outcome.snapshot.as_mut() {
+            if !snapshot.before.contains("=====") {
+                if let Ok(text) = std::fs::read_to_string(&paths[0]) {
+                    snapshot.after = text;
+                }
+            }
+        }
+    }
+    if !formatted.is_empty() {
+        let names = formatted
+            .iter()
+            .map(|path| ctx.relative_path(path))
+            .collect::<Vec<_>>()
+            .join(", ");
+        outcome.text.push_str(&format!("\nformatted: {names}"));
+    }
     let Some(found) = crate::lsp_client::diagnostics_after_write(app, paths).await else {
         return;
     };

@@ -313,7 +313,10 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
               : "";
           const label = toolCallLabel(call, lineRange);
           const canOpen =
-            Boolean(call.output) || Boolean(display?.imageData) || Boolean(isAction && call.id);
+            Boolean(call.output) ||
+            Boolean(display?.imageData) ||
+            Boolean(display?.childSessionId) ||
+            Boolean(isAction && call.id);
           return (
             <li
               key={call.id ?? `${call.name}-${index}`}
@@ -470,15 +473,22 @@ const TaskChatDialog = ({
   useEffect(() => {
     if (!sessionId) return;
     let alive = true;
-    void invoke<SessionRecord>("read_session", { sessionId })
-      .then((next) => {
-        if (alive) setSession(next);
-      })
-      .catch(() => {
-        if (alive) setMissing(true);
-      });
+    const load = () => {
+      void invoke<SessionRecord>("read_session", { sessionId })
+        .then((next) => {
+          if (!alive) return;
+          setMissing(false);
+          setSession(next);
+        })
+        .catch(() => {
+          if (alive) setMissing(true);
+        });
+    };
+    load();
+    const timer = window.setInterval(load, 1000);
     return () => {
       alive = false;
+      window.clearInterval(timer);
     };
   }, [sessionId]);
   return (

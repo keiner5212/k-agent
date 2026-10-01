@@ -7,12 +7,13 @@ use super::{
 pub const NAME: &str = "task";
 
 const DESCRIPTION: &str = "\
-Hand a multi-step side job to another saved agent and wait for its final text. \
+Hand a multi-step side job to another saved agent and wait for its result text. \
 Do not use this for one read, one grep, or one file edit. \
 agent is that agent's name. prompt is the full task, including what to return. \
-description is 3 to 5 words. The child cannot start another task. \
-Its tool calls are not shown here. Return a short summary to the user yourself. \
-At most 8 model rounds. The user can open the child chat from this call.\
+description is 3 to 5 words. The child uses the parent instructions plus a subagent clause. \
+The child cannot start another task. Several task calls run one at a time. \
+Each returns its text before the next starts. At most 8 model rounds. \
+The user can open the child chat from this call while it runs.\
 ";
 
 const MAX_PROMPT_CHARS: usize = 12_000;

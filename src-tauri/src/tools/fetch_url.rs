@@ -10,7 +10,7 @@ use super::{toon_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, Too
 
 pub const NAME: &str = "fetch_url";
 
-const DESCRIPTION: &str = "Read one public page as title, short text, and up to 8 links. Content is capped at 8000 characters. HTTPS by default. Public HTTP is allowed only when HTTP fetch is enabled in settings. Loopback and private hosts stay blocked. A repeat of the same URL within 1 hour is served from cache. Use after internet_search, or when a URL is already known. This does not search the web.";
+const DESCRIPTION: &str = "Read one public page as title, short text, and up to 8 links. Content is capped at 16000 characters. HTTPS by default. Public HTTP is allowed only when HTTP fetch is enabled in settings. Loopback and private hosts stay blocked. A repeat of the same URL within 1 hour is served from cache. Use after internet_search, or when a URL is already known. This does not search the web.";
 
 const FALLBACK_CHROME_MAJOR: &str = "153";
 const FALLBACK_CHROME_FULL_VERSION: &str = "153.0.6903.58";
@@ -682,6 +682,7 @@ fn cache_key(canonical: &str) -> String {
     use std::hash::{Hash, Hasher};
     let mut hasher = DefaultHasher::new();
     canonical.hash(&mut hasher);
+    16_000u32.hash(&mut hasher);
     format!("{:016x}.json", hasher.finish())
 }
 
