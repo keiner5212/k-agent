@@ -13,6 +13,8 @@ import { resolveAgentMeta } from "@/lib/builtin-agents";
 import { listComposerAgentKeys } from "@/lib/composer-agents";
 import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { useSettingsStore } from "@/lib/settings";
+import { AGENT_TOOL_IDS } from "@/types/agents";
+import type { ToolPermission } from "@/types/settings";
 import { useProvidersStore } from "@/lib/providers";
 import { listSystemFonts } from "@/lib/system-fonts";
 import {
@@ -219,6 +221,8 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const taskModel = useSettingsStore((state) => state.taskModel);
   const lspEnabled = useSettingsStore((state) => state.lspEnabled);
   const httpFetchEnabled = useSettingsStore((state) => state.httpFetchEnabled);
+  const readBeforeEdit = useSettingsStore((state) => state.readBeforeEdit);
+  const toolPermissions = useSettingsStore((state) => state.toolPermissions);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const setTextScale = useSettingsStore((state) => state.setTextScale);
@@ -243,6 +247,8 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const setTaskModel = useSettingsStore((state) => state.setTaskModel);
   const setLspEnabled = useSettingsStore((state) => state.setLspEnabled);
   const setHttpFetchEnabled = useSettingsStore((state) => state.setHttpFetchEnabled);
+  const setReadBeforeEdit = useSettingsStore((state) => state.setReadBeforeEdit);
+  const setToolPermission = useSettingsStore((state) => state.setToolPermission);
   const providers = useProvidersStore((state) => state.providers);
   const providersLoading = useProvidersStore((state) => state.loading);
   const loadProviders = useProvidersStore((state) => state.load);
@@ -342,6 +348,26 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
           />
         ) : null}
 
+        {item.type === "toolPermissions" ? (
+          <div className="tool-permissions">
+            {AGENT_TOOL_IDS.map((tool) => (
+              <label key={tool} className="tool-permissions__row">
+                <span>{t(`agents.tools.${tool}.label`)}</span>
+                <Select
+                  id={`tool-permission-${tool}`}
+                  value={toolPermissions[tool] ?? "allow"}
+                  onChange={(next) => setToolPermission(tool, next as ToolPermission)}
+                  options={[
+                    { value: "allow", label: t("settings.toolPermissions.allow") },
+                    { value: "ask", label: t("settings.toolPermissions.ask") },
+                    { value: "deny", label: t("settings.toolPermissions.deny") },
+                  ]}
+                />
+              </label>
+            ))}
+          </div>
+        ) : null}
+
         {item.type === "toggle" ? (
           <Toggle
             showLabel={false}
@@ -359,6 +385,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               titleUseFirstMessage,
               lspEnabled,
               httpFetchEnabled,
+              readBeforeEdit,
             })}
             onChange={(next) =>
               onToggleChange(item.id, next, {
@@ -375,6 +402,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setTitleUseFirstMessage,
                 setLspEnabled,
                 setHttpFetchEnabled,
+                setReadBeforeEdit,
               })
             }
             label={titleText}
@@ -558,6 +586,7 @@ type ToggleState = {
   titleUseFirstMessage: boolean;
   lspEnabled: boolean;
   httpFetchEnabled: boolean;
+  readBeforeEdit: boolean;
 };
 
 const runSettingAction = (id: string): void => {
@@ -683,6 +712,8 @@ const toggleChecked = (id: string, state: ToggleState): boolean => {
       return state.lspEnabled;
     case "httpFetchEnabled":
       return state.httpFetchEnabled;
+    case "readBeforeEdit":
+      return state.readBeforeEdit;
     default:
       return false;
   }
@@ -705,6 +736,7 @@ const onToggleChange = (
     setTitleUseFirstMessage: (v: boolean) => void;
     setLspEnabled: (v: boolean) => void;
     setHttpFetchEnabled: (v: boolean) => void;
+    setReadBeforeEdit: (v: boolean) => void;
   },
 ): void => {
   switch (id) {
@@ -746,6 +778,9 @@ const onToggleChange = (
       return;
     case "httpFetchEnabled":
       setters.setHttpFetchEnabled(next);
+      return;
+    case "readBeforeEdit":
+      setters.setReadBeforeEdit(next);
       return;
   }
 };

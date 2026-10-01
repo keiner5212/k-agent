@@ -8,7 +8,7 @@ The colored version of the example below is [reminder.html](./reminder.html).
 
 `applySystemReminder` in `src/lib/session-turns.ts` runs on the turns that are about to be sent.
 
-1. Take the system string already built for this send. That is language (if force-response-language is on), global and workspace `AGENTS.md`, then `composeAgentSystem` (`<agent-flow>`, skills, `<clarify>`, `<todos>`, `<tools>`, `<agents>`, `<personality>`, `<rendering>`, `<visual-check>`).
+1. Take the system string already built for this send. That is language (if force-response-language is on), global and workspace `AGENTS.md`, then `composeAgentSystem` (`<agent-flow>`, skills not yet loaded, `<clarify>`, `<todos>`, `<tools>`, `<agents>`, `<personality>`, `<rendering>`, `<visual-check>`), then MCP tools and workspace notes when those exist. Personality is already inside that string. A skill that was loaded stays in the chat as its tool result. Its own text says when to call `skill` again.
 2. Read `reminderInterval` from settings. The default is 8. The select allows 1 through 500. `0` or an empty system string skips the reminder.
 3. Count user turns whose role is `user` and that are not a tool result.
 4. When that count is greater than 0 and `count % interval == 0`, append the reminder to the last such user turn.
@@ -26,7 +26,7 @@ If the user turn already has text, the reminder is added after a blank line. If 
 
 ## Example
 
-Interval `4`. Four real user messages have been sent. The fourth user turn is the one that matches. The system string in this example is only the language block, so the reminder is short. A real send repeats the full system string.
+Interval `4`. The fourth real user turn receives the reminder. The body is the same system string used for that send. The block below is cut so it fits. A real reminder includes every section, including `<personality>`.
 
 ```text
 Please check the sidebar filter.
@@ -36,6 +36,12 @@ Please check the sidebar filter.
 LANGUAGE RULE - VERY IMPORTANT
 You must reply ONLY in English.
 </language>
+
+<personality>
+You are the build agent. Be concise.
+</personality>
+
+...the rest of the same system string...
 </system-reminder>
 ```
 

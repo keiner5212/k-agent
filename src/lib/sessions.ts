@@ -1,7 +1,13 @@
 import { create } from "zustand";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
-import { agentRoster, buildAgentsMdRules, composeAgentSystem } from "@/lib/agent-system";
+import {
+  agentRoster,
+  buildAgentsMdRules,
+  buildMcpTools,
+  buildWorkspaceNotes,
+  composeAgentSystem,
+} from "@/lib/agent-system";
 import { resolveAgentMeta } from "@/lib/builtin-agents";
 import { useAgentsMdStore } from "@/lib/agents-md";
 import { useAgentsStore } from "@/lib/agents";
@@ -9,9 +15,11 @@ import { useComposerStore, type ComposerMode } from "@/lib/composer";
 import { ipcErrorMessage, isTauri } from "@/lib/platform";
 import { resolveOutgoingMentions } from "@/lib/resolve-outgoing-mentions";
 import { notifyResponseFinished } from "@/lib/notifications";
+import { promptShapeForModel } from "@/lib/prompt-shape";
 import { composeSystemWithLanguage } from "@/lib/response-language";
 import { selectRequest, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
+import { useMcpServersStore } from "@/lib/mcp-servers";
 import { useSkillsStore } from "@/lib/skills";
 import {
   appendInterruptedFooter,
@@ -1122,7 +1130,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         publishStreaming(activeRound.content ?? null);
       };
 
-      const { forceResponseLanguage, responseLanguage, reminderInterval } =
+      const { forceResponseLanguage, responseLanguage, reminderInterval, workspaceMemoryEnabled } =
         useSettingsStore.getState();
       const selectedAgent = useComposerStore.getState().selectedAgent;
       const agentContexts = useAgentsStore.getState().contexts;
@@ -1131,18 +1139,31 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       const agent = resolveAgentMeta(selectedAgent, agentContexts, t);
       let historyMessages = sessionMessages(withUser.find((session) => session.id === sessionId));
       const loadedSkills = loadedSkillNamesFromMessages(historyMessages);
+      const shape = promptShapeForModel(selection.modelId);
       const baseSystem = composeAgentSystem(
         agent,
         skillContexts,
         loadedSkills,
         agentRoster(agentContexts, agent?.name ?? ""),
+        shape,
       );
-      const rules = buildAgentsMdRules(useAgentsMdStore.getState().files);
+      const rules = buildAgentsMdRules(useAgentsMdStore.getState().files, shape);
+      const mcp = buildMcpTools(useMcpServersStore.getState().servers, shape);
+      let notes = "";
+      if (workspaceMemoryEnabled && isTauri()) {
+        try {
+          notes = await invoke<string>("read_workspace_notes");
+        } catch (error) {
+          console.warn("read_workspace_notes failed", error);
+        }
+      }
+      const notesBlock = buildWorkspaceNotes(workspaceMemoryEnabled, notes, shape);
       const system = composeSystemWithLanguage(
-        baseSystem,
+        [baseSystem, mcp, notesBlock].filter((part) => part.length > 0).join("\n\n"),
         forceResponseLanguage,
         responseLanguage,
         rules,
+        shape,
       );
       const toolNames = agent?.tools ?? [];
       if (!replay) {

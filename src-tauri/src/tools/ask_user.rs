@@ -201,7 +201,7 @@ pub async fn ask_user_wait(
     let (tx, rx) = oneshot::channel::<AskUserAnswer>();
     ask_user_registry().insert(call_id.to_string(), tx);
 
-    if let Some(channel) = ctx.on_chunk {
+    if let Some(channel) = ctx.question_chunk.or(ctx.on_chunk) {
         let payload = json!({
             "callId": call_id,
             "questions": questions,

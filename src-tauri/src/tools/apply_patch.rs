@@ -290,6 +290,11 @@ fn apply_files(ctx: &ToolContext<'_>, files: &[PatchFile]) -> ToolOutcome {
                 "apply_patch outside the workspace must run on the async dispatch path.",
             );
         }
+        if !matches!(file.kind, FileKind::Add) {
+            if let Err(message) = super::require_prior_read(ctx, &ctx.relative_path(&source)) {
+                return super::action_error(&file.path, &message);
+            }
+        }
         let rel = ctx.relative_path(if matches!(file.kind, FileKind::Delete) {
             &source
         } else {

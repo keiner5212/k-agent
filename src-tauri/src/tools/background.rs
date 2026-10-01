@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::io::Read;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -23,6 +24,7 @@ pub struct BackgroundTool;
 
 pub struct TurnSlot {
     procs: Mutex<Vec<RunningProc>>,
+    reads: Mutex<HashSet<String>>,
 }
 
 struct RunningProc {
@@ -40,7 +42,31 @@ impl TurnSlot {
     pub fn start() -> Arc<Self> {
         Arc::new(Self {
             procs: Mutex::new(Vec::new()),
+            reads: Mutex::new(HashSet::new()),
         })
+    }
+
+    pub fn note_read(&self, path: &str) {
+        let key = crate::tools::norm_tool_path(path);
+        if key.is_empty() {
+            return;
+        }
+        match self.reads.lock() {
+            Ok(mut reads) => {
+                reads.insert(key);
+            }
+            Err(poisoned) => {
+                poisoned.into_inner().insert(key);
+            }
+        }
+    }
+
+    pub fn has_read(&self, path: &str) -> bool {
+        let key = crate::tools::norm_tool_path(path);
+        match self.reads.lock() {
+            Ok(reads) => reads.contains(&key),
+            Err(poisoned) => poisoned.into_inner().contains(&key),
+        }
     }
 
     fn track(&self, proc: RunningProc) {

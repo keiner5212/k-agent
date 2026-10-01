@@ -1,5 +1,6 @@
 import type { AppLanguage } from "@/types/settings";
 import { appContextDirective } from "@/lib/app-context";
+import { wrapSection, type PromptShape } from "@/lib/prompt-shape";
 
 const DIRECTIVE: Record<AppLanguage, string> = {
   en: [
@@ -27,14 +28,15 @@ export const composeSystemWithLanguage = (
   force: boolean,
   language: AppLanguage,
   rules = "",
+  shape: PromptShape = "xml",
 ): string => {
   const parts: string[] = [];
-  if (force) parts.push(`<language>\n${DIRECTIVE[language]}\n</language>`);
+  if (force) parts.push(wrapSection("language", DIRECTIVE[language], shape));
   const trimmedRules = rules.replace(/\n+$/, "");
   if (trimmedRules.length > 0) parts.push(trimmedRules);
   const trimmed = base.replace(/\n+$/, "");
   if (trimmed.length > 0) parts.push(trimmed);
-  const context = appContextDirective(language);
+  const context = appContextDirective(language, shape);
   if (context.length > 0) parts.push(context);
   return parts.join("\n\n");
 };

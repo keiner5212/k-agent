@@ -724,6 +724,7 @@ pub fn run() {
             agents::update_agent,
             agents::delete_agent,
             agents_md::list_agents_md,
+            agents_md::read_workspace_notes,
             agents_md::write_agents_md,
             agents_md::delete_agents_md,
             lsp::list_language_servers,

@@ -134,6 +134,18 @@ fn delete_agents_md_sync(app: &AppHandle, kind: AgentsMdKind) -> Result<(), Agen
 }
 
 #[tauri::command]
+pub fn read_workspace_notes(app: AppHandle) -> String {
+    let Some(root) = crate::pathutil::workspace_from_app(&app) else {
+        return String::new();
+    };
+    let path = root.join(".k-agent").join("NOTES.md");
+    let Ok(text) = fs::read_to_string(path) else {
+        return String::new();
+    };
+    text.chars().take(8_000).collect()
+}
+
+#[tauri::command]
 pub async fn list_agents_md(app: AppHandle) -> Result<Vec<AgentsMdFile>, AgentsMdError> {
     tokio::task::spawn_blocking(move || collect_agents_md(&app))
         .await

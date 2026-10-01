@@ -1,7 +1,14 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/Dialog";
-import { agentRoster, buildAgentsMdRules, composeAgentSystem } from "@/lib/agent-system";
+import {
+  agentRoster,
+  buildAgentsMdRules,
+  buildMcpTools,
+  buildWorkspaceNotes,
+  composeAgentSystem,
+} from "@/lib/agent-system";
 import { useAgentsMdStore } from "@/lib/agents-md";
 import { useAgentsStore } from "@/lib/agents";
 import { appContextDirective } from "@/lib/app-context";
@@ -18,10 +25,12 @@ import {
   resolveVisionModel,
 } from "@/lib/context-usage";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
+import { promptShapeForModel } from "@/lib/prompt-shape";
 import { responseLanguageDirective } from "@/lib/response-language";
 import { useProvidersStore } from "@/lib/providers";
 import { selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import { useSelectionStore } from "@/lib/selected-model";
+import { isTauri } from "@/lib/platform";
 import { useSettingsStore } from "@/lib/settings";
 import { useSkillsStore } from "@/lib/skills";
 import { useMcpServersStore } from "@/lib/mcp-servers";
@@ -46,6 +55,23 @@ export const ContextUsage = (): ReactNode => {
   const agentsMdFiles = useAgentsMdStore((state) => state.files);
   const forceResponseLanguage = useSettingsStore((state) => state.forceResponseLanguage);
   const responseLanguage = useSettingsStore((state) => state.responseLanguage);
+  const workspaceMemoryEnabled = useSettingsStore((state) => state.workspaceMemoryEnabled);
+  const workspacePath = useSkillsStore((state) => state.workspacePath);
+  const [notes, setNotes] = useState("");
+  useEffect(() => {
+    if (!workspaceMemoryEnabled || !isTauri()) return;
+    let alive = true;
+    void invoke<string>("read_workspace_notes")
+      .then((text) => {
+        if (alive) setNotes(text);
+      })
+      .catch(() => {
+        if (alive) setNotes("");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [workspaceMemoryEnabled, workspacePath, messages.length]);
   const model = useMemo(() => resolveSelectedModel(providers, selection), [providers, selection]);
   const vision = useMemo(() => resolveVisionModel(providers, selection), [providers, selection]);
   const started = messages.length > 0;
@@ -60,18 +86,26 @@ export const ContextUsage = (): ReactNode => {
   const extras = useMemo(() => {
     if (!started || !agent) return {};
     const loadedSkills = loadedSkillKey.length > 0 ? loadedSkillKey.split("\0") : [];
-    const agentSystem = composeAgentSystem(
-      agent,
-      skillContexts,
-      loadedSkills,
-      agentRoster(agentContexts, agent.name),
-    );
-    const appContext = appContextDirective(responseLanguage);
+    const shape = promptShapeForModel(selection?.modelId ?? "");
+    const agentSystem = [
+      composeAgentSystem(
+        agent,
+        skillContexts,
+        loadedSkills,
+        agentRoster(agentContexts, agent.name),
+        shape,
+      ),
+      buildMcpTools(mcpServers, shape),
+      buildWorkspaceNotes(workspaceMemoryEnabled, notes, shape),
+    ]
+      .filter((part) => part.length > 0)
+      .join("\n\n");
+    const appContext = appContextDirective(responseLanguage, shape);
     const systemParts: string[] = [];
     if (agentSystem.length > 0) systemParts.push(agentSystem);
     if (appContext.length > 0) systemParts.push(appContext);
     const language = forceResponseLanguage ? responseLanguageDirective(responseLanguage) : "";
-    const rules = buildAgentsMdRules(agentsMdFiles);
+    const rules = buildAgentsMdRules(agentsMdFiles, shape);
     return {
       systemPrompt: estimateTokensFromText(systemParts.join("\n\n")),
       languageDirective: estimateTokensFromText(language),
@@ -83,10 +117,13 @@ export const ContextUsage = (): ReactNode => {
     agent,
     agentContexts,
     agentsMdFiles,
+    notes,
+    workspaceMemoryEnabled,
     forceResponseLanguage,
     loadedSkillKey,
     mcpServers,
     responseLanguage,
+    selection?.modelId,
     skillContexts,
     started,
   ]);

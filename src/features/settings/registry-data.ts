@@ -266,6 +266,20 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         keywords: ["notifications", "desktop", "alerts", "notificaciones", "alertas"],
       },
       {
+        id: "readBeforeEdit",
+        type: "toggle",
+        titleKey: "settings.readBeforeEdit.label",
+        descriptionKey: "settings.readBeforeEdit.description",
+        keywords: ["read", "edit", "patch", "before"],
+      },
+      {
+        id: "toolPermissions",
+        type: "toolPermissions",
+        titleKey: "settings.toolPermissions.label",
+        descriptionKey: "settings.toolPermissions.description",
+        keywords: ["tool", "allow", "ask", "deny", "permission"],
+      },
+      {
         id: "workspaceMemoryEnabled",
         type: "toggle",
         titleKey: "settings.workspaceMemoryEnabled.label",

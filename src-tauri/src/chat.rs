@@ -206,6 +206,7 @@ struct ChatCall<'a> {
     blocked_commands: &'a [String],
     shell_program: &'a str,
     nested: Option<tools::NestedScope>,
+    question_chunk: Option<&'a tauri::ipc::Channel<ChatChunk>>,
 }
 
 fn tool_parallelism(worker_cores: Option<u32>) -> usize {
@@ -2029,6 +2030,62 @@ async fn dispatch_with_retry(
     }
 }
 
+fn denied_call(tc: &ModelToolCall, message: &str) -> PersistedToolCall {
+    PersistedToolCall {
+        id: tc.id.clone(),
+        name: tc.name.clone(),
+        argument: None,
+        arguments: nonempty_text(Some(&tc.arguments)).map(str::to_string),
+        thought_signature: nonempty_text(Some(&tc.thought_signature)).map(str::to_string),
+        output: message.to_string(),
+        display: Some(ToolDisplay {
+            kind: tools::TOOL_KIND_CONTEXT.to_string(),
+            status: Some("error".into()),
+            ..ToolDisplay::default()
+        }),
+    }
+}
+
+fn denied_turn(id: &str, name: &str, message: &str) -> Turn {
+    Turn {
+        assistant: false,
+        content: String::new(),
+        reasoning: String::new(),
+        reasoning_signature: String::new(),
+        attachments: Vec::new(),
+        tool_calls: Vec::new(),
+        tool_result: Some(ToolResultTurn {
+            call_id: id.to_string(),
+            name: name.to_string(),
+            content: message.to_string(),
+            image_png: None,
+            file_name: None,
+            file_mime: None,
+            file_bytes: None,
+        }),
+    }
+}
+
+fn seed_reads(slot: &tools::TurnSlot, turns: &[Turn]) {
+    for turn in turns {
+        let Some(result) = &turn.tool_result else {
+            continue;
+        };
+        if result.name != tools::READ_TOOL_NAME {
+            continue;
+        }
+        for line in result.content.lines() {
+            let Some(rest) = line.trim().strip_prefix("path:") else {
+                continue;
+            };
+            let path = rest.trim().trim_matches('"').trim();
+            if !path.is_empty() {
+                slot.note_read(path);
+            }
+        }
+    }
+}
+
 async fn commit_tool_calls(
     app: &AppHandle,
     call: &ChatCall<'_>,
@@ -2088,8 +2145,23 @@ async fn commit_tool_calls(
                 },
                 turn: Some(turn.clone()),
                 nested: call.nested.clone(),
+                question_chunk: call.question_chunk,
             };
+            if let Err(message) = tools::gate_tool(&tool_ctx, &tc.name).await {
+                let persisted = denied_call(tc, &message);
+                emit_tool_result(on_chunk, &persisted);
+                persisted_calls.push(persisted);
+                turns.push(denied_turn(&tc.id, &tc.name, &message));
+                continue;
+            }
             let outcome = Box::pin(tools::execute(&tc.name, &tc.arguments, &tool_ctx)).await;
+            if tc.name == tools::READ_TOOL_NAME {
+                if let Some(path) = outcome.display.path.as_deref() {
+                    if outcome.display.status.as_deref() == Some("ok") {
+                        turn.note_read(path);
+                    }
+                }
+            }
             if let Some(snapshot) = outcome.snapshot {
                 if let Some(sid) = session_id {
                     let _ = crate::sessions::write_file_revision(
@@ -2196,6 +2268,7 @@ async fn send_message(
     let mut turns = call.turns.to_vec();
     let mut tool_rounds: Vec<ToolRoundTrace> = Vec::new();
     let turn = tools::TurnSlot::start();
+    seed_reads(&turn, call.turns);
     let mut rounds = 0u32;
 
     loop {
@@ -2263,6 +2336,7 @@ async fn send_message(
             blocked_commands: call.blocked_commands,
             shell_program: call.shell_program,
             nested: call.nested.clone(),
+            question_chunk: call.question_chunk,
         };
         let round_started = std::time::Instant::now();
         let output = dispatch_with_retry(provider, &round_call, on_chunk).await?;
@@ -2451,6 +2525,7 @@ pub async fn generate_session_title(
         blocked_commands: &[],
         shell_program: "",
         nested: None,
+        question_chunk: None,
     };
     let title = normalize_generated_title(
         &send_message(
@@ -2530,6 +2605,7 @@ pub async fn summarize_conversation(
         blocked_commands: &[],
         shell_program: "",
         nested: None,
+        question_chunk: None,
     };
     let summary = normalize_generated_text(
         &send_message(
@@ -2694,6 +2770,7 @@ pub async fn generate_app_content(
         blocked_commands: &[],
         shell_program: "",
         nested: None,
+        question_chunk: None,
     };
     let text = normalize_generated_text(
         &send_message(
@@ -2966,6 +3043,7 @@ pub(crate) async fn run_task(
         blocked_commands: &ctx.blocked_commands,
         shell_program: &ctx.shell_program,
         nested: Some(nested),
+        question_chunk: ctx.on_chunk,
     };
     let output = send_message(
         app,
@@ -3127,6 +3205,7 @@ pub async fn send_chat_message(
             task_depth: 0,
             effort: effort_label.clone(),
         }),
+        question_chunk: None,
     };
     log_chat_config(&provider, &input, &call);
     let send_fut = send_message(

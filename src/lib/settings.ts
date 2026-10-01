@@ -21,6 +21,7 @@ import {
   DEFAULT_NOTIFICATIONS_ENABLED,
   CONTEXT_SUMMARIZE_OPTIONS,
   DEFAULT_CONTEXT_SUMMARIZE_PERCENT,
+  DEFAULT_READ_BEFORE_EDIT,
   DEFAULT_REMINDER_INTERVAL,
   DEFAULT_RESPONSE_LANGUAGE,
   DEFAULT_SETTINGS,
@@ -45,6 +46,7 @@ import {
   type AppTheme,
   type Keybindings,
   type Settings,
+  type ToolPermission,
   type TextScale,
   type WindowBounds,
 } from "@/types/settings";
@@ -196,6 +198,15 @@ const sanitizeDefaultAgent = (value: unknown): string => {
   return trimmed.length > 0 ? trimmed : DEFAULT_AGENT;
 };
 
+const sanitizeToolPermissions = (value: unknown): Record<string, ToolPermission> => {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, ToolPermission> = {};
+  for (const [key, mode] of Object.entries(value as Record<string, unknown>)) {
+    if (mode === "allow" || mode === "ask" || mode === "deny") out[key] = mode;
+  }
+  return out;
+};
+
 const sanitizeModelChoice = (value: unknown): SelectedModel | null => {
   if (value === null || value === undefined) return null;
   if (typeof value === "object") {
@@ -263,6 +274,8 @@ const sanitizeSettings = (raw: unknown): Settings => {
     ),
     appGenerationModel: sanitizeModelChoice(obj.appGenerationModel),
     taskModel: sanitizeModelChoice(obj.taskModel),
+    readBeforeEdit: sanitizeBoolean(obj.readBeforeEdit, DEFAULT_READ_BEFORE_EDIT),
+    toolPermissions: sanitizeToolPermissions(obj.toolPermissions),
     lspEnabled: sanitizeBoolean(obj.lspEnabled, DEFAULT_LSP_ENABLED),
     httpFetchEnabled: sanitizeBoolean(obj.httpFetchEnabled, DEFAULT_HTTP_FETCH_ENABLED),
     keybindings: sanitizeKeybindings(obj.keybindings),
@@ -308,6 +321,8 @@ export type SettingsStore = Settings & {
   setTitleUseFirstMessage: (enabled: boolean) => void;
   setAppGenerationModel: (model: SelectedModel | null) => void;
   setTaskModel: (model: SelectedModel | null) => void;
+  setReadBeforeEdit: (enabled: boolean) => void;
+  setToolPermission: (tool: string, mode: ToolPermission) => void;
   setLspEnabled: (enabled: boolean) => void;
   setHttpFetchEnabled: (enabled: boolean) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
@@ -433,6 +448,8 @@ const snapshot = (state: SettingsStore): Settings => ({
   titleUseFirstMessage: state.titleUseFirstMessage,
   appGenerationModel: state.appGenerationModel,
   taskModel: state.taskModel,
+  readBeforeEdit: state.readBeforeEdit,
+  toolPermissions: state.toolPermissions,
   lspEnabled: state.lspEnabled,
   httpFetchEnabled: state.httpFetchEnabled,
   keybindings: state.keybindings,
@@ -634,6 +651,17 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setTaskModel: (model) => {
     set({ taskModel: sanitizeModelChoice(model) });
+    void persist(snapshot(get()));
+  },
+
+  setReadBeforeEdit: (enabled) => {
+    set({ readBeforeEdit: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setToolPermission: (tool, mode) => {
+    const toolPermissions = { ...get().toolPermissions, [tool]: mode };
+    set({ toolPermissions });
     void persist(snapshot(get()));
   },
 

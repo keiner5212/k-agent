@@ -2,7 +2,9 @@ import type { TFunction } from "i18next";
 import { resolveAgentMeta } from "@/lib/builtin-agents";
 import type { AgentContext, AgentMeta, AgentSkillRef } from "@/types/agents";
 import type { AgentsMdFile } from "@/types/agents-md";
+import type { McpServer } from "@/types/mcp-servers";
 import type { SkillContext } from "@/types/skills";
+import { wrapSection, type PromptShape } from "@/lib/prompt-shape";
 
 const findSkillMeta = (
   contexts: readonly SkillContext[],
@@ -31,18 +33,18 @@ const uniqueAgentSkills = (
   return out;
 };
 
-const tagged = (name: string, body: string): string => {
-  const trimmed = body.trim();
-  if (trimmed.length === 0) return "";
-  return `<${name}>\n${trimmed}\n</${name}>`;
-};
+const tagged = (name: string, body: string, shape: PromptShape): string =>
+  wrapSection(name, body, shape);
 
 const skillLine = (name: string, description: string): string => {
   const detail = description.length > 0 ? description : name;
   return `- \`${name}\`: ${detail}`;
 };
 
-const buildAgentSkills = (items: { name: string; description: string }[]): string => {
+const buildAgentSkills = (
+  items: { name: string; description: string }[],
+  shape: PromptShape,
+): string => {
   if (items.length === 0) return "";
   const count = items.length;
   const plural = count === 1 ? "" : "s";
@@ -57,12 +59,14 @@ const buildAgentSkills = (items: { name: string; description: string }[]): strin
       "No other tool calls on turn 1. Retry a failed skill once, then report on the next turn.",
       "Later turns: load a listed skill only when it is not already in context.",
     ].join("\n"),
+    shape,
   );
 };
 
 const buildWorkspaceSkills = (
   skillContexts: readonly SkillContext[],
   loaded: ReadonlySet<string>,
+  shape: PromptShape,
 ): string => {
   const ctx = skillContexts.find((item) => item.kind === "local");
   const lines: string[] = [];
@@ -79,10 +83,11 @@ const buildWorkspaceSkills = (
       "",
       ...lines,
     ].join("\n"),
+    shape,
   );
 };
 
-const buildFlow = (hasAgentSkills: boolean): string =>
+const buildFlow = (hasAgentSkills: boolean, shape: PromptShape): string =>
   tagged(
     "agent-flow",
     [
@@ -94,35 +99,32 @@ const buildFlow = (hasAgentSkills: boolean): string =>
       "Call only tools in the request tools list. Do not invent names.",
       "Answer using <personality>.",
     ].join("\n"),
+    shape,
   );
 
-const CLARIFY = tagged(
-  "clarify",
-  [
-    "Work out exactly what the user is asking before you act.",
-    "If any part is not fully clear, call `ask_user` and wait for the answer. Do not guess.",
-  ].join("\n"),
-);
+const CLARIFY = [
+  "Work out exactly what the user is asking before you act.",
+  "If any part is not fully clear, call `ask_user` and wait for the answer. Do not guess.",
+].join("\n");
 
-const TODOS = tagged(
-  "todos",
-  [
-    "Keep the session todo list matched to the work when the task has several steps.",
-    "Call `todowrite` with the full list. Each item is content, status, and priority (high, medium, or low). Do not invent ids.",
-    "Keep at most one item in_progress. Mark an item completed only after that step is done.",
-    "Send the list again when a step starts, finishes, or is dropped. An empty list clears it.",
-  ].join("\n"),
-);
+const TODOS = [
+  "Keep the session todo list matched to the work when the task has several steps.",
+  "Call `todowrite` with the full list. Each item is content, status, and priority (high, medium, or low). Do not invent ids.",
+  "Keep at most one item in_progress. Mark an item completed only after that step is done.",
+  "Send the list again when a step starts, finishes, or is dropped. An empty list clears it.",
+].join("\n");
 
-const VISUAL = tagged(
-  "visual-check",
-  [
-    "Use `page_shot` only on a page that is already being served. One shot per review.",
-    "Do not repeat it with a different host, height, or selector.",
-    "A blank or identical image is a capture miss. Do not edit the page to remove a black box from a bad shot.",
-    "Start a dev server with `background`. It is killed when the turn ends. Do not use `bash` for that.",
-  ].join("\n"),
-);
+const VISUAL = [
+  "Use `page_shot` only on a page that is already being served. One shot per review.",
+  "Do not repeat it with a different host, height, or selector.",
+  "A blank or identical image is a capture miss. Do not edit the page to remove a black box from a bad shot.",
+  "Start a dev server with `background`. It is killed when the turn ends. Do not use `bash` for that.",
+].join("\n");
+
+const RENDERING_BODY = [
+  "Chat output is GitHub-flavored markdown.",
+  "- Fenced code blocks with a language hint are syntax-highlighted.",
+].join("\n");
 
 const hasTool = (agent: AgentMeta, name: string): boolean => agent.tools.includes(name);
 
@@ -167,7 +169,11 @@ export const agentRoster = (
   return out;
 };
 
-const buildAgentRoster = (agent: AgentMeta, roster: readonly AgentRosterEntry[]): string => {
+const buildAgentRoster = (
+  agent: AgentMeta,
+  roster: readonly AgentRosterEntry[],
+  shape: PromptShape,
+): string => {
   if (!hasTool(agent, "task") || roster.length === 0) return "";
   const lines = roster.map((item) => {
     const purpose = item.purpose.length > 0 ? item.purpose : item.name;
@@ -181,10 +187,11 @@ const buildAgentRoster = (agent: AgentMeta, roster: readonly AgentRosterEntry[])
       "",
       ...lines,
     ].join("\n"),
+    shape,
   );
 };
 
-const buildToolChoice = (agent: AgentMeta): string => {
+const buildToolChoice = (agent: AgentMeta, shape: PromptShape): string => {
   const lines = ["Use the dedicated tool. Do not use `bash` for work another tool already does."];
   if (hasTool(agent, "list_directory")) {
     lines.push("List a directory with `list_directory`. Do not use `ls`, `find`, or `tree`.");
@@ -218,25 +225,83 @@ const buildToolChoice = (agent: AgentMeta): string => {
   if (hasTool(agent, "background")) {
     lines.push("A process that must stay up uses `background`, not `bash`.");
   }
-  return tagged("tools", lines.join("\n"));
+  return tagged("tools", lines.join("\n"), shape);
 };
 
-const RENDERING = tagged(
-  "rendering",
-  [
-    "Chat output is GitHub-flavored markdown.",
-    "- Fenced code blocks with a language hint are syntax-highlighted.",
-  ].join("\n"),
-);
+const sanitizeIdent = (raw: string): string => {
+  let out = "";
+  for (const ch of raw) {
+    if (/[a-zA-Z0-9]/.test(ch)) out += ch.toLowerCase();
+    else if (out.length > 0 && !out.endsWith("_")) out += "_";
+  }
+  const trimmed = out.replace(/^_+|_+$/g, "");
+  return trimmed.length === 0 ? "x" : trimmed;
+};
 
-export const buildAgentsMdRules = (files: readonly AgentsMdFile[]): string => {
+const mcpWire = (server: string, tool: string, used: Set<string>): string => {
+  const base = `mcp_${sanitizeIdent(server)}_${sanitizeIdent(tool)}`;
+  let wire = base;
+  let n = 2;
+  while (used.has(wire)) {
+    wire = `${base}_${n}`;
+    n += 1;
+  }
+  used.add(wire);
+  return wire;
+};
+
+export const buildMcpTools = (
+  servers: readonly McpServer[],
+  shape: PromptShape = "xml",
+): string => {
+  const used = new Set<string>();
+  const lines: string[] = [];
+  for (const server of servers) {
+    if (!server.enabled) continue;
+    for (const tool of server.tools ?? []) {
+      const name = tool.name.trim();
+      if (name.length === 0) continue;
+      const detail = tool.description?.trim() || name;
+      lines.push(`- \`${mcpWire(server.name, name, used)}\`: ${detail}`);
+    }
+  }
+  if (lines.length === 0) return "";
+  return tagged(
+    "mcp-tools",
+    ["Enabled MCP tools. Call them by these names.", "", ...lines].join("\n"),
+    shape,
+  );
+};
+
+export const buildWorkspaceNotes = (
+  enabled: boolean,
+  content: string,
+  shape: PromptShape = "xml",
+): string => {
+  if (!enabled) return "";
+  const body = content.trim();
+  const lines = [
+    "Personal behavior notes for this workspace live in `.k-agent/NOTES.md`.",
+    "When the user states a lasting preference, update that file. Keep a short bullet list.",
+    "Examples: always run the formatter, never run a deploy command in this workspace.",
+    "Do not store secrets.",
+  ];
+  if (body.length > 0) lines.push("", "Current notes:", body);
+  else lines.push("", "The file is empty. Create it on the first preference.");
+  return tagged("workspace-notes", lines.join("\n"), shape);
+};
+
+export const buildAgentsMdRules = (
+  files: readonly AgentsMdFile[],
+  shape: PromptShape = "xml",
+): string => {
   const parts: string[] = [];
   const globalBody =
     files.find((item) => item.kind === "global" && item.exists)?.content.trim() ?? "";
-  if (globalBody.length > 0) parts.push(tagged("global-rules", globalBody));
+  if (globalBody.length > 0) parts.push(tagged("global-rules", globalBody, shape));
   const workspaceBody =
     files.find((item) => item.kind === "local" && item.exists)?.content.trim() ?? "";
-  if (workspaceBody.length > 0) parts.push(tagged("workspace-rules", workspaceBody));
+  if (workspaceBody.length > 0) parts.push(tagged("workspace-rules", workspaceBody, shape));
   return parts.join("\n\n");
 };
 
@@ -245,6 +310,7 @@ export const composeAgentSystem = (
   skillContexts: SkillContext[],
   loadedSkillNames: readonly string[] = [],
   roster: readonly AgentRosterEntry[] = [],
+  shape: PromptShape = "xml",
 ): string => {
   if (!agent) return "";
   const loaded = new Set(loadedSkillNames.map((name) => name.trim()).filter(Boolean));
@@ -252,21 +318,21 @@ export const composeAgentSystem = (
     (item) => !loaded.has(item.name),
   );
   const parts: string[] = [];
-  const flow = buildFlow(agentSkills.length > 0);
+  const flow = buildFlow(agentSkills.length > 0, shape);
   if (flow.length > 0) parts.push(flow);
-  const agentSkillBlock = buildAgentSkills(agentSkills);
+  const agentSkillBlock = buildAgentSkills(agentSkills, shape);
   if (agentSkillBlock.length > 0) parts.push(agentSkillBlock);
-  const workspaceSkills = buildWorkspaceSkills(skillContexts, loaded);
+  const workspaceSkills = buildWorkspaceSkills(skillContexts, loaded, shape);
   if (workspaceSkills.length > 0) parts.push(workspaceSkills);
-  if (hasTool(agent, "ask_user")) parts.push(CLARIFY);
-  if (hasTool(agent, "todowrite")) parts.push(TODOS);
-  if (hasTool(agent, "bash")) parts.push(buildToolChoice(agent));
-  const agents = buildAgentRoster(agent, roster);
+  if (hasTool(agent, "ask_user")) parts.push(tagged("clarify", CLARIFY, shape));
+  if (hasTool(agent, "todowrite")) parts.push(tagged("todos", TODOS, shape));
+  if (hasTool(agent, "bash")) parts.push(buildToolChoice(agent, shape));
+  const agents = buildAgentRoster(agent, roster, shape);
   if (agents.length > 0) parts.push(agents);
   const personality = agent.personality.trim();
-  if (personality.length > 0) parts.push(tagged("personality", personality));
-  if (RENDERING.length > 0) parts.push(RENDERING);
-  if (hasTool(agent, "page_shot")) parts.push(VISUAL);
+  if (personality.length > 0) parts.push(tagged("personality", personality, shape));
+  parts.push(tagged("rendering", RENDERING_BODY, shape));
+  if (hasTool(agent, "page_shot")) parts.push(tagged("visual-check", VISUAL, shape));
   return parts.join("\n\n");
 };
 

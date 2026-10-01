@@ -136,7 +136,18 @@
     },
     "workspaceMemoryEnabled": {
       "label": "Save notes to workspace memory",
-      "description": "Persist useful annotations from chat into files inside the current workspace."
+      "description": "The model keeps lasting preferences in .k-agent/NOTES.md. That file is loaded into the system prompt."
+    },
+    "readBeforeEdit": {
+      "label": "Read before edit",
+      "description": "edit and apply_patch must read a file in this chat before they change it."
+    },
+    "toolPermissions": {
+      "label": "Tool permissions",
+      "description": "Allow runs the tool. Ask confirms once per chat. Deny blocks it.",
+      "allow": "Allow",
+      "ask": "Ask",
+      "deny": "Deny"
     },
     "limitProviderDataUse": {
       "label": "Limit provider data use",

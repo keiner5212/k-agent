@@ -136,7 +136,18 @@
     },
     "workspaceMemoryEnabled": {
       "label": "Guardar notas en el espacio de trabajo",
-      "description": "Guarda anotaciones útiles del chat en archivos dentro del espacio de trabajo actual."
+      "description": "El modelo guarda preferencias duraderas en .k-agent/NOTES.md. Ese archivo entra al system prompt."
+    },
+    "readBeforeEdit": {
+      "label": "Leer antes de editar",
+      "description": "edit y apply_patch deben leer el archivo en este chat antes de cambiarlo."
+    },
+    "toolPermissions": {
+      "label": "Permisos de herramientas",
+      "description": "Permitir ejecuta la tool. Preguntar confirma una vez por chat. Denegar la bloquea.",
+      "allow": "Permitir",
+      "ask": "Preguntar",
+      "deny": "Denegar"
     },
     "limitProviderDataUse": {
       "label": "Limitar el uso de datos del proveedor",

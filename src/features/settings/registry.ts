@@ -7,7 +7,8 @@ export type SettingItemType =
   | "modelChoice"
   | "imagePicker"
   | "slider"
-  | "text";
+  | "text"
+  | "toolPermissions";
 
 export type SettingOption = {
   value: string;

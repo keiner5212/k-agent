@@ -338,8 +338,32 @@ pub async fn load(app: &AppHandle) -> Catalog {
     if let Ok(entries) = load_remote_or_cache(app).await {
         catalog.extend(entries);
     }
-    catalog.extend(bundled_entries().iter().cloned());
+    catalog.overlay_bundled_requests();
     catalog
+}
+
+impl Catalog {
+    fn overlay_bundled_requests(&mut self) {
+        for bundled in bundled_entries() {
+            let mut keys = Vec::with_capacity(1 + bundled.aliases.len());
+            keys.push(normalize_id(&bundled.id));
+            for alias in &bundled.aliases {
+                keys.push(normalize_id(alias));
+            }
+            let mut found = false;
+            for key in &keys {
+                if let Some(existing) = self.by_id.get_mut(key) {
+                    if bundled.request.is_some() {
+                        existing.request.clone_from(&bundled.request);
+                    }
+                    found = true;
+                }
+            }
+            if !found {
+                self.insert(bundled.clone());
+            }
+        }
+    }
 }
 
 fn bundled_entries() -> &'static [CatalogEntry] {

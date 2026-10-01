@@ -12,6 +12,8 @@ The string below is what the frontend sends as `system` when all of these exist:
 
 The colored version of this same string is [system-prompt.html](./system-prompt.html).
 
+The words inside each section stay the same for every model. Claude and unknown models get XML tags, as below. A model id that contains `gpt`, `codex`, `gemini`, `kimi`, `trinity`, or `o1` / `o3` / `o4` gets the same sections as markdown headings (`# personality`).
+
 ```text
 <language>
 LANGUAGE RULE - VERY IMPORTANT

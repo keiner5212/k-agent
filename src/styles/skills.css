@@ -743,9 +743,24 @@
   margin-right: 2vw;
 }
 
-.setting-card__control:has(.list-editor) {
+.setting-card__control:has(.list-editor),
+.setting-card__control:has(.tool-permissions) {
   display: block;
   margin-right: 0;
+}
+
+.tool-permissions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tool-permissions__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
 }
 
 .list-editor {

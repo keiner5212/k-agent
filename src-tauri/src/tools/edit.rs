@@ -194,6 +194,9 @@ fn apply_edits(ctx: &ToolContext<'_>, ops: &[EditRequest]) -> ToolOutcome {
                 "edit outside the workspace must run on the async dispatch path.",
             );
         }
+        if let Err(message) = super::require_prior_read(ctx, &ctx.relative_path(&resolved)) {
+            return super::action_error(&op.file_path, &message);
+        }
         if !grouped.contains_key(&resolved) {
             order.push(resolved.clone());
         }

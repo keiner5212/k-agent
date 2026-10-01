@@ -90,6 +90,7 @@ pub struct ToolContext<'a> {
     pub outside_workspace_allowed: bool,
     pub http_write_allowed: bool,
     pub on_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
+    pub question_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
     pub workspace: Option<std::path::PathBuf>,
     pub parallelism: usize,
     pub allowed_commands: Vec<String>,
@@ -187,6 +188,115 @@ pub(crate) async fn attach_lsp_diagnostics(
     outcome.text.push('\n');
 }
 
+pub(crate) fn norm_tool_path(raw: &str) -> String {
+    let unified = raw.trim().replace('\\', "/");
+    let trimmed = unified.trim_start_matches("./");
+    trimmed.trim_end_matches('/').to_string()
+}
+
+pub(crate) fn read_before_edit_enabled(app: Option<&AppHandle>) -> bool {
+    let Some(app) = app else {
+        return false;
+    };
+    let Some(settings) = crate::load_ui_settings(app) else {
+        return true;
+    };
+    settings
+        .get("readBeforeEdit")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(true)
+}
+
+pub(crate) fn require_prior_read(ctx: &ToolContext<'_>, path: &str) -> Result<(), String> {
+    if !read_before_edit_enabled(ctx.app) {
+        return Ok(());
+    }
+    let Some(turn) = &ctx.turn else {
+        return Ok(());
+    };
+    if turn.has_read(path) {
+        return Ok(());
+    }
+    Err(format!(
+        "Read `{path}` with the read tool before editing it."
+    ))
+}
+
+pub(crate) async fn gate_tool(ctx: &ToolContext<'_>, name: &str) -> Result<(), String> {
+    match tool_permission(ctx.app, name) {
+        "deny" => Err(format!("Tool `{name}` is denied.")),
+        "ask" => confirm_tool(ctx, name).await,
+        _ => Ok(()),
+    }
+}
+
+fn tool_permission(app: Option<&AppHandle>, name: &str) -> &'static str {
+    let Some(app) = app else {
+        return "allow";
+    };
+    let Some(settings) = crate::load_ui_settings(app) else {
+        return "allow";
+    };
+    let mode = settings
+        .get("toolPermissions")
+        .and_then(|value| value.get(name))
+        .and_then(|value| value.as_str())
+        .unwrap_or("allow");
+    match mode {
+        "deny" => "deny",
+        "ask" => "ask",
+        _ => "allow",
+    }
+}
+
+fn tool_grants() -> &'static std::sync::Mutex<std::collections::HashSet<String>> {
+    static GRANTS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> =
+        std::sync::OnceLock::new();
+    GRANTS.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()))
+}
+
+async fn confirm_tool(ctx: &ToolContext<'_>, name: &str) -> Result<(), String> {
+    let key = format!("{}::{name}", ctx.session_id.as_deref().unwrap_or(""));
+    if let Ok(grants) = tool_grants().lock() {
+        if grants.contains(&key) {
+            return Ok(());
+        }
+    }
+    let questions = vec![crate::tools::ask_user::AskUserQuestion {
+        id: "tool_permission".into(),
+        header: "Tool".into(),
+        question: format!("Allow `{name}` to run?"),
+        options: vec![
+            crate::tools::ask_user::AskUserOption {
+                label: "Allow".into(),
+                description: Some("Run it for the rest of this chat.".into()),
+                preview: None,
+            },
+            crate::tools::ask_user::AskUserOption {
+                label: "Deny".into(),
+                description: Some("Do not run it.".into()),
+                preview: None,
+            },
+        ],
+        multi_select: false,
+        allow_free_text: false,
+    }];
+    let call_id = format!("tool-permission::{name}::{}", ctx.call_id);
+    let answer = crate::tools::ask_user::ask_user_wait(ctx, &call_id, &questions, "", "").await;
+    let allowed = answer.iter().any(|entry| {
+        entry.question_id == "tool_permission"
+            && !entry.skipped
+            && entry.selected.iter().any(|label| label == "Allow")
+    });
+    if !allowed {
+        return Err(format!("User denied `{name}`."));
+    }
+    if let Ok(mut grants) = tool_grants().lock() {
+        grants.insert(key);
+    }
+    Ok(())
+}
+
 pub(crate) fn tool_cache_dir(app: Option<&AppHandle>, name: &str) -> Option<std::path::PathBuf> {
     crate::paths::tool_cache_dir(app?, name).ok()
 }
@@ -204,6 +314,7 @@ impl ToolContext<'static> {
             outside_workspace_allowed: false,
             http_write_allowed: false,
             on_chunk: None,
+            question_chunk: None,
             workspace: Some(workspace),
             parallelism,
             allowed_commands: Vec::new(),
