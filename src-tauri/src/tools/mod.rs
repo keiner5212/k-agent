@@ -23,6 +23,7 @@ pub mod todo;
 #[path = "tool-utils/mod.rs"]
 mod tool_utils;
 
+use std::path::Path;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -62,6 +63,12 @@ pub const LIST_DIRECTORY_MAX_PARALLELISM: usize = list_directory::MAX_PARALLELIS
 
 pub const TOOL_KIND_CONTEXT: &str = "context";
 pub const TOOL_KIND_ACTION: &str = "action";
+
+pub(crate) fn note_checkpoint(ctx: &ToolContext<'_>, absolute: &Path, rel: &str) {
+    if let Some(turn) = ctx.turn.as_ref() {
+        turn.note_file(absolute, rel);
+    }
+}
 
 pub fn new_tool_call_id() -> String {
     format!("call_{}", Uuid::new_v4().simple())

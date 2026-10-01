@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::io::Read;
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -25,6 +26,7 @@ pub struct BackgroundTool;
 pub struct TurnSlot {
     procs: Mutex<Vec<RunningProc>>,
     reads: Mutex<HashSet<String>>,
+    noted: Mutex<Vec<crate::checkpoints::NotedFile>>,
 }
 
 struct RunningProc {
@@ -44,7 +46,19 @@ impl TurnSlot {
         Arc::new(Self {
             procs: Mutex::new(Vec::new()),
             reads: Mutex::new(HashSet::new()),
+            noted: Mutex::new(Vec::new()),
         })
+    }
+
+    pub fn note_file(&self, absolute: &Path, rel: &str) {
+        crate::checkpoints::remember(&self.noted, absolute, rel);
+    }
+
+    pub fn take_noted(&self) -> Vec<crate::checkpoints::NotedFile> {
+        match self.noted.lock() {
+            Ok(mut files) => std::mem::take(&mut *files),
+            Err(poisoned) => std::mem::take(&mut *poisoned.into_inner()),
+        }
     }
 
     pub fn note_read(&self, path: &str) {

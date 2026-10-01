@@ -1,4 +1,5 @@
-import { slashCommandByName } from "@/lib/slash-commands";
+import { slashCommandByName, withPromptCommands } from "@/lib/slash-commands";
+import { useSettingsStore } from "@/lib/settings";
 import { findSkillByName, flattenSkills } from "@/lib/skill-mentions";
 import { useSkillsStore } from "@/lib/skills";
 
@@ -27,7 +28,10 @@ export const expandComposerText = async (
     const index = match.index;
     const name = match[1] ?? "";
     const tokenLength = match[0]?.length ?? 0;
-    const command = slashCommandByName(name);
+    const command = slashCommandByName(
+      name,
+      withPromptCommands(useSettingsStore.getState().promptCommands),
+    );
     if (command) {
       const afterToken = index + tokenLength;
       const { args, consumed } = trailingSameLineArgs(expanded, afterToken);

@@ -34,10 +34,13 @@ import {
   DEFAULT_WORKSPACE_MEMORY_ENABLED,
   FONT_FAMILY_OPTIONS,
   MAX_REMINDER_INTERVAL,
+  MAX_PROMPT_COMMANDS,
+  MAX_PROMPT_TEMPLATE,
   MAX_WORKER_CORES_AUTO,
   MIN_REMINDER_INTERVAL,
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
+  PROMPT_COMMAND_NAME,
   SUPPORTED_LANGUAGES,
   TEXT_SCALE_OPTIONS,
   hardwareThreadCount,
@@ -45,6 +48,7 @@ import {
   type AppLanguage,
   type AppTheme,
   type Keybindings,
+  type PromptCommand,
   type Settings,
   type ToolPermission,
   type TextScale,
@@ -231,6 +235,30 @@ const sanitizeModelChoice = (value: unknown): SelectedModel | null => {
   return null;
 };
 
+const sanitizePromptCommands = (value: unknown): PromptCommand[] => {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const commands: PromptCommand[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const item = entry as Partial<PromptCommand>;
+    const name = typeof item.name === "string" ? item.name.trim() : "";
+    const description = typeof item.description === "string" ? item.description.trim() : "";
+    const template = typeof item.template === "string" ? item.template.trim() : "";
+    const key = name.toLowerCase();
+    if (!PROMPT_COMMAND_NAME.test(name) || seen.has(key)) continue;
+    if (!template || template.length > MAX_PROMPT_TEMPLATE) continue;
+    seen.add(key);
+    commands.push({
+      name,
+      description: description.slice(0, 200),
+      template: template.slice(0, MAX_PROMPT_TEMPLATE),
+    });
+    if (commands.length >= MAX_PROMPT_COMMANDS) break;
+  }
+  return commands;
+};
+
 const sanitizeSettings = (raw: unknown): Settings => {
   if (!raw || typeof raw !== "object") return DEFAULT_SETTINGS;
   const obj = raw as Record<string, unknown>;
@@ -289,6 +317,7 @@ const sanitizeSettings = (raw: unknown): Settings => {
     chatBackgroundImage: sanitizeChatBackgroundImage(obj.chatBackgroundImage),
     chatBackgroundOpacity: sanitizeChatBackgroundOpacity(obj.chatBackgroundOpacity),
     lastWorkspacePath: sanitizeLastWorkspacePath(obj.lastWorkspacePath),
+    promptCommands: sanitizePromptCommands(obj.promptCommands),
   };
 };
 
@@ -333,6 +362,7 @@ export type SettingsStore = Settings & {
   setChatBackgroundImage: (filename: string | null, url: string | null) => void;
   setChatBackgroundOpacity: (opacity: number) => void;
   setLastWorkspacePath: (path: string) => void;
+  setPromptCommands: (commands: PromptCommand[]) => void;
   resetKeybindings: () => void;
   resetAll: () => void;
 };
@@ -460,6 +490,7 @@ const snapshot = (state: SettingsStore): Settings => ({
   chatBackgroundImage: state.chatBackgroundImage,
   chatBackgroundOpacity: state.chatBackgroundOpacity,
   lastWorkspacePath: state.lastWorkspacePath,
+  promptCommands: state.promptCommands,
 });
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
@@ -708,6 +739,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       chatBackgroundLoading: false,
     });
     applyChrome(get(), url);
+    void persist(snapshot(get()));
+  },
+
+  setPromptCommands: (commands) => {
+    set({ promptCommands: sanitizePromptCommands(commands) });
     void persist(snapshot(get()));
   },
 

@@ -140,6 +140,10 @@ pub struct SendChatResult {
     pub reasoning_signature: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_rounds: Vec<ToolRoundTrace>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub checkpoint_id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files: Vec<crate::sessions::FileTouch>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -154,7 +158,15 @@ struct ChatOutput {
     reasoning: String,
     reasoning_signature: String,
     tool_calls: Vec<ModelToolCall>,
+}
+
+struct SentMessage {
+    content: String,
+    reasoning: String,
+    reasoning_signature: String,
     tool_rounds: Vec<ToolRoundTrace>,
+    checkpoint_id: String,
+    files: Vec<crate::sessions::FileTouch>,
 }
 
 #[derive(Clone)]
@@ -1587,7 +1599,6 @@ async fn collect_stream(
         reasoning,
         reasoning_signature,
         tool_calls,
-        tool_rounds: Vec::new(),
     })
 }
 
@@ -1865,7 +1876,6 @@ async fn send_anthropic_like(
         reasoning,
         reasoning_signature,
         tool_calls,
-        tool_rounds: Vec::new(),
     })
 }
 
@@ -2002,7 +2012,6 @@ async fn send_gemini_like(
         reasoning,
         reasoning_signature,
         tool_calls,
-        tool_rounds: Vec::new(),
     })
 }
 
@@ -2285,6 +2294,49 @@ fn publish_child(
     );
 }
 
+fn sent_message(
+    app: &AppHandle,
+    session_id: Option<&str>,
+    turn: &tools::TurnSlot,
+    record_checkpoints: bool,
+    content: String,
+    reasoning: String,
+    reasoning_signature: String,
+    tool_rounds: Vec<ToolRoundTrace>,
+) -> SentMessage {
+    let (checkpoint_id, files) = if record_checkpoints {
+        seal_checkpoints(app, session_id, turn)
+    } else {
+        (None, Vec::new())
+    };
+    SentMessage {
+        content,
+        reasoning,
+        reasoning_signature,
+        tool_rounds,
+        checkpoint_id: checkpoint_id.unwrap_or_default(),
+        files,
+    }
+}
+
+fn seal_checkpoints(
+    app: &AppHandle,
+    session_id: Option<&str>,
+    turn: &tools::TurnSlot,
+) -> (Option<String>, Vec<crate::sessions::FileTouch>) {
+    let Some(session_id) = session_id else {
+        return (None, Vec::new());
+    };
+    let noted = turn.take_noted();
+    if noted.is_empty() {
+        return (None, Vec::new());
+    }
+    match crate::sessions::seal_turn(app, session_id, noted) {
+        Ok(Some((checkpoint_id, files))) => (Some(checkpoint_id), files),
+        _ => (None, Vec::new()),
+    }
+}
+
 async fn send_message(
     app: &AppHandle,
     provider: &Provider,
@@ -2294,19 +2346,21 @@ async fn send_message(
     outside_workspace_allowed: bool,
     http_write_allowed: bool,
     resume_confirmed: bool,
-) -> Result<ChatOutput, ChatError> {
+    record_checkpoints: bool,
+) -> Result<SentMessage, ChatError> {
     if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
     }
     if !tools_enabled(call) {
         let mut output = dispatch_with_retry(provider, call, on_chunk).await?;
         output.content = tools::truncate_assistant(&output.content);
-        return Ok(ChatOutput {
+        return Ok(SentMessage {
             content: output.content,
             reasoning: output.reasoning,
             reasoning_signature: output.reasoning_signature,
-            tool_calls: output.tool_calls,
             tool_rounds: Vec::new(),
+            checkpoint_id: String::new(),
+            files: Vec::new(),
         });
     }
 
@@ -2394,13 +2448,16 @@ async fn send_message(
                     &output.reasoning_signature,
                     &tool_rounds,
                 );
-                return Ok(ChatOutput {
+                return Ok(sent_message(
+                    app,
+                    session_id,
+                    &turn,
+                    record_checkpoints,
                     content,
-                    reasoning: output.reasoning,
-                    reasoning_signature: output.reasoning_signature,
-                    tool_calls: Vec::new(),
+                    output.reasoning,
+                    output.reasoning_signature,
                     tool_rounds,
-                });
+                ));
             }
             publish_child(
                 app,
@@ -2410,13 +2467,16 @@ async fn send_message(
                 &output.reasoning_signature,
                 &tool_rounds,
             );
-            return Ok(ChatOutput {
-                content: output.content,
-                reasoning: output.reasoning,
-                reasoning_signature: output.reasoning_signature,
-                tool_calls: Vec::new(),
+            return Ok(sent_message(
+                app,
+                session_id,
+                &turn,
+                record_checkpoints,
+                output.content,
+                output.reasoning,
+                output.reasoning_signature,
                 tool_rounds,
-            });
+            ));
         }
 
         let model_calls: Vec<ModelToolCall> = output
@@ -2589,7 +2649,7 @@ pub async fn generate_session_title(
         child_session_id: None,
     };
     let title = normalize_generated_title(
-        &send_message(&app, &provider, &call, None, None, false, false, false)
+        &send_message(&app, &provider, &call, None, None, false, false, false, false)
             .await?
             .content,
     );
@@ -2669,7 +2729,7 @@ pub async fn summarize_conversation(
         child_session_id: None,
     };
     let summary = normalize_generated_text(
-        &send_message(&app, &provider, &call, None, None, false, false, false)
+        &send_message(&app, &provider, &call, None, None, false, false, false, false)
             .await?
             .content,
     );
@@ -2834,7 +2894,7 @@ pub async fn generate_app_content(
         child_session_id: None,
     };
     let text = normalize_generated_text(
-        &send_message(&app, &provider, &call, None, None, false, false, false)
+        &send_message(&app, &provider, &call, None, None, false, false, false, false)
             .await?
             .content,
     );
@@ -2927,7 +2987,6 @@ impl OpenAiChatMessage {
                 reasoning,
                 reasoning_signature: String::new(),
                 tool_calls,
-                tool_rounds: Vec::new(),
             })
         }
     }
@@ -3163,6 +3222,7 @@ pub(crate) async fn run_task(
         ctx.outside_workspace_allowed,
         ctx.http_write_allowed,
         false,
+        false,
     )
     .await
     .map_err(|error| error.to_string())?;
@@ -3305,6 +3365,7 @@ pub async fn send_chat_message(
         input.outside_workspace_allowed,
         input.http_write_allowed,
         input.resume_confirmed,
+        true,
     );
     tokio::pin!(send_fut);
     let output = match cancel_rx {
@@ -3325,6 +3386,8 @@ pub async fn send_chat_message(
         reasoning: output.reasoning,
         reasoning_signature: output.reasoning_signature,
         tool_rounds: output.tool_rounds,
+        checkpoint_id: output.checkpoint_id,
+        files: output.files,
     })
 }
 

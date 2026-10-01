@@ -100,7 +100,9 @@ export const SlashCommandMenu = memo(
                         {formatInlineTokenCount(command.estimatedTokens)}
                       </span>
                     </span>
-                    <span className="file-mention-menu__hint">{t(command.descriptionKey)}</span>
+                    <span className="file-mention-menu__hint">
+                      {command.descriptionText ?? t(command.descriptionKey)}
+                    </span>
                   </button>
                 </li>
               );

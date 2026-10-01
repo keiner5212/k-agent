@@ -45,11 +45,29 @@
       "skills": "Skills",
       "agents": "Agents",
       "agentsMd": "AGENTS.md",
+      "commands": "Commands",
       "keybindings": "Keybindings",
       "debug": "Debug"
     },
     "appearance": {
       "description": "Visual look of the app, including theme, chat background image and its transparency."
+    },
+    "commands": {
+      "description": "Builtin commands and prompt commands you add. Function commands do not call the model.",
+      "builtin": "Builtin",
+      "custom": "Your prompts",
+      "name": "Name",
+      "descriptionLabel": "Description",
+      "template": "Prompt text",
+      "add": "Add command",
+      "remove": "Remove",
+      "empty": "No custom prompt commands yet.",
+      "nameTaken": "That name is empty, invalid, or already used.",
+      "templateRequired": "Prompt text is required.",
+      "kind": {
+        "function": "Function",
+        "prompt": "Prompt"
+      }
     },
     "language": {
       "description": "Choose the interface language.",
@@ -806,14 +824,16 @@
     "message": {
       "copy": "Copy message",
       "copied": "Copied",
-      "rewind": "Rewind history up to this message"
+      "rewind": "Rewind history up to this message",
+      "retry": "Undo and send this message again"
     },
     "rewind": {
       "title": "Rewind history?",
       "body_one": "This will remove the selected message and 1 that follow it from the chat history.",
       "body_other": "This will remove the selected message and {{count}} that follow it from the chat history.",
       "cancel": "Cancel",
-      "confirm": "Rewind"
+      "confirm": "Rewind",
+      "skipped": "Cannot restore {{paths}}. Current files do not match the saved state."
     },
     "thinking": {
       "label": "Thinking",
@@ -968,6 +988,18 @@
       },
       "undo": {
         "description": "Rewind history back to (and including) the last user message"
+      },
+      "redo": {
+        "description": "Restore the last undone turn when files still match"
+      },
+      "stop": {
+        "description": "Stop the running reply"
+      },
+      "init": {
+        "description": "Explore the project and write AGENTS.md"
+      },
+      "custom": {
+        "description": "Custom prompt command"
       }
     },
     "effort": {

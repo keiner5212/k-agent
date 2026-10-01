@@ -248,6 +248,9 @@ fn apply_edits(ctx: &ToolContext<'_>, ops: &[EditRequest]) -> ToolOutcome {
             after: next,
         });
     }
+    for file in &staged {
+        super::note_checkpoint(ctx, &file.resolved, &file.rel);
+    }
     for (index, file) in staged.iter().enumerate() {
         if let Err(error) = fs::write(&file.resolved, &file.after) {
             for written in staged.iter().take(index) {

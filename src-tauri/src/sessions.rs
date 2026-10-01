@@ -61,6 +61,35 @@ pub struct SessionRecord {
     pub workspace_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_session_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub file_checkpoints: Vec<TurnCheckpoint>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub redo: Option<RedoRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileTouch {
+    pub path: String,
+    pub before_hash: String,
+    pub after_hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TurnCheckpoint {
+    pub turn_id: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub checkpoint_id: String,
+    pub files: Vec<FileTouch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RedoRecord {
+    pub messages: Vec<SessionMessage>,
+    #[serde(default)]
+    pub checkpoints: Vec<TurnCheckpoint>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -162,7 +191,7 @@ fn file_call_id(id: &str) -> Result<String, SessionError> {
     }
 }
 
-fn session_dir(app: &AppHandle, session_id: &str) -> Result<PathBuf, SessionError> {
+pub(crate) fn session_dir(app: &AppHandle, session_id: &str) -> Result<PathBuf, SessionError> {
     if !is_safe_id(session_id) {
         return Err(SessionError::Path("invalid session id".into()));
     }
@@ -185,6 +214,8 @@ fn empty_snapshot() -> SessionsSnapshot {
             todos_history: Vec::new(),
             workspace_path: None,
             parent_session_id: None,
+            file_checkpoints: Vec::new(),
+            redo: None,
         }],
     }
 }
@@ -355,6 +386,8 @@ pub fn write_child_session(
         todos_history: Vec::new(),
         workspace_path,
         parent_session_id: Some(parent_session_id.to_string()),
+        file_checkpoints: Vec::new(),
+        redo: None,
     };
     write_session_record(app, &mut session)?;
     Ok(id)
@@ -421,6 +454,8 @@ pub(crate) fn read_session_record(
             todos_history: Vec::new(),
             workspace_path: None,
             parent_session_id: None,
+            file_checkpoints: Vec::new(),
+            redo: None,
         });
     }
     let raw = std::fs::read_to_string(&path).map_err(|e| SessionError::Io(e.to_string()))?;
@@ -833,4 +868,104 @@ pub async fn read_session_file_revision(
     })
     .await
     .map_err(|e| SessionError::Io(e.to_string()))?
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RollbackFileInput {
+    pub path: String,
+    pub checkpoint_id: String,
+    pub side: String,
+    pub expect_hash: String,
+    pub restore_hash: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RollbackFilesInput {
+    pub session_id: String,
+    pub files: Vec<RollbackFileInput>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RollbackFileOutcome {
+    pub path: String,
+    pub restored: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RollbackFilesResult {
+    pub files: Vec<RollbackFileOutcome>,
+}
+
+#[tauri::command]
+pub async fn rollback_files(
+    app: AppHandle,
+    input: RollbackFilesInput,
+) -> Result<RollbackFilesResult, SessionError> {
+    let handle = app.clone();
+    tauri::async_runtime::spawn_blocking(move || rollback_files_sync(&handle, input))
+        .await
+        .map_err(|e| SessionError::Io(e.to_string()))?
+}
+
+pub(crate) fn seal_turn(
+    app: &AppHandle,
+    session_id: &str,
+    noted: Vec<crate::checkpoints::NotedFile>,
+) -> Result<Option<(String, Vec<FileTouch>)>, SessionError> {
+    let Some(sealed) =
+        crate::checkpoints::seal(&session_dir(app, session_id)?, noted).map_err(SessionError::Io)?
+    else {
+        return Ok(None);
+    };
+    let files = sealed
+        .files
+        .into_iter()
+        .map(|file| FileTouch {
+            path: file.path,
+            before_hash: file.before_hash,
+            after_hash: file.after_hash,
+        })
+        .collect();
+    Ok(Some((sealed.checkpoint_id, files)))
+}
+
+fn rollback_files_sync(
+    app: &AppHandle,
+    input: RollbackFilesInput,
+) -> Result<RollbackFilesResult, SessionError> {
+    let workspace = crate::pathutil::workspace_from_app(app);
+    let mut files = Vec::with_capacity(input.files.len());
+    for item in input.files {
+        let restored = restore_one(app, &input.session_id, workspace.as_deref(), &item).is_ok();
+        files.push(RollbackFileOutcome {
+            path: item.path,
+            restored,
+        });
+    }
+    Ok(RollbackFilesResult { files })
+}
+
+fn restore_one(
+    app: &AppHandle,
+    session_id: &str,
+    workspace: Option<&Path>,
+    item: &RollbackFileInput,
+) -> Result<(), SessionError> {
+    let resolved =
+        crate::pathutil::resolve_tool_path(&item.path, workspace).map_err(SessionError::Path)?;
+    let session = session_dir(app, session_id)?;
+    crate::checkpoints::restore_at(
+        &session,
+        &resolved,
+        &item.checkpoint_id,
+        &item.path,
+        &item.side,
+        &item.expect_hash,
+        &item.restore_hash,
+    )
+    .map_err(SessionError::Path)
 }

@@ -31,7 +31,7 @@ import { resolveSelectedModel } from "@/lib/context-usage";
 import { isTauri } from "@/lib/platform";
 import { useProvidersStore } from "@/lib/providers";
 import { useRewindConfirmStore } from "@/lib/rewind-confirm";
-import { matchActionSlashCommand } from "@/lib/slash-commands";
+import { matchActionSlashCommand, withPromptCommands } from "@/lib/slash-commands";
 import { useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
 import { useSessionsStore } from "@/lib/sessions";
@@ -91,6 +91,14 @@ export const ChatComposer = (): ReactNode => {
     (commandId: string): void => {
       if (commandId === "undo") {
         requestRewind();
+        return;
+      }
+      if (commandId === "redo") {
+        void useSessionsStore.getState().redo();
+        return;
+      }
+      if (commandId === "stop") {
+        void useSessionsStore.getState().interruptActiveTask();
       }
     },
     [requestRewind],
@@ -159,7 +167,12 @@ export const ChatComposer = (): ReactNode => {
   const handleSend = useCallback((): void => {
     const text = value;
     const pending = attachments;
-    const action = !shellMode ? matchActionSlashCommand(text) : null;
+    const action = !shellMode
+      ? matchActionSlashCommand(
+          text,
+          withPromptCommands(useSettingsStore.getState().promptCommands),
+        )
+      : null;
     const focus = (): void => {
       textareaRef.current?.focus();
     };

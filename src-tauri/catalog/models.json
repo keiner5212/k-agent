@@ -43111,5 +43111,5086 @@
       "tiers": ["standard", "flex", "priority"],
       "tierMayReject": true
     }
+  },
+  {
+    "id": "abliterated-model-large-v2",
+    "displayName": "Abliterated Model Large V2",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 999990,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["low", "high", "max"],
+    "cost": {
+      "input": 5,
+      "output": 5,
+      "cacheRead": 0.5
+    }
+  },
+  {
+    "id": "abliteration-abliterated-model-large-v2",
+    "displayName": "Abliterated Large V2",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 32768,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "cost": {
+      "input": 3,
+      "output": 5,
+      "cacheRead": 0.3
+    }
+  },
+  {
+    "id": "abliteration-ai/abliterated-model",
+    "displayName": "Abliterated Model",
+    "contextWindow": 262144,
+    "maxOutputTokens": 262134,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 1,
+      "output": 3,
+      "cacheRead": 0.1
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "abliteration-ai/abliterated-model-large",
+    "displayName": "Abliterated Model Large",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 999990,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 3,
+      "output": 5,
+      "cacheRead": 0.3
+    }
+  },
+  {
+    "id": "abliteration-ai/abliterated-model-large-v2",
+    "displayName": "Abliterated Model Large V2",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 999990,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["low", "high", "max"],
+    "cost": {
+      "input": 3,
+      "output": 5,
+      "cacheRead": 0.3
+    }
+  },
+  {
+    "id": "accounts/fireworks/models/ember-1",
+    "displayName": "Ember-1",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on", "low", "medium", "high", "max"],
+    "cost": {
+      "input": 3,
+      "output": 15,
+      "cacheRead": 0.3
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "agnes-2.0-flash",
+    "displayName": "Agnes 2.0 Flash",
+    "contextWindow": 512000,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "agnes-2.5-flash",
+    "displayName": "Agnes 2.5 Flash",
+    "contextWindow": 512000,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "agnes-2.5-pro-alpha",
+    "displayName": "Agnes 2.5 Pro Alpha",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on"],
+    "cost": {
+      "input": 0.45,
+      "output": 0.9,
+      "cacheRead": 0.0038
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "agnes-3.0-flash",
+    "displayName": "Agnes 3.0 Flash",
+    "contextWindow": 524288,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.05,
+      "output": 0.15,
+      "cacheRead": 0.005
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "aion-labs-aion-3-5",
+    "displayName": "Aion 3.5",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "cost": {
+      "input": 3.75,
+      "output": 7.5,
+      "cacheRead": 0.9375
+    }
+  },
+  {
+    "id": "aion-labs-aion-3-5-mini",
+    "displayName": "Aion 3.5 Mini",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "cost": {
+      "input": 0.875,
+      "output": 1.75,
+      "cacheRead": 0.225
+    }
+  },
+  {
+    "id": "aion-labs/aion-3.5",
+    "displayName": "AionLabs: Aion 3.5",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["low", "high", "max"],
+    "cost": {
+      "input": 3,
+      "output": 6,
+      "cacheRead": 0.75
+    }
+  },
+  {
+    "id": "aion-labs/aion-3.5-mini",
+    "displayName": "AionLabs: Aion 3.5 Mini",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["low", "high", "max"],
+    "cost": {
+      "input": 0.7,
+      "output": 1.4,
+      "cacheRead": 0.18
+    }
+  },
+  {
+    "id": "alibaba/qwen-turbo",
+    "displayName": "Qwen Turbo",
+    "family": "qwen",
+    "knowledge": "2024-04",
+    "contextWindow": 128000,
+    "maxOutputTokens": 16000,
+    "input": ["text"],
+    "output": ["text"],
+    "toolCall": true,
+    "aliases": ["qwen/qwen-turbo"],
+    "cost": {
+      "input": 0.043,
+      "output": 0.09,
+      "cacheRead": 0.0086
+    }
+  },
+  {
+    "id": "alibaba/qwen3.5-122b-a10b",
+    "displayName": "Qwen3.5 122B A10B (NovitaAI)",
+    "family": "qwen",
+    "contextWindow": 262144,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "video", "audio"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": ["qwen/qwen3.5-122b-a10b:thinking", "novita/qwen3.5-122b-a10b"],
+    "cost": {
+      "input": 0.4,
+      "output": 3.2
+    },
+    "attachmentTypes": ["image", "video", "audio", "text", "document"]
+  },
+  {
+    "id": "alibaba/qwen3.5-27b",
+    "displayName": "Qwen3.5 27B (Alibaba Cloud)",
+    "family": "qwen",
+    "contextWindow": 262144,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "video", "audio"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": ["qwen/qwen3.5-27b:thinking"],
+    "cost": {
+      "input": 0.3,
+      "output": 2.4
+    },
+    "attachmentTypes": ["image", "video", "audio", "text", "document"]
+  },
+  {
+    "id": "alibaba/qwen3.5-35b-a3b",
+    "displayName": "Qwen3.5 35B A3B (Alibaba Cloud)",
+    "family": "qwen",
+    "contextWindow": 262144,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "video", "audio"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": ["qwen/qwen3.5-35b-a3b:thinking"],
+    "cost": {
+      "input": 0.25,
+      "output": 2
+    },
+    "attachmentTypes": ["image", "video", "audio", "text", "document"]
+  },
+  {
+    "id": "alibaba/qwen3.5-397b-a17b",
+    "displayName": "Qwen3.5 397B-A17B",
+    "family": "qwen",
+    "contextWindow": 262144,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "video", "audio"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on"],
+    "aliases": ["qwen/qwen3.5-397b-a17b:thinking"],
+    "cost": {
+      "input": 0.6,
+      "output": 3.6
+    },
+    "attachmentTypes": ["image", "video", "audio", "text", "document"]
+  },
+  {
+    "id": "alibaba/qwen3.8-max-0902",
+    "displayName": "Qwen3.8 Max 0902",
+    "family": "qwen",
+    "contextWindow": 991808,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "video", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high", "max"],
+    "aliases": ["qwen/qwen3.8-max-0902", "bailian/qwen3.8-max-0902"],
+    "cost": {
+      "input": 2,
+      "output": 6,
+      "cacheRead": 0.17,
+      "cacheWrite": 2.5
+    },
+    "attachmentTypes": ["image", "video", "pdf", "text", "document"]
+  },
+  {
+    "id": "alibaba/qwen3.8-max-prime",
+    "displayName": "Qwen3.8 Max Prime",
+    "family": "qwen3.8-max",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high", "xhigh"],
+    "aliases": ["qwen/qwen3.8-max-prime"],
+    "cost": {
+      "input": 4,
+      "output": 12,
+      "cacheRead": 0.5
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "alibaba/wan-v3.0-video",
+    "displayName": "Wan v3.0 Video",
+    "input": ["text", "image"],
+    "output": ["video"],
+    "attachment": true,
+    "multimodal": true,
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "alibaba/wan-v3.0-video-prime",
+    "displayName": "Wan v3.0 Video Prime",
+    "input": ["text", "image"],
+    "output": ["video"],
+    "attachment": true,
+    "multimodal": true,
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "anthropic/claude-opus-4-1",
+    "displayName": "Claude 4.1 Opus Thinking (1K)",
+    "family": "claude-opus",
+    "knowledge": "2025-03-31",
+    "contextWindow": 200000,
+    "maxOutputTokens": 32000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "aliases": [
+      "anthropic/claude-opus-4.1:thinking:1024",
+      "anthropic/claude-opus-4.1:thinking:8192",
+      "anthropic/claude-opus-4.1:thinking",
+      "anthropic/claude-opus-4.1:thinking:32768"
+    ],
+    "cost": {
+      "input": 15,
+      "output": 75,
+      "cacheRead": 1.5
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "anthropic/claude-sonnet-4:thinking",
+    "displayName": "Claude 4 Sonnet Thinking",
+    "family": "claude-sonnet",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 64000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 3,
+      "output": 15,
+      "cacheRead": 0.3
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "anthropic/claude-sonnet-4:thinking:1024",
+    "displayName": "Claude 4 Sonnet Thinking (1K)",
+    "family": "claude-sonnet",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 64000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 3,
+      "output": 15,
+      "cacheRead": 0.3
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "anthropic/claude-sonnet-4:thinking:32768",
+    "displayName": "Claude 4 Sonnet Thinking (32K)",
+    "family": "claude-sonnet",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 64000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 3,
+      "output": 15,
+      "cacheRead": 0.3
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "anthropic/claude-sonnet-4:thinking:64000",
+    "displayName": "Claude 4 Sonnet Thinking (64K)",
+    "family": "claude-sonnet",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 64000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 3,
+      "output": 15,
+      "cacheRead": 0.3
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "anthropic/claude-sonnet-4:thinking:8192",
+    "displayName": "Claude 4 Sonnet Thinking (8K)",
+    "family": "claude-sonnet",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 64000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 3,
+      "output": 15,
+      "cacheRead": 0.3
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "apodex/apodex-1.1-mini:free",
+    "displayName": "Apodex: Apodex 1.1 Mini (free)",
+    "contextWindow": 262144,
+    "maxOutputTokens": 235929,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["none", "high"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    }
+  },
+  {
+    "id": "atria-dawn-preview",
+    "displayName": "Atria Dawn Preview",
+    "contextWindow": 262144,
+    "maxOutputTokens": 262144,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    }
+  },
+  {
+    "id": "atria/atria-dawn-preview",
+    "displayName": "Atria Dawn Preview (Atria)",
+    "contextWindow": 262144,
+    "maxOutputTokens": 65536,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    }
+  },
+  {
+    "id": "bee-brood",
+    "displayName": "Bee Brood 1.0",
+    "contextWindow": 262144,
+    "maxOutputTokens": 16384,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 0.6,
+      "output": 2.4,
+      "cacheRead": 0.06,
+      "cacheWrite": 0.72
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "bee-buzz",
+    "displayName": "Bee Buzz 1.0",
+    "contextWindow": 262144,
+    "maxOutputTokens": 24576,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 2.5,
+      "output": 10,
+      "cacheRead": 0.25,
+      "cacheWrite": 3
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "bee-cell",
+    "displayName": "Bee Cell 1.0",
+    "contextWindow": 131072,
+    "maxOutputTokens": 8192,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.3,
+      "output": 1.2,
+      "cacheRead": 0.03,
+      "cacheWrite": 0.36
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "bee-comb",
+    "displayName": "Bee Comb 2.0",
+    "contextWindow": 262144,
+    "maxOutputTokens": 16384,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 1.25,
+      "output": 5,
+      "cacheRead": 0.125,
+      "cacheWrite": 1.5
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "bee-hive",
+    "displayName": "Bee Hive 1.0",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 5,
+      "output": 20,
+      "cacheRead": 0.5,
+      "cacheWrite": 6
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "bee-swarm",
+    "displayName": "Bee Swarm 1.0",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 64000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 25,
+      "output": 150,
+      "cacheRead": 2.5,
+      "cacheWrite": 30
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "bytedance/seed-2-0-code-preview-260328",
+    "displayName": "Seed 2.0 Code Preview (260328) (ByteDance)",
+    "family": "seed",
+    "contextWindow": 262144,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high"],
+    "cost": {
+      "input": 0.5,
+      "output": 3,
+      "cacheRead": 0.1
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "bytedance/seed-2-0-lite-260428",
+    "displayName": "Seed 2.0 Lite (260428) (ByteDance)",
+    "family": "seed",
+    "contextWindow": 262144,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high"],
+    "cost": {
+      "input": 0.25,
+      "output": 2,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "bytedance/seed-2-0-mini-260428",
+    "displayName": "Seed 2.0 Mini (260428) (ByteDance)",
+    "family": "seed",
+    "contextWindow": 262144,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high"],
+    "cost": {
+      "input": 0.1,
+      "output": 0.4,
+      "cacheRead": 0.02
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "bytedance/seed-2-0-pro-260328",
+    "displayName": "Seed 2.0 Pro (260328) (ByteDance)",
+    "family": "seed",
+    "contextWindow": 262144,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high"],
+    "cost": {
+      "input": 0.5,
+      "output": 3,
+      "cacheRead": 0.1
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "bytedance/seed-2.1-turbo",
+    "displayName": "Seed 2.1 Turbo",
+    "family": "seed",
+    "contextWindow": 262144,
+    "maxOutputTokens": 262144,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0.5,
+      "output": 2.5,
+      "cacheRead": 0.1
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "bytedance/seedance-2.0-mini",
+    "displayName": "Seedance 2.0 Mini",
+    "family": "seed",
+    "input": ["text", "image"],
+    "output": ["video"],
+    "attachment": true,
+    "multimodal": true,
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "claude-sonnet-5-5",
+    "displayName": "Claude Sonnet 5.5 Thinking",
+    "family": "claude-sonnet",
+    "knowledge": "2026-06",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "aliases": [
+      "anthropic/claude-sonnet-5.5:thinking",
+      "anthropic/claude-sonnet-5-5",
+      "anthropic/claude-sonnet-5.5",
+      "duo-chat-sonnet-5-5",
+      "claude-sonnet-5-5@default",
+      "claude-sonnet-5.5",
+      "claude-sonnet-5-5@eu",
+      "anthropic.claude-sonnet-5-5",
+      "global.anthropic.claude-sonnet-5-5",
+      "anthropic-claude-sonnet-5.5"
+    ],
+    "cost": {
+      "input": 2,
+      "output": 10,
+      "cacheRead": 0.2,
+      "cacheWrite": 2.5
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "cline-pass/glm-5.3-flash",
+    "displayName": "cline-pass/glm-5.3-flash",
+    "family": "glm-flash",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "video", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "high", "max"],
+    "cost": {
+      "input": 0.15,
+      "output": 0.5,
+      "cacheRead": 0.03
+    },
+    "attachmentTypes": ["image", "video", "pdf", "text", "document"]
+  },
+  {
+    "id": "cohere/c4ai-aya-expanse-32b",
+    "displayName": "Aya Expanse 32B",
+    "contextWindow": 128000,
+    "maxOutputTokens": 4000,
+    "input": ["text"],
+    "output": ["text"],
+    "cost": {
+      "input": 0.5,
+      "output": 1.5
+    }
+  },
+  {
+    "id": "cohere/command-a-plus",
+    "displayName": "Cohere: Command A+",
+    "family": "command-a",
+    "contextWindow": 192000,
+    "maxOutputTokens": 64000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "high"],
+    "cost": {
+      "input": 0.3,
+      "output": 1.5,
+      "cacheRead": 0.15
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "consensusprotocol/Qwen3.8-27B",
+    "displayName": "Qwen3.8 27B (Consensus Protocol)",
+    "contextWindow": 262000,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "xhigh"],
+    "cost": {
+      "input": 0.08,
+      "output": 0.35,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "deepinfra/granite-4.2-8b",
+    "displayName": "Granite 4.2 8B (DeepInfra)",
+    "family": "granite",
+    "contextWindow": 131072,
+    "maxOutputTokens": 117964,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0.06,
+      "output": 0.25,
+      "cacheRead": 0.015
+    }
+  },
+  {
+    "id": "deepinfra/ling-3.0-flash-vl",
+    "displayName": "Ling 3.0 Flash VL (DeepInfra)",
+    "family": "ling",
+    "contextWindow": 131072,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0.06,
+      "output": 0.18,
+      "cacheRead": 0.012
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "deepseek-v4.1-flash",
+    "displayName": "DeepSeek V4.1 Flash",
+    "family": "deepseek-flash",
+    "knowledge": "2025-05",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 384000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on", "none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": [
+      "deepseek-ai/DeepSeek-V4.1-Flash",
+      "deepseek/deepseek-v4.1-flash",
+      "deepseek-v4-1-flash",
+      "deepseek/deepseek-v4.1-flash:thinking",
+      "TEE/deepseek-v4.1-flash",
+      "deepseek-flash",
+      "deepseek-ai/DeepSeek-V4.1-Flash-Fast",
+      "umans-deepseek-v4.1-flash",
+      "consensusprotocol/deepseek-v4.1-flash",
+      "deepinfra/deepseek-v4.1-flash",
+      "scx-ai-gp/deepseek-v4.1-flash",
+      "runware/deepseek-v4.1-flash",
+      "novita/deepseek-v4.1-flash",
+      "alibaba/deepseek-v4.1-flash",
+      "baidu/deepseek-v4.1-flash",
+      "fireworks/deepseek-v4.1-flash",
+      "together-ai/deepseek-v4.1-flash",
+      "cline-pass/deepseek-v4.1-flash",
+      "deepseek-v4.1-flash-fast-fp4",
+      "deepseek-v4.1-flash-flex",
+      "accounts/fireworks/models/deepseek-v4p1-flash",
+      "accounts/fireworks/routers/deepseek-flash-latest",
+      "deepseek-v4.1-flash:fast",
+      "deepinfra/deepseek-ai/DeepSeek-V4.1-Flash",
+      "together_ai/deepseek-ai/DeepSeek-V4.1-Flash",
+      "nebius/deepseek-ai/DeepSeek-V4.1-Flash",
+      "tensorx/deepseek/deepseek-v4.1-flash",
+      "qwen/deepseek-v4.1-flash",
+      "deepseek/deepseek-flash",
+      "deepseek-v4.1-flash@eu",
+      "hf:deepseek-ai/DeepSeek-V4.1-Flash"
+    ],
+    "cost": {
+      "input": 0.15,
+      "output": 0.6,
+      "cacheRead": 0.003
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "deepseek/deepseek-v4-flash-0423",
+    "displayName": "DeepSeek V4 Flash 0423",
+    "family": "deepseek-flash",
+    "knowledge": "2025-05",
+    "contextWindow": 131072,
+    "maxOutputTokens": 32768,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "effortLevels": ["off", "on", "none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 0.139,
+      "output": 0.278
+    }
+  },
+  {
+    "id": "doubao-seed-1-6-251015",
+    "displayName": "Seed 1.6",
+    "family": "seed",
+    "contextWindow": 256000,
+    "maxOutputTokens": 64000,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["off", "on", "minimal", "low", "medium", "high"],
+    "aliases": ["bytedance-seed/seed-1-6"],
+    "cost": {
+      "input": 0.11875,
+      "output": 1.18747,
+      "cacheRead": 0.02375
+    }
+  },
+  {
+    "id": "doubao-seed-1-6-flash-250828",
+    "displayName": "Seed 1.6 Flash",
+    "family": "seed",
+    "contextWindow": 256000,
+    "maxOutputTokens": 32000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on"],
+    "aliases": ["bytedance-seed/seed-1-6-flash"],
+    "cost": {
+      "input": 0.02227,
+      "output": 0.22265,
+      "cacheRead": 0.00445
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "doubao-seed-1-8-251228",
+    "displayName": "Seed 1.8",
+    "family": "seed",
+    "contextWindow": 256000,
+    "maxOutputTokens": 64000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": ["bytedance-seed/seed-1-8"],
+    "cost": {
+      "input": 0.11875,
+      "output": 1.18747,
+      "cacheRead": 0.02375
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "doubao-seed-2-1-pro-260628",
+    "displayName": "Seed 2.1 Pro",
+    "family": "seed",
+    "contextWindow": 256000,
+    "maxOutputTokens": 256000,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": ["bytedance-seed/seed-2.1-pro"],
+    "cost": {
+      "input": 0.8906,
+      "output": 4.45301,
+      "cacheRead": 0.17812
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "doubao-seed-2.1-turbo",
+    "displayName": "Seed 2.1 Turbo",
+    "family": "seed",
+    "contextWindow": 256000,
+    "maxOutputTokens": 256000,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": ["doubao-seed-2-1-turbo-260628", "bytedance-seed/seed-2.1-turbo"],
+    "cost": {
+      "input": 0.4453,
+      "output": 2.22651,
+      "cacheRead": 0.08906
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "doubao-seed-character-260628",
+    "displayName": "Seed Character",
+    "family": "seed",
+    "contextWindow": 256000,
+    "maxOutputTokens": 256000,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on", "minimal", "low", "high"],
+    "aliases": ["bytedance-seed/seed-character"],
+    "cost": {
+      "input": 0.11875,
+      "output": 0.29687,
+      "cacheRead": 0.02375
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "doubao-seed-evolving",
+    "displayName": "Seed Evolving",
+    "family": "seed",
+    "contextWindow": 256000,
+    "maxOutputTokens": 256000,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": ["bytedance-seed/seed-evolving"],
+    "cost": {
+      "input": 0.8906,
+      "output": 4.45301,
+      "cacheRead": 0.17812
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "eu.mistral.pixtral-large-2502-v1:0",
+    "displayName": "Pixtral Large (25.02) (EU)",
+    "family": "pixtral",
+    "contextWindow": 128000,
+    "maxOutputTokens": 8192,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "aliases": [
+      "amazon/mistral.pixtral-large-2502-v1:0",
+      "mistral/pixtral-large-2502",
+      "amazon/mistral.pixtral-large-2502-v1:0@us",
+      "us.mistral.pixtral-large-2502-v1:0"
+    ],
+    "cost": {
+      "input": 2,
+      "output": 6
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "fastino/gliguard-PII-multi",
+    "displayName": "GLiNER2-Guardrails-PII-Multi",
+    "contextWindow": 8192,
+    "maxOutputTokens": 8192,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["low", "medium", "high"],
+    "cost": {
+      "input": 0.15,
+      "output": 0.15,
+      "cacheRead": 0.15,
+      "cacheWrite": 0.15
+    }
+  },
+  {
+    "id": "fastino/GLiNER-2.5-Decide",
+    "displayName": "GLiNER-2.5-Decide",
+    "contextWindow": 8192,
+    "maxOutputTokens": 8192,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["low", "medium", "high"],
+    "cost": {
+      "input": 0.15,
+      "output": 0.15,
+      "cacheRead": 0.15,
+      "cacheWrite": 0.15
+    }
+  },
+  {
+    "id": "fastino/gliner2.5-base-v1",
+    "displayName": "GLiNER 2.5 Base",
+    "contextWindow": 4096,
+    "maxOutputTokens": 4096,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["low", "medium", "high"],
+    "cost": {
+      "input": 0.03,
+      "output": 0,
+      "cacheRead": 0.03,
+      "cacheWrite": 0.03
+    }
+  },
+  {
+    "id": "fastino/gliner2.5-multi-v1",
+    "displayName": "GLiNER 2.5 Multi",
+    "contextWindow": 4096,
+    "maxOutputTokens": 4096,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["low", "medium", "high"],
+    "cost": {
+      "input": 0.15,
+      "output": 0.15,
+      "cacheRead": 0.15,
+      "cacheWrite": 0.15
+    }
+  },
+  {
+    "id": "fireworks/ember-1",
+    "displayName": "Ember-1",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 943718,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on", "low", "high", "max"],
+    "cost": {
+      "input": 3,
+      "output": 15,
+      "cacheRead": 0.3
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "fledge-alpha-free",
+    "displayName": "Fledge Alpha Free",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "high", "max"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "fugu-max",
+    "displayName": "Fugu Max",
+    "family": "fugu",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 1000000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["high", "xhigh", "max"],
+    "cost": {
+      "input": 2,
+      "output": 6,
+      "cacheRead": 0.25
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "fugu-ultra-v2.0",
+    "displayName": "Fugu Ultra v2.0",
+    "family": "fugu",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 1000000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["high", "xhigh", "max"],
+    "cost": {
+      "input": 5,
+      "output": 30,
+      "cacheRead": 0.5
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemini-3-1-flash-tts",
+    "displayName": "Gemini 3.1 Flash TTS Preview",
+    "family": "gemini-flash",
+    "knowledge": "2025-01",
+    "contextWindow": 8192,
+    "maxOutputTokens": 16384,
+    "input": ["text"],
+    "output": ["audio"],
+    "aliases": ["google/gemini-3.1-flash-tts-preview"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    }
+  },
+  {
+    "id": "gemma-4-12b-it-semancer",
+    "displayName": "Gemma 4 12B Semancer",
+    "family": "gemma",
+    "contextWindow": 131072,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.05,
+      "output": 0.25,
+      "cacheRead": 0.025
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-12b-it-station-keeper",
+    "displayName": "Gemma 4 12B StationKeeper",
+    "family": "gemma",
+    "contextWindow": 131072,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.05,
+      "output": 0.25,
+      "cacheRead": 0.025
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-26b-a4b-it-chimerax",
+    "displayName": "Chimera X",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.12,
+      "output": 0.38,
+      "cacheRead": 0.06
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-26b-a4b-it-darksoul",
+    "displayName": "Dark Soul",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.12,
+      "output": 0.38,
+      "cacheRead": 0.06
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-26b-a4b-it-luminous",
+    "displayName": "Luminous Mirror",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.12,
+      "output": 0.38,
+      "cacheRead": 0.06
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-26b-a4b-it-moonlight",
+    "displayName": "Moonlight Dusk",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.12,
+      "output": 0.38,
+      "cacheRead": 0.06
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-26b-a4b-it-musica",
+    "displayName": "Musica",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.12,
+      "output": 0.38,
+      "cacheRead": 0.06
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-26b-a4b-it-opusdistill",
+    "displayName": "Opus Distill",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.12,
+      "output": 0.38,
+      "cacheRead": 0.06
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-26b-a4b-it-shadowsiren",
+    "displayName": "Shadow Siren",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.12,
+      "output": 0.38,
+      "cacheRead": 0.06
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "Gemma-4-26B-A4B-MeroMero",
+    "displayName": "Gemma 4 26B A4B MeroMero",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.12,
+      "output": 0.38,
+      "cacheRead": 0.06
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "Gemma-4-26B-A4B-MeroMero:thinking",
+    "displayName": "Gemma 4 26B A4B MeroMero Thinking",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.12,
+      "output": 0.38,
+      "cacheRead": 0.06
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-31b-it-darkidol",
+    "displayName": "DarkIdol",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1,
+      "output": 0.45,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-31b-it-fabled",
+    "displayName": "Fabled",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1,
+      "output": 0.45,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-31b-it-garnet",
+    "displayName": "Garnet",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1,
+      "output": 0.45,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-31b-it-gembrain",
+    "displayName": "Gembrain",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1,
+      "output": 0.45,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-31b-it-gemsicle",
+    "displayName": "Gemsicle",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1,
+      "output": 0.45,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-31b-it-isometry",
+    "displayName": "Isometry",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1,
+      "output": 0.45,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gemma-4-31b-it-novelist",
+    "displayName": "Novelist",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1,
+      "output": 0.45,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "Gemma-4-31B-MeroMero-v2:thinking",
+    "displayName": "Gemma 4 31B MeroMero v2 Thinking",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1,
+      "output": 0.45,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "glm-4.6v-flash",
+    "displayName": "GLM-4.6V-Flash",
+    "family": "glm-flash",
+    "contextWindow": 128000,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on"],
+    "aliases": ["zhipuai/glm-4.6v-flash", "zai/glm-4.6v-flash"],
+    "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "glm-5.3-flash",
+    "displayName": "GLM-5.3 Flash (Runware)",
+    "family": "glm-flash",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "video", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": [
+      "zai-org/GLM-5.3-Flash",
+      "zhipuai/glm-5.3-flash",
+      "glm-5.3-flashx",
+      "glm-5-3-flash",
+      "@cf/zai-org/glm-5.3-flash",
+      "z-ai/glm-5.3-flash",
+      "TEE/glm-5.3-flash",
+      "glm5.3-flash",
+      "umans-glm-5.3-flash",
+      "glm-flash-latest",
+      "consensusprotocol/glm-5.3-flash",
+      "scx-ai-gp/glm-5.3-flash",
+      "zai/glm-5.3-flash",
+      "runware/glm-5.3-flash",
+      "novita/glm-5.3-flash",
+      "gonka24/glm-5.3-flash",
+      "fireworks/glm-5.3-flash",
+      "together-ai/glm-5.3-flash",
+      "inference.net/glm-5.3-flash",
+      "z-ai-glm-5-3-flash",
+      "glm-5.3-flash-fp4",
+      "glm-5.3-flash-flex",
+      "glm-5-3-flash-260828",
+      "zai/glm-5.3-flashx",
+      "accounts/fireworks/models/glm-5p3-flash",
+      "accounts/fireworks/routers/glm-flash-latest",
+      "z-ai/glm-5.3-flash-free",
+      "glm-5.3-flash:fast",
+      "ox-alpha",
+      "glm-5.3-flash@eu",
+      "hf:zai-org/GLM-5.3-Flash"
+    ],
+    "cost": {
+      "input": 0.15,
+      "output": 0.5,
+      "cacheRead": 0.03
+    },
+    "attachmentTypes": ["image", "video", "pdf", "text", "document"]
+  },
+  {
+    "id": "glm-5.x-menthol",
+    "displayName": "GLM-5 (Tencent Cloud)",
+    "family": "glm",
+    "contextWindow": 200000,
+    "maxOutputTokens": 128000,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": ["z-ai/glm-5:thinking", "zhipuai/glm-5", "tencent/glm-5"],
+    "cost": {
+      "input": 1,
+      "output": 3.2,
+      "cacheRead": 0.2
+    }
+  },
+  {
+    "id": "glm5.3",
+    "displayName": "GLM-5.3 (EU)",
+    "family": "glm",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 1048576,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["none", "low", "medium", "high", "max"],
+    "aliases": [
+      "@cf/zai-org/glm-5.3",
+      "zhipuai/glm-5.3",
+      "z-ai/glm-5.3:thinking",
+      "TEE/glm-5.3",
+      "zai-org/GLM-5.3-Fast",
+      "glm-latest",
+      "scx-ai-gp/glm-5.3",
+      "runware/glm-5.3",
+      "novita/glm-5.3",
+      "alibaba/glm-5.3",
+      "baidu/glm-5.3",
+      "fireworks/glm-5.3",
+      "together-ai/glm-5.3",
+      "inference.net/glm-5.3",
+      "mistral/glm-5.3",
+      "cline-pass/glm-5.3",
+      "glm-5.3-fp4",
+      "glm-5.3-flex",
+      "glm-5.3-highspeed",
+      "zai/glm-5.3-fast",
+      "accounts/fireworks/models/glm-5p3",
+      "accounts/fireworks/routers/glm-fast-latest",
+      "accounts/fireworks/routers/glm-5p3-fast",
+      "accounts/fireworks/routers/glm-latest",
+      "glm-5.3:fast",
+      "z-ai/glm-5.3-free",
+      "glm5.3-754b",
+      "mistral/zai-glm-5-3",
+      "glm-5.3@eu",
+      "zai-glm-5-3"
+    ],
+    "cost": {
+      "input": 1.2,
+      "output": 4.2,
+      "cacheRead": 0.26
+    }
+  },
+  {
+    "id": "google-vertex/gemini-3.8-flash",
+    "displayName": "Gemini 3.8 Flash (Google Vertex AI)",
+    "family": "gemini",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "audio"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high"],
+    "cost": {
+      "input": 0.75,
+      "output": 3.75,
+      "cacheRead": 0.075,
+      "cacheWrite": 0.08333
+    },
+    "attachmentTypes": ["image", "audio", "text", "document"]
+  },
+  {
+    "id": "google/diffusiongemma",
+    "displayName": "DiffusionGemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "effortLevels": ["none", "xhigh"],
+    "cost": {
+      "input": 0.05,
+      "output": 0.15,
+      "cacheRead": 0.025
+    }
+  },
+  {
+    "id": "google/gemini-3.5-transcribe",
+    "displayName": "Gemini 3.5 Transcribe",
+    "family": "gemini",
+    "input": ["audio"],
+    "output": ["text"],
+    "multimodal": true,
+    "cost": {
+      "input": 2,
+      "output": 12
+    },
+    "attachmentTypes": ["audio"]
+  },
+  {
+    "id": "google/gemini-3.5-transcribe-live",
+    "displayName": "Gemini 3.5 Transcribe Live",
+    "family": "gemini",
+    "input": ["audio"],
+    "output": ["text"],
+    "multimodal": true,
+    "attachmentTypes": ["audio"]
+  },
+  {
+    "id": "google/gemini-3.8-flash-lite-tts",
+    "displayName": "Gemini 3.8 Flash-Lite TTS",
+    "family": "gemini",
+    "input": ["text"],
+    "output": ["audio"],
+    "cost": {
+      "input": 0.5,
+      "output": 6
+    }
+  },
+  {
+    "id": "google/gemini-3.8-flash-tts",
+    "displayName": "Gemini 3.8 Flash TTS",
+    "family": "gemini",
+    "input": ["text"],
+    "output": ["audio"],
+    "cost": {
+      "input": 0.5,
+      "output": 9
+    }
+  },
+  {
+    "id": "google/gemini-3.8-live",
+    "displayName": "Gemini 3.8 Live",
+    "family": "gemini",
+    "input": ["text", "audio"],
+    "output": ["text", "audio"],
+    "multimodal": true,
+    "cost": {
+      "input": 0.75,
+      "output": 4.5
+    },
+    "attachmentTypes": ["audio"]
+  },
+  {
+    "id": "google/gemini-3.8-live-extended-thinking",
+    "displayName": "Gemini 3.8 Live Extended Thinking",
+    "family": "gemini",
+    "input": ["text", "audio"],
+    "output": ["text", "audio"],
+    "multimodal": true,
+    "cost": {
+      "input": 0.75,
+      "output": 4.5
+    },
+    "attachmentTypes": ["audio"]
+  },
+  {
+    "id": "google/gemini-robotics-er-1.6-preview",
+    "displayName": "Gemini Robotics-ER 1.6 Preview",
+    "family": "gemini",
+    "knowledge": "2025-01",
+    "contextWindow": 131072,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "video", "audio"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on"],
+    "cost": {
+      "input": 1,
+      "output": 5
+    },
+    "attachmentTypes": ["image", "video", "audio", "text", "document"]
+  },
+  {
+    "id": "google/gemma-4-26b-a4b-it-cybersecurity",
+    "displayName": "Gemma 4 26B A4B Cybersecurity",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1056,
+      "output": 0.3344,
+      "cacheRead": 0.0528
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "google/gemma4-31b-splituntied",
+    "displayName": "Gemma 4 31B Split-Untied",
+    "family": "gemma",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text"],
+    "output": ["text"],
+    "toolCall": true,
+    "cost": {
+      "input": 0.1,
+      "output": 0.3,
+      "cacheRead": 0.05
+    }
+  },
+  {
+    "id": "gpt-6.1-sol",
+    "displayName": "GPT 6.1 Sol",
+    "family": "gpt-sol",
+    "knowledge": "2026-04-30",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "aliases": [
+      "openai/gpt-6.1-sol",
+      "openai-gpt-61-sol",
+      "duo-chat-gpt-6-1-sol",
+      "openai/gpt-6.1-sol-fast",
+      "gpt-6.1-sol@eu",
+      "us.openai.gpt-6.1-sol",
+      "openai.gpt-6.1-sol",
+      "global.openai.gpt-6.1-sol",
+      "openai-gpt-6-1-sol"
+    ],
+    "cost": {
+      "input": 2,
+      "output": 10,
+      "cacheRead": 0.1,
+      "cacheWrite": 2.5
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "gpt-daybreak-red-latest",
+    "displayName": "Daybreak Red",
+    "family": "gpt",
+    "knowledge": "2026-02-16",
+    "contextWindow": 400000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high", "xhigh", "max"],
+    "aliases": ["openai/gpt-5.6-cyber"],
+    "cost": {
+      "input": 12.5,
+      "output": 75,
+      "cacheRead": 1.25,
+      "cacheWrite": 15.625
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gpt-image-2.5-flare",
+    "displayName": "GPT Image 2.5 Flare",
+    "family": "gpt-image",
+    "input": ["text", "image"],
+    "output": ["image"],
+    "attachment": true,
+    "multimodal": true,
+    "aliases": ["openai/gpt-image-2.5-flare"],
+    "cost": {
+      "input": 5,
+      "output": 30,
+      "cacheRead": 1.25
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "gpt-image-2.5-sunburst",
+    "displayName": "GPT Image 2.5 Sunburst",
+    "family": "gpt-image",
+    "input": ["text", "image"],
+    "output": ["image"],
+    "attachment": true,
+    "multimodal": true,
+    "aliases": ["openai/gpt-image-2.5-sunburst"],
+    "cost": {
+      "input": 5,
+      "output": 30,
+      "cacheRead": 1.25
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "granite-4.2-8b",
+    "displayName": "Granite 4.2 8B",
+    "family": "granite",
+    "contextWindow": 131072,
+    "maxOutputTokens": 131072,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0.06,
+      "output": 0.25,
+      "cacheRead": 0.015
+    }
+  },
+  {
+    "id": "grok-4-7",
+    "displayName": "Grok 4.7",
+    "family": "grok",
+    "contextWindow": 500000,
+    "maxOutputTokens": 500000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh"],
+    "cost": {
+      "input": 2,
+      "output": 6,
+      "cacheRead": 0.5
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "grok-4.7",
+    "displayName": "Grok 4.7",
+    "family": "grok",
+    "knowledge": "2026-05",
+    "contextWindow": 500000,
+    "maxOutputTokens": 500000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high", "xhigh"],
+    "aliases": [
+      "x-ai/grok-4.7",
+      "xai/grok-4.7",
+      "spacexai/grok-4.7",
+      "global.xai.grok-4.7",
+      "us.xai.grok-4.7"
+    ],
+    "cost": {
+      "input": 2,
+      "output": 6,
+      "cacheRead": 0.5
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "grok-imagine-image-2-0",
+    "displayName": "Grok Imagine Image 2.0",
+    "family": "grok",
+    "contextWindow": 8000,
+    "input": ["text", "image"],
+    "output": ["image"],
+    "attachment": true,
+    "multimodal": true,
+    "aliases": ["x-ai/grok-imagine-image-2.0", "xai/grok-imagine-image-2.0"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "heabsy/cyberheabsy",
+    "displayName": "CyberHeabsy",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 65536,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 1.5,
+      "output": 4.5,
+      "cacheRead": 0.275
+    }
+  },
+  {
+    "id": "hy-mt2-plus",
+    "displayName": "Hy-MT2 Plus",
+    "family": "Hy",
+    "contextWindow": 8192,
+    "maxOutputTokens": 8192,
+    "input": ["text"],
+    "output": ["text"],
+    "toolCall": true,
+    "cost": {
+      "input": 0.074,
+      "output": 0.295
+    }
+  },
+  {
+    "id": "hy4-preview",
+    "displayName": "Hy4 Preview (Tencent Cloud)",
+    "family": "Hy",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 65536,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": ["tencent/Hy4-preview", "deepinfra/tencent/Hy4-preview"],
+    "cost": {
+      "input": 0.834,
+      "output": 2.501,
+      "cacheRead": 0.042
+    }
+  },
+  {
+    "id": "ibm-granite/granite-4.2-8b",
+    "displayName": "Granite 4.2 8B",
+    "family": "granite",
+    "contextWindow": 131072,
+    "maxOutputTokens": 117964,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["none", "low", "high"],
+    "cost": {
+      "input": 0.1,
+      "output": 0.15,
+      "cacheRead": 0.05
+    }
+  },
+  {
+    "id": "inception/mercury-2.5",
+    "displayName": "Inception: Mercury 2.5",
+    "family": "mercury",
+    "contextWindow": 260000,
+    "maxOutputTokens": 65536,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0.2,
+      "output": 0.75,
+      "cacheRead": 0.02
+    }
+  },
+  {
+    "id": "inception/mercury-2.5-preview",
+    "displayName": "Mercury 2.5 Preview",
+    "family": "mercury",
+    "contextWindow": 260000,
+    "maxOutputTokens": 65536,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0.04,
+      "output": 0.15,
+      "cacheRead": 0.004
+    }
+  },
+  {
+    "id": "inclusionai/ling-3.0-flash-fin",
+    "displayName": "inclusionAI: Ling 3.0 Flash Fin",
+    "family": "ling",
+    "contextWindow": 262144,
+    "maxOutputTokens": 235929,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["none", "high"],
+    "aliases": ["ling-3.0-flash-fin-free"],
+    "cost": {
+      "input": 0.075,
+      "output": 0.22,
+      "cacheRead": 0.015
+    }
+  },
+  {
+    "id": "inclusionai/ling-3.0-flash-sante",
+    "displayName": "Ling 3.0 Flash Sante",
+    "family": "ling",
+    "contextWindow": 256000,
+    "maxOutputTokens": 32000,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    }
+  },
+  {
+    "id": "inclusionai/ling-3.0-flash-sante-free",
+    "displayName": "Ling 3.0 Flash Sante (Free)",
+    "family": "ling",
+    "contextWindow": 256000,
+    "maxOutputTokens": 32000,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    }
+  },
+  {
+    "id": "inclusionai/ling-3.0-flash-sante:free",
+    "displayName": "inclusionAI: Ling 3.0 Flash Sante (free)",
+    "family": "ling",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["none", "high"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    }
+  },
+  {
+    "id": "inclusionai/ling-3.0-flash-vl",
+    "displayName": "Ling 3.0 Flash VL",
+    "family": "ling",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0.06,
+      "output": 0.18,
+      "cacheRead": 0.012
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "inclusionai/ling-3.1-flash",
+    "displayName": "Ling 3.1 Flash",
+    "family": "ling",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "aliases": ["inclusionai/ling-3.1-flash-free"],
+    "cost": {
+      "input": 0.075,
+      "output": 0.22,
+      "cacheRead": 0.015
+    }
+  },
+  {
+    "id": "inference-net/schematron-v2-small",
+    "displayName": "Schematron V2 Small",
+    "contextWindow": 128000,
+    "maxOutputTokens": 4096,
+    "input": ["text"],
+    "output": ["text"],
+    "structuredOutput": true,
+    "cost": {
+      "input": 0.05,
+      "output": 0.23,
+      "cacheRead": 0.025
+    }
+  },
+  {
+    "id": "inference-net/schematron-v2-turbo",
+    "displayName": "Schematron V2 Turbo",
+    "contextWindow": 128000,
+    "maxOutputTokens": 8192,
+    "input": ["text"],
+    "output": ["text"],
+    "structuredOutput": true,
+    "cost": {
+      "input": 0.03,
+      "output": 0.15,
+      "cacheRead": 0.015
+    }
+  },
+  {
+    "id": "kitani/clover-1-150b",
+    "displayName": "Clover 1 150B Preview",
+    "contextWindow": 200000,
+    "maxOutputTokens": 100000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.15,
+      "output": 0.8
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "Kloker",
+    "displayName": "Kloker",
+    "contextWindow": 200000,
+    "maxOutputTokens": 50000,
+    "input": ["text"],
+    "output": ["text"],
+    "toolCall": true,
+    "cost": {
+      "input": 0.23,
+      "output": 1.16
+    }
+  },
+  {
+    "id": "Kloker-Integration-Architect",
+    "displayName": "Kloker Integration Architect",
+    "contextWindow": 200000,
+    "maxOutputTokens": 50000,
+    "input": ["text"],
+    "output": ["text"],
+    "toolCall": true,
+    "cost": {
+      "input": 0.23,
+      "output": 1.16
+    }
+  },
+  {
+    "id": "Kloker-Integration-Developer",
+    "displayName": "Kloker Integration Developer",
+    "contextWindow": 200000,
+    "maxOutputTokens": 50000,
+    "input": ["text"],
+    "output": ["text"],
+    "toolCall": true,
+    "cost": {
+      "input": 0.23,
+      "output": 1.16
+    }
+  },
+  {
+    "id": "lightonai/LightOnOCR-2-1B",
+    "displayName": "LightOnOCR 2",
+    "contextWindow": 32768,
+    "maxOutputTokens": 8192,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1785,
+      "output": 0.3465
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "ling-3.0-flash-vl",
+    "displayName": "Ling 3.0 Flash VL",
+    "family": "ling",
+    "contextWindow": 131072,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0.06,
+      "output": 0.18,
+      "cacheRead": 0.012
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "longcat-2.5-preview",
+    "displayName": "LongCat 2.5 Preview",
+    "family": "longcat",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on"],
+    "aliases": ["meituan/longcat-2.5-preview", "longcat-2.5-preview-free"],
+    "cost": {
+      "input": 0.3,
+      "output": 1.2,
+      "cacheRead": 0.006
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "mercury-2-5",
+    "displayName": "Mercury 2.5",
+    "family": "mercury",
+    "contextWindow": 260000,
+    "maxOutputTokens": 65536,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0.25,
+      "output": 0.9375,
+      "cacheRead": 0.025
+    }
+  },
+  {
+    "id": "mercury-2.5",
+    "displayName": "Mercury 2.5",
+    "family": "mercury",
+    "knowledge": "2025-11-01",
+    "contextWindow": 260000,
+    "maxOutputTokens": 65536,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["low", "medium", "high"],
+    "cost": {
+      "input": 0.04,
+      "output": 0.15,
+      "cacheRead": 0.004
+    }
+  },
+  {
+    "id": "meta-contributor/muse-spark-1.2-contributor",
+    "displayName": "Muse Spark 1.2 Contributor (Meta Contributor)",
+    "family": "muse",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high", "xhigh"],
+    "cost": {
+      "input": 0.1,
+      "output": 0.2,
+      "cacheRead": 0.002
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "meta-contributor/muse-spark-1.3-contributor",
+    "displayName": "Muse Spark 1.3 Contributor (Meta Contributor)",
+    "family": "muse",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 1048576,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high", "xhigh"],
+    "cost": {
+      "input": 0.1,
+      "output": 0.2,
+      "cacheRead": 0.002
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "meta.llama-4-maverick-17b-128e-instruct-fp8",
+    "displayName": "Llama 4 Maverick 17B Instruct",
+    "family": "llama",
+    "knowledge": "2024-08",
+    "contextWindow": 512000,
+    "maxOutputTokens": 16384,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "attachment": true,
+    "multimodal": true,
+    "aliases": ["meta/llama-4-maverick-17b-instruct"],
+    "cost": {
+      "input": 0.72,
+      "output": 0.72
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "meta.llama-4-scout-17b-16e-instruct",
+    "displayName": "Llama 4 Scout 17B Instruct",
+    "family": "llama",
+    "knowledge": "2024-08",
+    "contextWindow": 192000,
+    "maxOutputTokens": 16384,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "attachment": true,
+    "multimodal": true,
+    "aliases": ["meta/llama-4-scout-17b-instruct"],
+    "cost": {
+      "input": 0.72,
+      "output": 0.72
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "meta/muse-image-1.0",
+    "displayName": "Muse Image 1.0",
+    "family": "muse",
+    "input": ["text", "image"],
+    "output": ["image"],
+    "attachment": true,
+    "multimodal": true,
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "meta/muse-spark-1.3-contributor",
+    "displayName": "Meta: Muse Spark 1.3 Contributor",
+    "family": "muse",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 943718,
+    "input": ["text", "image", "video", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 0.1,
+      "output": 0.2,
+      "cacheRead": 0.002
+    },
+    "attachmentTypes": ["image", "video", "pdf", "text", "document"]
+  },
+  {
+    "id": "microsoft/mai-transcribe-1.5",
+    "displayName": "MAI-Transcribe-1.5",
+    "family": "mai",
+    "input": ["audio"],
+    "output": ["text"],
+    "multimodal": true,
+    "attachmentTypes": ["audio"]
+  },
+  {
+    "id": "microsoft/mai-transcribe-2",
+    "displayName": "MAI-Transcribe 2",
+    "family": "mai",
+    "input": ["audio"],
+    "output": ["text"],
+    "multimodal": true,
+    "attachmentTypes": ["audio"]
+  },
+  {
+    "id": "microsoft/mai-transcribe-2-streaming",
+    "displayName": "MAI-Transcribe-2-Streaming",
+    "family": "mai",
+    "input": ["audio"],
+    "output": ["text"],
+    "multimodal": true,
+    "attachmentTypes": ["audio"]
+  },
+  {
+    "id": "microsoft/mai-voice-2",
+    "displayName": "MAI-Voice-2",
+    "family": "mai",
+    "input": ["text"],
+    "output": ["audio"]
+  },
+  {
+    "id": "microsoft/mai-voice-2-flash",
+    "displayName": "MAI-Voice-2-Flash",
+    "family": "mai",
+    "input": ["text"],
+    "output": ["audio"]
+  },
+  {
+    "id": "microsoft/mai-voice-2.1",
+    "displayName": "MAI-Voice-2.1",
+    "family": "mai",
+    "input": ["text"],
+    "output": ["audio"]
+  },
+  {
+    "id": "microsoft/mai-voice-2.1-flash",
+    "displayName": "MAI-Voice-2.1-Flash",
+    "family": "mai",
+    "input": ["text"],
+    "output": ["audio"]
+  },
+  {
+    "id": "mimo-v2.6-flash",
+    "displayName": "MiMo-V2.6-Flash",
+    "family": "mimo",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "audio", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on"],
+    "cost": {
+      "input": 0.14,
+      "output": 0.28,
+      "cacheRead": 0.0028
+    },
+    "attachmentTypes": ["image", "audio", "video", "text", "document"]
+  },
+  {
+    "id": "mimo-v2.6-pro",
+    "displayName": "MiMo-V2.6-Pro",
+    "family": "mimo",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "audio", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on"],
+    "cost": {
+      "input": 0.435,
+      "output": 0.87,
+      "cacheRead": 0.0036
+    },
+    "attachmentTypes": ["image", "audio", "video", "text", "document"]
+  },
+  {
+    "id": "mimo-v2.6-pro-ultraspeed",
+    "displayName": "MiMo-V2.6-Pro-UltraSpeed",
+    "family": "mimo",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "audio", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on"],
+    "cost": {
+      "input": 4.35,
+      "output": 8.7,
+      "cacheRead": 0.036
+    },
+    "attachmentTypes": ["image", "audio", "video", "text", "document"]
+  },
+  {
+    "id": "MiniCPM5-2B",
+    "displayName": "MiniCPM5-2B",
+    "contextWindow": 131072,
+    "maxOutputTokens": 131072,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "aliases": ["openbmb/minicpm5-2b"],
+    "cost": {
+      "input": 0.124,
+      "output": 0.7425,
+      "cacheRead": 0.124
+    }
+  },
+  {
+    "id": "MiniMax-M3.1-Flash-Preview",
+    "displayName": "MiniMax-M3.1-Flash-Preview",
+    "family": "minimax",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 512000,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "aliases": ["minimax/MiniMax-M3.1-Flash-Preview"],
+    "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "minimax/minimax-h3-max",
+    "displayName": "MiniMax H3 Max",
+    "family": "minimax",
+    "input": ["text", "image"],
+    "output": ["video"],
+    "attachment": true,
+    "multimodal": true,
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "mistral/ministral-3-14b-instruct-2512",
+    "displayName": "Ministral 3 14B (Infomaniak)",
+    "family": "ministral",
+    "contextWindow": 100000,
+    "maxOutputTokens": 262144,
+    "input": ["text"],
+    "output": ["text"],
+    "aliases": ["infomaniak/mistralai/Ministral-3-14B-Instruct-2512"],
+    "cost": {
+      "input": 0.33894,
+      "output": 0.45192
+    }
+  },
+  {
+    "id": "mistral/mistral-medium-3-5",
+    "displayName": "Mistral Medium 3.5 (Mistral AI)",
+    "family": "mistral-medium",
+    "contextWindow": 262144,
+    "maxOutputTokens": 262144,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 1.5,
+      "output": 7.5
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "mistral/voxtral-mini-3b-2507",
+    "displayName": "Voxtral Mini 3B 2507 (Amazon Bedrock, US)",
+    "family": "voxtral",
+    "contextWindow": 128000,
+    "maxOutputTokens": 32768,
+    "input": ["text", "audio"],
+    "output": ["text"],
+    "attachment": true,
+    "multimodal": true,
+    "aliases": ["amazon/mistral.voxtral-mini-3b-2507@us", "amazon/mistral.voxtral-mini-3b-2507"],
+    "cost": {
+      "input": 0.04,
+      "output": 0.04
+    },
+    "attachmentTypes": ["audio", "text", "document"]
+  },
+  {
+    "id": "mistral/voxtral-small-24b-2507",
+    "displayName": "Voxtral Small 24B 2507 (Amazon Bedrock)",
+    "family": "voxtral",
+    "contextWindow": 128000,
+    "maxOutputTokens": 32768,
+    "input": ["text", "audio"],
+    "output": ["text"],
+    "attachment": true,
+    "multimodal": true,
+    "aliases": [
+      "amazon/mistral.voxtral-small-24b-2507",
+      "amazon/mistral.voxtral-small-24b-2507@us"
+    ],
+    "cost": {
+      "input": 0.1,
+      "output": 0.3
+    },
+    "attachmentTypes": ["audio", "text", "document"]
+  },
+  {
+    "id": "mistralai/mistral-medium-3.5",
+    "displayName": "Mistral Medium 3.5",
+    "family": "mistral-medium",
+    "contextWindow": 256000,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "high"],
+    "cost": {
+      "input": 1.5,
+      "output": 7.5,
+      "cacheRead": 0.75
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "mistralai/mistral-medium-3.5:thinking",
+    "displayName": "Mistral Medium 3.5 Thinking",
+    "family": "mistral-medium",
+    "contextWindow": 256000,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "high"],
+    "cost": {
+      "input": 1.5,
+      "output": 7.5,
+      "cacheRead": 0.75
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "mixedbread/toast-1",
+    "displayName": "Toast 1",
+    "contextWindow": 131000,
+    "maxOutputTokens": 4000,
+    "input": ["text"],
+    "output": ["text"],
+    "toolCall": true,
+    "cost": {
+      "input": 0.3,
+      "output": 0.72,
+      "cacheRead": 0.036
+    }
+  },
+  {
+    "id": "muse-spark-1.3",
+    "displayName": "Muse Spark 1.3",
+    "family": "muse",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "video", "pdf", "audio"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": ["muse-spark-1-3", "meta/muse-spark-1.3", "cline-pass/muse-spark-1.3-contributor"],
+    "cost": {
+      "input": 1.25,
+      "output": 4.25,
+      "cacheRead": 0.15
+    },
+    "attachmentTypes": ["image", "video", "pdf", "audio", "text", "document"]
+  },
+  {
+    "id": "muse-spark-1.3-contributor",
+    "displayName": "Muse Spark 1.3 Contributor",
+    "family": "muse",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "video", "pdf", "audio"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high", "xhigh"],
+    "cost": {
+      "input": 0.1,
+      "output": 0.2,
+      "cacheRead": 0.002
+    },
+    "attachmentTypes": ["image", "video", "pdf", "audio", "text", "document"]
+  },
+  {
+    "id": "muse-spark-1.3-contributor-free",
+    "displayName": "Muse Spark 1.3 Free",
+    "family": "muse-free",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "video", "pdf", "audio"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high", "xhigh"],
+    "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0
+    },
+    "attachmentTypes": ["image", "video", "pdf", "audio", "text", "document"]
+  },
+  {
+    "id": "neosmith.intelligent-basic",
+    "displayName": "NeoSmith Basic",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 1.17,
+      "output": 4.37,
+      "cacheRead": 0.22,
+      "cacheWrite": 0
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "neosmith.intelligent-maestro",
+    "displayName": "NeoSmith Maestro",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 2.4,
+      "output": 12,
+      "cacheRead": 0.35,
+      "cacheWrite": 0
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "neosmith.intelligent-pro",
+    "displayName": "NeoSmith Pro",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 1.81,
+      "output": 8.39,
+      "cacheRead": 0.3,
+      "cacheWrite": 0
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "neosmith.neolite",
+    "displayName": "NeoSmith NeoLite",
+    "contextWindow": 512000,
+    "maxOutputTokens": 64000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.6,
+      "output": 2.4,
+      "cacheRead": 0.08,
+      "cacheWrite": 0
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "nex-agi/nex-n2.5-mini",
+    "displayName": "Nex AGI: Nex-N2.5-Mini",
+    "family": "agi",
+    "contextWindow": 262144,
+    "maxOutputTokens": 235929,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "medium", "high"],
+    "cost": {
+      "input": 0.025,
+      "output": 0.1,
+      "cacheRead": 0.0025
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "nex-agi/nex-n2.5-pro",
+    "displayName": "Nex AGI: Nex-N2.5-Pro",
+    "family": "agi",
+    "contextWindow": 262144,
+    "maxOutputTokens": 235929,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "medium", "high"],
+    "cost": {
+      "input": 0.075,
+      "output": 0.25,
+      "cacheRead": 0.015
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "nvidia/nemotron-3.5-content-safety",
+    "displayName": "Nemotron 3.5 Content Safety",
+    "family": "nemotron",
+    "contextWindow": 131072,
+    "maxOutputTokens": 117964,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "high"],
+    "cost": {
+      "input": 0.2,
+      "output": 0.2
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "openai-gpt-6-astra-pro",
+    "displayName": "GPT-6 Astra Pro",
+    "family": "gpt",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 12.5,
+      "output": 62.5,
+      "cacheRead": 1.25,
+      "cacheWrite": 15.625
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "openai/gpt-6-astra-fast",
+    "displayName": "GPT-6 Astra (Fast)",
+    "family": "gpt-astra",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 20,
+      "output": 100,
+      "cacheRead": 2,
+      "cacheWrite": 25
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "openai/gpt-6-astra-pro",
+    "displayName": "GPT 6 Astra Pro",
+    "family": "gpt",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 10,
+      "output": 50,
+      "cacheRead": 1,
+      "cacheWrite": 12.5
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "openai/gpt-6-luna-pro",
+    "displayName": "OpenAI: GPT-6 Luna Pro",
+    "family": "gpt",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["pdf", "image", "text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 0.1,
+      "output": 0.5,
+      "cacheRead": 0.01,
+      "cacheWrite": 0.125
+    },
+    "attachmentTypes": ["pdf", "image", "text", "document"]
+  },
+  {
+    "id": "openai/gpt-6-sol-pro",
+    "displayName": "OpenAI: GPT-6 Sol Pro",
+    "family": "gpt",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["pdf", "image", "text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 2,
+      "output": 10,
+      "cacheRead": 0.2,
+      "cacheWrite": 2.5
+    },
+    "attachmentTypes": ["pdf", "image", "text", "document"]
+  },
+  {
+    "id": "openai/gpt-6.1-sol-pro",
+    "displayName": "GPT 6.1 Sol Pro",
+    "family": "gpt",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 2,
+      "output": 10,
+      "cacheRead": 0.1,
+      "cacheWrite": 2.5
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "openai/gpt-astra-latest",
+    "displayName": "GPT Astra Latest",
+    "family": "gpt-astra",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 10,
+      "output": 50,
+      "cacheRead": 1,
+      "cacheWrite": 12.5
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "openai/gpt-live-1",
+    "displayName": "GPT-Live 1",
+    "family": "gpt",
+    "input": ["text", "audio"],
+    "output": ["text", "audio"],
+    "multimodal": true,
+    "attachmentTypes": ["audio"]
+  },
+  {
+    "id": "openai/gpt-luna-latest",
+    "displayName": "GPT Luna Latest",
+    "family": "gpt-luna",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 0.1,
+      "output": 0.5,
+      "cacheRead": 0.01,
+      "cacheWrite": 0.125
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "openai/gpt-sol-latest",
+    "displayName": "GPT Sol Latest",
+    "family": "gpt-sol",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 2,
+      "output": 10,
+      "cacheRead": 0.1,
+      "cacheWrite": 2.5
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "openai/gpt-terra-latest",
+    "displayName": "GPT Terra Latest",
+    "family": "gpt-terra",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 2,
+      "output": 12,
+      "cacheRead": 0.2,
+      "cacheWrite": 2.5
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "orcarouter/free",
+    "displayName": "OrcaRouter Free",
+    "family": "auto",
+    "contextWindow": 65536,
+    "maxOutputTokens": 32768,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "cost": {
+      "input": 0,
+      "output": 0
+    }
+  },
+  {
+    "id": "orcarouter/fusion",
+    "displayName": "OrcaRouter Fusion",
+    "family": "model-router",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high"],
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "orcarouter/fusion-flash",
+    "displayName": "OrcaRouter Fusion Flash",
+    "family": "model-router",
+    "contextWindow": 200000,
+    "maxOutputTokens": 128000,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["low", "medium", "high"]
+  },
+  {
+    "id": "orcarouter/fusion-mini",
+    "displayName": "OrcaRouter Fusion Mini",
+    "family": "model-router",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high"],
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "perceptron/perceptron-mk1.5",
+    "displayName": "Perceptron Mk1.5",
+    "contextWindow": 36864,
+    "maxOutputTokens": 8192,
+    "input": ["text", "image", "video", "audio"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high"],
+    "cost": {
+      "input": 0.15,
+      "output": 1.5
+    },
+    "attachmentTypes": ["image", "video", "audio", "text", "document"]
+  },
+  {
+    "id": "prism-ml/ternary-bonsai-2-27b",
+    "displayName": "Ternary Bonsai 2 27B",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on", "medium", "xhigh"],
+    "cost": {
+      "input": 0.075,
+      "output": 0.5,
+      "cacheRead": 0.0375
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "quiverai/arrow-2",
+    "displayName": "Arrow 2",
+    "contextWindow": 131072,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image"],
+    "output": ["text", "image"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh"],
+    "cost": {
+      "input": 4,
+      "output": 20,
+      "cacheRead": 0.4,
+      "cacheWrite": 5
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "quiverai/arrow-2-telos",
+    "displayName": "Arrow 2 Telos",
+    "contextWindow": 131072,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image"],
+    "output": ["text", "image"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh"],
+    "cost": {
+      "input": 6,
+      "output": 30,
+      "cacheRead": 0.6,
+      "cacheWrite": 7.5
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "qwen-image-2.1",
+    "displayName": "Qwen-Image-2.1",
+    "family": "qwen",
+    "contextWindow": 8192,
+    "input": ["text"],
+    "output": ["image"],
+    "aliases": ["alibaba/qwen-image-2.1"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    }
+  },
+  {
+    "id": "qwen/qwen-long",
+    "displayName": "Qwen Long 10M",
+    "family": "qwen",
+    "contextWindow": 10000000,
+    "maxOutputTokens": 8192,
+    "input": ["text", "pdf"],
+    "output": ["text"],
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1003,
+      "output": 0.408,
+      "cacheRead": 0.05015
+    },
+    "attachmentTypes": ["pdf", "text", "document"]
+  },
+  {
+    "id": "qwen/qwen3-max-2026-01-23",
+    "displayName": "Qwen3 Max 2026-01-23",
+    "family": "qwen",
+    "contextWindow": 256000,
+    "maxOutputTokens": 32768,
+    "input": ["text"],
+    "output": ["text"],
+    "cost": {
+      "input": 1.2002,
+      "output": 6.001,
+      "cacheRead": 0.6001
+    }
+  },
+  {
+    "id": "qwen/qwen3.5-omni-flash",
+    "displayName": "Qwen3.5 Omni Flash",
+    "family": "qwen3.5",
+    "contextWindow": 49152,
+    "maxOutputTokens": 16384,
+    "input": ["text", "image", "video", "audio"],
+    "output": ["text"],
+    "attachment": true,
+    "multimodal": true,
+    "attachmentTypes": ["image", "video", "audio", "text", "document"]
+  },
+  {
+    "id": "qwen/qwen3.5-omni-plus",
+    "displayName": "Qwen3.5 Omni Plus",
+    "family": "qwen3.5",
+    "contextWindow": 983616,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "video", "audio"],
+    "output": ["text"],
+    "attachment": true,
+    "multimodal": true,
+    "attachmentTypes": ["image", "video", "audio", "text", "document"]
+  },
+  {
+    "id": "qwen/qwen3.8-27b-cybersecurity",
+    "displayName": "Qwen 3.8 27B Cybersecurity",
+    "family": "qwen",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1,
+      "output": 0.6,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "qwen/qwen3.8-27b-fable",
+    "displayName": "Qwen 3.8 27B Fable",
+    "family": "qwen",
+    "contextWindow": 524288,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.25,
+      "output": 1.5,
+      "cacheRead": 0.125
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "qwen/qwen3.8-27b-hemmingway",
+    "displayName": "Qwen 3.8 27B Hemingway",
+    "family": "qwen",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.25,
+      "output": 1.5,
+      "cacheRead": 0.125
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "qwen/qwen3.8-27b-obliterated",
+    "displayName": "Qwen 3.8 27B Obliterated",
+    "family": "qwen",
+    "contextWindow": 524288,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.25,
+      "output": 1.5,
+      "cacheRead": 0.2
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "qwen/qwen3.8-27b-obliterated:thinking",
+    "displayName": "Qwen 3.8 27B Obliterated Thinking",
+    "family": "qwen",
+    "contextWindow": 524288,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.25,
+      "output": 1.5,
+      "cacheRead": 0.2
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "qwen/qwen3.8-27b-queen",
+    "displayName": "Qwen 3.8 27B Queen",
+    "family": "qwen",
+    "contextWindow": 524288,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.25,
+      "output": 1.5,
+      "cacheRead": 0.125
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "qwen/qwen3.8-27b-uncensored:thinking",
+    "displayName": "Qwen 3.8 27B Uncensored Thinking",
+    "family": "qwen",
+    "contextWindow": 524288,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.15,
+      "output": 1.2,
+      "cacheRead": 0.125
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "qwen3-coder:30b",
+    "displayName": "Qwen3-Coder 30B-A3B Instruct",
+    "family": "qwen",
+    "knowledge": "2025-04",
+    "contextWindow": 262144,
+    "maxOutputTokens": 65536,
+    "input": ["text"],
+    "output": ["text"],
+    "toolCall": true,
+    "aliases": ["alibaba/qwen3-coder-30b-a3b-instruct"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    }
+  },
+  {
+    "id": "qwen3.8-flash",
+    "displayName": "Qwen3.8 Flash (Alibaba Cloud)",
+    "family": "qwen",
+    "contextWindow": 983616,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": [
+      "Qwen/Qwen3.8-Flash",
+      "alibaba/qwen3.8-flash",
+      "qwen3-8-flash",
+      "novita/qwen3.8-flash",
+      "qwen-3-8-flash",
+      "bailian/qwen3.8-flash"
+    ],
+    "cost": {
+      "input": 0.15,
+      "output": 0.47,
+      "cacheRead": 0.016,
+      "cacheWrite": 0.2
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "qwen3.8-flash-next",
+    "displayName": "Qwen3.8 Flash Next",
+    "family": "qwen",
+    "contextWindow": 262144,
+    "maxOutputTokens": 262144,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high", "max"],
+    "aliases": ["alibaba/qwen3.8-flash-next", "qwen/qwen3.8-flash-next", "qwen3.8-flash-next@eu"],
+    "cost": {
+      "input": 0.2,
+      "output": 0.5,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "qwen3.8-omni-flash",
+    "displayName": "Qwen3.8 Omni Flash",
+    "family": "qwen",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "audio", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high", "max"],
+    "aliases": ["qwen3-8-omni-flash", "alibaba/qwen3.8-omni-flash", "qwen/qwen3.8-omni-flash"],
+    "cost": {
+      "input": 0.3,
+      "output": 0.94,
+      "cacheRead": 0.3
+    },
+    "attachmentTypes": ["image", "audio", "video", "text", "document"]
+  },
+  {
+    "id": "recraft/recraft-v4.1-flash",
+    "displayName": "Recraft V4.1 Flash",
+    "family": "recraft",
+    "input": ["text"],
+    "output": ["image"]
+  },
+  {
+    "id": "sakana/fugu-max",
+    "displayName": "Fugu Max",
+    "family": "fugu",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["high", "xhigh", "max"],
+    "cost": {
+      "input": 2,
+      "output": 6,
+      "cacheRead": 0.25
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "sakana/fugu-ultra-v2",
+    "displayName": "Sakana: Fugu Ultra v2",
+    "family": "fugu",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["high", "xhigh", "max"],
+    "cost": {
+      "input": 5,
+      "output": 30,
+      "cacheRead": 0.5
+    },
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "sakana/fugu-ultra-v2.0",
+    "displayName": "Fugu Ultra v2.0 (Sakana AI)",
+    "family": "fugu",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 1000000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["high", "xhigh", "max"],
+    "cost": {
+      "input": 5,
+      "output": 30,
+      "cacheRead": 0.5
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "sdaia/allam-2-7b",
+    "displayName": "ALLaM-2-7b",
+    "contextWindow": 4096,
+    "maxOutputTokens": 4096,
+    "input": ["text"],
+    "output": ["text"],
+    "aliases": ["groq/allam-2-7b"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    }
+  },
+  {
+    "id": "seed-2-0-code-preview-260328",
+    "displayName": "Seed 2.0 Code Preview (260328)",
+    "family": "seed",
+    "contextWindow": 262144,
+    "maxOutputTokens": 262144,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high"],
+    "cost": {
+      "input": 0.5,
+      "output": 3,
+      "cacheRead": 0.1
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "seed-2-0-lite-260428",
+    "displayName": "Seed 2.0 Lite (260428)",
+    "family": "seed",
+    "contextWindow": 262144,
+    "maxOutputTokens": 262144,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high"],
+    "cost": {
+      "input": 0.25,
+      "output": 2,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "seed-2-0-mini-260428",
+    "displayName": "Seed 2.0 Mini (260428)",
+    "family": "seed",
+    "contextWindow": 262144,
+    "maxOutputTokens": 262144,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high"],
+    "cost": {
+      "input": 0.1,
+      "output": 0.4,
+      "cacheRead": 0.02
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "seed-2-0-pro-260328",
+    "displayName": "Seed 2.0 Pro (260328)",
+    "family": "seed",
+    "contextWindow": 262144,
+    "maxOutputTokens": 262144,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["minimal", "low", "medium", "high"],
+    "cost": {
+      "input": 0.5,
+      "output": 3,
+      "cacheRead": 0.1
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "sensenova-6.8-flash-lite",
+    "displayName": "SenseNova 6.8 Flash Lite",
+    "contextWindow": 262144,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "space-bunny-free",
+    "displayName": "Space Bunny Free",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 524288,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "standardcompute",
+    "displayName": "Standard Compute",
+    "family": "auto",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 24576,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on"],
+    "cost": {
+      "input": 0,
+      "output": 0
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "stealth/space-bunny-alpha",
+    "displayName": "Space Bunny Alpha",
+    "family": "alpha",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 524288,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 0.05,
+      "output": 0.15
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "step-5-preview",
+    "displayName": "Step 5 Preview",
+    "contextWindow": 1024000,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high"],
+    "aliases": ["stepfun/step-5-preview"],
+    "cost": {
+      "input": 1,
+      "output": 2.7,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "TheDrummer/Artemis-v1.1",
+    "displayName": "TheDrummer/Artemis v1.1",
+    "contextWindow": 262144,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1,
+      "output": 0.45,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "trustedrouter/auto",
+    "displayName": "Auto",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "trustedrouter/cheap",
+    "displayName": "Cheap",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "trustedrouter/e2e",
+    "displayName": "End-to-End Encrypted",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "trustedrouter/fast",
+    "displayName": "Fast",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "trustedrouter/synth",
+    "displayName": "Synth",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "trustedrouter/synth-code",
+    "displayName": "Synth Code",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "trustedrouter/zdr",
+    "displayName": "Zero Data Retention",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "attachmentTypes": ["image", "pdf", "text", "document"]
+  },
+  {
+    "id": "unbiased/pareto",
+    "displayName": "Pareto",
+    "contextWindow": 262144,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 2.5,
+      "output": 7.5,
+      "cacheRead": 0.25
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "unbiased/pareto-26.10-preview",
+    "displayName": "Pareto 26.10 Preview",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.8,
+      "output": 3.2,
+      "cacheRead": 0.03
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "upstage/solar-mini4",
+    "displayName": "Upstage: Solar Mini 4",
+    "family": "solar",
+    "contextWindow": 524288,
+    "maxOutputTokens": 131072,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 0.1,
+      "output": 0.4,
+      "cacheRead": 0.01
+    }
+  },
+  {
+    "id": "upstage/solar-mini4:thinking",
+    "displayName": "Solar Mini 4 Thinking",
+    "family": "solar",
+    "contextWindow": 524288,
+    "maxOutputTokens": 131072,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0.05,
+      "output": 0.2,
+      "cacheRead": 0.005
+    }
+  },
+  {
+    "id": "us.amazon.nova-premier-v1:0",
+    "displayName": "Nova Premier (US)",
+    "family": "nova",
+    "knowledge": "2024-10",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 10000,
+    "input": ["text", "image", "video", "pdf"],
+    "output": ["text"],
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "aliases": ["amazon/nova-premier"],
+    "cost": {
+      "input": 2.5,
+      "output": 12.5,
+      "cacheRead": 0.625,
+      "cacheWrite": 2.5
+    },
+    "attachmentTypes": ["image", "video", "pdf", "text", "document"]
+  },
+  {
+    "id": "vispark/vision-large",
+    "displayName": "Vision Large",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "audio", "video", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 7.37,
+      "output": 22.11
+    },
+    "attachmentTypes": ["image", "audio", "video", "pdf", "text", "document"]
+  },
+  {
+    "id": "vispark/vision-medium",
+    "displayName": "Vision Medium",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "audio", "video", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 4.21,
+      "output": 12.63
+    },
+    "attachmentTypes": ["image", "audio", "video", "pdf", "text", "document"]
+  },
+  {
+    "id": "vispark/vision-small",
+    "displayName": "Vision Small",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "audio", "video", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 1.05,
+      "output": 3.16
+    },
+    "attachmentTypes": ["image", "audio", "video", "pdf", "text", "document"]
+  },
+  {
+    "id": "viv-fast",
+    "displayName": "Viv Fast",
+    "knowledge": "2026-09",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 256000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "high", "max"],
+    "aliases": ["vivgrid/viv-fast"],
+    "cost": {
+      "input": 0.13,
+      "output": 0.4,
+      "cacheRead": 0.05
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "voyage/rerank-3",
+    "displayName": "Voyage Rerank 3",
+    "family": "voyage",
+    "contextWindow": 32000,
+    "maxOutputTokens": 32000,
+    "input": ["text"],
+    "output": ["text"]
+  },
+  {
+    "id": "voyage/rerank-3-lite",
+    "displayName": "Voyage Rerank 3 Lite",
+    "family": "voyage",
+    "contextWindow": 32000,
+    "maxOutputTokens": 32000,
+    "input": ["text"],
+    "output": ["text"]
+  },
+  {
+    "id": "xai/grok-4-7",
+    "displayName": "Grok 4.7 (xAI)",
+    "family": "grok",
+    "contextWindow": 500000,
+    "maxOutputTokens": 500000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh"],
+    "cost": {
+      "input": 2,
+      "output": 6,
+      "cacheRead": 0.5
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "xai/grok-voice-stt-1.0",
+    "displayName": "Grok Voice STT 1.0",
+    "contextWindow": 15000,
+    "maxOutputTokens": 15000,
+    "input": ["audio"],
+    "output": ["text"],
+    "attachment": true,
+    "multimodal": true,
+    "aliases": ["x-ai/grok-voice-stt-1.0"],
+    "attachmentTypes": ["audio", "text", "document"]
+  },
+  {
+    "id": "xai/grok-voice-tts-1.0",
+    "displayName": "Grok Voice TTS 1.0",
+    "contextWindow": 15000,
+    "maxOutputTokens": 15000,
+    "input": ["text"],
+    "output": ["audio"],
+    "aliases": ["x-ai/grok-voice-tts-1.0"]
+  },
+  {
+    "id": "xiaomi/mimo-v2.6-flash-abliterated",
+    "displayName": "MiMo V2.6 Flash Abliterated",
+    "family": "mimo",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "high"],
+    "cost": {
+      "input": 0.5,
+      "output": 1.5,
+      "cacheRead": 0.275
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "xiaomi/mimo-v2.6-flash-uncensored",
+    "displayName": "MiMo V2.6 Flash Uncensored",
+    "family": "mimo",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high"],
+    "cost": {
+      "input": 0.5,
+      "output": 1.5,
+      "cacheRead": 0.1995
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "xiaomi/mimo-v2.6-flash-uncensored:thinking",
+    "displayName": "MiMo V2.6 Flash Uncensored Thinking",
+    "family": "mimo",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["max"],
+    "cost": {
+      "input": 0.5,
+      "output": 1.5,
+      "cacheRead": 0.1995
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "z-ai/glm-4.6-original",
+    "displayName": "GLM 4.6 Original",
+    "family": "glm",
+    "contextWindow": 256000,
+    "maxOutputTokens": 65535,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "cost": {
+      "input": 0.35,
+      "output": 1.4,
+      "cacheRead": 0.175
+    }
+  },
+  {
+    "id": "z-ai/GLM-4.6-turbo",
+    "displayName": "GLM 4.6 Turbo",
+    "family": "glm",
+    "contextWindow": 204800,
+    "maxOutputTokens": 131072,
+    "input": ["text"],
+    "output": ["text"],
+    "cost": {
+      "input": 1,
+      "output": 3,
+      "cacheRead": 0.5
+    }
+  },
+  {
+    "id": "z-ai/GLM-4.6-turbo:thinking",
+    "displayName": "GLM 4.6 Turbo (Thinking)",
+    "family": "glm",
+    "contextWindow": 204800,
+    "maxOutputTokens": 131072,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "cost": {
+      "input": 1,
+      "output": 3,
+      "cacheRead": 0.5
+    }
+  },
+  {
+    "id": "z-ai/glm-4.6v-original",
+    "displayName": "GLM 4.6V Original",
+    "family": "glm",
+    "contextWindow": 128000,
+    "maxOutputTokens": 24000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.6,
+      "output": 0.9,
+      "cacheRead": 0.3
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "z-ai/glm-4.7-original",
+    "displayName": "GLM 4.7 Original",
+    "family": "glm",
+    "contextWindow": 200000,
+    "maxOutputTokens": 65535,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "cost": {
+      "input": 0.6,
+      "output": 2.2,
+      "cacheRead": 0.11
+    }
+  },
+  {
+    "id": "z-ai/glm-4.7-original:thinking",
+    "displayName": "GLM 4.7 Original Thinking",
+    "family": "glm",
+    "contextWindow": 200000,
+    "maxOutputTokens": 65535,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "cost": {
+      "input": 0.6,
+      "output": 2.2,
+      "cacheRead": 0.11
+    }
+  },
+  {
+    "id": "z-ai/glm-5-original",
+    "displayName": "GLM 5 Original",
+    "family": "glm",
+    "contextWindow": 200000,
+    "maxOutputTokens": 128000,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "cost": {
+      "input": 1,
+      "output": 3.2,
+      "cacheRead": 0.2
+    }
+  },
+  {
+    "id": "z-ai/glm-5-original:thinking",
+    "displayName": "GLM 5 Original Thinking",
+    "family": "glm",
+    "contextWindow": 200000,
+    "maxOutputTokens": 128000,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "cost": {
+      "input": 1,
+      "output": 3.2,
+      "cacheRead": 0.2
+    }
+  },
+  {
+    "id": "z-ai/glm-5.3-flash-cybersecurity",
+    "displayName": "GLM 5.3 Flash Cybersecurity",
+    "family": "glm",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "high", "max"],
+    "cost": {
+      "input": 0.15,
+      "output": 0.5,
+      "cacheRead": 0.075
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "z-ai/glm-5.3-flash-uncensored",
+    "displayName": "GLM 5.3 Flash Uncensored",
+    "family": "glm-flash",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 32768,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "high"],
+    "cost": {
+      "input": 0.2,
+      "output": 0.8,
+      "cacheRead": 0.07
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "z-ai/glm-5.3-flashx",
+    "displayName": "Z.ai: GLM 5.3 FlashX",
+    "family": "glm",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "high", "max"],
+    "cost": {
+      "input": 0.37,
+      "output": 1.25,
+      "cacheRead": 0.09
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
+  },
+  {
+    "id": "z-ai/glm-5.3-prime",
+    "displayName": "Z.ai: GLM 5.3 Prime",
+    "family": "glm",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 131072,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["low", "high", "max"],
+    "cost": {
+      "input": 2.8,
+      "output": 8.8,
+      "cacheRead": 0.56
+    }
+  },
+  {
+    "id": "z-ai/glm-5.3-uncensored",
+    "displayName": "GLM 5.3 Uncensored",
+    "family": "glm",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["low", "high", "max"],
+    "cost": {
+      "input": 1.25,
+      "output": 2.25,
+      "cacheRead": 0.3
+    }
+  },
+  {
+    "id": "z-ai/glm-latest",
+    "displayName": "GLM Latest",
+    "family": "glm",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 131072,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "cost": {
+      "input": 1,
+      "output": 3.2,
+      "cacheRead": 0.2
+    }
+  },
+  {
+    "id": "zai-glm-5-2",
+    "displayName": "GLM-5.2 (Tencent Cloud)",
+    "family": "glm",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
+    "aliases": [
+      "z-ai/glm-5.2:thinking",
+      "zhipuai/glm-5.2",
+      "tencent/glm-5.2",
+      "glm-5-2-260617",
+      "mistral/zai-glm-5-2",
+      "zai-org/glm-5.2-maas"
+    ],
+    "cost": {
+      "input": 1.4,
+      "output": 4.4,
+      "cacheRead": 0.26
+    }
+  },
+  {
+    "id": "zhipuai/glm-4.5-air",
+    "displayName": "GLM 4.5 Air (Thinking)",
+    "family": "glm-air",
+    "knowledge": "2025-04",
+    "contextWindow": 128000,
+    "maxOutputTokens": 98304,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "aliases": ["z-ai/GLM-4.5-Air:thinking"],
+    "cost": {
+      "input": 0.12,
+      "output": 0.8,
+      "cacheRead": 0.06
+    }
+  },
+  {
+    "id": "zhipuai/glm-4.5-flash",
+    "displayName": "GLM-4.5-Flash",
+    "family": "glm-flash",
+    "knowledge": "2025-04",
+    "contextWindow": 131072,
+    "maxOutputTokens": 98304,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["off", "on"],
+    "aliases": ["zai/glm-4.5-flash"],
+    "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0
+    }
+  },
+  {
+    "id": "zhipuai/glm-4.7",
+    "displayName": "GLM 4.7 Thinking",
+    "family": "glm",
+    "knowledge": "2025-04",
+    "contextWindow": 200000,
+    "maxOutputTokens": 65535,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "aliases": ["z-ai/glm-4.7:thinking"],
+    "cost": {
+      "input": 0.2,
+      "output": 0.8,
+      "cacheRead": 0.1
+    }
+  },
+  {
+    "id": "zhipuai/glm-4.7-flash",
+    "displayName": "GLM 4.7 Flash Thinking",
+    "family": "glm-flash",
+    "knowledge": "2025-04",
+    "contextWindow": 200000,
+    "maxOutputTokens": 128000,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "aliases": ["z-ai/glm-4.7-flash:thinking"],
+    "cost": {
+      "input": 0.07,
+      "output": 0.4,
+      "cacheRead": 0.035
+    }
+  },
+  {
+    "id": "zhipuai/glm-5-turbo",
+    "displayName": "GLM-5 Turbo (Tencent Cloud)",
+    "family": "glm",
+    "contextWindow": 200000,
+    "maxOutputTokens": 128000,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "aliases": ["tencent/glm-5-turbo"],
+    "cost": {
+      "input": 1.2,
+      "output": 4,
+      "cacheRead": 0.24
+    }
+  },
+  {
+    "id": "zhipuai/glm-5.1",
+    "displayName": "GLM-5.1 (Tencent Cloud)",
+    "family": "glm",
+    "contextWindow": 200000,
+    "maxOutputTokens": 128000,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "aliases": ["z-ai/glm-5.1:thinking", "tencent/glm-5.1"],
+    "cost": {
+      "input": 1.4,
+      "output": 4.4,
+      "cacheRead": 0.26
+    }
+  },
+  {
+    "id": "zhipuai/glm-5v-turbo",
+    "displayName": "GLM-5V Turbo (Tencent Cloud)",
+    "family": "glm",
+    "contextWindow": 200000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image", "video", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "aliases": ["tencent/glm-5v-turbo"],
+    "cost": {
+      "input": 1.2,
+      "output": 4,
+      "cacheRead": 0.24
+    },
+    "attachmentTypes": ["image", "video", "pdf", "text", "document"]
+  },
+  {
+    "id": "zhipuai/glm-image",
+    "displayName": "GLM-Image",
+    "contextWindow": 10240,
+    "input": ["text"],
+    "output": ["image"],
+    "aliases": ["z-ai/glm-image"]
+  },
+  {
+    "id": "~deepseek/deepseek-flash-latest",
+    "displayName": "DeepSeek Flash Latest",
+    "family": "deepseek-flash",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 943718,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["off", "on", "low", "high", "max"],
+    "cost": {
+      "input": 0.0264,
+      "output": 0.6,
+      "cacheRead": 0.0264
+    },
+    "attachmentTypes": ["image", "text", "document"]
+  },
+  {
+    "id": "~deepseek/deepseek-pro-latest",
+    "displayName": "DeepSeek Pro Latest",
+    "family": "deepseek",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 393216,
+    "input": ["text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "effortLevels": ["off", "on", "low", "high", "max"],
+    "cost": {
+      "input": 0.15312,
+      "output": 0.45936,
+      "cacheRead": 0.004872
+    }
+  },
+  {
+    "id": "~openai/gpt-astra-latest",
+    "displayName": "OpenAI: GPT Astra Latest ($$$$)",
+    "family": "gpt-astra",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["pdf", "image", "text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 10,
+      "output": 50,
+      "cacheRead": 1,
+      "cacheWrite": 12.5
+    },
+    "attachmentTypes": ["pdf", "image", "text", "document"]
+  },
+  {
+    "id": "~openai/gpt-luna-latest",
+    "displayName": "OpenAI: GPT Luna Latest",
+    "family": "gpt-luna",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["pdf", "image", "text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 0.1,
+      "output": 0.5,
+      "cacheRead": 0.01,
+      "cacheWrite": 0.125
+    },
+    "attachmentTypes": ["pdf", "image", "text", "document"]
+  },
+  {
+    "id": "~openai/gpt-sol-latest",
+    "displayName": "OpenAI: GPT Sol Latest",
+    "family": "gpt-sol",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["pdf", "image", "text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 2,
+      "output": 10,
+      "cacheRead": 0.1,
+      "cacheWrite": 2.5
+    },
+    "attachmentTypes": ["pdf", "image", "text", "document"]
+  },
+  {
+    "id": "~openai/gpt-terra-latest",
+    "displayName": "OpenAI: GPT Terra Latest",
+    "family": "gpt-terra",
+    "contextWindow": 1050000,
+    "maxOutputTokens": 128000,
+    "input": ["pdf", "image", "text"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["none", "low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 2,
+      "output": 12,
+      "cacheRead": 0.2,
+      "cacheWrite": 2.5
+    },
+    "attachmentTypes": ["pdf", "image", "text", "document"]
+  },
+  {
+    "id": "~z-ai/glm-flash-latest",
+    "displayName": "Z.ai: GLM Flash Latest",
+    "family": "glm-flash",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 943718,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "high", "max"],
+    "cost": {
+      "input": 0.02,
+      "output": 0.3,
+      "cacheRead": 0.01
+    },
+    "attachmentTypes": ["image", "video", "text", "document"]
   }
 ]

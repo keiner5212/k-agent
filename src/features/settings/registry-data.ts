@@ -456,6 +456,13 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
     items: [],
   },
   {
+    id: "commands",
+    titleKey: "settings.sections.commands",
+    descriptionKey: "settings.commands.description",
+    keywords: ["command", "slash", "prompt", "undo", "redo", "init", "comando"],
+    items: [],
+  },
+  {
     id: "keybindings",
     titleKey: "settings.sections.keybindings",
     descriptionKey: "settings.keybindings.description",

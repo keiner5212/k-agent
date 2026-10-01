@@ -46,7 +46,12 @@ impl Tool for DeleteTool {
                     "delete outside the workspace must run on the async dispatch path.",
                 )
             }
-            Ok(target) => apply_delete(&target),
+            Ok(target) => {
+                if target.resolved.is_file() {
+                    super::note_checkpoint(ctx, &target.resolved, &target.rel);
+                }
+                apply_delete(&target)
+            }
         }
     }
 }

@@ -13,6 +13,7 @@ import {
   ScrollText,
   Sliders,
   Sparkles,
+  Terminal,
 } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
@@ -22,6 +23,7 @@ import { ProvidersPanel } from "@/features/providers/ProvidersPanel";
 import { SkillsPanel } from "@/features/skills/SkillsPanel";
 import { AgentsPanel } from "@/features/agents/AgentsPanel";
 import { AgentsMdPanel } from "@/features/agents-md/AgentsMdPanel";
+import { CommandsPanel } from "@/features/settings/CommandsPanel";
 import { LspsPanel } from "@/features/lsps/LspsPanel";
 import { McpServersPanel } from "@/features/mcp-servers/McpServersPanel";
 import { SETTINGS_REGISTRY } from "./registry-data";
@@ -49,6 +51,7 @@ const SECTION_ICONS: Record<SettingsSectionDef["id"], typeof Sliders> = {
   skills: Sparkles,
   agents: Bot,
   agentsMd: ScrollText,
+  commands: Terminal,
   keybindings: Keyboard,
   debug: Bug,
 };
@@ -187,6 +190,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
               <AgentsPanel query={query.trim()} />
             ) : resolvedTab === "agentsMd" ? (
               <AgentsMdPanel query={query.trim()} />
+            ) : resolvedTab === "commands" ? (
+              <CommandsPanel query={query.trim()} />
             ) : resolvedTab === "lsps" ? (
               <LspsPanel items={activeSection?.items ?? []} query={query.trim()} />
             ) : resolvedTab === "mcpServers" ? (

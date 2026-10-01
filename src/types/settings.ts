@@ -78,6 +78,16 @@ export const DEFAULT_AGENT = "builtin:build";
 
 export const CHAT_BACKGROUND_FILENAME_PATTERN = /^chat-background\.(png|jpg|jpeg|webp)$/;
 
+export type PromptCommand = {
+  name: string;
+  description: string;
+  template: string;
+};
+
+export const MAX_PROMPT_COMMANDS = 40;
+export const MAX_PROMPT_TEMPLATE = 8_000;
+export const PROMPT_COMMAND_NAME = /^[A-Za-z][\w-]{0,40}$/;
+
 export const DEFAULT_LAST_WORKSPACE_PATH: string | null = null;
 export const DEFAULT_CHAT_BACKGROUND_IMAGE: string | null = null;
 export const DEFAULT_CHAT_BACKGROUND_OPACITY = 0.5;
@@ -165,6 +175,7 @@ export type Settings = {
   chatBackgroundImage: string | null;
   chatBackgroundOpacity: number;
   lastWorkspacePath: string | null;
+  promptCommands: PromptCommand[];
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -204,4 +215,5 @@ export const DEFAULT_SETTINGS: Settings = {
   chatBackgroundImage: DEFAULT_CHAT_BACKGROUND_IMAGE,
   chatBackgroundOpacity: DEFAULT_CHAT_BACKGROUND_OPACITY,
   lastWorkspacePath: DEFAULT_LAST_WORKSPACE_PATH,
+  promptCommands: [],
 };

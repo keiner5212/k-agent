@@ -4,6 +4,7 @@ mod agents_md;
 mod attachments;
 mod catalog;
 mod chat;
+mod checkpoints;
 mod lsp;
 mod lsp_client;
 mod maintenance;
@@ -55,7 +56,8 @@ use providers::{
     refresh_single_model, save_provider, set_model_favorite, upsert_provider_model,
 };
 use sessions::{
-    load_sessions, read_session, read_session_attachment, read_session_file_revision, save_sessions,
+    load_sessions, read_session, read_session_attachment, read_session_file_revision, rollback_files,
+    save_sessions,
 };
 use shell::run_shell_command;
 
@@ -740,6 +742,7 @@ pub fn run() {
             read_session,
             read_session_attachment,
             read_session_file_revision,
+            rollback_files,
             send_chat_message,
             request_profile::describe_model_request,
             generate_session_title,

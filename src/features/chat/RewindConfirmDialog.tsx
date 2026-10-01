@@ -30,7 +30,7 @@ export const RewindConfirmDialog = (): ReactNode => {
       cancel();
       return;
     }
-    rewindTo(targetMessageId);
+    void rewindTo(targetMessageId);
     cancel();
   };
 

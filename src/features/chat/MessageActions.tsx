@@ -1,6 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Copy, Maximize2, RotateCcw } from "lucide-react";
+import { Copy, Maximize2, RotateCcw, RotateCw } from "lucide-react";
 import { IconButton } from "@/components/IconButton";
 import { parseShellMessage } from "@/lib/shell";
 import { useShellOutputStore } from "@/lib/shell-output";
@@ -54,6 +54,11 @@ export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
     requestRewind(message.id);
   }, [canRewind, message.id, requestRewind]);
 
+  const handleRetry = useCallback(() => {
+    if (!canRewind) return;
+    void useSessionsStore.getState().retryFrom(message.id);
+  }, [canRewind, message.id]);
+
   const handleExpand = useCallback(() => {
     if (!canExpand || !activeSessionId) return;
     const { command } = parseShellMessage(message.content);
@@ -89,6 +94,15 @@ export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
           onClick={handleRewind}
         >
           <RotateCcw size={14} strokeWidth={1.5} />
+        </IconButton>
+      ) : null}
+      {canRewind ? (
+        <IconButton
+          label={t("chat.message.retry")}
+          className="chat-message__action"
+          onClick={handleRetry}
+        >
+          <RotateCw size={14} strokeWidth={1.5} />
         </IconButton>
       ) : null}
     </div>

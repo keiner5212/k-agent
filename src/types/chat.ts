@@ -1,3 +1,5 @@
+import type { FileTouch } from "./sessions";
+
 export type SelectedModel = {
   providerId: string;
   modelId: string;
@@ -266,4 +268,6 @@ export type SendChatResult = {
   reasoning?: string;
   reasoningSignature?: string;
   toolRounds?: ToolRoundTrace[];
+  checkpointId?: string;
+  files?: FileTouch[];
 };

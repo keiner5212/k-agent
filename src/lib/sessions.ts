@@ -19,6 +19,7 @@ import { promptShapeForModel } from "@/lib/prompt-shape";
 import { composeSystemWithLanguage } from "@/lib/response-language";
 import { selectRequest, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
+import { rollbackCheckpoints } from "@/lib/turn-checkpoints";
 import { useMcpServersStore } from "@/lib/mcp-servers";
 import { useSkillsStore } from "@/lib/skills";
 import {
@@ -93,6 +94,39 @@ const previewFromMessages = (messages: ChatMessage[]): string => {
     if (content && content.length > 0) return content;
   }
   return "";
+};
+
+const lastUserTurnId = (messages: ChatMessage[]): string | null => {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === "user") return messages[i].id;
+  }
+  return null;
+};
+
+const putCheckpointBack = async (
+  sessionId: string,
+  checkpoints: NonNullable<SessionRecord["fileCheckpoints"]>,
+  side: "before" | "after",
+): Promise<void> => {
+  if (!isTauri() || checkpoints.length === 0) return;
+  try {
+    await rollbackCheckpoints(sessionId, checkpoints, side);
+  } catch (error) {
+    console.warn("checkpoint revert failed", error);
+  }
+};
+
+const withCheckpoint = (
+  session: SessionRecord,
+  turnId: string | null,
+  checkpointId: string | undefined,
+  files: SendChatResult["files"],
+): SessionRecord => {
+  if (!turnId || !checkpointId || !files || files.length === 0) return session;
+  return {
+    ...session,
+    fileCheckpoints: [...(session.fileCheckpoints ?? []), { turnId, checkpointId, files }],
+  };
 };
 
 const parseTodoChunk = (raw: string): { todos: TodoItem[]; diff: TodoDiff } | null => {
@@ -544,7 +578,9 @@ type SessionsStore = {
   interruptActiveTask: () => Promise<boolean>;
   armInterrupt: () => void;
   disarmInterrupt: () => void;
-  rewindTo: (messageId: string) => void;
+  rewindTo: (messageId: string) => Promise<boolean>;
+  redo: () => Promise<boolean>;
+  retryFrom: (messageId: string) => Promise<boolean>;
   rewindLastUserMessage: () => void;
   editQueued: (id: string) => void;
   retryLast: () => void;
@@ -825,17 +861,20 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       return true;
     }
     const now = Date.now();
+    const userMessageId = nextId();
+    const turnId = replay ? lastUserTurnId(sessionMessages(latest)) : userMessageId;
     const withUser = replay
       ? get().sessions
       : sortSessions(
           patchActiveSession(get().sessions, sessionId, (session) => ({
             ...session,
+            redo: undefined,
             preview: content.trim() || pending[0]?.name || content,
             updatedAt: now,
             messages: [
               ...sessionMessages(session),
               {
-                id: nextId(),
+                id: userMessageId,
                 role: "user" as const,
                 content,
                 ...(pending.length > 0 ? { attachments: pending } : {}),
@@ -1209,9 +1248,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       const withAssistant = get().sessions.map((session) => {
         if (session.id !== sessionId) return session;
         const index = session.messages.findIndex((message) => message.id === assistantId);
+        const touched = withCheckpoint(session, turnId, result.checkpointId, result.files);
         if (index < 0) {
           return {
-            ...session,
+            ...touched,
             preview: result.content,
             updatedAt: replyAt,
             messages: [
@@ -1242,7 +1282,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           streaming: false,
         };
         return {
-          ...session,
+          ...touched,
           preview: messages[index]?.content ?? result.content,
           updatedAt: replyAt,
           messages,
@@ -1399,43 +1439,122 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     if (get().interruptArmedAt !== null) set({ interruptArmedAt: null });
   },
 
-  rewindTo: (messageId) => {
+  rewindTo: async (messageId) => {
     const { sessions, activeSessionId, sendingSessionId, shellRunningSessionId } = get();
     const sessionId = activeSessionId;
-    if (!sessionId) return;
-    if (sendingSessionId === sessionId) {
-      console.warn("[sessions] rewind blocked: send in progress");
-      return;
-    }
-    if (shellRunningSessionId === sessionId) {
-      console.warn("[sessions] rewind blocked: shell in progress");
-      return;
-    }
+    if (!sessionId) return false;
+    if (sendingSessionId === sessionId || shellRunningSessionId === sessionId) return false;
     const session = sessions.find((item) => item.id === sessionId);
-    if (!session) return;
+    if (!session) return false;
     const messages = sessionMessages(session);
     const index = messages.findIndex((message) => message.id === messageId);
-    if (index < 0) return;
-    const removed = messages.length - index;
-
-    // TODO: rewind file edits and shell changes made by the assistant
-    // messages between `index` and the previous end. Track per-write snapshots
-    // when the assistant calls edit tools (write_file, edit_file, run_shell)
-    // and replay restoration here, in reverse order, after the chat trim.
-    // For now we only roll back the chat history.
-    console.warn(`[sessions] rewind to ${messageId}: trimmed ${removed} message(s), kept ${index}`);
-
+    if (index < 0 || messages[index]?.role !== "user") return false;
+    const removed = messages.slice(index);
     const kept = messages.slice(0, index);
+    const turnIds = new Set(
+      removed.filter((message) => message.role === "user").map((message) => message.id),
+    );
+    const checkpoints = (session.fileCheckpoints ?? []).filter((checkpoint) =>
+      turnIds.has(checkpoint.turnId),
+    );
+    let skipped: string[] = [];
+    if (isTauri() && checkpoints.length > 0) {
+      try {
+        const outcomes = await rollbackCheckpoints(sessionId, checkpoints, "before");
+        skipped = outcomes.filter((item) => !item.restored).map((item) => item.path);
+      } catch (error) {
+        set({ error: ipcErrorMessage(error) });
+        return false;
+      }
+    }
+    if (get().sendingSessionId === sessionId || get().shellRunningSessionId === sessionId) {
+      await putCheckpointBack(sessionId, checkpoints, "after");
+      return false;
+    }
     const nextSessions = sortSessions(
-      patchActiveSession(sessions, sessionId, (item) => ({
+      patchActiveSession(get().sessions, sessionId, (item) => ({
         ...item,
         messages: kept,
         preview: previewFromMessages(kept),
         updatedAt: Date.now(),
+        fileCheckpoints: (item.fileCheckpoints ?? []).filter(
+          (checkpoint) => !turnIds.has(checkpoint.turnId),
+        ),
+        redo: {
+          messages: removed,
+          checkpoints,
+        },
       })),
     );
-    set({ sessions: nextSessions, error: undefined });
+    set({
+      sessions: nextSessions,
+      error:
+        skipped.length > 0
+          ? i18n.t("chat.rewind.skipped", { paths: skipped.join(", ") })
+          : undefined,
+    });
     void persistSnapshot(snapshotFromState(nextSessions, sessionId));
+    return true;
+  },
+
+  redo: async () => {
+    const { sessions, activeSessionId, sendingSessionId, shellRunningSessionId } = get();
+    const sessionId = activeSessionId;
+    if (!sessionId) return false;
+    if (sendingSessionId === sessionId || shellRunningSessionId === sessionId) return false;
+    const session = sessions.find((item) => item.id === sessionId);
+    const redo = session?.redo;
+    if (!session || !redo || redo.messages.length === 0) return false;
+    let skipped: string[] = [];
+    if (isTauri() && redo.checkpoints.length > 0) {
+      try {
+        const outcomes = await rollbackCheckpoints(sessionId, redo.checkpoints, "after");
+        skipped = outcomes.filter((item) => !item.restored).map((item) => item.path);
+      } catch (error) {
+        set({ error: ipcErrorMessage(error) });
+        return false;
+      }
+    }
+    if (get().sendingSessionId === sessionId || get().shellRunningSessionId === sessionId) {
+      await putCheckpointBack(sessionId, redo.checkpoints, "before");
+      return false;
+    }
+    const nextSessions = sortSessions(
+      patchActiveSession(get().sessions, sessionId, (item) => {
+        const messages = [...sessionMessages(item), ...redo.messages];
+        return {
+          ...item,
+          messages,
+          preview: previewFromMessages(messages),
+          updatedAt: Date.now(),
+          fileCheckpoints: [...(item.fileCheckpoints ?? []), ...redo.checkpoints],
+          redo: undefined,
+        };
+      }),
+    );
+    set({
+      sessions: nextSessions,
+      error:
+        skipped.length > 0
+          ? i18n.t("chat.rewind.skipped", { paths: skipped.join(", ") })
+          : undefined,
+    });
+    void persistSnapshot(snapshotFromState(nextSessions, sessionId));
+    return true;
+  },
+
+  retryFrom: async (messageId) => {
+    const sessionId = get().activeSessionId;
+    if (!sessionId) return false;
+    const session = get().sessions.find((item) => item.id === sessionId);
+    if (!session) return false;
+    const message = sessionMessages(session).find((item) => item.id === messageId);
+    if (!message || message.role !== "user") return false;
+    const text = message.content;
+    const attachments = message.attachments;
+    const rewound = await get().rewindTo(messageId);
+    if (!rewound) return false;
+    return get().send(text, sessionId, attachments);
   },
 
   runShell: async (text, targetSessionId) => {
@@ -1702,7 +1821,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       }
     }
     if (!lastUserId) return;
-    get().rewindTo(lastUserId);
+    void get().rewindTo(lastUserId);
   },
 }));
 
