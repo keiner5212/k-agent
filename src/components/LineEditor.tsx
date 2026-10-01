@@ -54,7 +54,7 @@ export const LineEditor = ({
   const [measureTick, setMeasureTick] = useState(0);
   const rowMode = Boolean(lineKinds && lineKinds.length > 0);
   const origin = originLine(startLine);
-  const resolvedLanguage = resolveLanguage(language, path, value);
+  const resolvedLanguage = resolveLanguage(language, path);
 
   useUndoRedoKeydown(textareaRef, keybindings, undo, redo, !readOnly && !rowMode);
 

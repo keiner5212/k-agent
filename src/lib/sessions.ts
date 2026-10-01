@@ -23,6 +23,7 @@ import {
 } from "@/lib/shell";
 import {
   buildContextUsage,
+  resolveVisionModel,
   estimateToolDefinitionTokens,
   loadedSkillNamesFromMessages,
   resolveSelectedModel,
@@ -349,13 +350,15 @@ const compactHistory = async (
   const { contextSummarizePercent, limitProviderDataUse } = useSettingsStore.getState();
   const { head, tail } = messagesBeforeTail(messages);
   if (head.length === 0 || contextSummarizePercent <= 0) return messages;
-  const model = resolveSelectedModel(useProvidersStore.getState().providers, selection);
+  const providers = useProvidersStore.getState().providers;
+  const model = resolveSelectedModel(providers, selection);
   const windowTokens = model?.contextWindow;
   if (!windowTokens || windowTokens <= 0) return messages;
   const usage = buildContextUsage({
     windowTokens,
     messages,
     cost: undefined,
+    vision: resolveVisionModel(providers, selection),
     extras: {
       systemPrompt: estimateTokensFromText(system),
       toolDefinitions: estimateToolDefinitionTokens(toolNames),

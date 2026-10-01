@@ -1,7 +1,10 @@
+import { imageSizeFromBase64, imageTokens, type VisionModel } from "@/lib/image-tokens";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
+import { toonFieldValue } from "@/lib/session-files";
 import { AGENT_TOOL_IDS, CHAT_TOOL_DESCRIPTIONS, type AgentToolId } from "@/types/agents";
 import {
   skillNameFromCall,
+  type ChatAttachment,
   type ChatMessage,
   type ChatToolCall,
   type SelectedModel,
@@ -93,7 +96,12 @@ const LIST_DIRECTORY_TOOL_PARAMETERS = {
     maxDepth: {
       type: "integer",
       minimum: 1,
-      description: "Max depth when recursive (default 3, max 10)",
+      description: "Max depth when recursive (default 3, or 10 when glob is set, max 10)",
+    },
+    glob: {
+      type: "string",
+      description:
+        "Return only matching file paths. *.rs matches any depth. *.{ts,tsx} matches either suffix.",
     },
   },
 } as const;
@@ -317,6 +325,10 @@ const GREP_TOOL_PARAMETERS = {
       type: "boolean",
       description: "Match letters regardless of case. Default false.",
     },
+    filesOnly: {
+      type: "boolean",
+      description: "Return matching paths only, no line text. Default false.",
+    },
   },
   required: ["pattern"],
 } as const;
@@ -380,11 +392,51 @@ export const resolveSelectedModel = (
   return provider.models.find((item) => item.id === selection.modelId) ?? null;
 };
 
+export const resolveVisionModel = (
+  providers: Provider[],
+  selection: SelectedModel | null,
+): VisionModel | null => {
+  if (!selection) return null;
+  const provider = providers.find((item) => item.id === selection.providerId);
+  if (!provider) return null;
+  return { kind: provider.kind, modelId: selection.modelId };
+};
+
+const positiveInt = (value: string): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) return 0;
+  return Math.round(parsed);
+};
+
+export const toolImageSize = (call: ChatToolCall): { width: number; height: number } | null => {
+  const width = positiveInt(toonFieldValue(call.output ?? "", "width"));
+  const height = positiveInt(toonFieldValue(call.output ?? "", "height"));
+  if (width > 0 && height > 0) return { width, height };
+  const data = call.display?.imageData;
+  if (!data) return null;
+  return imageSizeFromBase64(data);
+};
+
+const attachmentImageTokens = (item: ChatAttachment, vision: VisionModel | null): number => {
+  if (item.kind !== "image" || !item.data) return 0;
+  const size = imageSizeFromBase64(item.data);
+  if (!size) return 0;
+  return imageTokens(size.width, size.height, vision);
+};
+
 const callArgsText = (call: ChatToolCall): string => {
   const args = call.arguments?.trim();
   if (args) return `${call.name}\n${args}`;
   const argument = call.argument?.trim();
   return argument ? `${call.name}\n${argument}` : call.name;
+};
+
+export const toolCallTokens = (call: ChatToolCall, vision: VisionModel | null): number => {
+  const args = estimateTokensFromText(callArgsText(call));
+  const output = estimateTokensFromText(call.output ?? "");
+  const size = toolImageSize(call);
+  const image = size ? imageTokens(size.width, size.height, vision) : 0;
+  return args + output + image;
 };
 
 const roundsForTokens = (
@@ -423,7 +475,17 @@ const addTokens = (
   walk[field] += tokens;
 };
 
-const walkMessageTokens = (messages: ChatMessage[]): MessageTokenWalk => {
+const addCounted = (walk: MessageTokenWalk, tokens: number, role: ChatMessage["role"]): void => {
+  if (tokens <= 0) return;
+  walk.conversation += tokens;
+  if (role === "user") walk.input += tokens;
+  else walk.output += tokens;
+};
+
+const walkMessageTokens = (
+  messages: ChatMessage[],
+  vision: VisionModel | null,
+): MessageTokenWalk => {
   const walk: MessageTokenWalk = {
     conversation: 0,
     skillOutputs: 0,
@@ -432,26 +494,29 @@ const walkMessageTokens = (messages: ChatMessage[]): MessageTokenWalk => {
     reasoning: 0,
   };
   for (const message of messages) {
+    const rounds = roundsForTokens(message);
+    const roundContent = new Set(
+      rounds.map((round) => round.content).filter((text) => text.length > 0),
+    );
     const body = messageBody(message);
-    const bodyTokens = estimateTokensFromText(body);
-    walk.conversation += bodyTokens;
-    if (message.role === "user") walk.input += bodyTokens;
-    else walk.output += bodyTokens;
+    if (!roundContent.has(body)) addCounted(walk, estimateTokensFromText(body), message.role);
 
     for (const item of message.attachments ?? []) {
-      const textTokens = estimateTokensFromText(item.text ?? "");
-      walk.conversation += textTokens;
-      if (message.role === "user") walk.input += textTokens;
-      else walk.output += textTokens;
+      addCounted(walk, estimateTokensFromText(item.text ?? ""), message.role);
+      addCounted(walk, attachmentImageTokens(item, vision), message.role);
     }
 
-    addTokens(walk, "conversation", message.reasoning ?? "");
-    addTokens(walk, "reasoning", message.reasoning ?? "");
+    const roundReasoning = new Set(
+      rounds.map((round) => round.reasoning).filter((text) => text.length > 0),
+    );
+    const messageReasoning = message.reasoning ?? "";
+    if (messageReasoning.length > 0 && !roundReasoning.has(messageReasoning)) {
+      addTokens(walk, "conversation", messageReasoning);
+      addTokens(walk, "reasoning", messageReasoning);
+    }
 
-    for (const round of roundsForTokens(message)) {
-      const contentTokens = estimateTokensFromText(round.content);
-      walk.conversation += contentTokens;
-      walk.output += contentTokens;
+    for (const round of rounds) {
+      addCounted(walk, estimateTokensFromText(round.content), "assistant");
       addTokens(walk, "conversation", round.reasoning);
       addTokens(walk, "reasoning", round.reasoning);
       for (const call of round.calls) {
@@ -462,6 +527,12 @@ const walkMessageTokens = (messages: ChatMessage[]): MessageTokenWalk => {
         walk.input += outputTokens;
         if (call.name === "skill") walk.skillOutputs += outputTokens;
         else walk.conversation += outputTokens;
+        const size = toolImageSize(call);
+        if (size) {
+          const image = imageTokens(size.width, size.height, vision);
+          walk.conversation += image;
+          walk.input += image;
+        }
         if (call.name === "delete") {
           const removedLines = call.display?.linesRemoved ?? 0;
           if (removedLines > 0) {
@@ -489,8 +560,10 @@ const costFromWalk = (
   );
 };
 
-export const conversationTokens = (messages: ChatMessage[]): number =>
-  walkMessageTokens(messages).conversation;
+export const conversationTokens = (
+  messages: ChatMessage[],
+  vision: VisionModel | null = null,
+): number => walkMessageTokens(messages, vision).conversation;
 
 export const estimateToolDefinitionTokens = (toolNames: readonly string[]): number => {
   const parts: string[] = [];
@@ -545,16 +618,19 @@ export const loadedSkillNamesFromMessages = (messages: ChatMessage[]): string[] 
   return [...names];
 };
 
-export const estimateLoadedSkillTokens = (messages: ChatMessage[]): number =>
-  walkMessageTokens(messages).skillOutputs;
+export const estimateLoadedSkillTokens = (
+  messages: ChatMessage[],
+  vision: VisionModel | null = null,
+): number => walkMessageTokens(messages, vision).skillOutputs;
 
 export const estimateMessageCostUsd = (
   messages: ChatMessage[],
   cost: ModelCost | undefined,
   extraInputTokens = 0,
+  vision: VisionModel | null = null,
 ): number => {
   if (!cost) return 0;
-  return costFromWalk(walkMessageTokens(messages), cost, extraInputTokens);
+  return costFromWalk(walkMessageTokens(messages, vision), cost, extraInputTokens);
 };
 
 export const buildContextUsage = ({
@@ -562,14 +638,16 @@ export const buildContextUsage = ({
   extras,
   cost,
   messages,
+  vision = null,
 }: {
   windowTokens: number | undefined;
   extras?: ContextExtras;
   cost: ModelCost | undefined;
   messages: ChatMessage[];
+  vision?: VisionModel | null;
 }): ContextUsageSnapshot => {
   const window = windowTokens && windowTokens > 0 ? windowTokens : 0;
-  const walk = walkMessageTokens(messages);
+  const walk = walkMessageTokens(messages, vision);
   const buckets: ContextBucket[] = CONTEXT_CATEGORY_IDS.map((id) => ({
     id,
     tokens:

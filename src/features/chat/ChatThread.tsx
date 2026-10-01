@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, FileText, Film, Sparkles } from "lucide-react";
+import { Dialog } from "@/components/Dialog";
 import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
 import { useAskUserStore } from "@/lib/ask-user";
 import { runRenderMarkdownJob } from "@/lib/jobs";
@@ -88,6 +89,7 @@ const ThinkingBlock = ({
   thinkingMs?: number;
 }): ReactNode => {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
   if (reasoning.length === 0) return null;
   const seconds =
     !streaming && thinkingMs !== undefined && thinkingMs >= 1000
@@ -104,10 +106,14 @@ const ThinkingBlock = ({
         ? t("chat.thinking.durationMs", { count: ms })
         : t("chat.thinking.label");
   return (
-    <details className="chat-thinking" open={Boolean(streaming)}>
-      <summary className="chat-thinking__summary">{label}</summary>
-      <pre className="chat-thinking__body">{reasoning}</pre>
-    </details>
+    <>
+      <button type="button" className="chat-thinking" onClick={() => setOpen(true)}>
+        {label}
+      </button>
+      <Dialog open={open} onOpenChange={setOpen} titleKey="chat.thinking.label" size="wide">
+        <pre className="chat-thinking-dialog__body">{reasoning}</pre>
+      </Dialog>
+    </>
   );
 };
 
@@ -178,15 +184,34 @@ const MessageAttachments = ({
   );
 };
 
-const PendingQuestionsBlock = ({ messageId }: { messageId: string }): ReactNode => {
+const ThreadTail = ({ messages }: { messages: ChatMessage[] }): ReactNode => {
+  const todos = useSessionsStore((state) => {
+    const id = state.activeSessionId;
+    for (const session of state.sessions) {
+      if (session.id === id) return session.todos;
+    }
+    return undefined;
+  });
+  const latestTodos =
+    todos ?? [...messages].reverse().find((message) => message.todos !== undefined)?.todos;
   const questionsByCallId = useAskUserStore((state) => state.byCallId);
-  const pending: ReactNode[] = [];
-  for (const state of Object.values(questionsByCallId)) {
-    if (state.messageId !== messageId) continue;
-    pending.push(<QuestionDialog key={state.callId} state={state} />);
-  }
-  if (pending.length === 0) return null;
-  return <div className="chat-questions">{pending}</div>;
+  const messageIds = new Set(messages.map((message) => message.id));
+  const pending = Object.values(questionsByCallId).filter(
+    (state) => state.messageId !== null && messageIds.has(state.messageId),
+  );
+  if ((!latestTodos || latestTodos.length === 0) && pending.length === 0) return null;
+  return (
+    <div className="chat-thread__tail">
+      {latestTodos && latestTodos.length > 0 ? <TodoList todos={latestTodos} /> : null}
+      {pending.length > 0 ? (
+        <div className="chat-questions">
+          {pending.map((state) => (
+            <QuestionDialog key={state.callId} state={state} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 };
 
 const MessageBody = memo(function MessageBody({
@@ -206,15 +231,12 @@ const MessageBody = memo(function MessageBody({
   }
   if (message.role === "assistant") {
     const rounds = message.toolRounds;
-    const todoList =
-      message.todos && message.todos.length > 0 ? <TodoList todos={message.todos} /> : null;
     if (rounds && rounds.length > 0) {
       const lastRoundIndex = rounds.length - 1;
       const showTrailingContent =
         !message.streaming && rounds[rounds.length - 1]?.content !== message.content;
       return (
         <>
-          {todoList}
           {rounds.map((round, index) => {
             const calls = round.calls ?? [];
             const isLastRound = index === lastRoundIndex;
@@ -231,21 +253,18 @@ const MessageBody = memo(function MessageBody({
             );
           })}
           {showTrailingContent ? <AssistantMarkdown content={message.content} /> : null}
-          <PendingQuestionsBlock messageId={message.id} />
           <InterruptedFooter interrupted={message.interrupted ?? false} />
         </>
       );
     }
     return (
       <>
-        {todoList}
         <ThinkingBlock
           reasoning={message.reasoning ?? ""}
           streaming={message.streaming}
           thinkingMs={message.thinkingMs}
         />
         <ToolCallsBlock sessionId={sessionId} calls={message.toolCalls ?? []} />
-        <PendingQuestionsBlock messageId={message.id} />
         <AssistantMarkdown content={message.content} />
         <InterruptedFooter interrupted={message.interrupted ?? false} />
       </>
@@ -375,7 +394,8 @@ const ActiveThread = ({
               <MessageActions message={message} />
             </article>
           ))}
-          {waiting ? <ChatWaitingLine /> : null}
+          <ThreadTail messages={messages} />
+          <div className="chat-thread__reserve">{waiting ? <ChatWaitingLine /> : null}</div>
           <InterruptHint />
           {error ? (
             <div className="chat-thread__error" role="alert">
@@ -414,7 +434,7 @@ export const ChatThread = (): ReactNode => {
   const error = useSessionsStore((state) => state.error);
   const canRetry = useSessionsStore((state) => state.canRetry);
   const waiting =
-    sending && sendingSessionId === activeSessionId && !messages.some(assistantIsWriting);
+    sending && sendingSessionId === activeSessionId && !error && !messages.some(assistantIsWriting);
 
   if (messages.length === 0 && !error) {
     return (

@@ -15,7 +15,7 @@ use super::{
 
 pub const NAME: &str = "grep";
 
-const DESCRIPTION: &str = "Search file contents with the ripgrep engine compiled into the app. pattern is a regex. path defaults to the workspace. glob is an include filter (*.rs, *.{ts,tsx}); a leading ! excludes. caseInsensitive matches either letter case. count is the number of matching lines. matches is a sample: at most 20 lines per file and 100 lines overall. No system rg binary. Use this instead of grep or rg in bash.";
+const DESCRIPTION: &str = "Search file contents with the ripgrep engine compiled into the app. pattern is a regex. path defaults to the workspace. glob is an include filter (*.rs, *.{ts,tsx}); a leading ! excludes. caseInsensitive matches either letter case. filesOnly returns matching paths and skips line text. count is the number of matching lines. matches is a sample: at most 20 lines per file and 100 lines overall, or 100 paths when filesOnly. No system rg binary. Uses configured worker cores. Use this instead of grep or rg in bash.";
 
 const MAX_MATCHES: usize = 100;
 const MAX_PER_FILE: usize = 20;
@@ -48,6 +48,10 @@ impl Tool for GrepTool {
                     "caseInsensitive": {
                         "type": "boolean",
                         "description": "Match letters regardless of case. Default false."
+                    },
+                    "filesOnly": {
+                        "type": "boolean",
+                        "description": "Return matching paths only, no line text. Default false."
                     }
                 },
                 "required": ["pattern"]
@@ -86,6 +90,10 @@ impl Tool for GrepTool {
             .get("caseInsensitive")
             .and_then(Value::as_bool)
             .unwrap_or(false);
+        let files_only = args
+            .get("filesOnly")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         let jobs = ctx.parallelism.clamp(1, 16);
         let workspace = ctx.workspace_path();
         match search(
@@ -94,6 +102,7 @@ impl Tool for GrepTool {
             pattern,
             glob,
             case_insensitive,
+            files_only,
             jobs,
         ) {
             Ok(found) => {
@@ -148,6 +157,7 @@ fn search(
     pattern: &str,
     glob: &str,
     case_insensitive: bool,
+    files_only: bool,
     jobs: usize,
 ) -> Result<SearchHit, String> {
     let byte_scan = is_literal(pattern) && !case_insensitive;
@@ -184,20 +194,28 @@ fn search(
             let path = entry.path();
             let rel = display_path(path, workspace);
             let take = !sample_full.load(Ordering::Relaxed);
-            let (file_hits, local) = if let Some(matcher) = matcher.as_ref() {
+            let take_lines = take && !files_only;
+            let (file_hits, mut local) = if let Some(matcher) = matcher.as_ref() {
                 let Some(searcher) = searcher.as_mut() else {
                     return ignore::WalkState::Continue;
                 };
-                scan_regex_file(path, matcher, searcher, &rel, take)
+                scan_regex_file(path, matcher, searcher, &rel, take_lines)
             } else if let (Some(pattern_owned), Some(needle)) =
                 (pattern_owned.as_ref(), needle.as_ref())
             {
-                scan_literal_file(path, needle, &rel, take, pattern_owned, &mut fallback)
+                scan_literal_file(path, needle, &rel, take_lines, pattern_owned, &mut fallback)
             } else {
                 return ignore::WalkState::Continue;
             };
             if file_hits > 0 {
                 total.fetch_add(file_hits, Ordering::Relaxed);
+            }
+            if files_only {
+                local = if file_hits > 0 && take {
+                    vec![rel]
+                } else {
+                    Vec::new()
+                };
             }
             push_samples(&hits, &sample_full, local);
             ignore::WalkState::Continue
@@ -439,7 +457,7 @@ mod tests {
         let dir = scratch();
         fs::write(dir.join("keep.md"), "TOKEN_TARGET\n").unwrap();
         fs::write(dir.join("skip.txt"), "TOKEN_TARGET\n").unwrap();
-        let found = search(&dir, Some(&dir), "TOKEN_TARGET", "*.md", false, 2).unwrap();
+        let found = search(&dir, Some(&dir), "TOKEN_TARGET", "*.md", false, false, 2).unwrap();
         assert_eq!(found.total, 1, "{found:?}");
         assert!(found.lines.iter().all(|line| line.contains("keep.md")));
         assert!(found.lines.iter().all(|line| !line.contains("skip.txt")));
@@ -450,9 +468,9 @@ mod tests {
     fn case_insensitive_is_opt_in() {
         let dir = scratch();
         fs::write(dir.join("a.txt"), "TOKEN_TARGET\n").unwrap();
-        let miss = search(&dir, Some(&dir), "token_target", "", false, 1).unwrap();
+        let miss = search(&dir, Some(&dir), "token_target", "", false, false, 1).unwrap();
         assert_eq!(miss.total, 0);
-        let hit = search(&dir, Some(&dir), "token_target", "", true, 1).unwrap();
+        let hit = search(&dir, Some(&dir), "token_target", "", true, false, 1).unwrap();
         assert_eq!(hit.total, 1);
         let _ = fs::remove_dir_all(dir);
     }
@@ -461,7 +479,7 @@ mod tests {
     fn regex_meta_is_not_a_literal() {
         let dir = scratch();
         fs::write(dir.join("a.txt"), "HIT\n").unwrap();
-        let found = search(&dir, Some(&dir), "H.T", "", false, 1).unwrap();
+        let found = search(&dir, Some(&dir), "H.T", "", false, false, 1).unwrap();
         assert_eq!(found.total, 1, "{found:?}");
         let _ = fs::remove_dir_all(dir);
     }
@@ -474,7 +492,7 @@ mod tests {
             "TOKEN_TARGET TOKEN_TARGET\nplain\nTOKEN_TARGET TOKEN_TARGET TOKEN_TARGET\n",
         )
         .unwrap();
-        let found = search(&dir, Some(&dir), "TOKEN_TARGET", "", false, 1).unwrap();
+        let found = search(&dir, Some(&dir), "TOKEN_TARGET", "", false, false, 1).unwrap();
         assert_eq!(found.total, 2, "{found:?}");
         assert_eq!(found.lines.len(), 2, "{found:?}");
         assert_eq!(
@@ -506,7 +524,7 @@ mod tests {
             body.push_str("HIT\n");
         }
         fs::write(dir.join("a.txt"), body).unwrap();
-        let found = search(&dir, Some(&dir), "HIT", "", false, 1).unwrap();
+        let found = search(&dir, Some(&dir), "HIT", "", false, false, 1).unwrap();
         assert_eq!(found.total, 150);
         assert_eq!(found.lines.len(), MAX_PER_FILE);
         let _ = fs::remove_dir_all(dir);

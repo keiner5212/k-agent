@@ -10,7 +10,7 @@ use super::{
 
 pub const NAME: &str = "write";
 
-const DESCRIPTION: &str = "Create or overwrite a file. Path is absolute or workspace-relative. Paths outside the workspace wait for the user to allow or deny. Parent dirs are created. Read first when editing an existing file.";
+const DESCRIPTION: &str = "Create a new file or replace an entire file. Path is absolute or workspace-relative. To change part of an existing file, use edit. Paths outside the workspace wait for the user to allow or deny. Parent dirs are created.";
 
 pub struct WriteTool;
 

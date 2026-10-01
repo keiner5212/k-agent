@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -9,14 +11,18 @@ use crate::sessions;
 
 pub const NAME: &str = "todowrite";
 
-const DESCRIPTION: &str = "Update the session todo list incrementally. Each item has a stable `id` so it can be added, updated, or removed across calls. Use `clear: true` to wipe the list (the empty list is NOT a clear). The list is shown to the user and persisted across restarts.";
+const DESCRIPTION: &str = "\
+Replace the session todo list. Send the full list every call. There are no ids.\n\
+Use it when the task has 3 or more steps, the user listed several tasks, or a step starts or finishes.\n\
+Skip it for one straightforward step or a purely informational reply.\n\
+Each item is {content, status, priority}. status is pending, in_progress, completed, or cancelled. priority is high, medium, or low.\n\
+Keep at most one item in_progress. Mark completed only after that step is done. An empty todos array clears the list.\n\
+A bad field returns an error that names the item index and the allowed values.";
+
+const SHAPE: &str = "todowrite takes {\"todos\":[{\"content\":\"Run tests\",\"status\":\"in_progress\",\"priority\":\"high\"}]}. Do not send id, add, update, remove, or clear. Send the full list every time. status is pending, in_progress, completed, or cancelled. priority is high, medium, or low. An empty todos array clears the list.";
 
 pub const MAX_TODO_ITEMS: usize = 64;
 pub const MAX_TODO_CONTENT_CHARS: usize = 200;
-pub const MAX_TODO_ID_CHARS: usize = 64;
-pub const PRIORITY_MIN: u8 = 0;
-pub const PRIORITY_MAX: u8 = 10;
-pub const PRIORITY_DEFAULT: u8 = 5;
 pub const HISTORY_CAP: usize = 50;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -37,70 +43,6 @@ pub struct TodoItem {
     pub priority: u8,
 }
 
-impl TodoItem {
-    fn validate(&self) -> Result<(), String> {
-        if self.id.trim().is_empty() {
-            return Err("todowrite every item needs a non-empty `id`.".into());
-        }
-        if self.id.chars().count() > MAX_TODO_ID_CHARS {
-            return Err(format!(
-                "todowrite item id exceeds {MAX_TODO_ID_CHARS} chars."
-            ));
-        }
-        if self.content.trim().is_empty() {
-            return Err("todowrite every item needs a non-empty `content`.".into());
-        }
-        if self.content.chars().count() > MAX_TODO_CONTENT_CHARS {
-            return Err(format!(
-                "todowrite item content exceeds {MAX_TODO_CONTENT_CHARS} chars."
-            ));
-        }
-        if self.priority > PRIORITY_MAX {
-            return Err(format!(
-                "todowrite priority must be 0-{PRIORITY_MAX}, got {}.",
-                self.priority
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct TodoAdd {
-    id: String,
-    content: String,
-    #[serde(default)]
-    status: Option<TodoStatus>,
-    #[serde(default)]
-    priority: Option<u8>,
-}
-
-#[derive(Debug, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-struct TodoUpdate {
-    id: String,
-    #[serde(default)]
-    content: Option<String>,
-    #[serde(default)]
-    status: Option<TodoStatus>,
-    #[serde(default)]
-    priority: Option<u8>,
-}
-
-#[derive(Debug, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-struct TodoWriteArgs {
-    #[serde(default)]
-    add: Vec<TodoAdd>,
-    #[serde(default)]
-    update: Vec<TodoUpdate>,
-    #[serde(default)]
-    remove: Vec<String>,
-    #[serde(default)]
-    clear: bool,
-}
-
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TodoDiff {
@@ -114,18 +56,19 @@ pub struct TodoDiff {
     pub cleared: bool,
 }
 
-impl TodoDiff {
-    fn is_empty(&self) -> bool {
-        self.added.is_empty() && self.updated.is_empty() && self.removed.is_empty() && !self.cleared
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TodoHistoryEvent {
     pub timestamp: i64,
     #[serde(default)]
     pub diff: TodoDiff,
+}
+
+#[derive(Debug)]
+struct Incoming {
+    content: String,
+    status: TodoStatus,
+    priority: u8,
 }
 
 pub struct TodoTool;
@@ -138,19 +81,13 @@ impl Tool for TodoTool {
             parameters: json!({
                 "type": "object",
                 "properties": {
-                    "add": {
+                    "todos": {
                         "type": "array",
-                        "description": "Items to add. Each must have a unique stable id.",
+                        "description": "The full ordered list. Send it again on every update. An empty array clears the list. Do not include ids.",
                         "maxItems": MAX_TODO_ITEMS,
                         "items": {
                             "type": "object",
                             "properties": {
-                                "id": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": MAX_TODO_ID_CHARS,
-                                    "description": "Stable id. Use a short slug like 'tsk-1' or a content hash. Cannot change later."
-                                },
                                 "content": {
                                     "type": "string",
                                     "minLength": 1,
@@ -160,87 +97,43 @@ impl Tool for TodoTool {
                                 "status": {
                                     "type": "string",
                                     "enum": ["pending", "in_progress", "completed", "cancelled"],
-                                    "description": "Initial status. Defaults to pending."
+                                    "description": "pending, in_progress, completed, or cancelled. At most one in_progress."
                                 },
                                 "priority": {
-                                    "type": "integer",
-                                    "minimum": PRIORITY_MIN,
-                                    "maximum": PRIORITY_MAX,
-                                    "description": "Initial priority 0-10. Higher = more important. Defaults to 5."
+                                    "type": "string",
+                                    "enum": ["high", "medium", "low"],
+                                    "description": "high, medium, or low."
                                 }
                             },
-                            "required": ["id", "content"]
+                            "required": ["content", "status", "priority"]
                         }
-                    },
-                    "update": {
-                        "type": "array",
-                        "description": "Items to update by id. Only the fields you include change; the rest stay as they were.",
-                        "maxItems": MAX_TODO_ITEMS,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": {
-                                    "type": "string",
-                                    "description": "Id of an existing item to update."
-                                },
-                                "content": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "maxLength": MAX_TODO_CONTENT_CHARS
-                                },
-                                "status": {
-                                    "type": "string",
-                                    "enum": ["pending", "in_progress", "completed", "cancelled"]
-                                },
-                                "priority": {
-                                    "type": "integer",
-                                    "minimum": PRIORITY_MIN,
-                                    "maximum": PRIORITY_MAX
-                                }
-                            },
-                            "required": ["id"]
-                        }
-                    },
-                    "remove": {
-                        "type": "array",
-                        "description": "Ids of items to remove.",
-                        "items": { "type": "string" }
-                    },
-                    "clear": {
-                        "type": "boolean",
-                        "description": "Set to true to wipe the list. The empty list (no add/update/remove/clear) is a no-op, NOT a clear."
                     }
                 },
-                "anyOf": [
-                    { "required": ["add"] },
-                    { "required": ["update"] },
-                    { "required": ["remove"] },
-                    { "required": ["clear"] }
-                ]
+                "required": ["todos"]
             }),
         }
     }
 
     fn execute(&self, args: &Value, ctx: &ToolContext<'_>) -> ToolOutcome {
-        let parsed = match serde_json::from_value::<TodoWriteArgs>(args.clone()) {
+        let parsed = match parse_todos(args) {
             Ok(value) => value,
-            Err(error) => return super::context_error(None, &format!("todowrite: {error}")),
+            Err(message) => return super::context_error(None, &message),
         };
-        let result = apply(ctx, parsed);
-        match result {
+        match apply(ctx, parsed) {
             Ok(outcome) => outcome,
             Err(message) => super::context_error(None, &message),
         }
     }
 }
 
-fn apply(ctx: &ToolContext<'_>, args: TodoWriteArgs) -> Result<ToolOutcome, String> {
+fn apply(ctx: &ToolContext<'_>, incoming: Vec<Incoming>) -> Result<ToolOutcome, String> {
     let current = read_current(ctx)?;
-    let staged = stage(args, current)?;
-    if !staged.diff.is_empty() {
+    let staged = replace_list(incoming, &current)?;
+    let changed = staged.final_todos != current;
+    if changed {
         persist_with_event(ctx, staged.final_todos.clone(), staged.diff.clone())?;
     }
-    Ok(emit_outcome(ctx, staged.final_todos, staged.diff))
+    Ok(emit_outcome(ctx, staged.final_todos, &staged.diff, changed))
 }
 
 #[derive(Debug)]
@@ -249,199 +142,266 @@ struct Staged {
     diff: TodoDiff,
 }
 
-fn id_list(items: &[TodoItem]) -> String {
-    if items.is_empty() {
-        return "none".to_string();
-    }
-    items
-        .iter()
-        .map(|item| item.id.as_str())
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-fn stage(args: TodoWriteArgs, current: Vec<TodoItem>) -> Result<Staged, String> {
-    let remove_ids = sanitize_remove_ids(args.remove);
-    let mut next = current;
-    let mut diff = TodoDiff::default();
-
-    if args.clear && !next.is_empty() {
-        diff.removed = next.iter().map(|item| item.id.clone()).collect();
-        diff.cleared = true;
-        next.clear();
-    }
-
-    let removed_now: Vec<String> = remove_ids
-        .iter()
-        .filter(|id| next.iter().any(|item| &item.id == *id))
-        .cloned()
-        .collect();
-    if !removed_now.is_empty() {
-        next.retain(|item| !remove_ids.iter().any(|id| id == &item.id));
-        diff.removed.extend(removed_now);
-        diff.removed.sort();
-        diff.removed.dedup();
-    }
-
-    let updates = plan_updates(args.update, &next)?;
-    let added = build_additions(args.add, &next)?;
-
-    for update in &updates {
-        let Some(target) = next.iter().find(|item| item.id == update.id) else {
-            return Err(format!(
-                "todowrite: cannot update unknown id `{}`. Known ids: {}.",
-                update.id,
-                id_list(&next)
-            ));
-        };
-        diff.updated.push(apply_update_to_snapshot(target, update));
-    }
-    for update in updates {
-        let Some(target) = next.iter_mut().find(|item| item.id == update.id) else {
-            return Err(format!(
-                "todowrite: cannot update unknown id `{}`. Known ids: {}.",
-                update.id,
-                id_list(&next)
-            ));
-        };
-        if let Some(value) = update.content {
-            target.content = value;
-        }
-        if let Some(status) = update.status {
-            target.status = status;
-        }
-        if let Some(priority) = update.priority {
-            target.priority = priority;
+fn parse_todos(args: &Value) -> Result<Vec<Incoming>, String> {
+    let Some(obj) = args.as_object() else {
+        return Err(SHAPE.to_string());
+    };
+    for key in ["add", "update", "remove", "clear", "id"] {
+        if obj.contains_key(key) {
+            return Err(SHAPE.to_string());
         }
     }
-    for item in &added {
-        diff.added.push(item.clone());
-    }
-    next.extend(added);
-
-    if next.len() > MAX_TODO_ITEMS {
+    let Some(list) = obj.get("todos") else {
+        return Err(format!("todowrite: missing `todos`. {SHAPE}"));
+    };
+    let Some(items) = list.as_array() else {
+        return Err(format!(
+            "todowrite: `todos` must be an array, got {}. {SHAPE}",
+            json_kind(list)
+        ));
+    };
+    if items.len() > MAX_TODO_ITEMS {
         return Err(format!(
             "todowrite accepts at most {MAX_TODO_ITEMS} items, got {}.",
-            next.len()
+            items.len()
         ));
     }
-    Ok(Staged {
-        final_todos: next,
-        diff,
+    let mut incoming = Vec::with_capacity(items.len());
+    for (index, item) in items.iter().enumerate() {
+        incoming.push(parse_item(index, item)?);
+    }
+    let active: Vec<&str> = incoming
+        .iter()
+        .filter(|item| item.status == TodoStatus::InProgress)
+        .map(|item| item.content.as_str())
+        .collect();
+    if active.len() > 1 {
+        return Err(format!(
+            "todowrite: only one item can be in_progress. These are in_progress: {}. Leave the others pending.",
+            active
+                .iter()
+                .map(|content| format!("\"{content}\""))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    Ok(incoming)
+}
+
+fn parse_item(index: usize, value: &Value) -> Result<Incoming, String> {
+    let Some(obj) = value.as_object() else {
+        return Err(format!(
+            "todowrite: todos[{index}] must be an object with content, status, and priority. Got {}.",
+            json_kind(value)
+        ));
+    };
+    if obj.contains_key("id") {
+        return Err(format!(
+            "todowrite: todos[{index}] includes `id`. This tool has no ids. Send content, status, and priority only."
+        ));
+    }
+    let content = match obj.get("content") {
+        Some(Value::String(text)) => text.trim().to_string(),
+        Some(other) => {
+            return Err(format!(
+                "todowrite: todos[{index}].content must be a string, got {}.",
+                json_kind(other)
+            ));
+        }
+        None => {
+            return Err(format!(
+                "todowrite: todos[{index}] is missing `content`. Each item needs content, status, and priority."
+            ));
+        }
+    };
+    if content.is_empty() {
+        return Err(format!(
+            "todowrite: todos[{index}].content is empty. Write a short task description."
+        ));
+    }
+    if content.chars().count() > MAX_TODO_CONTENT_CHARS {
+        return Err(format!(
+            "todowrite: todos[{index}].content exceeds {MAX_TODO_CONTENT_CHARS} chars."
+        ));
+    }
+    let status = match obj.get("status") {
+        Some(Value::String(text)) => parse_status(index, text)?,
+        Some(other) => {
+            return Err(format!(
+                "todowrite: todos[{index}].status must be pending, in_progress, completed, or cancelled. Got {}.",
+                json_kind(other)
+            ));
+        }
+        None => {
+            return Err(format!(
+                "todowrite: todos[{index}] is missing `status`. Use pending, in_progress, completed, or cancelled."
+            ));
+        }
+    };
+    let priority = match obj.get("priority") {
+        Some(Value::String(text)) => parse_priority(index, text)?,
+        Some(other) => {
+            return Err(format!(
+                "todowrite: todos[{index}].priority must be \"high\", \"medium\", or \"low\". Got {}.",
+                json_kind(other)
+            ));
+        }
+        None => {
+            return Err(format!(
+                "todowrite: todos[{index}] is missing `priority`. Use \"high\", \"medium\", or \"low\"."
+            ));
+        }
+    };
+    Ok(Incoming {
+        content,
+        status,
+        priority,
     })
 }
 
-fn build_additions(raw: Vec<TodoAdd>, current: &[TodoItem]) -> Result<Vec<TodoItem>, String> {
-    let mut built: Vec<TodoItem> = Vec::with_capacity(raw.len());
-    for entry in raw {
-        let item = TodoItem {
-            id: entry.id.trim().to_string(),
-            content: entry.content.trim().to_string(),
-            status: entry.status.unwrap_or(TodoStatus::Pending),
-            priority: entry.priority.unwrap_or(PRIORITY_DEFAULT),
-        };
-        item.validate()?;
-        if built.iter().any(|other| other.id == item.id) {
-            return Err(format!("todowrite: duplicate id `{}` in `add`.", item.id));
-        }
-        if current.iter().any(|existing| existing.id == item.id) {
-            return Err(format!(
-                "todowrite: id `{}` already exists. Use `update` instead of `add`. Known ids: {}.",
-                item.id,
-                id_list(current)
-            ));
-        }
-        built.push(item);
+fn parse_status(index: usize, raw: &str) -> Result<TodoStatus, String> {
+    match raw.trim() {
+        "pending" => Ok(TodoStatus::Pending),
+        "in_progress" => Ok(TodoStatus::InProgress),
+        "completed" => Ok(TodoStatus::Completed),
+        "cancelled" => Ok(TodoStatus::Cancelled),
+        other => Err(format!(
+            "todowrite: todos[{index}].status must be pending, in_progress, completed, or cancelled. Got \"{other}\"."
+        )),
     }
-    Ok(built)
 }
 
-#[derive(Debug)]
-struct ResolvedUpdate {
-    id: String,
-    content: Option<String>,
-    status: Option<TodoStatus>,
-    priority: Option<u8>,
+fn parse_priority(index: usize, raw: &str) -> Result<u8, String> {
+    match raw.trim() {
+        "high" => Ok(8),
+        "medium" => Ok(5),
+        "low" => Ok(2),
+        other => Err(format!(
+            "todowrite: todos[{index}].priority must be \"high\", \"medium\", or \"low\". Got \"{other}\"."
+        )),
+    }
 }
 
-fn plan_updates(raw: Vec<TodoUpdate>, current: &[TodoItem]) -> Result<Vec<ResolvedUpdate>, String> {
-    let mut resolved = Vec::with_capacity(raw.len());
-    for entry in raw {
-        let id = entry.id.trim().to_string();
-        if id.is_empty() {
-            return Err("todowrite update entries need a non-empty `id`.".into());
-        }
-        if !current.iter().any(|item| item.id == id) {
-            return Err(format!(
-                "todowrite: cannot update unknown id `{id}`. Known ids: {}.",
-                id_list(current)
-            ));
-        }
-        let content = entry.content.map(|value| value.trim().to_string());
-        if let Some(value) = &content {
-            if value.is_empty() {
-                return Err("todowrite update content cannot be empty.".into());
-            }
-            if value.chars().count() > MAX_TODO_CONTENT_CHARS {
-                return Err(format!(
-                    "todowrite update content exceeds {MAX_TODO_CONTENT_CHARS} chars."
-                ));
-            }
-        }
-        if let Some(priority) = entry.priority {
-            if priority > PRIORITY_MAX {
-                return Err(format!(
-                    "todowrite update priority must be 0-{PRIORITY_MAX}."
-                ));
-            }
-        }
-        resolved.push(ResolvedUpdate {
+fn json_kind(value: &Value) -> &'static str {
+    match value {
+        Value::Null => "null",
+        Value::Bool(_) => "a boolean",
+        Value::Number(_) => "a number",
+        Value::String(_) => "a string",
+        Value::Array(_) => "an array",
+        Value::Object(_) => "an object",
+    }
+}
+
+fn replace_list(incoming: Vec<Incoming>, current: &[TodoItem]) -> Result<Staged, String> {
+    let next = assign_ids(incoming, current);
+    Ok(Staged {
+        final_todos: next.clone(),
+        diff: diff_lists(current, &next),
+    })
+}
+
+fn assign_ids(incoming: Vec<Incoming>, current: &[TodoItem]) -> Vec<TodoItem> {
+    let mut used_current = vec![false; current.len()];
+    let mut reserved: HashSet<String> = current.iter().map(|item| item.id.clone()).collect();
+    let mut out = Vec::with_capacity(incoming.len());
+    for item in incoming {
+        let id =
+            if let Some(index) = current.iter().enumerate().position(|(index, existing)| {
+                !used_current[index] && existing.content == item.content
+            }) {
+                used_current[index] = true;
+                current[index].id.clone()
+            } else {
+                let id = fresh_id(&reserved);
+                reserved.insert(id.clone());
+                id
+            };
+        out.push(TodoItem {
             id,
-            content,
-            status: entry.status,
-            priority: entry.priority,
+            content: item.content,
+            status: item.status,
+            priority: item.priority,
         });
     }
-    Ok(resolved)
+    out
 }
 
-fn apply_update_to_snapshot(existing: &TodoItem, update: &ResolvedUpdate) -> TodoItem {
-    let mut snapshot = existing.clone();
-    if let Some(value) = &update.content {
-        snapshot.content = value.clone();
+fn fresh_id(used: &HashSet<String>) -> String {
+    let mut n = 1u32;
+    loop {
+        let id = format!("t{n}");
+        if !used.contains(&id) {
+            return id;
+        }
+        n += 1;
     }
-    if let Some(status) = update.status {
-        snapshot.status = status;
-    }
-    if let Some(priority) = update.priority {
-        snapshot.priority = priority;
-    }
-    snapshot
 }
 
-fn sanitize_remove_ids(raw: Vec<String>) -> Vec<String> {
-    let mut ids: Vec<String> = raw
-        .into_iter()
-        .map(|id| id.trim().to_string())
-        .filter(|id| !id.is_empty())
-        .collect();
-    ids.sort();
-    ids.dedup();
-    ids
+fn diff_lists(previous: &[TodoItem], next: &[TodoItem]) -> TodoDiff {
+    let mut diff = TodoDiff::default();
+    if previous.is_empty() && next.is_empty() {
+        return diff;
+    }
+    if !previous.is_empty() && next.is_empty() {
+        diff.cleared = true;
+        diff.removed = previous.iter().map(|item| item.id.clone()).collect();
+        return diff;
+    }
+    let next_ids: HashSet<&str> = next.iter().map(|item| item.id.as_str()).collect();
+    for item in previous {
+        if !next_ids.contains(item.id.as_str()) {
+            diff.removed.push(item.id.clone());
+        }
+    }
+    for item in next {
+        match previous.iter().find(|old| old.id == item.id) {
+            None => diff.added.push(item.clone()),
+            Some(old) if old != item => diff.updated.push(item.clone()),
+            Some(_) => {}
+        }
+    }
+    diff
 }
 
-fn emit_outcome(ctx: &ToolContext<'_>, todos: Vec<TodoItem>, diff: TodoDiff) -> ToolOutcome {
+fn status_name(status: TodoStatus) -> &'static str {
+    match status {
+        TodoStatus::Pending => "pending",
+        TodoStatus::InProgress => "in_progress",
+        TodoStatus::Completed => "completed",
+        TodoStatus::Cancelled => "cancelled",
+    }
+}
+
+fn priority_word(priority: u8) -> &'static str {
+    if priority >= 8 {
+        "high"
+    } else if priority >= 4 {
+        "medium"
+    } else {
+        "low"
+    }
+}
+
+fn emit_outcome(
+    ctx: &ToolContext<'_>,
+    todos: Vec<TodoItem>,
+    diff: &TodoDiff,
+    changed: bool,
+) -> ToolOutcome {
     let summary = build_summary(&todos);
-    let status_label = if diff.is_empty() { "noop" } else { "ok" };
+    let list = list_block(&todos);
+    let status_label = if changed { "ok" } else { "noop" };
     let text = toon_doc(&[
         ("status", ToonValue::Str(status_label)),
         ("count", ToonValue::Int(todos.len() as i64)),
-        ("summary", ToonValue::Block(&summary)),
+        ("summary", ToonValue::Str(&summary)),
+        ("todos", ToonValue::Block(&list)),
     ]);
-    if !diff.is_empty() {
+    if changed {
         if let Some(channel) = ctx.on_chunk {
             if let Ok(payload) = serde_json::to_string(&serde_json::json!({
-                "todos": todos,
+                "todos": &todos,
                 "diff": diff,
             })) {
                 let _ = channel.send(ChatChunk {
@@ -463,6 +423,26 @@ fn emit_outcome(ctx: &ToolContext<'_>, todos: Vec<TodoItem>, diff: TodoDiff) -> 
         image_png: None,
         file: None,
     }
+}
+
+fn list_block(todos: &[TodoItem]) -> String {
+    if todos.is_empty() {
+        return "(empty)".to_string();
+    }
+    todos
+        .iter()
+        .enumerate()
+        .map(|(index, item)| {
+            let content = item.content.replace('\n', " ");
+            format!(
+                "{}. [{}] [{}] {content}",
+                index + 1,
+                status_name(item.status),
+                priority_word(item.priority)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn read_current(ctx: &ToolContext<'_>) -> Result<Vec<TodoItem>, String> {
@@ -530,12 +510,6 @@ fn build_summary(todos: &[TodoItem]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tools::ToolContext;
-    use std::path::PathBuf;
-
-    fn ctx() -> ToolContext<'static> {
-        ToolContext::for_test(PathBuf::from("/tmp"), 1)
-    }
 
     fn item(id: &str, content: &str, status: TodoStatus, priority: u8) -> TodoItem {
         TodoItem {
@@ -546,42 +520,16 @@ mod tests {
         }
     }
 
-    fn todo_write_args(
-        add: &[(&str, &str, u8)],
-        update: &[(&str, Option<&str>, Option<TodoStatus>, Option<u8>)],
-        remove: &[&str],
-        clear: bool,
-    ) -> TodoWriteArgs {
-        TodoWriteArgs {
-            add: add
-                .iter()
-                .map(|(id, content, priority)| TodoAdd {
-                    id: (*id).to_string(),
-                    content: (*content).to_string(),
-                    status: Some(TodoStatus::Pending),
-                    priority: Some(*priority),
-                })
-                .collect(),
-            update: update
-                .iter()
-                .map(|(id, content, status, priority)| TodoUpdate {
-                    id: (*id).to_string(),
-                    content: content.map(|v| v.to_string()),
-                    status: *status,
-                    priority: *priority,
-                })
-                .collect(),
-            remove: remove.iter().map(|s| (*s).to_string()).collect(),
-            clear,
-        }
+    fn todos(raw: Value) -> Vec<Incoming> {
+        parse_todos(&raw).expect("parse")
     }
 
     #[test]
     fn build_summary_counts_each_status() {
         let todos = vec![
-            item("a", "a", TodoStatus::Pending, 9),
-            item("b", "b", TodoStatus::InProgress, 7),
-            item("c", "c", TodoStatus::Completed, 1),
+            item("a", "a", TodoStatus::Pending, 2),
+            item("b", "b", TodoStatus::InProgress, 8),
+            item("c", "c", TodoStatus::Completed, 5),
         ];
         let summary = build_summary(&todos);
         assert!(summary.contains("1 pending"));
@@ -590,216 +538,107 @@ mod tests {
     }
 
     #[test]
-    fn validate_rejects_empty_content() {
-        assert!(item("x", "   ", TodoStatus::Pending, 5).validate().is_err());
-    }
-
-    #[test]
-    fn validate_rejects_empty_id() {
-        assert!(item("  ", "ok", TodoStatus::Pending, 5).validate().is_err());
-    }
-
-    #[test]
-    fn validate_rejects_priority_above_max() {
-        assert!(item("x", "ok", TodoStatus::Pending, 11).validate().is_err());
-    }
-
-    #[test]
-    fn validate_accepts_priority_zero() {
-        assert!(item("x", "ok", TodoStatus::Pending, 0).validate().is_ok());
-    }
-
-    #[test]
-    fn empty_args_is_a_noop_not_clear() {
-        let args: TodoWriteArgs = serde_json::from_value(json!({})).expect("parse");
-        assert!(!args.clear);
-        assert!(args.add.is_empty());
-        assert!(args.update.is_empty());
-        assert!(args.remove.is_empty());
-    }
-
-    #[test]
-    fn diff_is_empty_when_no_operations() {
-        let diff = TodoDiff::default();
-        assert!(diff.is_empty());
-    }
-
-    #[test]
-    fn stage_adds_new_items_atomically() {
-        let current = vec![item("existing", "old", TodoStatus::Pending, 5)];
-        let args = todo_write_args(&[("new-1", "one", 5), ("new-2", "two", 5)], &[], &[], false);
-        let staged = stage(args, current).expect("stage");
-        assert_eq!(staged.final_todos.len(), 3);
-        assert_eq!(staged.diff.added.len(), 2);
-        assert!(!staged.diff.cleared);
-        assert!(!staged.diff.is_empty());
-    }
-
-    #[test]
-    fn stage_rolls_back_when_add_duplicate_id() {
-        let current = vec![item("dup", "old", TodoStatus::Pending, 5)];
-        let args = todo_write_args(&[("dup", "new", 5)], &[], &[], false);
-        let err = stage(args, current).expect_err("should reject duplicate");
-        assert!(err.contains("already exists"));
-    }
-
-    #[test]
-    fn stage_rolls_back_when_add_duplicate_within_same_call() {
-        let current: Vec<TodoItem> = vec![];
-        let args = todo_write_args(&[("dup", "one", 5), ("dup", "two", 5)], &[], &[], false);
-        let err = stage(args, current).expect_err("should reject duplicate");
-        assert!(err.contains("duplicate id"));
-    }
-
-    #[test]
-    fn stage_rolls_back_when_update_unknown_id() {
-        let current = vec![item("real", "x", TodoStatus::Pending, 5)];
-        let args = todo_write_args(
-            &[],
-            &[("ghost", None, Some(TodoStatus::Completed), None)],
-            &[],
-            false,
-        );
-        let err = stage(args, current).expect_err("should reject unknown id");
-        assert!(err.contains("cannot update unknown id"));
-    }
-
-    #[test]
-    fn stage_rolls_back_when_update_priority_out_of_range() {
-        let current = vec![item("real", "x", TodoStatus::Pending, 5)];
-        let args = TodoWriteArgs {
-            update: vec![TodoUpdate {
-                id: "real".into(),
-                content: None,
-                status: None,
-                priority: Some(99),
-            }],
-            ..TodoWriteArgs::default()
-        };
-        assert!(stage(args, current).is_err());
-    }
-
-    #[test]
-    fn stage_clear_marks_diff_cleared_only_when_items_existed() {
-        let staged = stage(todo_write_args(&[], &[], &[], true), vec![]).expect("stage");
-        assert!(staged.diff.is_empty());
-        assert!(!staged.diff.cleared);
-
-        let staged = stage(
-            todo_write_args(&[], &[], &[], true),
-            vec![item("a", "x", TodoStatus::Pending, 5)],
+    fn replace_keeps_id_when_content_matches() {
+        let current = vec![item("step-1", "Run tests", TodoStatus::Pending, 5)];
+        let staged = replace_list(
+            todos(json!({
+                "todos": [{
+                    "content": "Run tests",
+                    "status": "in_progress",
+                    "priority": "high"
+                }]
+            })),
+            &current,
         )
-        .expect("stage");
-        assert!(staged.diff.cleared);
-        assert!(staged.diff.removed.contains(&"a".to_string()));
-    }
-
-    #[test]
-    fn stage_remove_unknown_ids_silently_ignored() {
-        let current = vec![item("real", "x", TodoStatus::Pending, 5)];
-        let staged = stage(todo_write_args(&[], &[], &["ghost"], false), current).expect("stage");
-        assert_eq!(staged.final_todos.len(), 1);
-        assert!(staged.diff.removed.is_empty());
-    }
-
-    #[test]
-    fn stage_combined_add_update_remove_apply_in_order() {
-        let current = vec![
-            item("keep", "k", TodoStatus::Pending, 3),
-            item("drop", "d", TodoStatus::Pending, 3),
-        ];
-        let args = TodoWriteArgs {
-            add: vec![TodoAdd {
-                id: "new".into(),
-                content: "n".into(),
-                status: Some(TodoStatus::Pending),
-                priority: Some(7),
-            }],
-            update: vec![TodoUpdate {
-                id: "keep".into(),
-                content: None,
-                status: Some(TodoStatus::InProgress),
-                priority: None,
-            }],
-            remove: vec!["drop".into()],
-            clear: false,
-        };
-        let staged = stage(args, current).expect("stage");
-        assert_eq!(staged.final_todos.len(), 2);
-        assert!(staged.diff.added.iter().any(|item| item.id == "new"));
-        assert!(staged
-            .diff
-            .updated
-            .iter()
-            .any(|item| item.id == "keep" && item.status == TodoStatus::InProgress));
-        assert_eq!(staged.diff.removed, vec!["drop".to_string()]);
-    }
-
-    #[test]
-    fn stage_updates_diff_with_full_snapshot_after_change() {
-        let current = vec![item("x", "old", TodoStatus::Pending, 3)];
-        let args = TodoWriteArgs {
-            update: vec![TodoUpdate {
-                id: "x".into(),
-                content: Some("new".into()),
-                status: None,
-                priority: Some(8),
-            }],
-            ..TodoWriteArgs::default()
-        };
-        let staged = stage(args, current).expect("stage");
+        .expect("replace");
+        assert_eq!(staged.final_todos[0].id, "step-1");
+        assert_eq!(staged.final_todos[0].status, TodoStatus::InProgress);
+        assert_eq!(staged.final_todos[0].priority, 8);
         assert_eq!(staged.diff.updated.len(), 1);
-        let snapshot = &staged.diff.updated[0];
-        assert_eq!(snapshot.content, "new");
-        assert_eq!(snapshot.priority, 8);
-        assert_eq!(snapshot.status, TodoStatus::Pending);
     }
 
     #[test]
-    fn stage_rejects_list_above_max() {
-        let mut current = Vec::new();
-        for index in 0..MAX_TODO_ITEMS {
-            current.push(item(&format!("k-{index}"), "x", TodoStatus::Pending, 5));
-        }
-        let args = TodoWriteArgs {
-            add: vec![TodoAdd {
-                id: "overflow".into(),
-                content: "x".into(),
-                status: Some(TodoStatus::Pending),
-                priority: Some(5),
-            }],
-            ..TodoWriteArgs::default()
-        };
-        assert!(stage(args, current).is_err());
+    fn replace_assigns_id_for_a_new_item() {
+        let staged = replace_list(
+            todos(json!({
+                "todos": [{
+                    "content": "Write docs",
+                    "status": "pending",
+                    "priority": "low"
+                }]
+            })),
+            &[],
+        )
+        .expect("replace");
+        assert_eq!(staged.final_todos[0].id, "t1");
+        assert_eq!(staged.final_todos[0].priority, 2);
+        assert_eq!(staged.diff.added.len(), 1);
     }
 
     #[test]
-    fn sanitize_remove_ids_dedups_and_trims() {
-        let ids = sanitize_remove_ids(vec![
-            " a ".into(),
-            "a".into(),
-            "".into(),
-            "b".into(),
-            "b".into(),
-        ]);
-        assert_eq!(ids, vec!["a".to_string(), "b".to_string()]);
+    fn empty_list_clears() {
+        let current = vec![item("t1", "Run tests", TodoStatus::Pending, 5)];
+        let staged = replace_list(todos(json!({ "todos": [] })), &current).expect("replace");
+        assert!(staged.final_todos.is_empty());
+        assert!(staged.diff.cleared);
     }
 
     #[test]
-    fn emit_outcome_with_noop_diff_labels_status_noop() {
-        let ctx = ctx();
-        let todos: Vec<TodoItem> = vec![];
-        let diff = TodoDiff::default();
-        let outcome = emit_outcome(&ctx, todos, diff);
-        let stored = outcome.display.status.expect("status");
-        assert_eq!(stored, "noop");
+    fn missing_todos_names_the_shape() {
+        let error = parse_todos(&json!({})).expect_err("missing");
+        assert!(error.contains("missing `todos`"));
+        assert!(error.contains("priority"));
     }
 
     #[test]
-    fn status_serializes_in_snake_case() {
-        let json = serde_json::to_string(&TodoStatus::InProgress).expect("serialize");
-        assert_eq!(json, "\"in_progress\"");
-        let json = serde_json::to_string(&TodoStatus::Pending).expect("serialize");
-        assert_eq!(json, "\"pending\"");
+    fn legacy_id_shape_is_rejected() {
+        let error = parse_todos(&json!({
+            "add": [{ "id": "step-1", "content": "Run tests" }]
+        }))
+        .expect_err("legacy");
+        assert!(error.contains("Do not send id"));
+    }
+
+    #[test]
+    fn bad_status_names_the_index_and_allowed_values() {
+        let error = parse_todos(&json!({
+            "todos": [{
+                "content": "Run tests",
+                "status": "doing",
+                "priority": "high"
+            }]
+        }))
+        .expect_err("status");
+        assert!(error.contains("todos[0].status"));
+        assert!(error.contains("in_progress"));
+        assert!(error.contains("doing"));
+    }
+
+    #[test]
+    fn numeric_priority_is_rejected() {
+        let error = parse_todos(&json!({
+            "todos": [{
+                "content": "Run tests",
+                "status": "pending",
+                "priority": 9
+            }]
+        }))
+        .expect_err("priority");
+        assert!(error.contains("todos[0].priority"));
+        assert!(error.contains("high"));
+    }
+
+    #[test]
+    fn two_in_progress_items_are_rejected() {
+        let error = parse_todos(&json!({
+            "todos": [
+                { "content": "A", "status": "in_progress", "priority": "high" },
+                { "content": "B", "status": "in_progress", "priority": "low" }
+            ]
+        }))
+        .expect_err("active");
+        assert!(error.contains("only one item can be in_progress"));
+        assert!(error.contains("\"A\""));
+        assert!(error.contains("\"B\""));
     }
 }

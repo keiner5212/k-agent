@@ -12,7 +12,7 @@ use crate::chat::ChatChunk;
 
 pub const NAME: &str = "ask_user";
 
-const DESCRIPTION: &str = "Ask the user one or more questions (1-4) and block until they answer. Use sparingly to confirm important choices. Each question may include selectable choices, multi-select, and an optional free-text input alongside the options.";
+const DESCRIPTION: &str = "Ask the user when the request is ambiguous or needs a choice. Do not guess. 1 to 4 questions. Blocks until they answer. Put the recommended option first. Each question can offer options, multi-select, and an optional free-text answer.";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

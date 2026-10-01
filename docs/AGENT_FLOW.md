@@ -15,7 +15,7 @@ Empty blocks are omitted.
 5. `<agent-skills>` - global skills bound to the agent that are not already loaded.
 6. `<workspace-skills>` - skills under `{workspace}/.agents/skills/` that are not already loaded.
 7. `<clarify>` - call `ask_user` when the request is not fully clear. Omitted when the agent has no `ask_user` tool.
-8. `<todos>` - call `todowrite` whenever a step starts, finishes, drops, or changes. Omitted when the agent has no `todowrite` tool.
+8. `<todos>` - call `todowrite` with the full list when a multi-step task starts, finishes, or drops a step. No ids. Omitted when the agent has no `todowrite` tool.
 9. `<tools>` - use `list_directory`, `read`, `grep`, `write`, `edit`, `create_folder`, and `delete` instead of `bash`. Omitted when the agent has no `bash` tool. Lines for missing tools are omitted.
 10. `<personality>` - the agent persona body, unchanged.
 11. `<rendering>` - how chat markdown is shown.

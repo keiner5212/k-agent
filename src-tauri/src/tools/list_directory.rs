@@ -13,11 +13,13 @@ use super::{
 
 pub const NAME: &str = "list_directory";
 
-const DESCRIPTION: &str = "List a directory as tagged paths the model can pass to read or edit. Each line is [dir] or [file], indented when recursive. summary counts directories and files. Path is absolute or workspace-relative (default: workspace root). Paths outside the workspace wait for the user. recursive walks the tree; maxDepth default 3, max 10. Skips noise dirs. Capped at 5000 lines. Walks subtrees in parallel using configured worker cores. Use this instead of ls, find, or tree.";
+const DESCRIPTION: &str = "List a directory, or find files by glob. Without glob, each line is [dir] or [file], indented when recursive. With glob, returns sorted file paths only (*.rs matches any depth, src/**/*.ts matches that prefix, *.{ts,tsx} is either suffix). At most 200 glob hits. Path is absolute or workspace-relative (default: workspace root). Paths outside the workspace wait for the user. recursive walks the tree; maxDepth default 3, or 10 when glob is set, max 10. Skips noise dirs. Capped at 5000 lines. Walks subtrees in parallel using configured worker cores. Use this instead of ls, find, or tree.";
 
 const MAX_ENTRIES_PER_DIR: usize = 2_000;
 const MAX_OUTPUT_LINES: usize = 5_000;
+const MAX_GLOB_HITS: usize = 200;
 const MAX_DEPTH_DEFAULT: usize = 3;
+const GLOB_DEPTH_DEFAULT: usize = 10;
 const CACHE_TTL: Duration = Duration::from_millis(1000);
 pub const MAX_PARALLELISM: usize = 16;
 
@@ -108,7 +110,11 @@ impl Tool for ListDirectoryTool {
                     "maxDepth": {
                         "type": "integer",
                         "minimum": 1,
-                        "description": "Max depth when recursive (default 3, max 10)"
+                        "description": "Max depth when recursive (default 3, or 10 when glob is set, max 10)"
+                    },
+                    "glob": {
+                        "type": "string",
+                        "description": "Return only matching file paths. *.rs matches any depth. src/**/*.ts matches that prefix. *.{ts,tsx} matches either suffix."
                     }
                 }
             }),
@@ -121,11 +127,16 @@ impl Tool for ListDirectoryTool {
             .and_then(Value::as_str)
             .map(str::trim)
             .unwrap_or("");
-        let recursive = args
-            .get("recursive")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let max_depth = match parse_depth(args) {
+        let glob = match parse_glob(args) {
+            Ok(value) => value,
+            Err(message) => return super::context_error(None, &message),
+        };
+        let recursive = glob.is_some()
+            || args
+                .get("recursive")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+        let max_depth = match parse_depth(args, glob.is_some()) {
             Ok(value) => value,
             Err(message) => return super::context_error(None, &message),
         };
@@ -166,7 +177,11 @@ impl Tool for ListDirectoryTool {
             );
         }
 
-        render_tree(&resolved, &rel, recursive, max_depth, ctx.parallelism)
+        if let Some(pattern) = glob.as_deref() {
+            render_glob(&resolved, &rel, pattern, max_depth, ctx.parallelism)
+        } else {
+            render_tree(&resolved, &rel, recursive, max_depth, ctx.parallelism)
+        }
     }
 }
 
@@ -183,9 +198,30 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     .await
 }
 
-fn parse_depth(args: &Value) -> Result<usize, String> {
+fn parse_glob(args: &Value) -> Result<Option<String>, String> {
+    let Some(value) = args.get("glob") else {
+        return Ok(None);
+    };
+    let Some(text) = value.as_str() else {
+        return Err("list_directory `glob` must be a string.".into());
+    };
+    let text = text.trim();
+    if text.is_empty() {
+        return Ok(None);
+    }
+    if text.len() > 200 {
+        return Err("list_directory `glob` exceeds 200 chars.".into());
+    }
+    Ok(Some(text.to_string()))
+}
+
+fn parse_depth(args: &Value, glob: bool) -> Result<usize, String> {
     let Some(value) = args.get("maxDepth") else {
-        return Ok(MAX_DEPTH_DEFAULT);
+        return Ok(if glob {
+            GLOB_DEPTH_DEFAULT
+        } else {
+            MAX_DEPTH_DEFAULT
+        });
     };
     let Some(number) = value.as_u64() else {
         return Err("list_directory `maxDepth` must be a non-negative integer.".into());
@@ -331,6 +367,231 @@ fn render_tree(
     }
 }
 
+fn render_glob(
+    root: &Path,
+    rel: &str,
+    pattern: &str,
+    max_depth: usize,
+    parallelism: usize,
+) -> ToolOutcome {
+    let mut hits = Vec::new();
+    let budget = Arc::new(Mutex::new(MAX_GLOB_HITS + 1));
+    collect_glob(
+        root,
+        "",
+        0,
+        max_depth,
+        parallelism,
+        pattern,
+        &budget,
+        &mut hits,
+    );
+    hits.sort();
+    hits.dedup();
+    let truncated = hits.len() > MAX_GLOB_HITS;
+    if truncated {
+        hits.truncate(MAX_GLOB_HITS);
+        hits.push(format!("... (truncated at {MAX_GLOB_HITS} files)"));
+    }
+    let summary = format!(
+        "{} files",
+        hits.len().saturating_sub(usize::from(truncated))
+    );
+    let entries = hits.join("\n");
+    ToolOutcome {
+        text: toon_doc(&[
+            ("path", ToonValue::Str(rel)),
+            ("glob", ToonValue::Str(pattern)),
+            ("summary", ToonValue::Str(&summary)),
+            ("entries", ToonValue::Block(&entries)),
+        ]),
+        display: ToolDisplay {
+            kind: TOOL_KIND_CONTEXT.to_string(),
+            path: Some(rel.to_string()),
+            status: Some("ok".into()),
+            ..ToolDisplay::default()
+        },
+        snapshot: None,
+        image_png: None,
+        file: None,
+    }
+}
+
+fn collect_glob(
+    dir: &Path,
+    prefix: &str,
+    depth: usize,
+    max_depth: usize,
+    parallelism: usize,
+    pattern: &str,
+    budget: &Arc<Mutex<usize>>,
+    hits: &mut Vec<String>,
+) {
+    if depth >= max_depth || budget.lock().map(|guard| *guard).unwrap_or(0) == 0 {
+        return;
+    }
+    let entries = match collect_entries(dir, MAX_ENTRIES_PER_DIR) {
+        Ok(value) => value,
+        Err(_) => return,
+    };
+    let can_recurse = depth + 1 < max_depth;
+    let sub_hits: Vec<Vec<String>> = if can_recurse && parallelism > 1 {
+        let subdirs: Vec<(String, PathBuf)> = entries
+            .iter()
+            .filter(|entry| entry.is_dir)
+            .map(|entry| {
+                let child = join_rel(prefix, &entry.name);
+                (child.clone(), dir.join(&entry.name))
+            })
+            .collect();
+        if subdirs.is_empty() {
+            Vec::new()
+        } else {
+            thread::scope(|scope| {
+                let mut handles = Vec::with_capacity(subdirs.len());
+                for (child, subdir) in subdirs {
+                    if budget.lock().map(|guard| *guard).unwrap_or(0) == 0 {
+                        break;
+                    }
+                    let budget = Arc::clone(budget);
+                    let pattern = pattern.to_string();
+                    handles.push(scope.spawn(move || {
+                        let mut local = Vec::new();
+                        collect_glob(
+                            &subdir,
+                            &child,
+                            depth + 1,
+                            max_depth,
+                            1,
+                            &pattern,
+                            &budget,
+                            &mut local,
+                        );
+                        local
+                    }));
+                }
+                handles
+                    .into_iter()
+                    .map(|handle| handle.join().unwrap_or_default())
+                    .collect()
+            })
+        }
+    } else {
+        Vec::new()
+    };
+    let mut sub_idx = 0usize;
+    for entry in &entries {
+        if budget.lock().map(|guard| *guard).unwrap_or(0) == 0 {
+            return;
+        }
+        let child = join_rel(prefix, &entry.name);
+        if entry.is_dir {
+            if can_recurse {
+                if parallelism > 1 {
+                    if let Some(tree) = sub_hits.get(sub_idx) {
+                        hits.extend(tree.iter().cloned());
+                        sub_idx += 1;
+                    }
+                } else {
+                    collect_glob(
+                        &dir.join(&entry.name),
+                        &child,
+                        depth + 1,
+                        max_depth,
+                        1,
+                        pattern,
+                        budget,
+                        hits,
+                    );
+                }
+            }
+        } else if glob_hit(pattern, &child) {
+            hits.push(child);
+            if let Ok(mut guard) = budget.lock() {
+                *guard = guard.saturating_sub(1);
+            }
+        }
+    }
+}
+
+fn join_rel(prefix: &str, name: &str) -> String {
+    if prefix.is_empty() {
+        name.to_string()
+    } else {
+        format!("{prefix}/{name}")
+    }
+}
+
+fn glob_hit(pattern: &str, rel_path: &str) -> bool {
+    let path = rel_path.trim_start_matches("./");
+    expand_braces(pattern).iter().any(|alternative| {
+        let alternative = alternative.trim().trim_start_matches("./");
+        let target = if alternative.contains('/') {
+            path
+        } else {
+            path.rsplit('/').next().unwrap_or(path)
+        };
+        let mut fuel = 8_000u32;
+        match_glob(alternative.as_bytes(), target.as_bytes(), &mut fuel)
+    })
+}
+
+fn expand_braces(pattern: &str) -> Vec<String> {
+    let Some(open) = pattern.find('{') else {
+        return vec![pattern.to_string()];
+    };
+    let Some(close_rel) = pattern[open + 1..].find('}') else {
+        return vec![pattern.to_string()];
+    };
+    let close = open + 1 + close_rel;
+    let inner = &pattern[open + 1..close];
+    if inner.is_empty() {
+        return vec![pattern.to_string()];
+    }
+    let prefix = &pattern[..open];
+    let suffix = &pattern[close + 1..];
+    inner
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(|part| format!("{prefix}{part}{suffix}"))
+        .collect()
+}
+
+fn match_glob(pattern: &[u8], text: &[u8], fuel: &mut u32) -> bool {
+    if *fuel == 0 {
+        return false;
+    }
+    *fuel -= 1;
+    if pattern.is_empty() {
+        return text.is_empty();
+    }
+    if pattern.starts_with(b"**") {
+        let rest = if pattern.len() > 2 && pattern[2] == b'/' {
+            &pattern[3..]
+        } else {
+            &pattern[2..]
+        };
+        if match_glob(rest, text, fuel) {
+            return true;
+        }
+        return !text.is_empty() && match_glob(pattern, &text[1..], fuel);
+    }
+    if text.is_empty() {
+        return false;
+    }
+    if pattern[0] == b'*' {
+        if match_glob(&pattern[1..], text, fuel) {
+            return true;
+        }
+        return text[0] != b'/' && match_glob(pattern, &text[1..], fuel);
+    }
+    if pattern[0] == b'?' {
+        return text[0] != b'/' && match_glob(&pattern[1..], &text[1..], fuel);
+    }
+    pattern[0] == text[0] && match_glob(&pattern[1..], &text[1..], fuel)
+}
+
 fn count_kinds(lines: &[String]) -> (usize, usize) {
     let mut dirs = 0usize;
     let mut files = 0usize;
@@ -452,10 +713,11 @@ mod tests {
 
     #[test]
     fn clamps_max_depth() {
-        assert_eq!(parse_depth(&json!({})).unwrap(), MAX_DEPTH_DEFAULT);
-        assert_eq!(parse_depth(&json!({"maxDepth": 0})).unwrap(), 1);
-        assert_eq!(parse_depth(&json!({"maxDepth": 99})).unwrap(), 10);
-        assert_eq!(parse_depth(&json!({"maxDepth": 5})).unwrap(), 5);
+        assert_eq!(parse_depth(&json!({}), false).unwrap(), MAX_DEPTH_DEFAULT);
+        assert_eq!(parse_depth(&json!({}), true).unwrap(), GLOB_DEPTH_DEFAULT);
+        assert_eq!(parse_depth(&json!({"maxDepth": 0}), false).unwrap(), 1);
+        assert_eq!(parse_depth(&json!({"maxDepth": 99}), false).unwrap(), 10);
+        assert_eq!(parse_depth(&json!({"maxDepth": 5}), true).unwrap(), 5);
     }
 
     #[test]
@@ -495,7 +757,7 @@ mod tests {
             &ctx,
         );
         let text = &outcome.text;
-        let child_idx = text.find("child/").expect("child dir line present");
+        let child_idx = text.find("[dir] child").expect("child dir line present");
         let nested_idx = text.find("nested.txt").expect("nested file present");
         let root_idx = text.find("root.txt").expect("root file present");
         assert!(
@@ -534,8 +796,8 @@ mod tests {
         let text = &outcome.text;
         for (dir_name, child) in [("alpha", "a.txt"), ("beta", "b.txt"), ("gamma", "c.txt")] {
             let dir_idx = text
-                .find(&format!("{dir_name}/"))
-                .unwrap_or_else(|| panic!("{dir_name}/ missing in output:\n{text}"));
+                .find(&format!("[dir] {dir_name}"))
+                .unwrap_or_else(|| panic!("[dir] {dir_name} missing in output:\n{text}"));
             let child_idx = text
                 .find(child)
                 .unwrap_or_else(|| panic!("{child} missing in output:\n{text}"));
@@ -551,6 +813,43 @@ mod tests {
                 "{child} (bajo {dir_name}/) debe preceder a root.txt (nivel 1)"
             );
         }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn glob_matches_name_or_path() {
+        assert!(glob_hit("*.txt", "alpha.txt"));
+        assert!(glob_hit("*.txt", "child/nested.txt"));
+        assert!(!glob_hit("*.txt", "child/nested.rs"));
+        assert!(glob_hit("child/*.txt", "child/nested.txt"));
+        assert!(!glob_hit("child/*.txt", "alpha.txt"));
+        assert!(glob_hit("**/*.{txt,md}", "child/nested.txt"));
+        assert!(glob_hit("src/**/*.ts", "src/features/app.ts"));
+    }
+
+    #[test]
+    fn glob_returns_sorted_paths_only() {
+        let dir = std::env::temp_dir().join(format!(
+            "k-agent-list-glob-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(dir.join("child")).unwrap();
+        fs::write(dir.join("root.txt"), "r").unwrap();
+        fs::write(dir.join("skip.rs"), "s").unwrap();
+        fs::write(dir.join("child/nested.txt"), "n").unwrap();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 2);
+        let outcome = ListDirectoryTool.execute(&json!({"dirPath": ".", "glob": "*.txt"}), &ctx);
+        assert!(outcome.text.contains("root.txt"));
+        assert!(outcome.text.contains("child/nested.txt"));
+        assert!(!outcome.text.contains("skip.rs"));
+        assert!(!outcome.text.contains("[file]"));
+        let root_idx = outcome.text.find("root.txt").unwrap();
+        let nested_idx = outcome.text.find("child/nested.txt").unwrap();
+        assert!(nested_idx < root_idx);
         let _ = fs::remove_dir_all(&dir);
     }
 }

@@ -1,12 +1,12 @@
 # edit
 
-Replace an exact string in an existing file with multiple relaxations for whitespace, indentation, and escapes.
+Replace an exact string in an existing file. Whitespace and indentation must match.
 
 ## Does
 
 - Replaces the first (or every) match of `oldString` with `newString` in the target file.
 - Applies several edits in one call through `edits`. Every edit is checked in memory first. A failed check writes nothing. A failed write rolls back files already written in that call.
-- Tries 9 replacers in order when an exact match fails: `simple`, `line_trimmed`, `block_anchor`, `whitespace_normalized`, `indentation_flexible`, `escape_normalized`, `trimmed_boundary`, `context_aware`, `multi_occurrence`. Each attempts to find `oldString` under looser matching.
+- Matches `oldString` as an exact substring. One pass. No fuzzy, trimmed, or similarity fallback. That keeps the call on a byte find instead of a similarity scan.
 - Detects whether the file uses `\n` or `\r\n` line endings and converts `oldString` / `newString` to match before applying the replacement.
 - Locks the target file with a per-path mutex for the duration of the replacement so concurrent edit/write calls cannot interleave.
 - Captures before/after snapshots to `sessions/{id}/files/{callId}.before` and `{callId}.after`.
@@ -17,8 +17,8 @@ Replace an exact string in an existing file with multiple relaxations for whites
 
 - Create a new file. Use `write` if the file is missing.
 - Edit empty `oldString`. The tool errors out to avoid accidental whole-file rewrites; use `write` for that intent.
-- Allow whitespace to differ freely. The 9 replacers cover common drift (trailing whitespace, mixed line endings, escape-vs-raw) but a heavily reformatted file may still fail. Re-read with `read` and pass the exact bytes back.
-- Refuse an over-broad match. The tool returns an error (`Refusing replacement because the matched span is much larger than oldString ...`) when the relaxed candidate grows past the disproportionality threshold rather than silently rewriting the file.
+- Forgive whitespace, indentation, or escape drift. Re-read with `read` and pass the exact file text.
+- Guess a nearby span. A miss returns `Could not find oldString`.
 
 ## Options
 
@@ -51,10 +51,10 @@ See `response.toon` for the concrete wire shape the LLM sees.
 - `oldString cannot be empty. Use write for an intentional full-file replacement.`
 - `File not found: <path>`
 - `Cannot edit binary file: <path>`
-- `Refusing replacement because the matched span is much larger than oldString ...`
 - `Found multiple matches for oldString. Provide more surrounding context ..., or set replaceAll to true.`
 - `Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings.`
+- A whitespace or indent mismatch is a miss. Re-read the file and copy the exact span.
 
 ## Source
 
-`src-tauri/src/tools/edit.rs` - entry point: `EditTool::execute()`. Replacement algorithm lives in `replace()` with 9 replacer functions.
+`src-tauri/src/tools/edit.rs` - entry point: `EditTool::execute()`. Replacement lives in `replace()`.

@@ -15,6 +15,7 @@ import {
   formatUsageTokens,
   loadedSkillNamesFromMessages,
   resolveSelectedModel,
+  resolveVisionModel,
 } from "@/lib/context-usage";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import { responseLanguageDirective } from "@/lib/response-language";
@@ -46,6 +47,7 @@ export const ContextUsage = (): ReactNode => {
   const forceResponseLanguage = useSettingsStore((state) => state.forceResponseLanguage);
   const responseLanguage = useSettingsStore((state) => state.responseLanguage);
   const model = useMemo(() => resolveSelectedModel(providers, selection), [providers, selection]);
+  const vision = useMemo(() => resolveVisionModel(providers, selection), [providers, selection]);
   const started = messages.length > 0;
   const agent = useMemo(
     () => (started ? resolveAgentMeta(selectedAgent, agentContexts, t) : null),
@@ -89,8 +91,9 @@ export const ContextUsage = (): ReactNode => {
         extras: started ? extras : {},
         cost: model?.cost,
         messages: started ? messages : [],
+        vision,
       }),
-    [extras, messages, model, started],
+    [extras, messages, model, started, vision],
   );
   const visibleBuckets = usage.buckets.filter((item) => item.tokens > 0);
   const listBuckets =

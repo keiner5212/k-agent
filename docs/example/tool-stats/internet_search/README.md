@@ -10,7 +10,7 @@ Search the public web and return titles, URLs, sites, and snippets. Bing is trie
 - Drops tracker query params (`utm_*`, `fbclid`, `gclid`, `mc_eid`, `yclid`) from result URLs.
 - Filters every result URL through the same guard used by `fetch_url`. With HTTP fetch off, only `https://` on port 443 is kept. With it on, public `http://` on port 80 is kept too. Loopback, private hosts, IP literals, and tracker params are removed.
 - Runs a relevance check before accepting a page: requires 60 percent term coverage across results and at least 2 strong matches (terms in title or URL). Common stop words (`the`, `and`, `with`, ...) are ignored when picking the meaningful terms. If both engines fail that check, the page is dropped. Decoy SERPs are not returned.
-- Caps pages at 2, results per page at 10. Pauses 1.5 to 3.5 s between pages.
+- Caps pages at 2, results per page at 10, and each snippet at 160 characters. Pauses 1.5 to 3.5 s between pages.
 - Persists a non-empty relevant search to the app data `cache/internet-search/{hash}.json` with a 1-hour TTL keyed by query, language, and page count. Empty and off-topic searches are not cached.
 
 ## Does not

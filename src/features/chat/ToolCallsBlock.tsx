@@ -1,10 +1,13 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { Dialog } from "@/components/Dialog";
 import type { LineKind } from "@/components/LineEditor";
 import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
-import { estimateTokensFromText } from "@/lib/jobs-handlers";
+import { resolveVisionModel, toolCallTokens } from "@/lib/context-usage";
 import { runDiffLinesJob } from "@/lib/jobs";
+import { useProvidersStore } from "@/lib/providers";
 import { readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
+import { useSelectionStore } from "@/lib/selected-model";
 import { skillNameFromCall, type ChatToolCall } from "@/types/chat";
 import { formatContextWindow } from "@/types/providers";
 
@@ -20,6 +23,7 @@ type PreviewState = {
   startLine?: number;
   lineNumbers?: number[];
   lineKinds?: LineKind[];
+  language?: string;
 };
 
 const fileName = (path: string): string => {
@@ -153,19 +157,6 @@ const previewFromOutput = (call: ChatToolCall): string => {
   return error || raw;
 };
 
-const INLINE_SKIP = new Set(["write", "edit", "todowrite", "page_shot", "skill", "ask_user"]);
-
-const inlineSnippet = (call: ChatToolCall): string => {
-  if (INLINE_SKIP.has(call.name) || call.display?.imageData) return "";
-  const text = previewFromOutput(call).trim();
-  if (text.length === 0) return "";
-  const lines = text.split("\n");
-  let body = lines.slice(0, 8).join("\n");
-  if (body.length > 600) body = `${body.slice(0, 600)}...`;
-  else if (lines.length > 8) body = `${body}\n...`;
-  return body;
-};
-
 const toolCallLabel = (call: ChatToolCall, lineRange = ""): string => {
   const name = call.name;
   if (name === "skill") {
@@ -198,6 +189,10 @@ const toolCallLabel = (call: ChatToolCall, lineRange = ""): string => {
 const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode => {
   const { t } = useTranslation();
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [image, setImage] = useState<{ titleKey: string; data: string } | null>(null);
+  const selection = useSelectionStore((state) => state.selection);
+  const providers = useProvidersStore((state) => state.providers);
+  const vision = useMemo(() => resolveVisionModel(providers, selection), [providers, selection]);
   if (calls.length === 0) return null;
 
   const openPreview = async (call: ChatToolCall): Promise<void> => {
@@ -243,6 +238,10 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
       }
     }
     const titleKey = TOOL_TITLE[call.name] ?? "chat.tools.outputTitle";
+    if (display?.imageData) {
+      setImage({ titleKey, data: display.imageData });
+      return;
+    }
     const raw = call.output ?? "";
     const parsedRead =
       call.name === "read" && toonFieldValue(raw, "content") ? readToolView(raw) : null;
@@ -251,6 +250,7 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
       value: parsedRead?.content ?? previewFromOutput(call),
       path: display?.path,
       startLine: parsedRead ? (parsedRead.startLine ?? display?.startLine) : undefined,
+      language: call.name === "skill" ? "markdown" : undefined,
     });
   };
 
@@ -259,16 +259,15 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
       <ul className="chat-tools">
         {calls.map((call, index) => {
           const display = call.display;
-          const output = call.output?.trim() ?? "";
-          const tokens = output.length > 0 ? estimateTokensFromText(output) : null;
+          const tokens = toolCallTokens(call, vision);
           const isAction = display?.kind === "action";
           const lineRange =
             display?.startLine !== undefined && display.endLine !== undefined
               ? t("chat.tools.lines", { start: display.startLine, end: display.endLine })
               : "";
           const label = toolCallLabel(call, lineRange);
-          const canOpen = Boolean(call.output) || Boolean(isAction && call.id);
-          const snippet = inlineSnippet(call);
+          const canOpen =
+            Boolean(call.output) || Boolean(display?.imageData) || Boolean(isAction && call.id);
           return (
             <li
               key={call.id ?? `${call.name}-${index}`}
@@ -304,18 +303,15 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
                     <span className="change-bar__removed">-{display.removed}</span>
                   </span>
                 ) : null}
-                {!isAction && tokens !== null ? (
-                  <span className="chat-tools__tokens">~{formatContextWindow(tokens)}</span>
+                {tokens > 0 ? (
+                  <span
+                    className="chat-tools__tokens"
+                    title={t("chat.tools.tokenHint", { count: tokens })}
+                  >
+                    ~{formatContextWindow(tokens)}
+                  </span>
                 ) : null}
               </span>
-              {snippet ? <pre className="chat-tools__preview">{snippet}</pre> : null}
-              {display?.imageData ? (
-                <img
-                  className="chat-tools__shot"
-                  alt=""
-                  src={`data:image/png;base64,${display.imageData}`}
-                />
-              ) : null}
             </li>
           );
         })}
@@ -325,6 +321,7 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
         titleKey={preview?.titleKey ?? "chat.tools.outputTitle"}
         value={preview?.value ?? ""}
         path={preview?.path}
+        language={preview?.language}
         startLine={preview?.startLine}
         lineNumbers={preview?.lineNumbers}
         lineKinds={preview?.lineKinds}
@@ -332,6 +329,22 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
           if (!open) setPreview(null);
         }}
       />
+      <Dialog
+        open={image !== null}
+        onOpenChange={(open) => {
+          if (!open) setImage(null);
+        }}
+        titleKey={image?.titleKey ?? "chat.tools.shotTitle"}
+        size="wide"
+      >
+        {image ? (
+          <img
+            className="tool-result-dialog__image"
+            alt=""
+            src={`data:image/png;base64,${image.data}`}
+          />
+        ) : null}
+      </Dialog>
     </>
   );
 };

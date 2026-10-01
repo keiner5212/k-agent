@@ -14,13 +14,14 @@ Search file contents with the ripgrep engine compiled into the app. The job coun
 - Skip `.git`, `node_modules`, `target`, and `dist`. Hidden files and gitignore rules still apply.
 - Clip each sample line at 400 characters. Sort the sample by path, then line.
 - Return `count: 0`, `truncated: false`, and an empty `matches` block when nothing matches.
+- Honor `filesOnly`. Matching paths only, no line text. `count` stays the number of matching lines. The sample cap is 100 paths.
 - Ask before searching outside the workspace, same as `read`.
 
 ## Does not
 
 - Stop the walk at 100 matches. The walk finishes so `count` stays exact. Only the printed sample is capped.
 - Shell out to a system `rg` or to `bash`.
-- Offer word-boundary, count-only, or files-only flags. Use a tighter `pattern`. The sample cap is intentional.
+- Offer a word-boundary flag. Use a tighter `pattern`. The sample cap is intentional.
 - Follow symlinks beyond the `ignore` crate default.
 - Return binary matches. The searcher skips binary files.
 - Use more cores than the settings limit.
@@ -34,6 +35,7 @@ Search file contents with the ripgrep engine compiled into the app. The job coun
 | `path`            | string  | no       | workspace root | File or directory. Absolute or workspace-relative. |
 | `glob`            | string  | no       | -              | Include filter. A leading `!` excludes.            |
 | `caseInsensitive` | boolean | no       | false          | Match letters regardless of case.                  |
+| `filesOnly`       | boolean | no       | false          | Paths only. Skips line text in `matches`.          |
 
 ## Response
 

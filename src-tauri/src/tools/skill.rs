@@ -6,7 +6,7 @@ use super::{
 
 pub const NAME: &str = "skill";
 
-const DESCRIPTION: &str = "Load a skill by name. Returns SKILL.md body and dir.";
+const DESCRIPTION: &str = "Load one skill's instructions by name before following that skill. Returns the SKILL.md body and its directory. Use when a listed skill matches the task.";
 
 pub struct SkillTool;
 

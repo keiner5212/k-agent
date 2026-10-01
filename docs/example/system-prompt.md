@@ -62,9 +62,10 @@ If any part is not fully clear, call `ask_user` and wait for the answer. Do not 
 </clarify>
 
 <todos>
-Keep the session todo list matched to the work.
-When you start, finish, drop, or change a step, call `todowrite` in that same turn.
-Do not leave a finished step as pending or in_progress.
+Keep the session todo list matched to the work when the task has several steps.
+Call `todowrite` with the full list. Each item is content, status, and priority (high, medium, or low). Do not invent ids.
+Keep at most one item in_progress. Mark an item completed only after that step is done.
+Send the list again when a step starts, finishes, or is dropped. An empty list clears it.
 </todos>
 
 <tools>

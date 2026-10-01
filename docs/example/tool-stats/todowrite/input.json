@@ -1,27 +1,19 @@
 {
-  "add": [
+  "todos": [
     {
-      "id": "step-1",
       "content": "Investigate ask_user persistence",
       "status": "in_progress",
-      "priority": 9
+      "priority": "high"
     },
     {
-      "id": "step-2",
       "content": "Wire todowrite into default agents",
-      "priority": 5
+      "status": "pending",
+      "priority": "medium"
     },
     {
-      "id": "step-3",
-      "content": "Render todo list inline",
+      "content": "Render the latest todo list",
       "status": "completed",
-      "priority": 1
-    }
-  ],
-  "update": [
-    {
-      "id": "step-2",
-      "status": "in_progress"
+      "priority": "low"
     }
   ]
 }

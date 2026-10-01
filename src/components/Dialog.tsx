@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "./IconButton";
@@ -10,6 +10,15 @@ const FOCUSABLE =
 
 type DialogSize = "narrow" | "default" | "wide";
 type DialogPlacement = "fill" | "center";
+type DialogPhase = "open" | "closed";
+
+const EXIT_MS = 240;
+
+const motionEnabled = (): boolean => {
+  if (typeof document === "undefined") return false;
+  if (document.documentElement.dataset.animations === "disabled") return false;
+  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+};
 
 type DialogProps = {
   open: boolean;
@@ -35,6 +44,33 @@ export const Dialog = ({
   const { t } = useTranslation();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const [present, setPresent] = useState(open);
+  const [phase, setPhase] = useState<DialogPhase>(open ? "open" : "closed");
+
+  useEffect(() => {
+    if (open) {
+      let inner = 0;
+      const outer = requestAnimationFrame(() => {
+        setPresent(true);
+        if (!motionEnabled()) {
+          setPhase("open");
+          return;
+        }
+        setPhase("closed");
+        inner = requestAnimationFrame(() => setPhase("open"));
+      });
+      return () => {
+        cancelAnimationFrame(outer);
+        cancelAnimationFrame(inner);
+      };
+    }
+    const closeFrame = window.setTimeout(() => setPhase("closed"), 0);
+    const unmount = window.setTimeout(() => setPresent(false), motionEnabled() ? EXIT_MS : 0);
+    return () => {
+      window.clearTimeout(closeFrame);
+      window.clearTimeout(unmount);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -44,7 +80,7 @@ export const Dialog = ({
   }, [open, onOpenChange]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !present) return;
     const previous = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -80,12 +116,12 @@ export const Dialog = ({
       document.body.style.overflow = previousOverflow;
       if (previous instanceof HTMLElement) previous.focus();
     };
-  }, [open]);
+  }, [open, present]);
 
-  if (!open || typeof document === "undefined") return null;
+  if (!present || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="dialog-root">
+    <div className="dialog-root" data-state={phase}>
       <div className="dialog-overlay" onClick={() => onOpenChange(false)} />
       <div className="dialog-slot" data-size={size} data-placement={placement} style={surfaceStyle}>
         <div className="dialog-surface">

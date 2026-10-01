@@ -8,7 +8,7 @@ use super::{
 
 pub const NAME: &str = "http_request";
 
-const DESCRIPTION: &str = "Send one HTTP request. Accepts any http or https URL, including localhost, plus method, headers, query, and body. GET and HEAD run immediately. Any other method waits for Deny, Accept this time, or Accept for this chat.";
+const DESCRIPTION: &str = "Call an HTTP API, including localhost. Not for reading a public article (use fetch_url) and not for finding pages (use internet_search). Method, headers, query, and body are optional. GET and HEAD run immediately. Any other method waits for Deny, Accept this time, or Accept for this chat.";
 
 pub struct HttpRequestTool;
 

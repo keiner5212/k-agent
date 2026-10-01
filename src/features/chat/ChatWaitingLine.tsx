@@ -34,15 +34,15 @@ export const ChatWaitingLine = (): ReactNode => {
   if (!phrase) return null;
 
   return (
-    <article className="chat-message chat-message--assistant chat-message--pending">
+    <p className="chat-message chat-message--assistant chat-message--pending">
       <span className="chat-waiting__icon" aria-hidden="true">
         <Sparkles size={15} strokeWidth={1.75} />
       </span>
-      <p className="chat-message__content chat-waiting__copy">
+      <span className="chat-waiting__copy">
         <span key={index} className="chat-waiting__phrase">
           {phrase}
         </span>
-      </p>
-    </article>
+      </span>
+    </p>
   );
 };
