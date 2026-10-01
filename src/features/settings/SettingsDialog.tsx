@@ -121,7 +121,8 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
     resolvedTab === "agentsMd" ||
     resolvedTab === "lsps" ||
     resolvedTab === "mcpServers" ||
-    resolvedTab === "providers";
+    resolvedTab === "providers" ||
+    resolvedTab === "commands";
 
   return (
     <Dialog

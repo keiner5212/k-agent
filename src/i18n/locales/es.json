@@ -54,19 +54,37 @@
     },
     "commands": {
       "description": "Comandos incluidos y prompts que agregas. Los de funcion no llaman al modelo.",
-      "builtin": "Incluidos",
-      "custom": "Tus prompts",
       "name": "Nombre",
       "descriptionLabel": "Descripcion",
       "template": "Texto del prompt",
       "add": "Agregar comando",
-      "remove": "Quitar",
-      "empty": "Aun no hay comandos de prompt.",
       "nameTaken": "Ese nombre esta vacio, no es valido, o ya existe.",
       "templateRequired": "El texto del prompt es obligatorio.",
       "kind": {
         "function": "Funcion",
         "prompt": "Prompt"
+      },
+      "table": {
+        "name": "Nombre",
+        "description": "Descripcion",
+        "kind": "Tipo",
+        "actions": "Acciones"
+      },
+      "actions": {
+        "edit": "Editar",
+        "delete": "Eliminar"
+      },
+      "form": {
+        "createTitle": "Agregar comando",
+        "editTitle": "Editar comando",
+        "cancel": "Cancelar",
+        "save": "Guardar"
+      },
+      "delete": {
+        "title": "Quitar comando",
+        "body": "Quitar /{{name}}?",
+        "cancel": "Cancelar",
+        "confirm": "Quitar"
       }
     },
     "language": {

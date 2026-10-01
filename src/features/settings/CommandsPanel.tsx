@@ -1,140 +1,190 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
+import { IconButton } from "@/components/IconButton";
+import { Table, type TableColumn } from "@/components/Table";
+import { highlightMatch } from "@/lib/highlight";
 import { SLASH_COMMANDS } from "@/lib/slash-commands";
 import { useSettingsStore } from "@/lib/settings";
 import { PROMPT_COMMAND_NAME, type PromptCommand } from "@/types/settings";
+import { CommandFormDialog } from "./CommandFormDialog";
+import { DeleteCommandDialog } from "./DeleteCommandDialog";
 
 type CommandsPanelProps = {
   query: string;
 };
 
+type CommandRow = {
+  key: string;
+  name: string;
+  description: string;
+  kindKey: "settings.commands.kind.function" | "settings.commands.kind.prompt";
+  custom: PromptCommand | null;
+};
+
 const matches = (text: string, query: string): boolean =>
-  query.length === 0 || text.toLowerCase().includes(query);
+  query.length === 0 || text.toLowerCase().includes(query.toLowerCase());
 
 export const CommandsPanel = ({ query }: CommandsPanelProps): ReactNode => {
   const { t } = useTranslation();
   const commands = useSettingsStore((state) => state.promptCommands);
   const setPromptCommands = useSettingsStore((state) => state.setPromptCommands);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [template, setTemplate] = useState("");
-  const [error, setError] = useState("");
+  const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
+  const [formNonce, setFormNonce] = useState(0);
+  const [editing, setEditing] = useState<PromptCommand | null>(null);
+  const [deleteName, setDeleteName] = useState<string | null>(null);
 
-  const builtin = SLASH_COMMANDS.filter((command) =>
-    matches(`${command.name} ${t(command.descriptionKey)}`, query),
-  );
-  const custom = commands.filter((command) =>
-    matches(`${command.name} ${command.description} ${command.template}`, query),
+  const rows = useMemo((): CommandRow[] => {
+    const builtin: CommandRow[] = SLASH_COMMANDS.map((command) => ({
+      key: `builtin:${command.id}`,
+      name: command.name,
+      description: t(command.descriptionKey),
+      kindKey:
+        command.kind === "action"
+          ? "settings.commands.kind.function"
+          : "settings.commands.kind.prompt",
+      custom: null,
+    }));
+    const custom: CommandRow[] = commands.map((command) => ({
+      key: `custom:${command.name}`,
+      name: command.name,
+      description: command.description || command.template,
+      kindKey: "settings.commands.kind.prompt",
+      custom: command,
+    }));
+    return [...builtin, ...custom].filter((row) =>
+      matches(`${row.name} ${row.description} ${t(row.kindKey)}`, query),
+    );
+  }, [commands, query, t]);
+
+  const columns = useMemo(
+    (): TableColumn<CommandRow>[] => [
+      {
+        id: "name",
+        header: t("settings.commands.table.name"),
+        className: "data-table__name",
+        render: (row) => highlightMatch(`/${row.name}`, query),
+      },
+      {
+        id: "description",
+        header: t("settings.commands.table.description"),
+        className: "data-table__desc",
+        wrap: true,
+        cellProps: (row) => ({ title: row.description }),
+        render: (row) => highlightMatch(row.description, query),
+      },
+      {
+        id: "kind",
+        header: t("settings.commands.table.kind"),
+        render: (row) => t(row.kindKey),
+      },
+      {
+        id: "actions",
+        header: <span className="visually-hidden">{t("settings.commands.table.actions")}</span>,
+        className: "data-table__actions",
+        render: (row) =>
+          row.custom ? (
+            <>
+              <IconButton
+                label={t("settings.commands.actions.edit")}
+                onClick={() => {
+                  setEditing(row.custom);
+                  setFormNonce((value) => value + 1);
+                  setFormMode("edit");
+                }}
+              >
+                <Pencil size={12} strokeWidth={1.5} />
+              </IconButton>
+              <IconButton
+                label={t("settings.commands.actions.delete")}
+                onClick={() => setDeleteName(row.name)}
+              >
+                <Trash2 size={12} strokeWidth={1.5} />
+              </IconButton>
+            </>
+          ) : null,
+      },
+    ],
+    [query, t],
   );
 
-  const add = (): void => {
-    const nextName = name.trim();
-    const nextTemplate = template.trim();
+  const save = (next: PromptCommand): string | undefined => {
     const taken = new Set([
       ...SLASH_COMMANDS.map((command) => command.name.toLowerCase()),
       ...commands.map((command) => command.name.toLowerCase()),
     ]);
-    if (!PROMPT_COMMAND_NAME.test(nextName) || taken.has(nextName.toLowerCase())) {
-      setError(t("settings.commands.nameTaken"));
-      return;
+    if (editing) taken.delete(editing.name.toLowerCase());
+    if (!PROMPT_COMMAND_NAME.test(next.name) || taken.has(next.name.toLowerCase())) {
+      return t("settings.commands.nameTaken");
     }
-    if (!nextTemplate) {
-      setError(t("settings.commands.templateRequired"));
-      return;
-    }
-    const next: PromptCommand = {
-      name: nextName,
-      description: description.trim(),
-      template: nextTemplate,
-    };
-    setPromptCommands([...commands, next]);
-    setName("");
-    setDescription("");
-    setTemplate("");
-    setError("");
-  };
-
-  const remove = (commandName: string): void => {
-    setPromptCommands(commands.filter((command) => command.name !== commandName));
+    if (!next.template) return t("settings.commands.templateRequired");
+    const list = editing
+      ? commands.map((command) => (command.name === editing.name ? next : command))
+      : [...commands, next];
+    setPromptCommands(list);
+    return undefined;
   };
 
   return (
-    <div className="commands-panel">
-      <p className="commands-panel__intro">{t("settings.commands.description")}</p>
-      <h3 className="commands-panel__heading">{t("settings.commands.builtin")}</h3>
-      <ul className="commands-panel__list">
-        {builtin.map((command) => (
-          <li key={command.id} className="commands-panel__row">
-            <div>
-              <p className="commands-panel__name">/{command.name}</p>
-              <p className="commands-panel__hint">{t(command.descriptionKey)}</p>
-            </div>
-            <span className="commands-panel__kind">
-              {t(
-                command.kind === "action"
-                  ? "settings.commands.kind.function"
-                  : "settings.commands.kind.prompt",
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
-      <h3 className="commands-panel__heading">{t("settings.commands.custom")}</h3>
-      {custom.length === 0 ? (
-        <p className="commands-panel__hint">{t("settings.commands.empty")}</p>
+    <section className="commands-panel">
+      <header className="commands-panel__head">
+        <h2 className="section__heading">
+          {highlightMatch(t("settings.sections.commands"), query)}
+        </h2>
+        <p className="section__description">
+          {highlightMatch(t("settings.commands.description"), query)}
+        </p>
+        <GlassButton
+          variant="primary"
+          className="commands-panel__add"
+          onClick={() => {
+            setEditing(null);
+            setFormNonce((value) => value + 1);
+            setFormMode("create");
+          }}
+        >
+          <Plus strokeWidth={1.5} />
+          {t("settings.commands.add")}
+        </GlassButton>
+      </header>
+      {rows.length === 0 ? (
+        <div className="settings-empty">{t("settings.searchEmpty")}</div>
       ) : (
-        <ul className="commands-panel__list">
-          {custom.map((command) => (
-            <li key={command.name} className="commands-panel__row">
-              <div>
-                <p className="commands-panel__name">/{command.name}</p>
-                <p className="commands-panel__hint">{command.description || command.template}</p>
-              </div>
-              <GlassButton variant="secondary" onClick={() => remove(command.name)}>
-                {t("settings.commands.remove")}
-              </GlassButton>
-            </li>
-          ))}
-        </ul>
+        <Table
+          columns={columns}
+          rows={rows}
+          rowKey={(row) => row.key}
+          layout="fixed"
+          stickyHeader
+          scrollable
+          cellAlign="top"
+        />
       )}
-      <form
-        className="commands-panel__form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          add();
+      <CommandFormDialog
+        key={formNonce}
+        open={formMode !== null}
+        mode={formMode ?? "create"}
+        initial={editing}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFormMode(null);
+            setEditing(null);
+          }
         }}
-      >
-        <label className="commands-panel__field">
-          <span>{t("settings.commands.name")}</span>
-          <input
-            className="input"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </label>
-        <label className="commands-panel__field">
-          <span>{t("settings.commands.descriptionLabel")}</span>
-          <input
-            className="input"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            autoComplete="off"
-          />
-        </label>
-        <label className="commands-panel__field">
-          <span>{t("settings.commands.template")}</span>
-          <textarea
-            className="input input--area"
-            value={template}
-            onChange={(event) => setTemplate(event.target.value)}
-          />
-        </label>
-        {error ? <p className="commands-panel__error">{error}</p> : null}
-        <GlassButton type="submit">{t("settings.commands.add")}</GlassButton>
-      </form>
-    </div>
+        onSubmit={save}
+      />
+      <DeleteCommandDialog
+        open={deleteName !== null}
+        name={deleteName ?? ""}
+        onOpenChange={(open) => {
+          if (!open) setDeleteName(null);
+        }}
+        onConfirm={() => {
+          if (!deleteName) return;
+          setPromptCommands(commands.filter((command) => command.name !== deleteName));
+        }}
+      />
+    </section>
   );
 };

@@ -54,19 +54,37 @@
     },
     "commands": {
       "description": "Builtin commands and prompt commands you add. Function commands do not call the model.",
-      "builtin": "Builtin",
-      "custom": "Your prompts",
       "name": "Name",
       "descriptionLabel": "Description",
       "template": "Prompt text",
       "add": "Add command",
-      "remove": "Remove",
-      "empty": "No custom prompt commands yet.",
       "nameTaken": "That name is empty, invalid, or already used.",
       "templateRequired": "Prompt text is required.",
       "kind": {
         "function": "Function",
         "prompt": "Prompt"
+      },
+      "table": {
+        "name": "Name",
+        "description": "Description",
+        "kind": "Kind",
+        "actions": "Actions"
+      },
+      "actions": {
+        "edit": "Edit",
+        "delete": "Delete"
+      },
+      "form": {
+        "createTitle": "Add command",
+        "editTitle": "Edit command",
+        "cancel": "Cancel",
+        "save": "Save"
+      },
+      "delete": {
+        "title": "Remove command",
+        "body": "Remove /{{name}}?",
+        "cancel": "Cancel",
+        "confirm": "Remove"
       }
     },
     "language": {
