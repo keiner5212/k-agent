@@ -8,7 +8,9 @@ Run one saved agent on a side task and return its final text.
 - `build` and `plan` are builtin. Any other name is a saved agent under `~/.k-agent/agents`.
 - The child uses that agent's tools, minus `task`.
 - The child starts with a fresh prompt. It does not see the parent transcript.
-- At most 8 model rounds. The result is capped at 6000 characters.
+- The child is that agent. It loads that agent's skills, personality, and tools.
+- It does not inherit the parent system prompt.
+- The result is capped at 6000 characters.
 - File writes from the child land in the same session snapshots.
 - `plan` cannot edit files. `build` can.
 - A saved agent is matched by name or id, case ignored.
@@ -51,7 +53,6 @@ See `response.toon`.
 - `task needs a chat session.`
 - `task cannot start another task.`
 - `No saved agent named <name>.`
-- `Stopped after 8 tool rounds.`
 - `task must run on the async path.`
 - `task needs the desktop shell.`
 - `task agent name is empty.`

@@ -2294,7 +2294,6 @@ async fn send_message(
     outside_workspace_allowed: bool,
     http_write_allowed: bool,
     resume_confirmed: bool,
-    max_rounds: Option<u32>,
 ) -> Result<ChatOutput, ChatError> {
     if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
@@ -2315,21 +2314,8 @@ async fn send_message(
     let mut tool_rounds: Vec<ToolRoundTrace> = Vec::new();
     let turn = tools::TurnSlot::start();
     seed_reads(&turn, call.turns);
-    let mut rounds = 0u32;
 
     loop {
-        if let Some(max) = max_rounds {
-            if rounds >= max {
-                return Ok(ChatOutput {
-                    content: format!("Stopped after {max} tool rounds."),
-                    reasoning: String::new(),
-                    reasoning_signature: String::new(),
-                    tool_calls: Vec::new(),
-                    tool_rounds,
-                });
-            }
-        }
-        rounds += 1;
         if resume_confirmed {
             let pending = turns.last().and_then(|last| {
                 if last.assistant && !last.tool_calls.is_empty() {
@@ -2603,11 +2589,9 @@ pub async fn generate_session_title(
         child_session_id: None,
     };
     let title = normalize_generated_title(
-        &send_message(
-            &app, &provider, &call, None, None, false, false, false, None,
-        )
-        .await?
-        .content,
+        &send_message(&app, &provider, &call, None, None, false, false, false)
+            .await?
+            .content,
     );
     if title.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -2685,11 +2669,9 @@ pub async fn summarize_conversation(
         child_session_id: None,
     };
     let summary = normalize_generated_text(
-        &send_message(
-            &app, &provider, &call, None, None, false, false, false, None,
-        )
-        .await?
-        .content,
+        &send_message(&app, &provider, &call, None, None, false, false, false)
+            .await?
+            .content,
     );
     if summary.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -2852,11 +2834,9 @@ pub async fn generate_app_content(
         child_session_id: None,
     };
     let text = normalize_generated_text(
-        &send_message(
-            &app, &provider, &call, None, None, false, false, false, None,
-        )
-        .await?
-        .content,
+        &send_message(&app, &provider, &call, None, None, false, false, false)
+            .await?
+            .content,
     );
     if text.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -3070,8 +3050,9 @@ pub(crate) async fn run_task(
     }
     let mut tool_names: Vec<String> = agent
         .tools
-        .into_iter()
-        .filter(|name| name != tools::TASK_TOOL_NAME)
+        .iter()
+        .filter(|name| name.as_str() != tools::TASK_TOOL_NAME)
+        .cloned()
         .collect();
     if tool_names.is_empty() {
         tool_names = scope
@@ -3080,6 +3061,9 @@ pub(crate) async fn run_task(
             .filter(|name| name.as_str() != tools::TASK_TOOL_NAME)
             .cloned()
             .collect();
+    }
+    if !agent.skills.is_empty() && !tool_names.iter().any(|name| name == tools::SKILL_TOOL_NAME) {
+        tool_names.insert(0, tools::SKILL_TOOL_NAME.to_string());
     }
     let (provider_id, model_id, same_parent) = task_model_choice(app, scope);
     let (provider, model) = load_provider_model(app, &provider_id, &model_id)
@@ -3090,8 +3074,12 @@ pub(crate) async fn run_task(
         options.effort.clone_from(&scope.effort);
     }
     let plan = request_plan(&provider, &model, &options, output_tokens(&model));
-    let parent_system = scope.system.clone().unwrap_or_default();
-    let system = Some(child_system(&parent_system, agent_name, &agent.personality));
+    let system = Some(crate::agent_prompt::compose_child_system(
+        app,
+        &agent,
+        &tool_names,
+        &model.id,
+    ));
     let parent_id = ctx.session_id.clone().unwrap_or_default();
     let workspace = ctx
         .session_id
@@ -3175,7 +3163,6 @@ pub(crate) async fn run_task(
         ctx.outside_workspace_allowed,
         ctx.http_write_allowed,
         false,
-        Some(8),
     )
     .await
     .map_err(|error| error.to_string())?;
@@ -3199,27 +3186,6 @@ pub(crate) async fn run_task(
 pub(crate) struct TaskRun {
     pub text: String,
     pub child_session_id: Option<String>,
-}
-
-fn child_system(parent: &str, name: &str, personality: &str) -> String {
-    let clause = format!(
-        "You are the subagent `{name}`.\n\
-Be careful. You are not the parent chat.\n\
-The instructions above are the same ones the parent loaded.\n\
-Do only the task in the user message. Do not widen it. Do not start another task.\n\
-Return the result text. The parent uses that text."
-    );
-    let mut parts = Vec::new();
-    let parent = parent.trim();
-    if !parent.is_empty() {
-        parts.push(parent.to_string());
-    }
-    parts.push(format!("<subagent>\n{clause}\n</subagent>"));
-    let voice = personality.trim();
-    if !voice.is_empty() {
-        parts.push(format!("<personality>\n{voice}\n</personality>"));
-    }
-    parts.join("\n\n")
 }
 
 fn task_model_choice(app: &AppHandle, scope: &tools::NestedScope) -> (String, String, bool) {
@@ -3339,7 +3305,6 @@ pub async fn send_chat_message(
         input.outside_workspace_allowed,
         input.http_write_allowed,
         input.resume_confirmed,
-        None,
     );
     tokio::pin!(send_fut);
     let output = match cancel_rx {
