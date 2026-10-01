@@ -17,7 +17,6 @@ export const AGENT_TOOL_IDS = [
   "graphql",
   "page_shot",
   "todowrite",
-  "validate_mermaid",
   "bash",
   "background",
   "grep",
@@ -33,7 +32,6 @@ export const PLAN_AGENT_TOOL_IDS: readonly AgentToolId[] = [
   "todowrite",
   "internet_search",
   "fetch_url",
-  "validate_mermaid",
   "grep",
 ];
 
@@ -62,8 +60,6 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
     "Capture one viewport of a page that is already being served. http or https, including localhost. One shot per review. Do not retry with another host, a taller window, or a new selector when the image is blank or unchanged. A blank image is a capture miss, not the page design. Height is the window (max 1200), not the document. A URL hash scrolls that section into the window. Start a server with background. It is killed when the turn ends. Do not use bash for that.",
   todowrite:
     "Update the session todo list incrementally. Each item has a stable id. Use add for new items, update to change existing ones by id, remove to delete by id, and clear: true to wipe the list. Empty args is a no-op, not a clear. An error names the known ids. Priority is numeric 0-10. The list is shown to the user and persisted across restarts.",
-  validate_mermaid:
-    "Check one mermaid diagram with the same parser the chat uses. Call this before a mermaid fence goes in the reply. status ok means the source parsed. status error returns the parser message. Fix the source and call again. Do not put a failed diagram in the reply.",
   bash: "Run one shell command in the workspace and wait for it to finish. Exact blocked commands never run. Exact allowed commands skip the prompt. Destructive commands, real file redirects, and non-local network commands wait for the user. 2>&1 and redirects to /dev/null do not ask. curl or wget to localhost, 127.0.0.1, or ::1 does not ask. Do not start a dev server here. Use background for a process that must stay up until the turn ends. Do not use &, nohup, or disown. Do not list, read, search, write, edit, or delete files here. Use list_directory, read, grep, write, edit, create_folder, and delete. bash is for install, build, test, and git.",
   background:
     "Start one command and keep it until this turn ends, then kill it. Use this for a dev server or preview. Do not append &, nohup, or disown. The command is the process itself, for example npm run dev. Returns the pid and the first 1200ms of output.",

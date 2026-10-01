@@ -36,7 +36,6 @@ const TOOL_TITLE: Record<string, string> = {
   create_folder: "chat.tools.createFolderTitle",
   delete: "chat.tools.deleteTitle",
   todowrite: "chat.tools.todoTitle",
-  validate_mermaid: "chat.tools.validateMermaidTitle",
   bash: "chat.tools.bashTitle",
   background: "chat.tools.backgroundTitle",
   grep: "chat.tools.grepTitle",
@@ -58,7 +57,6 @@ const TOOL_SYMBOL: Record<string, string> = {
   create_folder: "\u25A4 ",
   delete: "\u2715 ",
   todowrite: "\u25C7 ",
-  validate_mermaid: "\u25A1 ",
   bash: "\u25B8 ",
   background: "\u25B8 ",
   grep: "\u2315 ",
@@ -131,7 +129,6 @@ const previewFromOutput = (call: ChatToolCall): string => {
   }
   if (call.name === "ask_user")
     return fieldOr(raw, "answers", toonFieldValue(raw, "status") || raw);
-  if (call.name === "validate_mermaid") return error || toonFieldValue(raw, "status") || raw;
   if (call.name === "page_shot") return error || toonFieldValue(raw, "url") || raw;
   if (call.name === "todowrite") {
     const todos = call.display?.todos;

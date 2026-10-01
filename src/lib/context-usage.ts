@@ -321,18 +321,6 @@ const GREP_TOOL_PARAMETERS = {
   required: ["pattern"],
 } as const;
 
-const VALIDATE_MERMAID_TOOL_PARAMETERS = {
-  type: "object",
-  properties: {
-    source: {
-      type: "string",
-      description:
-        "Mermaid diagram source only. No surrounding prose. A wrapping mermaid fence is stripped.",
-    },
-  },
-  required: ["source"],
-} as const;
-
 const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   skill: SKILL_TOOL_PARAMETERS,
   read: READ_TOOL_PARAMETERS,
@@ -348,7 +336,6 @@ const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   graphql: GRAPHQL_TOOL_PARAMETERS,
   page_shot: PAGE_SHOT_TOOL_PARAMETERS,
   todowrite: TODO_TOOL_PARAMETERS,
-  validate_mermaid: VALIDATE_MERMAID_TOOL_PARAMETERS,
   bash: BASH_TOOL_PARAMETERS,
   background: BACKGROUND_TOOL_PARAMETERS,
   grep: GREP_TOOL_PARAMETERS,

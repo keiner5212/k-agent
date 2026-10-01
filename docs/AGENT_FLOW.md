@@ -19,8 +19,7 @@ Empty blocks are omitted.
 9. `<tools>` - use `list_directory`, `read`, `grep`, `write`, `edit`, `create_folder`, and `delete` instead of `bash`. Omitted when the agent has no `bash` tool. Lines for missing tools are omitted.
 10. `<personality>` - the agent persona body, unchanged.
 11. `<rendering>` - how chat markdown is shown.
-12. `<mermaid>` - call `validate_mermaid` before a mermaid fence. Omitted when the agent has no `validate_mermaid` tool.
-13. `<app-context>` - extra app notes. Omitted while that list is empty.
+12. `<app-context>` - extra app notes. Omitted while that list is empty.
 
 Tool JSON schemas go on the request `tools` field, not in this string. A skill body arrives later, as the result of a `skill` call.
 

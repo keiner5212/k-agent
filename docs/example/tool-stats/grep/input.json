@@ -1,5 +1,5 @@
 {
-  "pattern": "validate_mermaid",
+  "pattern": "todowrite",
   "path": ".",
   "glob": "*.md"
 }

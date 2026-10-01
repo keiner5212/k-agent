@@ -7,7 +7,6 @@ mod list_directory;
 mod page_shot;
 mod read;
 mod skill;
-mod validate_mermaid;
 mod write;
 
 pub mod ask_user;
@@ -49,7 +48,6 @@ pub const HTTP_REQUEST_TOOL_NAME: &str = http_request::NAME;
 pub const GRAPHQL_TOOL_NAME: &str = graphql::NAME;
 pub const PAGE_SHOT_TOOL_NAME: &str = page_shot::NAME;
 pub const TODO_TOOL_NAME: &str = todo::NAME;
-pub const VALIDATE_MERMAID_TOOL_NAME: &str = validate_mermaid::NAME;
 pub const BASH_TOOL_NAME: &str = bash::NAME;
 pub const BACKGROUND_TOOL_NAME: &str = background::NAME;
 pub use background::TurnSlot;
@@ -298,7 +296,6 @@ fn all_tools() -> Vec<Box<dyn Tool>> {
         Box::new(graphql::GraphqlTool),
         Box::new(page_shot::PageShotTool),
         Box::new(todo::TodoTool),
-        Box::new(validate_mermaid::ValidateMermaidTool),
         Box::new(bash::BashTool),
         Box::new(background::BackgroundTool),
         Box::new(grep::GrepTool),
@@ -345,9 +342,6 @@ pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> Tool
     }
     if name == page_shot::NAME {
         return page_shot::execute_async(arguments, ctx).await;
-    }
-    if name == validate_mermaid::NAME {
-        return validate_mermaid::execute_async(arguments, ctx).await;
     }
     if name == bash::NAME {
         return bash::execute_async(arguments, ctx).await;

@@ -98,13 +98,5 @@ assistant: 4
 <rendering>
 Chat output is GitHub-flavored markdown.
 - Fenced code blocks with a language hint are syntax-highlighted.
-- Fenced `mermaid` blocks render as diagrams after the message finishes streaming. Use them for flows, sequences, and structure that a picture explains faster than prose.
-- Do not repeat the same idea in prose when the diagram already shows it.
 </rendering>
-
-<mermaid>
-Before a `mermaid` fence goes in the reply, call `validate_mermaid` with that exact source.
-Include the fence only when the tool returns status ok.
-If it returns error, fix the source and validate again. Do not show a diagram that failed the check.
-</mermaid>
 ```

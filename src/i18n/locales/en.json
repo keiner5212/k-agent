@@ -703,10 +703,6 @@
         "label": "Plan tasks",
         "description": "Update the session todo list incrementally. Each item has a stable id. add for new items, update to change existing ones by id, remove to delete by id, clear: true to wipe the list. Empty args is a no-op, not a clear. Priority is numeric 0-10."
       },
-      "validate_mermaid": {
-        "label": "Check diagram",
-        "description": "Parse a mermaid diagram before it is shown in chat. The reply may include the diagram only after this returns ok."
-      },
       "bash": {
         "label": "Shell",
         "description": "Run one shell command that must finish, such as install, build, test, or git. Do not use it to list, read, or search files."
@@ -794,11 +790,6 @@
       "duration_one": "Thought for {{count}} second",
       "duration_other": "Thought for {{count}} seconds",
       "durationMs": "Thought for {{count}} ms"
-    },
-    "mermaid": {
-      "fullscreenLabel": "Expand diagram",
-      "fullscreenTitle": "Diagram",
-      "unavailable": "Diagram source unavailable."
     },
     "waiting": {
       "phrases": [
@@ -1029,7 +1020,6 @@
       "createFolderTitle": "Folder",
       "deleteTitle": "Delete",
       "todoTitle": "Plan",
-      "validateMermaidTitle": "Diagram check",
       "bashTitle": "Shell",
       "backgroundTitle": "Background",
       "grepTitle": "Search",

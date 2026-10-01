@@ -123,15 +123,6 @@ const VISUAL = tagged(
   ].join("\n"),
 );
 
-const MERMAID = tagged(
-  "mermaid",
-  [
-    "Before a `mermaid` fence goes in the reply, call `validate_mermaid` with that exact source.",
-    "Include the fence only when the tool returns status ok.",
-    "If it returns error, fix the source and validate again. Do not show a diagram that failed the check.",
-  ].join("\n"),
-);
-
 const hasTool = (agent: AgentMeta, name: string): boolean => agent.tools.includes(name);
 
 const buildToolChoice = (agent: AgentMeta): string => {
@@ -163,8 +154,6 @@ const RENDERING = tagged(
   [
     "Chat output is GitHub-flavored markdown.",
     "- Fenced code blocks with a language hint are syntax-highlighted.",
-    "- Fenced `mermaid` blocks render as diagrams after the message finishes streaming. Use them for flows, sequences, and structure that a picture explains faster than prose.",
-    "- Do not repeat the same idea in prose when the diagram already shows it.",
   ].join("\n"),
 );
 
@@ -202,7 +191,6 @@ export const composeAgentSystem = (
   const personality = agent.personality.trim();
   if (personality.length > 0) parts.push(tagged("personality", personality));
   if (RENDERING.length > 0) parts.push(RENDERING);
-  if (hasTool(agent, "validate_mermaid")) parts.push(MERMAID);
   if (hasTool(agent, "page_shot")) parts.push(VISUAL);
   return parts.join("\n\n");
 };
