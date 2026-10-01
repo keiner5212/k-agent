@@ -4,7 +4,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules", "src-tauri", "*.config.js"] },
+  { ignores: ["dist", "node_modules", "src-tauri", "*.config.js", "*.config.ts", ".tmp"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommendedTypeChecked],
     files: ["**/*.{ts,tsx}"],
@@ -12,7 +12,7 @@ export default tseslint.config(
       ecmaVersion: 2022,
       globals: { ...globals.browser, ...globals.node },
       parserOptions: {
-        project: ["./tsconfig.app.json", "./tsconfig.node.json"],
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },

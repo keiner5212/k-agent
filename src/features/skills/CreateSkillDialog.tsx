@@ -88,7 +88,11 @@ export const CreateSkillDialog = ({
           </div>
         ) : null}
         <div className="form-actions">
-          <GlassButton variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
+          <GlassButton
+            variant="secondary"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
             {t("skills.form.cancel")}
           </GlassButton>
           <GlassButton variant="primary" type="submit" disabled={submitting || !name.trim()}>

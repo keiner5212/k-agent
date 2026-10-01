@@ -1,14 +1,24 @@
 import { X } from "lucide-react";
-import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "./IconButton";
+import { popDialog, pushDialog } from "@/lib/dialog-stack";
 
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 type DialogSize = "narrow" | "default" | "wide";
 type DialogPlacement = "fill" | "center";
+type DialogPhase = "open" | "closed";
+
+const EXIT_MS = 240;
+
+const motionEnabled = (): boolean => {
+  if (typeof document === "undefined") return false;
+  if (document.documentElement.dataset.animations === "disabled") return false;
+  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+};
 
 type DialogProps = {
   open: boolean;
@@ -34,9 +44,43 @@ export const Dialog = ({
   const { t } = useTranslation();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const [present, setPresent] = useState(open);
+  const [phase, setPhase] = useState<DialogPhase>(open ? "open" : "closed");
+
+  useEffect(() => {
+    if (open) {
+      let inner = 0;
+      const outer = requestAnimationFrame(() => {
+        setPresent(true);
+        if (!motionEnabled()) {
+          setPhase("open");
+          return;
+        }
+        setPhase("closed");
+        inner = requestAnimationFrame(() => setPhase("open"));
+      });
+      return () => {
+        cancelAnimationFrame(outer);
+        cancelAnimationFrame(inner);
+      };
+    }
+    const closeFrame = window.setTimeout(() => setPhase("closed"), 0);
+    const unmount = window.setTimeout(() => setPresent(false), motionEnabled() ? EXIT_MS : 0);
+    return () => {
+      window.clearTimeout(closeFrame);
+      window.clearTimeout(unmount);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
+    const close = (): void => onOpenChange(false);
+    pushDialog(close);
+    return () => popDialog(close);
+  }, [open, onOpenChange]);
+
+  useEffect(() => {
+    if (!open || !present) return;
     const previous = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -52,12 +96,6 @@ export const Dialog = ({
     focusables()[0]?.focus();
 
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") {
-        if (event.defaultPrevented) return;
-        event.preventDefault();
-        onOpenChange(false);
-        return;
-      }
       if (event.key !== "Tab" || !panel) return;
       const items = focusables();
       if (items.length === 0) return;
@@ -78,36 +116,33 @@ export const Dialog = ({
       document.body.style.overflow = previousOverflow;
       if (previous instanceof HTMLElement) previous.focus();
     };
-  }, [open, onOpenChange]);
+  }, [open, present]);
 
-  if (!open || typeof document === "undefined") return null;
+  if (!present || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="dialog-root">
+    <div className="dialog-root" data-state={phase}>
       <div className="dialog-overlay" onClick={() => onOpenChange(false)} />
-      <div
-        className="dialog-surface"
-        data-size={size}
-        data-placement={placement}
-        style={surfaceStyle}
-      >
-        <div
-          ref={panelRef}
-          className="dialog-panel"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={titleId}
-        >
-          <div className="dialog-header">
-            <h2 id={titleId} className="dialog-title">
-              {t(titleKey)}
-            </h2>
-            <IconButton label={t("settings.close")} onClick={() => onOpenChange(false)}>
-              <X size={14} strokeWidth={1.5} />
-            </IconButton>
+      <div className="dialog-slot" data-size={size} data-placement={placement} style={surfaceStyle}>
+        <div className="dialog-surface">
+          <div
+            ref={panelRef}
+            className="dialog-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+          >
+            <div className="dialog-header">
+              <h2 id={titleId} className="dialog-title">
+                {t(titleKey)}
+              </h2>
+              <IconButton label={t("settings.close")} onClick={() => onOpenChange(false)}>
+                <X size={14} strokeWidth={1.5} />
+              </IconButton>
+            </div>
+            <div className="dialog-body">{children}</div>
+            {footer ? <div className="dialog-footer">{footer}</div> : null}
           </div>
-          <div className="dialog-body">{children}</div>
-          {footer ? <div className="dialog-footer">{footer}</div> : null}
         </div>
       </div>
     </div>,

@@ -1,10 +1,12 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Folder, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
+import { Table, type TableColumn } from "@/components/Table";
 import { highlightMatch } from "@/lib/highlight";
 import { useSkillsStore } from "@/lib/skills";
+import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { useAgentsStore } from "@/lib/agents";
 import { formatContextWindow } from "@/types/providers";
 import type { SkillContext as SkillContextType, SkillInfo } from "@/types/skills";
@@ -24,20 +26,19 @@ export const SkillsPanel = ({ query }: SkillsPanelProps): ReactNode => {
   const workspacePath = useSkillsStore((state) => state.workspacePath);
   const loading = useSkillsStore((state) => state.loading);
   const error = useSkillsStore((state) => state.error);
-  const load = useSkillsStore((state) => state.load);
   const refresh = useSkillsStore((state) => state.refresh);
   const createSkill = useSkillsStore((state) => state.create);
   const updateContent = useSkillsStore((state) => state.updateContent);
   const deleteSkill = useSkillsStore((state) => state.remove);
 
   const [tab, setTab] = useState<Tab>("global");
-  const [editorPath, setEditorPath] = useState<string | null>(null);
+  const [editorSkill, setEditorSkill] = useState<SkillInfo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string } | null>(null);
   const [createName, setCreateName] = useState<string | null>(null);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void hydrateWorkspaceConfig();
+  }, []);
 
   const global = contexts.find((context) => context.kind === "global");
   const local = contexts.find((context) => context.kind === "local");
@@ -97,7 +98,7 @@ export const SkillsPanel = ({ query }: SkillsPanelProps): ReactNode => {
           <SkillContextView
             context={active}
             onCreate={() => setCreateName(active.path)}
-            onEdit={(skill) => setEditorPath(skill.path)}
+            onEdit={(skill) => setEditorSkill(skill)}
             onDelete={(skill) => setDeleteTarget({ id: skill.id })}
           />
         ) : (
@@ -120,14 +121,14 @@ export const SkillsPanel = ({ query }: SkillsPanelProps): ReactNode => {
       />
 
       <SkillEditorDialog
-        open={editorPath !== null}
-        skillPath={editorPath}
+        open={editorSkill !== null}
+        skill={editorSkill}
         onOpenChange={(open) => {
-          if (!open) setEditorPath(null);
+          if (!open) setEditorSkill(null);
         }}
         onSave={async (content) => {
-          if (!editorPath) return "no skill";
-          const result = await updateContent(editorPath, content);
+          if (!editorSkill) return "no skill";
+          const result = await updateContent(editorSkill.path, content);
           if (result.error) return result.error;
           await refresh();
           return undefined;
@@ -167,6 +168,53 @@ const SkillContextView = ({
   onDelete,
 }: SkillContextViewProps): ReactNode => {
   const { t } = useTranslation();
+  const columns = useMemo(
+    (): TableColumn<SkillInfo>[] => [
+      {
+        id: "name",
+        header: t("skills.table.name"),
+        className: "data-table__name",
+        render: (skill) => skill.name,
+      },
+      {
+        id: "description",
+        header: t("skills.table.description"),
+        className: "data-table__desc",
+        wrap: true,
+        cellProps: (skill) => ({
+          "data-empty": skill.description.trim() ? undefined : "true",
+        }),
+        render: (skill) =>
+          skill.description.trim() ? skill.description : t("skills.table.noDescription"),
+      },
+      {
+        id: "tokens",
+        header: t("skills.table.tokens"),
+        className: "data-table__tokens",
+        render: (skill) =>
+          t("skills.table.tokenValue", {
+            value: formatContextWindow(skill.estimatedTokens),
+          }),
+      },
+      {
+        id: "actions",
+        header: <span className="visually-hidden">{t("skills.table.actions")}</span>,
+        className: "data-table__actions",
+        render: (skill) => (
+          <>
+            <IconButton label={t("skills.actions.edit")} onClick={() => onEdit(skill)}>
+              <Pencil size={12} strokeWidth={1.5} />
+            </IconButton>
+            <IconButton label={t("skills.actions.delete")} onClick={() => onDelete(skill)}>
+              <Trash2 size={12} strokeWidth={1.5} />
+            </IconButton>
+          </>
+        ),
+      },
+    ],
+    [onDelete, onEdit, t],
+  );
+
   return (
     <article className="skill-context">
       <div className="skill-context__header">
@@ -175,7 +223,7 @@ const SkillContextView = ({
           {context.path}
         </span>
         <GlassButton
-          variant="ghost"
+          variant="primary"
           className="skill-context__new"
           onClick={onCreate}
           aria-label={t("skills.actions.create")}
@@ -187,46 +235,16 @@ const SkillContextView = ({
       {context.skills.length === 0 ? (
         <p className="skill-context__empty">{t("skills.empty")}</p>
       ) : (
-        <div className="skill-table-wrap">
-          <table className="skill-table">
-            <thead>
-              <tr>
-                <th>{t("skills.table.name")}</th>
-                <th>{t("skills.table.description")}</th>
-                <th>{t("skills.table.tokens")}</th>
-                <th>
-                  <span className="visually-hidden">{t("skills.table.actions")}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {context.skills.map((skill) => (
-                <tr key={skill.id} title={skill.path}>
-                  <td className="skill-table__name">{skill.name}</td>
-                  <td
-                    className="skill-table__desc"
-                    data-empty={skill.description.trim() ? undefined : "true"}
-                  >
-                    {skill.description.trim() ? skill.description : t("skills.table.noDescription")}
-                  </td>
-                  <td className="skill-table__tokens">
-                    {t("skills.table.tokenValue", {
-                      value: formatContextWindow(skill.estimatedTokens),
-                    })}
-                  </td>
-                  <td className="skill-table__actions">
-                    <IconButton label={t("skills.actions.edit")} onClick={() => onEdit(skill)}>
-                      <Pencil size={12} strokeWidth={1.5} />
-                    </IconButton>
-                    <IconButton label={t("skills.actions.delete")} onClick={() => onDelete(skill)}>
-                      <Trash2 size={12} strokeWidth={1.5} />
-                    </IconButton>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          columns={columns}
+          rows={context.skills}
+          rowKey={(skill) => skill.id}
+          rowTitle={(skill) => skill.path}
+          layout="fixed"
+          stickyHeader
+          scrollable
+          cellAlign="top"
+        />
       )}
     </article>
   );

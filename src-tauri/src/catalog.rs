@@ -4,10 +4,9 @@ use std::sync::OnceLock;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
-use crate::providers::ModelInfo;
-use crate::APP_CONFIG_DIR;
+use crate::providers::{derive_attachment_types, ModelCost, ModelInfo};
 
 const CACHE_FILE: &str = "models-dev-cache.json";
 const MODELS_DEV_URL: &str = "https://models.dev/api.json";
@@ -41,16 +40,105 @@ pub struct CatalogEntry {
     pub structured_output: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub attachment: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachment_types: Vec<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub multimodal: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub effort_levels: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request: Option<ModelRequestSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost: Option<ModelCost>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub aliases: Vec<String>,
 }
 
 fn is_false(value: &bool) -> bool {
     !*value
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelRequestSpec {
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub known: bool,
+    pub native: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<ModelReasoningSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sampling: Option<ModelSamplingSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_field: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tiers: Vec<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub tier_may_reject: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub reasoning_split_openai: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub opus5_disable_limit: bool,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub gemini_top_p: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(
+    tag = "kind",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
+pub enum ModelReasoningSpec {
+    Unsupported,
+    Unknown,
+    Thinking {
+        modes: Vec<String>,
+        default_mode: String,
+        locked_on: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        anthropic_default_mode: Option<String>,
+    },
+    Effort {
+        levels: Vec<String>,
+        default_level: String,
+    },
+    GeminiLevel {
+        levels: Vec<String>,
+        default_level: String,
+    },
+    GeminiBudget {
+        modes: Vec<String>,
+        default_mode: String,
+        locked_on: bool,
+    },
+    AnthropicExtended {
+        default_on: bool,
+        interleaved: bool,
+    },
+    Claude {
+        thinking_modes: Vec<String>,
+        default_thinking: String,
+        locked_on: bool,
+        levels: Vec<String>,
+        default_level: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum ModelSamplingSpec {
+    Fixed {
+        value: f64,
+    },
+    Range {
+        min: f64,
+        max: f64,
+        default_value: f64,
+    },
 }
 
 #[derive(Debug, Default)]
@@ -89,6 +177,22 @@ struct ModelsDevModel {
     attachment: bool,
     #[serde(default)]
     reasoning_options: Vec<ModelsDevReasoningOption>,
+    #[serde(default)]
+    cost: Option<ModelsDevCost>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelsDevCost {
+    #[serde(default)]
+    input: Option<f64>,
+    #[serde(default)]
+    output: Option<f64>,
+    #[serde(default)]
+    reasoning: Option<f64>,
+    #[serde(default)]
+    cache_read: Option<f64>,
+    #[serde(default)]
+    cache_write: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -124,11 +228,24 @@ struct ModelsDevProvider {
 }
 
 impl Catalog {
-    fn insert(&mut self, entry: CatalogEntry) {
+    fn insert(&mut self, mut entry: CatalogEntry) {
+        if entry.attachment_types.is_empty() {
+            entry.attachment_types = derive_attachment_types(&entry.input, entry.attachment);
+        }
         let mut keys = Vec::with_capacity(1 + entry.aliases.len());
         keys.push(normalize_id(&entry.id));
         for alias in &entry.aliases {
             keys.push(normalize_id(alias));
+        }
+        if entry.cost.is_none() {
+            for key in &keys {
+                if let Some(current) = self.by_id.get(key) {
+                    if current.cost.is_some() {
+                        entry.cost = current.cost.clone();
+                        break;
+                    }
+                }
+            }
         }
         for key in keys {
             self.by_id.insert(key, entry.clone());
@@ -158,11 +275,18 @@ impl Catalog {
 
     pub fn apply(&self, model: &mut ModelInfo) {
         if model.user_edited {
+            if model.attachment_types.is_empty() {
+                model.attachment_types = derive_attachment_types(&model.input, model.attachment);
+            }
+            model.sync_multimodal();
             return;
         }
         let Some(entry) = self.lookup(&model.id) else {
             if model.family.is_none() {
                 model.family = Some(id_family(&model.id));
+            }
+            if model.attachment_types.is_empty() {
+                model.attachment_types = derive_attachment_types(&model.input, model.attachment);
             }
             model.sync_multimodal();
             return;
@@ -191,11 +315,20 @@ impl Catalog {
         if model.effort_levels.is_empty() {
             model.effort_levels = entry.effort_levels.clone();
         }
+        if model.cost.is_none() {
+            model.cost = entry.cost.clone();
+        }
         model.reasoning |= entry.reasoning;
         model.tool_call |= entry.tool_call;
         model.structured_output |= entry.structured_output;
         model.attachment |= entry.attachment;
         model.multimodal |= entry.multimodal;
+        if !entry.attachment_types.is_empty() {
+            model.attachment_types = entry.attachment_types.clone();
+        }
+        if model.attachment_types.is_empty() {
+            model.attachment_types = derive_attachment_types(&model.input, model.attachment);
+        }
         model.sync_multimodal();
     }
 }
@@ -205,8 +338,32 @@ pub async fn load(app: &AppHandle) -> Catalog {
     if let Ok(entries) = load_remote_or_cache(app).await {
         catalog.extend(entries);
     }
-    catalog.extend(bundled_entries().iter().cloned());
+    catalog.overlay_bundled_requests();
     catalog
+}
+
+impl Catalog {
+    fn overlay_bundled_requests(&mut self) {
+        for bundled in bundled_entries() {
+            let mut keys = Vec::with_capacity(1 + bundled.aliases.len());
+            keys.push(normalize_id(&bundled.id));
+            for alias in &bundled.aliases {
+                keys.push(normalize_id(alias));
+            }
+            let mut found = false;
+            for key in &keys {
+                if let Some(existing) = self.by_id.get_mut(key) {
+                    if bundled.request.is_some() {
+                        existing.request.clone_from(&bundled.request);
+                    }
+                    found = true;
+                }
+            }
+            if !found {
+                self.insert(bundled.clone());
+            }
+        }
+    }
 }
 
 fn bundled_entries() -> &'static [CatalogEntry] {
@@ -216,9 +373,19 @@ fn bundled_entries() -> &'static [CatalogEntry] {
         .as_slice()
 }
 
+pub fn bundled_lookup(model_id: &str) -> Option<&'static CatalogEntry> {
+    static INDEX: OnceLock<Catalog> = OnceLock::new();
+    INDEX
+        .get_or_init(|| {
+            let mut catalog = Catalog::default();
+            catalog.extend(bundled_entries().iter().cloned());
+            catalog
+        })
+        .lookup(model_id)
+}
+
 fn cache_path(app: &AppHandle) -> Option<PathBuf> {
-    let home = app.path().home_dir().ok()?;
-    Some(home.join(APP_CONFIG_DIR).join(CACHE_FILE))
+    crate::paths::config_file(app, CACHE_FILE).ok()
 }
 
 async fn load_remote_or_cache(app: &AppHandle) -> Result<Vec<CatalogEntry>, String> {
@@ -282,7 +449,13 @@ async fn fetch_models_dev() -> Result<Vec<CatalogEntry>, String> {
                 .entry(key)
                 .and_modify(|current| {
                     if richer_than(current, &entry) {
-                        *current = entry.clone();
+                        let mut next = entry.clone();
+                        if next.cost.is_none() {
+                            next.cost = current.cost.clone();
+                        }
+                        *current = next;
+                    } else if current.cost.is_none() {
+                        current.cost = entry.cost.clone();
                     }
                 })
                 .or_insert(entry);
@@ -292,12 +465,21 @@ async fn fetch_models_dev() -> Result<Vec<CatalogEntry>, String> {
 }
 
 fn catalog_from_models_dev(key: String, model: ModelsDevModel) -> CatalogEntry {
-    let input = unique_nonempty(model.modalities.as_ref().map(|m| m.input.clone()).unwrap_or_default());
-    let output = unique_nonempty(model.modalities.as_ref().map(|m| m.output.clone()).unwrap_or_default());
-    let mut effort_levels = effort_from_options(&model.reasoning_options);
-    if model.reasoning && effort_levels.is_empty() {
-        effort_levels = vec!["low".into(), "medium".into(), "high".into()];
-    }
+    let input = unique_nonempty(
+        model
+            .modalities
+            .as_ref()
+            .map(|m| m.input.clone())
+            .unwrap_or_default(),
+    );
+    let output = unique_nonempty(
+        model
+            .modalities
+            .as_ref()
+            .map(|m| m.output.clone())
+            .unwrap_or_default(),
+    );
+    let effort_levels = effort_from_options(&model.reasoning_options);
     CatalogEntry {
         id: model.id.unwrap_or(key),
         display_name: model.name,
@@ -313,11 +495,26 @@ fn catalog_from_models_dev(key: String, model: ModelsDevModel) -> CatalogEntry {
         tool_call: model.tool_call,
         structured_output: model.structured_output,
         attachment: model.attachment,
+        attachment_types: derive_attachment_types(&input, model.attachment),
         effort_levels,
+        request: None,
         input,
         output,
+        cost: model.cost.and_then(model_cost_from_dev),
         aliases: Vec::new(),
     }
+}
+
+fn model_cost_from_dev(cost: ModelsDevCost) -> Option<ModelCost> {
+    let input = cost.input?;
+    let output = cost.output?;
+    Some(ModelCost {
+        input,
+        output,
+        reasoning: cost.reasoning,
+        cache_read: cost.cache_read,
+        cache_write: cost.cache_write,
+    })
 }
 
 fn effort_from_options(options: &[ModelsDevReasoningOption]) -> Vec<String> {
@@ -327,7 +524,12 @@ fn effort_from_options(options: &[ModelsDevReasoningOption]) -> Vec<String> {
             option
                 .values
                 .iter()
-                .filter_map(|value| value.as_str().map(str::trim).filter(|item| !item.is_empty()))
+                .filter_map(|value| {
+                    value
+                        .as_str()
+                        .map(str::trim)
+                        .filter(|item| !item.is_empty())
+                })
                 .map(str::to_string),
         );
         if !values.is_empty() {
@@ -361,11 +563,12 @@ fn richer_than(current: &CatalogEntry, candidate: &CatalogEntry) -> bool {
     score(candidate) > score(current)
 }
 
-fn score(entry: &CatalogEntry) -> (usize, usize, u8, u8, u8) {
+fn score(entry: &CatalogEntry) -> (usize, usize, u8, u8, u8, u8) {
     (
         entry.effort_levels.len(),
         entry.input.len(),
         u8::from(entry.context_window.is_some()),
+        u8::from(entry.cost.is_some()),
         u8::from(entry.reasoning),
         u8::from(entry.tool_call),
     )

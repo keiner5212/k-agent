@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>System reminder</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #10141a;
+        --panel: #171d26;
+        --text: #e7edf5;
+        --muted: #93a0b3;
+        --line: #2c3644;
+        --mono: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+        --sans: "Segoe UI", sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.45;
+      }
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 32px 20px 64px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 22px;
+        font-weight: 650;
+      }
+      h2 {
+        margin: 28px 0 8px;
+        font-size: 16px;
+      }
+      .lead,
+      p,
+      li {
+        color: var(--text);
+      }
+      .lead,
+      .note {
+        color: var(--muted);
+      }
+      .lead {
+        margin: 0 0 20px;
+        max-width: 68ch;
+      }
+      a {
+        color: #7aa2f7;
+      }
+      ol {
+        margin: 0;
+        padding-left: 1.2rem;
+      }
+      li {
+        margin: 0 0 8px;
+      }
+      code,
+      pre {
+        font-family: var(--mono);
+      }
+      .block {
+        border: 1px solid var(--line);
+        border-left-width: 4px;
+        border-radius: 8px;
+        background: var(--panel);
+        overflow: hidden;
+        margin-top: 12px;
+      }
+      .user {
+        border-left-color: #7aa2f7;
+      }
+      .reminder {
+        border-left-color: #e0af68;
+      }
+      .block header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--line);
+        font-size: 12px;
+      }
+      .tag {
+        font-family: var(--mono);
+        font-weight: 650;
+      }
+      .src {
+        color: var(--muted);
+      }
+      pre {
+        margin: 0;
+        padding: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>System reminder</h1>
+      <p class="lead">
+        Same system string, pasted onto a later user turn. It is not a second prompt and it is not
+        stored in the session file. The plain write-up is
+        <a href="./reminder.md">reminder.md</a>.
+      </p>
+      <h2>How it is built</h2>
+      <ol>
+        <li>
+          Build the system string for this send: language rule, AGENTS.md, then the tagged agent
+          sections.
+        </li>
+        <li>
+          Read <code>reminderInterval</code>. Default 8. Values 1 through 500. Empty system text or
+          interval 0 skips the reminder.
+        </li>
+        <li>Count user turns that are not tool results.</li>
+        <li>
+          When the count is a positive multiple of the interval, append
+          <code>&lt;system-reminder&gt;</code> to that last user turn.
+        </li>
+      </ol>
+      <p class="note">
+        Source: <code>applySystemReminder</code> in <code>src/lib/session-turns.ts</code>.
+      </p>
+      <h2>Example, interval 4, fourth user turn</h2>
+      <section class="block user">
+        <header>
+          <span class="tag">user turn</span>
+          <span class="src">the message the user typed</span>
+        </header>
+        <pre>Please check the sidebar filter.</pre>
+      </section>
+      <section class="block reminder">
+        <header>
+          <span class="tag">system-reminder</span>
+          <span class="src">full system string, appended after a blank line</span>
+        </header>
+        <pre>
+&lt;system-reminder&gt;
+&lt;language&gt;
+LANGUAGE RULE - VERY IMPORTANT
+You must reply ONLY in English.
+&lt;/language&gt;
+
+&lt;personality&gt;
+You are the build agent. Be concise.
+&lt;/personality&gt;
+
+...the rest of the same system string...
+&lt;/system-reminder&gt;</pre>
+      </section>
+      <p class="note">
+        The example is cut. A real reminder pastes the whole system string, and personality is
+        already in it. A loaded skill stays in the chat as its tool result. The next reminder lands
+        on user turn 8, then 12.
+      </p>
+    </main>
+  </body>
+</html>

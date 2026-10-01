@@ -1,13 +1,29 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Bug, Bot, Keyboard, Plug, ScrollText, Sliders, Sparkles } from "lucide-react";
+import {
+  Brain,
+  Bug,
+  Bot,
+  Code2,
+  Keyboard,
+  MessageSquare,
+  Palette,
+  Plug,
+  Radio,
+  ScrollText,
+  Sliders,
+  Sparkles,
+} from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
+import { Table, type TableColumn } from "@/components/Table";
 import { highlightMatch } from "@/lib/highlight";
 import { ProvidersPanel } from "@/features/providers/ProvidersPanel";
 import { SkillsPanel } from "@/features/skills/SkillsPanel";
 import { AgentsPanel } from "@/features/agents/AgentsPanel";
 import { AgentsMdPanel } from "@/features/agents-md/AgentsMdPanel";
+import { LspsPanel } from "@/features/lsps/LspsPanel";
+import { McpServersPanel } from "@/features/mcp-servers/McpServersPanel";
 import { SETTINGS_REGISTRY } from "./registry-data";
 import { SettingItem } from "./SettingItem";
 import { KeybindingField } from "./KeybindingField";
@@ -24,6 +40,11 @@ type TabMeta = {
 
 const SECTION_ICONS: Record<SettingsSectionDef["id"], typeof Sliders> = {
   general: Sliders,
+  appearance: Palette,
+  chat: MessageSquare,
+  modelChoices: Brain,
+  lsps: Code2,
+  mcpServers: Radio,
   providers: Plug,
   skills: Sparkles,
   agents: Bot,
@@ -91,6 +112,13 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
     : (visibleTabs[0]?.id ?? "general");
 
   const activeSection = sections.find((section) => section.id === resolvedTab);
+  const densePane =
+    resolvedTab === "skills" ||
+    resolvedTab === "agents" ||
+    resolvedTab === "agentsMd" ||
+    resolvedTab === "lsps" ||
+    resolvedTab === "mcpServers" ||
+    resolvedTab === "providers";
 
   return (
     <Dialog
@@ -145,7 +173,10 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
           ) : null}
         </nav>
         <div className="settings-content" role="tabpanel">
-          <div key={resolvedTab} className="settings-pane">
+          <div
+            key={resolvedTab}
+            className={densePane ? "settings-pane settings-pane--dense" : "settings-pane"}
+          >
             {visibleTabs.length === 0 ? (
               <div className="settings-empty">{t("settings.searchEmpty")}</div>
             ) : resolvedTab === "providers" ? (
@@ -156,6 +187,10 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
               <AgentsPanel query={query.trim()} />
             ) : resolvedTab === "agentsMd" ? (
               <AgentsMdPanel query={query.trim()} />
+            ) : resolvedTab === "lsps" ? (
+              <LspsPanel items={activeSection?.items ?? []} query={query.trim()} />
+            ) : resolvedTab === "mcpServers" ? (
+              <McpServersPanel query={query.trim()} />
             ) : resolvedTab === "keybindings" ? (
               <KeybindingsPanel items={activeSection?.items ?? []} query={trimmed} />
             ) : (
@@ -180,6 +215,25 @@ const KeybindingsPanel = ({
   query: string;
 }): ReactNode => {
   const { t } = useTranslation();
+  const columns = useMemo(
+    (): TableColumn<SettingsSectionDef["items"][number]>[] => [
+      {
+        id: "action",
+        header: t("settings.keybindings.action"),
+        className: "data-table__desc",
+        wrap: true,
+        cellProps: (item) => ({ title: t(item.titleKey) }),
+        render: (item) => highlightMatch(t(item.titleKey), query),
+      },
+      {
+        id: "shortcut",
+        header: t("settings.keybindings.shortcut"),
+        className: "data-table__actions",
+        render: (item) => <KeybindingField action={item.id as KeybindingAction} />,
+      },
+    ],
+    [query, t],
+  );
 
   return (
     <section className="kbd-section">
@@ -194,24 +248,14 @@ const KeybindingsPanel = ({
       {items.length === 0 ? (
         <div className="settings-empty">{t("settings.searchEmpty")}</div>
       ) : (
-        <table className="kbd-table">
-          <thead>
-            <tr>
-              <th>{t("settings.keybindings.action")}</th>
-              <th>{t("settings.keybindings.shortcut")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id}>
-                <td>{highlightMatch(t(item.titleKey), query)}</td>
-                <td>
-                  <KeybindingField action={item.id as KeybindingAction} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Table
+          columns={columns}
+          rows={items}
+          rowKey={(item) => item.id}
+          layout="fixed"
+          stickyHeader
+          scrollable
+        />
       )}
     </section>
   );

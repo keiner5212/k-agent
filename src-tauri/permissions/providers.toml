@@ -38,7 +38,28 @@ permissions = [
   "allow-delete-agent",
   "allow-get-workspace-path",
   "allow-set-workspace-path",
+  "allow-list-workspace-files",
+  "allow-webview-log",
   "allow-get-repo-info",
+  "allow-list-language-servers",
+  "allow-install-language-server",
+  "allow-uninstall-language-server",
+  "allow-resolve-language-server",
+  "allow-lsp-request",
+  "allow-list-mcp-servers",
+  "allow-save-mcp-server",
+  "allow-delete-mcp-server",
+  "allow-send-chat-message",
+  "allow-describe-model-request",
+  "allow-prepare-chat-attachments",
+  "allow-load-sessions",
+  "allow-save-sessions",
+  "allow-read-session",
+  "allow-read-session-attachment",
+  "allow-read-session-file-revision",
+  "allow-generate-session-title",
+  "allow-generate-app-content",
+  "allow-run-shell-command",
 ]
 
 [[permission]]
@@ -142,6 +163,21 @@ description = "List font families installed on this system."
 commands.allow = ["list_system_fonts"]
 
 [[permission]]
+identifier = "allow-set-chat-background-image"
+description = "Copy a user-picked image into app data and return its data URL."
+commands.allow = ["set_chat_background_image"]
+
+[[permission]]
+identifier = "allow-clear-chat-background-image"
+description = "Delete the stored chat background image."
+commands.allow = ["clear_chat_background_image"]
+
+[[permission]]
+identifier = "allow-get-chat-background-data-url"
+description = "Return the stored chat background image as a data URL."
+commands.allow = ["get_chat_background_data_url"]
+
+[[permission]]
 identifier = "allow-list-skills"
 description = "List global and workspace skills."
 commands.allow = ["list_skills"]
@@ -227,6 +263,141 @@ description = "Change the current workspace path for this session."
 commands.allow = ["set_workspace_path"]
 
 [[permission]]
+identifier = "allow-list-workspace-files"
+description = "List and search files in the current workspace for chat mentions."
+commands.allow = ["list_workspace_files", "search_workspace_files"]
+
+[[permission]]
+identifier = "allow-webview-log"
+description = "Forward webview console output to the Rust process log."
+commands.allow = ["webview_log"]
+
+[[permission]]
 identifier = "allow-get-repo-info"
 description = "Read git metadata for the current workspace."
 commands.allow = ["get_repo_info"]
+
+[[permission]]
+identifier = "allow-list-language-servers"
+description = "List bundled language servers and their install status."
+commands.allow = ["list_language_servers"]
+
+[[permission]]
+identifier = "allow-install-language-server"
+description = "Install a bundled language server into the app config dir."
+commands.allow = ["install_language_server"]
+
+[[permission]]
+identifier = "allow-uninstall-language-server"
+description = "Remove a managed language server from the app config dir."
+commands.allow = ["uninstall_language_server"]
+
+[[permission]]
+identifier = "allow-resolve-language-server"
+description = "Resolve which installed language server handles a file."
+commands.allow = ["resolve_language_server"]
+
+[[permission]]
+identifier = "allow-lsp-request"
+description = "Send a JSON-RPC request to the language server for a file."
+commands.allow = ["lsp_request"]
+
+[[permission]]
+identifier = "allow-list-mcp-servers"
+description = "List configured MCP servers."
+commands.allow = ["list_mcp_servers"]
+
+[[permission]]
+identifier = "allow-save-mcp-server"
+description = "Create or update an MCP server."
+commands.allow = ["save_mcp_server"]
+
+[[permission]]
+identifier = "allow-delete-mcp-server"
+description = "Delete an MCP server."
+commands.allow = ["delete_mcp_server"]
+
+[[permission]]
+identifier = "allow-refresh-mcp-server-tools"
+description = "Refresh MCP server tool list."
+commands.allow = ["refresh_mcp_server_tools"]
+
+[[permission]]
+identifier = "allow-set-mcp-server-enabled"
+description = "Enable or disable an MCP server."
+commands.allow = ["set_mcp_server_enabled"]
+
+[[permission]]
+identifier = "allow-send-chat-message"
+description = "Send a simple chat message to the selected model."
+commands.allow = ["send_chat_message"]
+
+[[permission]]
+identifier = "allow-describe-model-request"
+description = "Describe the catalog request contract for the selected model."
+commands.allow = ["describe_model_request"]
+
+[[permission]]
+identifier = "allow-prepare-chat-attachments"
+description = "Read and prepare files attached to a chat message."
+commands.allow = ["prepare_chat_attachments"]
+
+[[permission]]
+identifier = "allow-load-sessions"
+description = "Load persisted chat sessions."
+commands.allow = ["load_sessions"]
+
+[[permission]]
+identifier = "allow-save-sessions"
+description = "Persist chat sessions."
+commands.allow = ["save_sessions"]
+
+[[permission]]
+identifier = "allow-read-session"
+description = "Read one persisted chat session, including a subagent child."
+commands.allow = ["read_session"]
+
+[[permission]]
+identifier = "allow-read-session-attachment"
+description = "Read a session attachment blob from disk."
+commands.allow = ["read_session_attachment"]
+
+[[permission]]
+identifier = "allow-read-session-file-revision"
+description = "Read a write or edit file snapshot from a session folder."
+commands.allow = ["read_session_file_revision"]
+
+[[permission]]
+identifier = "allow-generate-session-title"
+description = "Generate a session title from the first message."
+commands.allow = ["generate_session_title"]
+
+[[permission]]
+identifier = "allow-generate-app-content"
+description = "Generate or improve in-app content such as prompts, skills, and personalities."
+commands.allow = ["generate_app_content"]
+
+[[permission]]
+identifier = "allow-run-shell-command"
+description = "Run a shell command inside the workspace."
+commands.allow = ["run_shell_command"]
+
+[[permission]]
+identifier = "allow-cancel-running-task"
+description = "Signal the active chat or shell task to stop early."
+commands.allow = ["cancel_running_task"]
+
+[[permission]]
+identifier = "allow-submit-ask-user-answer"
+description = "Submit answers to a pending ask_user tool prompt."
+commands.allow = ["submit_ask_user_answer"]
+
+[[permission]]
+identifier = "allow-cancel-ask-user-answer"
+description = "Cancel a pending ask_user tool prompt."
+commands.allow = ["cancel_ask_user_answer"]
+
+[[permission]]
+identifier = "allow-clear-app-cache"
+description = "Clear tool caches and drop leftover secrets for removed providers, MCP servers, and model prefs."
+commands.allow = ["clear_app_cache"]

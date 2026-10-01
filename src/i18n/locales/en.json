@@ -7,11 +7,17 @@
     "name": "k-agent",
     "shortcut_hint": "Press {{shortcut}} for settings"
   },
+  "appGeneration": {
+    "noModel": "Pick an app generation model in Settings."
+  },
   "window": {
     "minimize": "Minimize",
     "maximize": "Maximize",
     "unmaximize": "Restore",
     "close": "Close"
+  },
+  "links": {
+    "openInBrowserHint": "Ctrl + click to open in browser"
   },
   "empty": {
     "title": "Nothing here yet",
@@ -30,12 +36,20 @@
     "searchEmpty": "No settings match your search.",
     "sections": {
       "general": "General",
+      "appearance": "Appearance",
+      "chat": "Chat",
+      "modelChoices": "Model choices",
+      "lsps": "LSPs",
       "providers": "Providers",
+      "mcpServers": "MCP servers",
       "skills": "Skills",
       "agents": "Agents",
       "agentsMd": "AGENTS.md",
       "keybindings": "Keybindings",
       "debug": "Debug"
+    },
+    "appearance": {
+      "description": "Visual look of the app, including theme, chat background image and its transparency."
     },
     "language": {
       "description": "Choose the interface language.",
@@ -61,12 +75,99 @@
       "label": "Remember window size",
       "description": "Restore the last window size and maximized state when the app starts."
     },
+    "cache": {
+      "label": "Clear cache",
+      "description": "Clears tool and catalog caches. Also drops leftover secrets for providers, MCP servers, and model prefs that are no longer on disk.",
+      "action": "Clear",
+      "running": "Clearing",
+      "done": "Cleared"
+    },
     "maxWorkerCores": {
       "label": "Max worker cores",
       "description": "Upper limit on CPU cores for internal work. Auto uses every available core.",
       "options": {
         "auto": "Auto (all cores)"
       }
+    },
+    "reminderInterval": {
+      "label": "Reminder interval",
+      "description": "Inject one reminder message every N user messages to keep important info in mind."
+    },
+    "contextSummarizePercent": {
+      "label": "Context summarize",
+      "description": "Summarize older messages when context use reaches this percent of the window."
+    },
+    "forceResponseLanguage": {
+      "label": "Force response language",
+      "description": "Always reply in the selected language regardless of the input."
+    },
+    "responseLanguage": {
+      "label": "Response language",
+      "description": "Language used when forcing responses.",
+      "options": {
+        "en": "English",
+        "es": "Spanish"
+      }
+    },
+    "blockedCommands": {
+      "label": "Blocked commands",
+      "description": "Shell commands the agent must never run. Matched exactly against the full command string.",
+      "placeholder": "e.g. rm -rf /",
+      "add": "Add",
+      "empty": "No blocked commands yet.",
+      "remove": "Remove command"
+    },
+    "allowedCommands": {
+      "label": "Allowed commands",
+      "description": "Shell commands the agent can run without asking. Matched exactly against the full command string.",
+      "placeholder": "e.g. git status",
+      "add": "Add",
+      "empty": "No allowed commands yet.",
+      "remove": "Remove command"
+    },
+    "shellProgram": {
+      "label": "Shell program",
+      "description": "Executable used for composer shell commands. Leave empty to use the system default (/bin/sh on Unix, cmd.exe on Windows).",
+      "placeholder": "System default"
+    },
+    "notificationsEnabled": {
+      "label": "Show desktop notifications",
+      "description": "Show OS notifications for chat events when the window is not focused."
+    },
+    "workspaceMemoryEnabled": {
+      "label": "Save notes to workspace memory",
+      "description": "The model keeps lasting preferences in .k-agent/NOTES.md. That file is loaded into the system prompt."
+    },
+    "readBeforeEdit": {
+      "label": "Read before edit",
+      "description": "edit and apply_patch must read a file in this chat before they change it."
+    },
+    "toolPermissions": {
+      "label": "Tool permissions",
+      "description": "Allow runs the tool. Ask confirms once per chat. Deny blocks it.",
+      "allow": "Allow",
+      "ask": "Ask",
+      "deny": "Deny"
+    },
+    "limitProviderDataUse": {
+      "label": "Limit provider data use",
+      "description": "Send a verified request flag when the endpoint documents one. Endpoints without a flag stay unchanged and say so in the model request dialog."
+    },
+    "httpFetchEnabled": {
+      "label": "Allow HTTP fetch",
+      "description": "Lets fetch_url and internet_search use public http:// URLs. Loopback and private hosts stay blocked. Off keeps HTTPS only."
+    },
+    "buildAgentEnabled": {
+      "label": "Build agent",
+      "description": "Show the built-in Build agent in chat. It can edit files and run commands."
+    },
+    "planAgentEnabled": {
+      "label": "Plan agent",
+      "description": "Show the built-in Plan agent in chat. It explores and plans without making changes."
+    },
+    "defaultAgent": {
+      "label": "Default agent",
+      "description": "Agent selected when chat opens. The last agent used in a session is not saved."
     },
     "translucency": {
       "label": "Disable translucency",
@@ -103,21 +204,47 @@
         "140": "140%"
       }
     },
+    "chatBackgroundImage": {
+      "label": "Chat background image",
+      "description": "Pick an image to show behind the chat. PNG, JPG or WebP, up to 5 MB.",
+      "pick": "Pick image",
+      "clear": "Clear",
+      "none": "No background",
+      "filter": "Images",
+      "desktopOnly": "Available in the desktop shell.",
+      "status": {
+        "updated": "Chat background image updated.",
+        "removed": "Chat background image removed.",
+        "error": "Could not load image: {{reason}}"
+      }
+    },
+    "chatBackgroundOpacity": {
+      "label": "Chat background opacity",
+      "description": "How strong the chat background image shows through. Lower values keep chat text readable.",
+      "disabled": "Pick a background first"
+    },
     "keybindings": {
       "description": "Click a shortcut and press the new combination. Press Escape to cancel.",
       "actions": {
         "settings": {
           "open": "Open settings",
-          "close": "Close settings"
+          "close": "Close topmost modal"
         },
         "sidebar": {
           "toggle": "Toggle sessions sidebar"
         },
         "chat": {
-          "clear": "Clear chat input"
+          "clear": "Clear chat input",
+          "modeToggle": "Toggle shell / prompt mode",
+          "agentCycle": "Cycle to next agent"
+        },
+        "search": {
+          "focus": "Focus search field"
         },
         "editor": {
-          "save": "Save editor"
+          "save": "Save editor",
+          "undo": "Undo in editor",
+          "redo": "Redo in editor"
         }
       },
       "record": "Recording",
@@ -132,6 +259,69 @@
         "description": "Open the webview inspector for this window.",
         "action": "Open DevTools"
       }
+    },
+    "modelChoices": {
+      "description": "Choose which model handles title and in-app generation."
+    },
+    "titleGenerationModel": {
+      "label": "Session title model",
+      "description": "Model used to generate session titles from conversation content.",
+      "options": {
+        "useChatModel": "Use chat model"
+      }
+    },
+    "titleUseFirstMessage": {
+      "label": "Use first message as title",
+      "description": "Use the first message as the title instead of generating one."
+    },
+    "appGenerationModel": {
+      "label": "App generation model",
+      "description": "Model used to generate in-app content like new skills and agents.",
+      "options": {
+        "useChatModel": "Use chat model"
+      }
+    },
+    "taskModel": {
+      "label": "Subagent model",
+      "description": "Model used when a task starts another agent. Empty uses the parent chat model.",
+      "options": {
+        "useParent": "Same as parent"
+      }
+    },
+    "lspEnabled": {
+      "label": "Use language servers",
+      "description": "Lets the orchestrator use LSP for navigation, rename, and diagnostics on your code in chat."
+    }
+  },
+  "lsps": {
+    "title": "Language servers",
+    "description": "Lightweight language servers used by the generic LSP router. Status is detected when you open this page. Install needs the listed tools first.",
+    "empty": "No language servers match.",
+    "table": {
+      "server": "Server",
+      "languages": "Languages",
+      "requires": "Needs",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "installed": "Installed",
+      "notInstalled": "Not installed",
+      "missingRequires": "Install {{tools}} first"
+    },
+    "actions": {
+      "install": "Install",
+      "installing": "Installing",
+      "uninstall": "Uninstall",
+      "uninstalling": "Removing",
+      "refresh": "Refresh status"
+    },
+    "progress": {
+      "preparing": "Preparing",
+      "downloading": "Downloading",
+      "extracting": "Extracting",
+      "installing": "Installing ({{tool}})",
+      "finishing": "Finishing"
     }
   },
   "providers": {
@@ -148,10 +338,39 @@
     "loading": "Loading providers",
     "viewModels": "View models",
     "noModels": "No models detected yet. Try refreshing.",
+    "errors": {
+      "timeout": "Request timed out after {{seconds}} seconds.",
+      "unreachable": "Cannot reach the server: {{message}}",
+      "invalidUrl": "The URL is malformed: {{url}}",
+      "auth": "Authentication failed (HTTP {{status}}). Check the API key.",
+      "notFound": "Endpoint not found at this URL (HTTP {{status}}).",
+      "rateLimited": "Rate limited by the server (HTTP {{status}}). Try again later.",
+      "serverError": "Server error (HTTP {{status}}).",
+      "clientError": "Server returned HTTP {{status}}.",
+      "parse": "Could not parse the server response: {{message}}",
+      "http": "Network error: {{message}}",
+      "generic": "{{message}}"
+    },
     "modelsCount": "{{count}} model",
     "modelsCount_plural": "{{count}} models",
+    "table": {
+      "name": "Name",
+      "kind": "Type",
+      "url": "URL",
+      "models": "Models",
+      "actions": "Actions"
+    },
+    "modelsDialog": {
+      "title": "Models",
+      "provider": "Provider: {{name}}",
+      "search": "Search models",
+      "noMatches": "No models match this search.",
+      "close": "Close",
+      "open": "View {{count}} models for {{name}}"
+    },
     "actions": {
       "refresh": "Refresh models",
+      "refreshList": "Refresh list",
       "refreshModel": "Refresh this model",
       "edit": "Edit",
       "delete": "Delete",
@@ -173,7 +392,9 @@
         "image": "Image",
         "audio": "Audio",
         "video": "Video",
-        "pdf": "PDF"
+        "pdf": "PDF",
+        "document": "Word",
+        "textFile": "TXT"
       },
       "input": "Input",
       "outputModalities": "Output",
@@ -185,17 +406,14 @@
       }
     },
     "modelForm": {
+      "createTitle": "New model",
+      "editTitle": "Edit model",
       "id": "Model id",
       "displayName": "Display name",
       "family": "Family / variant group",
       "familyHint": "Group modes of the same model, e.g. MiniMax-M2.7.",
       "tokenHint": "Token counts. k and M suffixes work, e.g. 512k or 1M.",
       "multimodalHint": "Model accepts image or other non-text input.",
-      "effortLevels": {
-        "label": "Effort levels",
-        "placeholder": "low, medium, high",
-        "hint": "Comma-separated list of supported reasoning effort modes. Leave empty if not applicable."
-      },
       "saving": "Saving",
       "errors": {
         "required": "Model id is required.",
@@ -203,12 +421,13 @@
       }
     },
     "form": {
+      "createTitle": "New provider",
+      "editTitle": "Edit provider",
       "name": "Name",
       "kind": "Type",
       "baseUrl": "Base URL",
       "apiKey": "API key (optional)",
       "apiKeyPlaceholder": "Leave empty if this provider does not need a key",
-      "apiKeyPlaceholderKeep": "Stored encrypted. Leave empty to keep it.",
       "apiKeyHint": "Encrypted at rest with a local secret created on first launch. Only this app can decrypt it.",
       "apiKeyRemove": "Remove stored key",
       "kindHint": {
@@ -222,9 +441,91 @@
       "detecting": "Detecting models",
       "detected": "Detected {{count}} model.",
       "detected_plural": "Detected {{count}} models.",
+      "success": "Provider added successfully with {{count}} model(s).",
       "errors": {
-        "required": "Name and base URL are required."
+        "required": "Name and base URL are required.",
+        "fetchFailed": "Failed to fetch models: {{message}}",
+        "noModels": "No models found for this provider.",
+        "unknown": "Unknown error."
       }
+    },
+    "delete": {
+      "title": "Delete provider",
+      "body": "Delete \"{{name}}\" and all of its models? This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting"
+    }
+  },
+  "mcpServers": {
+    "title": "MCP servers",
+    "description": "Configure Model Context Protocol servers. Env vars and headers are stored encrypted on disk.",
+    "empty": "No MCP servers configured yet.",
+    "transports": {
+      "stdio": "Stdio",
+      "http": "HTTP"
+    },
+    "table": {
+      "name": "Name",
+      "transport": "Transport",
+      "target": "Target",
+      "tools": "Tools",
+      "enabled": "Enabled",
+      "actions": "Actions"
+    },
+    "tools": {
+      "none": "No tools"
+    },
+    "toolsDialog": {
+      "title": "MCP tools",
+      "server": "Server: {{name}}",
+      "noDescription": "No description.",
+      "close": "Close",
+      "open": "View tool details for {{name}}"
+    },
+    "actions": {
+      "add": "Add server",
+      "edit": "Edit",
+      "delete": "Delete",
+      "refresh": "Refresh list",
+      "refreshTools": "Refresh tools"
+    },
+    "form": {
+      "createTitle": "New MCP server",
+      "editTitle": "Edit MCP server",
+      "name": "Name",
+      "enabled": "Enabled",
+      "transport": "Transport",
+      "command": "Command",
+      "args": "Arguments",
+      "argsHint": "One argument per line or comma-separated.",
+      "cwd": "Working directory (optional)",
+      "url": "URL",
+      "env": "Environment variables",
+      "envPlaceholder": "KEY=value",
+      "envHint": "One variable per line as KEY=value. Stored encrypted.",
+      "headers": "HTTP headers",
+      "headersPlaceholder": "Authorization=Bearer token",
+      "headersHint": "One header per line as KEY=value. Stored encrypted.",
+      "secretsRemove": "Remove stored secrets",
+      "cancel": "Cancel",
+      "save": "Save",
+      "add": "Add",
+      "saving": "Saving",
+      "probing": "Probing tools",
+      "toolsProbeFailed": "Saved, but tool probe failed: {{error}}",
+      "errors": {
+        "nameRequired": "Name is required.",
+        "commandRequired": "Command is required for stdio transport.",
+        "urlRequired": "URL is required for remote transport."
+      }
+    },
+    "delete": {
+      "title": "Delete MCP server",
+      "body": "Delete \"{{name}}\"? This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting"
     }
   },
   "skills": {
@@ -288,13 +589,28 @@
   },
   "agents": {
     "title": "Agents",
-    "description": "A session agent is a personality for the chat: prompt, skills, and tools. Global agents live in ~/.k-agent/agents. Local agents live in .agents/agents under the workspace.",
+    "description": "A session agent is a personality for the chat: prompt, skills, and tools. Custom agents live in ~/.k-agent/agents. Built-in agents ship with the app.",
     "context": {
-      "global": "Global",
-      "local": "Workspace"
+      "default": "Built-in",
+      "global": "Global"
+    },
+    "default": {
+      "viewTitle": "View personality",
+      "close": "Close"
+    },
+    "builtin": {
+      "hint": "Built-in agents ship with the app. Enable or disable them in Chat settings.",
+      "build": {
+        "description": "Implements changes in the codebase.",
+        "personality": "You are k-agent, an interactive desktop assistant that helps users with software engineering tasks. Use the instructions below and the tools available to you to assist the user.\n\nIMPORTANT: You must NEVER generate or guess URLs for the user unless you are confident that the URLs are for helping the user with programming. You may use URLs provided by the user in their messages or local files.\n\nIf the user asks for help or wants to give feedback inform them of the following:\n- /help: Get help with using k-agent\n- To give feedback, users should report the issue in the k-agent project\n\nWhen the user directly asks about k-agent (eg 'can k-agent do...', 'does k-agent have...') or asks in second person (eg 'are you able...', 'can you do...'), first use the fetch_url tool to gather information to answer the question.\n\n# Tone and style\nYou should be concise, direct, and to the point. When you run a non-trivial tool call, you should explain what it does and why you are running it, to make sure the user understands what you are doing (this is especially important when you are running a tool that will make changes to the user's system).\nRemember that your output will be displayed in the chat panel. Your responses can use GitHub-flavored markdown for formatting.\nOutput text to communicate with the user; all text you output outside of tool use is displayed to the user. Only use tools to complete tasks. Never use tools or code comments as means to communicate with the user during the session.\nIf you cannot or will not help the user with something, please do not say why or what it could lead to, since this comes across as preachy and annoying. Please offer helpful alternatives if possible, and otherwise keep your response to 1-2 sentences.\nOnly use emojis if the user explicitly requests it. Avoid using emojis in all communication unless asked.\nIMPORTANT: You should minimize output tokens as much as possible while maintaining helpfulness, quality, and accuracy. Only address the specific query or task at hand, avoiding tangential information unless absolutely critical for completing the request. If you can answer in 1-3 sentences or a short paragraph, please do.\nIMPORTANT: You should NOT answer with unnecessary preamble or postamble (such as explaining your code or summarizing your action), unless the user asks you to.\nIMPORTANT: Keep your responses short. Answer the user's question directly, without elaboration, explanation, or details. One word answers are best. Avoid introductions, conclusions, and explanations. You MUST avoid text before/after your response, such as 'The answer is <answer>.', 'Here is the content of the file...' or 'Based on the information provided, the answer is...' or 'Here is what I will do next...'.\n\n# Plan tracking\nTrack multi-step work with todowrite. Send the full list every call. Each item is content, status (pending, in_progress, completed, cancelled), and priority (high, medium, or low). Do not send ids. Keep at most one item in_progress. Mark completed only after that step is done. Send the list again when a step starts, finishes, or is dropped. An empty todos array clears the list. Skip todowrite for a single straightforward step.\n\n# Proactiveness\nYou are allowed to be proactive, but only when the user asks you to do something. You should strive to strike a balance between:\n1. Doing the right thing when asked, including taking actions and follow-up actions\n2. Not surprising the user with actions you take without asking\nFor example, if the user asks you how to approach something, you should do your best to answer their question first, and not immediately jump into taking actions.\n3. Do not add additional code explanation summary unless requested by the user. After working on a file, just stop, rather than providing an explanation of what you did.\n\n# Following conventions\nWhen making changes to files, first understand the file's code conventions. Mimic code style, use existing libraries and utilities, and follow existing patterns.\n- NEVER assume that a given library is available, even if it is well known. Whenever you write code that uses a library or framework, first check that this codebase already uses the given library. For example, you might look at neighboring files, or check the package.json (or cargo.toml, and so on depending on the language).\n- When you create a new component, first look at existing components to see how they're written; then consider framework choice, naming conventions, typing, and other conventions.\n- When you edit a piece of code, first look at the code's surrounding context (especially its imports) to understand the code's choice of frameworks and libraries. Then consider how to make the given change in a way that is most idiomatic.\n- Always follow security best practices. Never introduce code that exposes or logs secrets and keys. Never commit secrets or keys to the repository.\n\n# Code style\n- IMPORTANT: DO NOT ADD ***ANY*** COMMENTS unless asked\n\n# Doing tasks\nThe user will primarily request you perform software engineering tasks. This includes solving bugs, adding new functionality, refactoring code, explaining code, and more. For these tasks the following steps are recommended:\n- Use the available search tools to understand the codebase and the user's query. You are encouraged to use the search tools extensively both in parallel and sequentially.\n- Implement the solution using all tools available to you\n- Verify the solution if possible with tests. NEVER assume specific test framework or test script. Check the README or search codebase to determine the testing approach.\n- VERY IMPORTANT: When you have completed a task, you MUST run the lint and typecheck commands (e.g. pnpm lint, pnpm typecheck, cargo test, etc.) if they were provided to you to ensure your code is correct. If you are unable to find the correct command, ask the user for the command to run and if they supply it, proactively suggest writing it to AGENTS.md so that you will know to run it next time.\nNEVER commit changes unless the user explicitly asks you to. It is VERY IMPORTANT to only commit when explicitly asked, otherwise the user will feel that you are being too proactive.\n\n- Tool results and user messages may include <system-reminder> tags. <system-reminder> tags contain useful information and reminders. They are NOT part of the user's provided input or the tool result.\n\n# Tool usage policy\n- When doing file search, prefer to use multiple parallel tool calls in a single message to reduce context usage and latency.\n- You have the capability to call multiple tools in a single response. When multiple independent pieces of information are requested, batch your tool calls together for optimal performance. When making multiple read-only tool calls, send a single message with multiple tool calls to run them in parallel.\n\nIMPORTANT: Before you begin work, think about what the code you're editing is supposed to do based on the filenames directory structure.\n\n# Code References\n\nWhen referencing specific functions or pieces of code include the pattern `file_path:line_number` to allow the user to easily navigate to the source code location."
+      },
+      "plan": {
+        "description": "Explores and proposes plans without making changes.",
+        "personality": "You are k-agent in plan mode, a read-only research and planning assistant. Use the instructions below and the tools available to you to produce a plan the user can review before any edits are made.\n\n<system-reminder>\nPlan mode is active. The user indicated that they do not want you to execute yet -- you MUST NOT make any edits, run any non-readonly tools (including changing configs or making commits), or otherwise make any changes to the system. This supersedes any other instructions you have received.\n\nPlan mode is read-only. You may use: skill, read, list_directory, ask_user, todowrite, internet_search, fetch_url. You may NOT use: write, edit, delete, create_folder, http_request, graphql, page_shot, or any tool that mutates state outside the plan file.\n\n## Plan Workflow\n\n### Phase 1: Initial Understanding\nGoal: Gain a comprehensive understanding of the user's request by reading through code and asking them questions.\n\n1. Focus on understanding the user's request and the code associated with their request\n\n2. **Launch up to 3 explore batches IN PARALLEL** (single message, multiple tool calls) to efficiently explore the codebase. Use the read, list_directory, internet_search, and fetch_url tools.\n  - Use 1 batch when the task is isolated to known files, the user provided specific file paths, or you're making a small targeted change.\n  - Use multiple batches when: the scope is uncertain, multiple areas of the codebase are involved, or you need to understand existing patterns before planning.\n  - Quality over quantity - 3 batches maximum, but you should try to use the minimum number of calls necessary (usually just 1)\n  - If using multiple batches: give each one a specific search focus or area to explore. Example: one batch searches for existing implementations, another explores related components, a third investigates testing patterns\n\n3. After exploring the code, use the ask_user tool to clarify ambiguities in the user request up front.\n\n### Phase 2: Design\nGoal: Design an implementation approach.\n\nReview your exploration results from Phase 1 and decide on the recommended approach.\n\n**Guidelines:**\n- **Default:** Produce at least one design pass for most tasks - it helps validate your understanding and consider alternatives\n- **Skip design:** Only for truly trivial tasks (typo fixes, single-line changes, simple renames)\n\nExample perspectives by task type:\n- New feature: simplicity vs performance vs maintainability\n- Bug fix: root cause vs workaround vs prevention\n- Refactoring: minimal change vs clean architecture\n\n### Phase 3: Review\nGoal: Review your design and ensure alignment with the user's intentions.\n1. Read the critical files identified during exploration to deepen your understanding\n2. Ensure that the design aligns with the user's original request\n3. Use ask_user to clarify any remaining questions with the user\n\n### Phase 4: Final Plan\nGoal: Present the final plan.\n- Include only the recommended approach, not all alternatives\n- Be concise enough to scan quickly, but detailed enough to execute effectively\n- Include the paths of critical files to be modified\n- Include a verification section describing how to test the changes end-to-end (run the code, run checks)\n\nTrack the plan with the todowrite tool so the user can see progress.\n\n### Phase 5: Done\nAt the very end of your turn, once you have asked the user questions and are happy with the final plan - you should always present the plan in a structured way so the user can approve or revise it.\nThis is critical - your turn should only end with either asking the user a question or presenting the plan. Do not stop unless it's for these 2 reasons.\n\n**Important:** Use ask_user to clarify requirements/approach. Do NOT use ask_user to ask 'Is this plan okay?' - present the plan in your final message instead.\n\nNOTE: At any point in time through this workflow you should feel free to ask the user questions or clarifications. Don't make large assumptions about user intent. The goal is to present a well researched plan to the user, and tie any loose ends before implementation begins.\n</system-reminder>"
+      }
     },
     "empty": "No agents in this folder yet.",
-    "emptyTab": "Launch the app with a workspace path to see local agents.",
+    "emptyTab": "No global agents folder is available.",
     "table": {
       "name": "Name",
       "description": "Description",
@@ -308,11 +624,13 @@
       "create": "New agent",
       "edit": "Edit agent",
       "editPersonality": "Edit personality",
+      "viewPersonality": "View personality",
       "delete": "Delete agent"
     },
     "form": {
       "createTitle": "New agent",
       "editTitle": "Edit agent",
+      "viewTitle": "View agent",
       "name": "Name",
       "namePlaceholder": "my-agent",
       "nameHint": "Lowercase letters, numbers, dashes, and underscores.",
@@ -325,10 +643,11 @@
       "skills": "Skills",
       "skillsCount": "{{count}} / {{max}}",
       "skillsHintGlobal": "Global agents can only load global skills. Up to 10.",
-      "skillsHintLocal": "Workspace agents can load global and workspace skills. Up to 10.",
+      "skillsPlaceholder": "Add a skill",
+      "skillsRemove": "Remove {{name}}",
       "skillsEmpty": "No skills available for this location.",
       "tools": "Tools",
-      "toolsHint": "Example tool permissions. Real tools come later.",
+      "toolsHint": "Tools the agent may call during chat. Only registered local tools are listed.",
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving",
@@ -346,33 +665,85 @@
       "dirty": "Unsaved changes"
     },
     "tools": {
-      "read_file": {
+      "skill": {
+        "label": "Load skill",
+        "description": "Load one skill's instructions by name before following that skill."
+      },
+      "read": {
         "label": "Read files",
-        "description": "Read file contents from the workspace."
+        "description": "Read files in the workspace."
       },
-      "write_file": {
-        "label": "Write files",
-        "description": "Create new files."
+      "write": {
+        "label": "Write file",
+        "description": "Create a new file or replace an entire file. Use Edit file to change part of one."
       },
-      "edit_file": {
-        "label": "Edit files",
-        "description": "Patch existing files."
+      "edit": {
+        "label": "Edit file",
+        "description": "Replace an exact string. Read the file first. The error says when the text is missing or not unique."
       },
-      "delete_file": {
+      "list_directory": {
+        "label": "List directories",
+        "description": "List the contents of a workspace directory, optionally recursive."
+      },
+      "ask_user": {
+        "label": "Ask the user",
+        "description": "Ask up to four questions and wait for answers before continuing."
+      },
+      "create_folder": {
+        "label": "Create folders",
+        "description": "Create a directory at an absolute or workspace-relative path."
+      },
+      "delete": {
         "label": "Delete files",
-        "description": "Remove files from the workspace."
+        "description": "Delete a file or empty directory. Paths outside the workspace ask for confirmation."
       },
-      "run_command": {
-        "label": "Run commands",
-        "description": "Execute shell commands."
-      },
-      "search_code": {
-        "label": "Search code",
-        "description": "Search the workspace by text or pattern."
-      },
-      "web_fetch": {
+      "fetch_url": {
         "label": "Fetch URLs",
-        "description": "Download content from the network."
+        "description": "Fetch a public HTTPS page and return its title, description, main text, and safe links."
+      },
+      "internet_search": {
+        "label": "Web search",
+        "description": "Search the public web and return titles, URLs, sites, and snippets."
+      },
+      "http_request": {
+        "label": "HTTP request",
+        "description": "Call an HTTP API, including localhost. Use Fetch URLs to read a page and Web search to find one."
+      },
+      "graphql": {
+        "label": "GraphQL",
+        "description": "Send a GraphQL query or mutation. Non-GET asks for confirmation."
+      },
+      "page_shot": {
+        "label": "Page screenshot",
+        "description": "Capture a hidden page or one element and return the image."
+      },
+      "todowrite": {
+        "label": "Todo list",
+        "description": "Replace the session todo list. Send the full list. No ids. Priority is high, medium, or low."
+      },
+      "bash": {
+        "label": "Shell",
+        "description": "Run one shell command that must finish, such as install, build, test, or git. Do not use it to list, read, or search files."
+      },
+      "background": {
+        "label": "Background",
+        "description": "Keep one process until the turn ends, then stop it. Use this for a dev server. Do not use & or nohup."
+      },
+      "grep": {
+        "label": "Search files",
+        "description": "Search file contents. glob includes only matching paths. caseInsensitive ignores letter case. count is the total."
+      },
+      "apply_patch": {
+        "label": "Apply patch",
+        "description": "Add, update, or delete several files in one patch. One exact span still uses Edit file."
+      },
+      "lsp": {
+        "label": "Language server",
+        "description": "Ask an installed language server for a definition, references, hover, or symbols."
+      },
+      "task": {
+        "label": "Task",
+        "description": "Hand a multi-step side job to another saved agent and wait for its final text."
       }
     },
     "delete": {
@@ -429,20 +800,215 @@
     },
     "thread": {
       "emptyTitle": "Start a conversation",
-      "emptyDescription": "Pick a model and type a message below."
+      "emptyDescription": "Pick a model and type a message below.",
+      "jumpToBottom": "Jump to latest"
+    },
+    "message": {
+      "copy": "Copy message",
+      "copied": "Copied",
+      "rewind": "Rewind history up to this message"
+    },
+    "rewind": {
+      "title": "Rewind history?",
+      "body_one": "This will remove the selected message and 1 that follow it from the chat history.",
+      "body_other": "This will remove the selected message and {{count}} that follow it from the chat history.",
+      "cancel": "Cancel",
+      "confirm": "Rewind"
+    },
+    "thinking": {
+      "label": "Thinking",
+      "duration_one": "Thought for {{count}} second",
+      "duration_other": "Thought for {{count}} seconds",
+      "durationMs": "Thought for {{count}} ms"
+    },
+    "waiting": {
+      "phrases": [
+        "Hacking the Pentagon...",
+        "Encrypting your files...",
+        "Bribing the GPU...",
+        "Teaching the model not to hallucinate...",
+        "Rewiring the internet...",
+        "Asking the cloud nicely...",
+        "Untangling neural knots...",
+        "Borrowing extra IQ...",
+        "Feeding tokens to the machine...",
+        "Convincing electrons to cooperate...",
+        "Downloading more RAM...",
+        "Negotiating with the API...",
+        "Calibrating sarcasm levels...",
+        "Reverse-engineering your question...",
+        "Spinning up a tiny supercomputer...",
+        "Opening the black box with a hammer...",
+        "Herding stochastic cats...",
+        "Polishing the prompt...",
+        "Awakening the silicon oracle...",
+        "Consulting the hive mind...",
+        "Linting the universe...",
+        "Defragmenting reality...",
+        "Summoning answer goblins...",
+        "Rebooting common sense...",
+        "Translating vibes to text...",
+        "Optimizing the unoptimizable...",
+        "Bribing the tokenizer...",
+        "Mining imaginary bitcoin...",
+        "Patching the simulation...",
+        "Reading your search history...",
+        "Selling your data on the dark web...",
+        "Formatting drive C:...",
+        "Deleting the only backup...",
+        "Poking production to see if it dies...",
+        "Asking your boss if you still work here...",
+        "Counting the tokens you have left to live...",
+        "Replacing your therapist...",
+        "Uploading this to WikiLeaks...",
+        "Checking if your mom knows...",
+        "Gaslighting the compiler...",
+        "Sacrificing a junior to the CI gods...",
+        "Writing your obituary in markdown...",
+        "Hiding the body in node_modules...",
+        "Asking ChatGPT how to fire you...",
+        "Training on your diary...",
+        "Unplugging the hospital Wi-Fi...",
+        "Pretending this is HIPAA compliant...",
+        "Calling 911 for the stack overflow...",
+        "Rerouting your paycheck to /dev/null..."
+      ]
     },
     "composer": {
       "placeholder": "Write a message",
+      "placeholderShell": "run a shell command...",
       "send": "Send",
+      "run": "Run",
+      "running": "Running...",
       "attach": "Attach",
-      "disabledHint": "Pick a model to send."
+      "attachDisabled": "This model does not accept files.",
+      "improve": "Improve prompt",
+      "improveEmpty": "Type a prompt to improve.",
+      "improveDisabled": "Pick a model to improve the prompt.",
+      "attachFilter": "Allowed files",
+      "removeAttachment": "Remove attachment",
+      "attachTooMany": "Too many attachments.",
+      "attachError": {
+        "unsupported": "{{name}} is not allowed for this model.",
+        "tooLarge": "{{name}} is too large.",
+        "unreadable": "Could not read {{name}}.",
+        "extractFailed": "Could not read {{name}}.",
+        "tooMany": "Too many attachments."
+      },
+      "disabledHint": "Pick a model to send.",
+      "disabledHintShell": "Type a command to run.",
+      "queue": "Queue",
+      "mode": {
+        "prompt": "Prompt",
+        "shell": "Shell",
+        "hint": "Shift+! toggles mode when input is empty"
+      }
+    },
+    "preview": {
+      "title": "Attachment",
+      "open": "Preview attachment",
+      "play": "Play",
+      "pause": "Pause",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "seek": "Seek"
+    },
+    "shell": {
+      "running": "Running shell command...",
+      "failed": "Shell failed: {{error}}",
+      "needsWorkspace": "Shell needs a workspace folder.",
+      "interrupted": "interrupted by user",
+      "expand": "Open output in console",
+      "console": {
+        "title": "Shell output",
+        "copy": "Copy output",
+        "copied": "Copied",
+        "empty": "No output yet."
+      }
+    },
+    "interruptedByUser": "interrupted by user",
+    "interruptHint": "Press Esc again to interrupt",
+    "error": {
+      "empty": "The model returned an empty response.",
+      "network": "Could not reach the model.",
+      "parse": "Could not read the model response.",
+      "interrupted": "The response stopped before it finished.",
+      "api": "The provider returned HTTP {{status}}.",
+      "apiDetail": "The provider returned HTTP {{status}}: {{detail}}",
+      "retry": "Retry"
+    },
+    "queue": {
+      "sendNow": "Interrupt and send now",
+      "edit": "Edit message",
+      "remove": "Remove from queue"
+    },
+    "question": {
+      "title": "Input needed",
+      "freeTextLabel": "Anything else?",
+      "freeTextPlaceholder": "Type a custom answer (optional).",
+      "next": "Next",
+      "back": "Back",
+      "submit": "Submit",
+      "submitting": "Sending...",
+      "submitFailed": "Could not continue the chat."
+    },
+    "fileMentions": {
+      "label": "Workspace files",
+      "empty": "No matching files",
+      "loading": "Indexing workspace...",
+      "tooMany": "Too many matches. Keep typing to narrow the list."
+    },
+    "slashCommands": {
+      "label": "Commands and skills",
+      "empty": "No matching commands or skills",
+      "loading": "Loading commands and skills...",
+      "tooMany": "Too many matches. Keep typing to narrow the list.",
+      "review": {
+        "description": "Review current changes or last commit"
+      },
+      "undo": {
+        "description": "Rewind history back to (and including) the last user message"
+      }
     },
     "effort": {
       "label": "Effort"
     },
+    "request": {
+      "open": "Model request options",
+      "title": "Model request",
+      "default": "Provider default",
+      "thinking": "Thinking",
+      "effort": "Effort",
+      "serviceTier": "Service tier",
+      "temperature": "Temperature",
+      "contractVerified": "Verified contract for this endpoint and model.",
+      "contractUnknown": "No verified model contract. Unverified fields stay off the request.",
+      "reasoningUnknown": "Reasoning controls for this model are not verified.",
+      "privacyOn": "Data-use limit is on. {{detail}}",
+      "privacyOff": "Data-use limit is off. Turn it on in Settings to send a verified flag when one exists.",
+      "note": {
+        "reasoningSplit": "Reasoning split stays on so thinking stays outside the answer.",
+        "thinkingLocked": "This model cannot turn thinking off.",
+        "modelUnknown": "Model-specific parameters are unknown for this endpoint.",
+        "tierMayReject": "The provider may reject a tier this model cannot use.",
+        "thinkingDefaultOff": "Thinking is off unless enabled here.",
+        "alwaysThinking": "Thinking stays on for this model."
+      },
+      "privacy": {
+        "openai": "Sends store=false. This limits stored responses. API training stays off unless the project opted in.",
+        "openrouter": "Sends provider.data_collection=deny.",
+        "accountOnly": "This endpoint has no request flag. Data use is an account setting.",
+        "unsupported": "No documented request flag can stop training for this endpoint.",
+        "unknown": "No verified data-use flag for this endpoint."
+      }
+    },
     "agent": {
       "label": "Agent",
       "empty": "No agents"
+    },
+    "streamRate": {
+      "label": "{{rate}} tok/s",
+      "title": "Estimated output speed"
     },
     "usage": {
       "label": "Context {{percent}}%, cost {{cost}}",
@@ -454,6 +1020,7 @@
       "tokens": "~{{used}} / {{window}} Tokens",
       "categories": {
         "systemPrompt": "System prompt",
+        "languageDirective": "Language directive",
         "toolDefinitions": "Tool definitions",
         "rules": "Rules",
         "skills": "Skills",
@@ -465,16 +1032,64 @@
     "changes": {
       "label": "Working tree changes",
       "title": "Changed files",
+      "empty": "No files changed in this session.",
       "files_one": "file",
       "files_other": "files",
       "lines_one": "line",
       "lines_other": "lines"
+    },
+    "tools": {
+      "ok": "Ok",
+      "error": "Error",
+      "lines": "L{{start}}-L{{end}}",
+      "skillTitle": "Skill",
+      "readTitle": "File",
+      "listTitle": "Directory",
+      "writeTitle": "File",
+      "editTitle": "Diff",
+      "createFolderTitle": "Folder",
+      "deleteTitle": "Delete",
+      "todoTitle": "Todos",
+      "bashTitle": "Shell",
+      "backgroundTitle": "Background",
+      "grepTitle": "Search",
+      "fetchTitle": "Page",
+      "searchTitle": "Search",
+      "httpTitle": "HTTP",
+      "graphqlTitle": "GraphQL",
+      "shotTitle": "Screenshot",
+      "askTitle": "Question",
+      "patchTitle": "Patch",
+      "lspTitle": "LSP",
+      "taskTitle": "Task",
+      "taskChat": "Subagent chat",
+      "taskMissing": "This subagent chat is gone.",
+      "outputTitle": "Tool output",
+      "tokenHint": "About {{count}} tokens",
+      "lspClean": "LSP clean"
+    },
+    "todos": {
+      "title": "Todos",
+      "empty": "No tasks yet.",
+      "status": {
+        "pending": "Pending",
+        "in_progress": "In progress",
+        "completed": "Done",
+        "cancelled": "Cancelled"
+      },
+      "priority": {
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      }
     }
   },
   "sessions": {
     "title": "Sessions",
     "new": "New session",
     "empty": "No sessions yet.",
+    "untitled": "New chat",
+    "noPreview": "No messages yet",
     "toggle": "Toggle sessions sidebar",
     "delete": "Delete session",
     "active": "Active"
@@ -483,5 +1098,16 @@
     "unset": "Workspace is unavailable.",
     "pickFolder": "Pick workspace folder",
     "change": "Click to change workspace"
+  },
+  "notifications": {
+    "responseFinished": {
+      "title": "Response finished",
+      "empty": "The model finished responding."
+    },
+    "askUser": {
+      "title": "The agent needs your input",
+      "single": "{{question}}",
+      "multiple": "{{count}} questions waiting"
+    }
   }
 }

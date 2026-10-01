@@ -1,13 +1,8 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import { isTauri } from "@/lib/platform";
+import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "@/lib/platform";
 import { runListAgentsJob } from "@/lib/jobs";
 import type { AgentContext, AgentContextKind, AgentMeta, AgentSkillRef } from "@/types/agents";
-
-const DESKTOP_REQUIRED = "Desktop shell required";
-
-const toMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error";
 
 type FetchPayload = {
   contexts: AgentContext[];
@@ -26,6 +21,7 @@ type AgentsStore = {
   contexts: AgentContext[];
   workspacePath: string | null;
   loading: boolean;
+  hydrated: boolean;
   error?: string;
   load: () => Promise<void>;
   refresh: () => Promise<{ error?: string; payload?: FetchPayload }>;
@@ -48,18 +44,19 @@ export const useAgentsStore = create<AgentsStore>((set, get) => ({
   contexts: [],
   workspacePath: null,
   loading: false,
+  hydrated: false,
 
   load: async () => {
     set({ loading: true, error: undefined });
     if (!isTauri()) {
-      set({ contexts: [], workspacePath: null, loading: false });
+      set({ contexts: [], workspacePath: null, loading: false, hydrated: true });
       return;
     }
     try {
       const payload = await fetchPayload();
-      set({ ...payload, loading: false });
+      set({ ...payload, loading: false, hydrated: true });
     } catch (error) {
-      set({ loading: false, error: toMessage(error) });
+      set({ loading: false, hydrated: true, error: ipcErrorMessage(error) });
     }
   },
 
@@ -67,10 +64,10 @@ export const useAgentsStore = create<AgentsStore>((set, get) => ({
     if (!isTauri()) return { error: DESKTOP_REQUIRED };
     try {
       const payload = await fetchPayload();
-      set({ ...payload, error: undefined });
+      set({ ...payload, error: undefined, hydrated: true });
       return { payload };
     } catch (error) {
-      const message = toMessage(error);
+      const message = ipcErrorMessage(error);
       set({ error: message });
       return { error: message };
     }
@@ -82,12 +79,10 @@ export const useAgentsStore = create<AgentsStore>((set, get) => ({
       await invoke<AgentMeta>("create_agent", {
         input: { rootPath, kind, ...input },
       });
-      await get()
-        .refresh()
-        .catch(() => undefined);
+      await get().refresh();
       return {};
     } catch (error) {
-      return { error: toMessage(error) };
+      return { error: ipcErrorMessage(error) };
     }
   },
 
@@ -97,12 +92,10 @@ export const useAgentsStore = create<AgentsStore>((set, get) => ({
       await invoke<AgentMeta>("update_agent", {
         input: { path, kind, ...input },
       });
-      await get()
-        .refresh()
-        .catch(() => undefined);
+      await get().refresh();
       return {};
     } catch (error) {
-      return { error: toMessage(error) };
+      return { error: ipcErrorMessage(error) };
     }
   },
 
@@ -112,7 +105,7 @@ export const useAgentsStore = create<AgentsStore>((set, get) => ({
       await invoke("delete_agent", { input: { rootPath, name } });
       return {};
     } catch (error) {
-      return { error: toMessage(error) };
+      return { error: ipcErrorMessage(error) };
     }
   },
 }));

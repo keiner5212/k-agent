@@ -1,6 +1,6 @@
 [package]
 name = "k-agent"
-version = "0.0.1"
+version = "0.1.0"
 description = "AI coding model orchestrator"
 authors = ["k-agent"]
 edition = "2021"
@@ -19,11 +19,11 @@ tauri-plugin-store = "2.4.4"
 tauri-plugin-dialog = "2.7.2"
 tauri-runtime = "2.11.3"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde"] }
-reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls", "stream", "gzip", "brotli", "zstd", "cookies"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 thiserror = "2.0.20"
-tokio = { version = "1.53.1", features = ["fs", "sync", "macros", "rt-multi-thread"] }
+tokio = { version = "1.53.1", features = ["fs", "sync", "macros", "process", "io-util", "rt-multi-thread"] }
 uuid = { version = "1.25.0", features = ["v4", "serde"] }
 aes-gcm = "0.10.3"
 base64 = "0.22.1"
@@ -32,10 +32,33 @@ hkdf = "0.12.4"
 sha2 = "0.10.9"
 zeroize = "1.8.1"
 fontdb = "0.23"
+futures-util = "0.3.34"
+dunce = "1.0.5"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+tauri-plugin-clipboard-manager = "2.3.2"
+tauri-plugin-notification = "2.3.3"
+tauri-plugin-opener = "2.5"
+toon-format = { version = "0.5", default-features = false }
+regex = "1"
+scraper = "0.27.0"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
+grep = "0.3"
+grep-regex = "0.1"
+grep-searcher = "0.1"
+ignore = "0.4"
+memchr = "2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 # Linux tray icon needs GLib + a system-tray indicator; macOS/Windows use native APIs.
 [target.'cfg(target_os = "linux")'.dependencies]
 glib = "0.18.5"
+gtk = "0.18"
+gdk = "0.18"
+gio = "0.18"
+cairo-rs = { version = "0.18", features = ["png"] }
+webkit2gtk = { version = "2.0", features = ["v2_40"] }
 
 # Disable deprecated libayatana-appindicator (transitively pulled by tray-icon via libappindicator).
 # libayatana-appindicator-glib is the GLib-based replacement and is what's actually needed.

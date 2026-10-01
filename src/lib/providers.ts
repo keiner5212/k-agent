@@ -1,17 +1,51 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import type { ModelDraft, Provider, ProviderDraft } from "@/types/providers";
-import { isTauri } from "@/lib/platform";
+import type { ModelDraft, Provider, ProviderDraft, ProviderErrorPayload } from "@/types/providers";
+import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "@/lib/platform";
+import { acquireWorkerCores, getWorkerCoreSnapshot } from "@/lib/worker-cores";
 
 export type ProviderMutationResult = {
   provider?: Provider;
   error?: string;
+  errorPayload?: ProviderErrorPayload;
 };
 
-const DESKTOP_REQUIRED = "Desktop shell required";
+const parseProviderError = (error: unknown): ProviderErrorPayload | undefined => {
+  if (!error || typeof error !== "object") return undefined;
+  const record = error as Record<string, unknown>;
+  const kind = record.kind;
+  if (typeof kind !== "string") return undefined;
+  const message = record.message;
+  switch (kind) {
+    case "timeout":
+      return {
+        kind: "timeout",
+        seconds: typeof record.seconds === "number" ? record.seconds : 0,
+      };
+    case "api":
+      if (typeof record.status !== "number" || typeof message !== "string") return undefined;
+      return { kind: "api", status: record.status, message };
+    case "path":
+    case "io":
+    case "parse":
+    case "http":
+    case "unreachable":
+    case "invalidUrl":
+    case "notFound":
+    case "duplicate":
+    case "crypto":
+      if (typeof message !== "string") return undefined;
+      return { kind, message };
+    default:
+      return undefined;
+  }
+};
 
-const toMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : typeof error === "string" ? error : "Unknown error";
+const payloadToMessage = (payload: ProviderErrorPayload): string => {
+  if (payload.kind === "timeout") return `timeout after ${payload.seconds}s`;
+  if (payload.kind === "api") return payload.message || `server returned ${payload.status}`;
+  return payload.message;
+};
 
 const replaceProvider = (providers: Provider[], provider: Provider): Provider[] => {
   const idx = providers.findIndex((item) => item.id === provider.id);
@@ -19,6 +53,15 @@ const replaceProvider = (providers: Provider[], provider: Provider): Provider[] 
   const next = [...providers];
   next[idx] = provider;
   return next;
+};
+
+const withMaxCores = async <T>(label: string, run: (cores: number) => Promise<T>): Promise<T> => {
+  const lease = acquireWorkerCores(label, getWorkerCoreSnapshot().limit);
+  try {
+    return await run(lease.cores);
+  } finally {
+    lease.release();
+  }
 };
 
 const runMutation = async (
@@ -29,13 +72,18 @@ const runMutation = async (
     const provider = await work();
     return provider ? { provider } : {};
   } catch (error) {
-    return { error: toMessage(error) };
+    const payload = parseProviderError(error);
+    if (payload) {
+      return { error: payloadToMessage(payload), errorPayload: payload };
+    }
+    return { error: ipcErrorMessage(error) };
   }
 };
 
 type ProvidersStore = {
   providers: Provider[];
   loading: boolean;
+  hydrated: boolean;
   error?: string;
   load: () => Promise<void>;
   save: (draft: ProviderDraft) => Promise<ProviderMutationResult>;
@@ -53,36 +101,43 @@ type ProvidersStore = {
 export const useProvidersStore = create<ProvidersStore>((set) => ({
   providers: [],
   loading: false,
+  hydrated: false,
 
   load: async () => {
     set({ loading: true, error: undefined });
     if (!isTauri()) {
-      set({ providers: [], loading: false });
+      set({ providers: [], loading: false, hydrated: true });
       return;
     }
     try {
       const providers = await invoke<Provider[]>("list_providers");
-      set({ providers, loading: false });
+      set({ providers, loading: false, hydrated: true });
     } catch (error) {
-      set({ loading: false, error: toMessage(error) });
+      set({ loading: false, hydrated: true, error: ipcErrorMessage(error) });
     }
   },
 
   save: async (draft) =>
-    runMutation(async () => {
-      const provider = await invoke<Provider>("save_provider", {
-        input: {
-          id: draft.id ?? null,
-          name: draft.name,
-          kind: draft.kind,
-          baseUrl: draft.baseUrl,
-          apiKey: draft.apiKey ?? null,
-          clearApiKey: Boolean(draft.clearApiKey),
-        },
-      });
-      set((state) => ({ providers: replaceProvider(state.providers, provider), error: undefined }));
-      return provider;
-    }),
+    runMutation(async () =>
+      withMaxCores("saveProvider", async (workerCores) => {
+        const provider = await invoke<Provider>("save_provider", {
+          input: {
+            id: draft.id ?? null,
+            name: draft.name,
+            kind: draft.kind,
+            baseUrl: draft.baseUrl,
+            apiKey: draft.apiKey ?? null,
+            clearApiKey: Boolean(draft.clearApiKey),
+            workerCores,
+          },
+        });
+        set((state) => ({
+          providers: replaceProvider(state.providers, provider),
+          error: undefined,
+        }));
+        return provider;
+      }),
+    ),
 
   remove: async (id) =>
     runMutation(async () => {
@@ -94,11 +149,13 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
     }),
 
   refresh: async (id) =>
-    runMutation(async () => {
-      const provider = await invoke<Provider>("refresh_provider_models", { id });
-      set((state) => ({ providers: replaceProvider(state.providers, provider) }));
-      return provider;
-    }),
+    runMutation(async () =>
+      withMaxCores("refreshProviderModels", async (workerCores) => {
+        const provider = await invoke<Provider>("refresh_provider_models", { id, workerCores });
+        set((state) => ({ providers: replaceProvider(state.providers, provider) }));
+        return provider;
+      }),
+    ),
 
   upsertModel: async (providerId, draft) =>
     runMutation(async () => {
@@ -112,7 +169,6 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
           contextWindow: draft.contextWindow ?? null,
           maxOutputTokens: draft.maxOutputTokens ?? null,
           multimodal: draft.multimodal,
-          effortLevels: draft.effortLevels ?? null,
         },
       });
       set((state) => ({ providers: replaceProvider(state.providers, provider) }));

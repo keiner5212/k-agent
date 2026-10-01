@@ -1,0 +1,819 @@
+mod apply_patch;
+mod edit;
+mod fetch_url;
+mod graphql;
+mod http_request;
+mod internet_search;
+mod list_directory;
+mod page_shot;
+mod read;
+mod skill;
+mod write;
+
+pub mod ask_user;
+mod background;
+pub(crate) mod bash;
+mod create_folder;
+mod delete;
+mod grep;
+mod lsp;
+mod task;
+pub mod todo;
+
+#[path = "tool-utils/mod.rs"]
+mod tool_utils;
+
+use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Map, Value};
+use tauri::ipc::Channel;
+use tauri::AppHandle;
+use uuid::Uuid;
+
+pub use tool_utils::toon::{toon_doc, ToonValue};
+
+pub const MAX_TOOL_OUTPUT_CHARS: usize = 50 * 1024;
+pub const MAX_TOOL_OUTPUT_LINES: usize = 2_000;
+pub const MAX_ASSISTANT_CHARS: usize = 200_000;
+
+pub const SKILL_TOOL_NAME: &str = skill::NAME;
+pub const READ_TOOL_NAME: &str = read::NAME;
+pub const WRITE_TOOL_NAME: &str = write::NAME;
+pub const EDIT_TOOL_NAME: &str = edit::NAME;
+pub const LIST_DIRECTORY_TOOL_NAME: &str = list_directory::NAME;
+pub const ASK_USER_TOOL_NAME: &str = ask_user::NAME;
+pub const CREATE_FOLDER_TOOL_NAME: &str = create_folder::NAME;
+pub const DELETE_TOOL_NAME: &str = delete::NAME;
+pub const FETCH_URL_TOOL_NAME: &str = fetch_url::NAME;
+pub const INTERNET_SEARCH_TOOL_NAME: &str = internet_search::NAME;
+pub const HTTP_REQUEST_TOOL_NAME: &str = http_request::NAME;
+pub const GRAPHQL_TOOL_NAME: &str = graphql::NAME;
+pub const PAGE_SHOT_TOOL_NAME: &str = page_shot::NAME;
+pub const TODO_TOOL_NAME: &str = todo::NAME;
+pub const BASH_TOOL_NAME: &str = bash::NAME;
+pub const BACKGROUND_TOOL_NAME: &str = background::NAME;
+pub use background::TurnSlot;
+pub const GREP_TOOL_NAME: &str = grep::NAME;
+pub const APPLY_PATCH_TOOL_NAME: &str = apply_patch::NAME;
+pub const LSP_TOOL_NAME: &str = lsp::NAME;
+pub const TASK_TOOL_NAME: &str = task::NAME;
+pub const LIST_DIRECTORY_MAX_PARALLELISM: usize = list_directory::MAX_PARALLELISM;
+
+pub const TOOL_KIND_CONTEXT: &str = "context";
+pub const TOOL_KIND_ACTION: &str = "action";
+
+pub fn new_tool_call_id() -> String {
+    format!("call_{}", Uuid::new_v4().simple())
+}
+
+#[derive(Debug, Clone)]
+pub struct ToolSpec {
+    pub name: &'static str,
+    pub description: &'static str,
+    pub parameters: Value,
+}
+
+#[derive(Debug, Clone)]
+pub struct ModelToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: String,
+    pub thought_signature: String,
+}
+
+pub struct ToolContext<'a> {
+    pub app: Option<&'a AppHandle>,
+    pub call_id: String,
+    pub session_id: Option<String>,
+    pub thought_signature: String,
+    pub outside_workspace_allowed: bool,
+    pub http_write_allowed: bool,
+    pub on_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
+    pub question_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
+    pub workspace: Option<std::path::PathBuf>,
+    pub parallelism: usize,
+    pub allowed_commands: Vec<String>,
+    pub blocked_commands: Vec<String>,
+    pub shell_program: String,
+    pub input_modalities: Vec<String>,
+    pub attachment_types: Vec<String>,
+    pub turn: Option<Arc<TurnSlot>>,
+    pub nested: Option<NestedScope>,
+    pub agent_personalities: std::sync::Arc<std::collections::HashMap<String, String>>,
+}
+
+#[derive(Clone)]
+pub struct NestedScope {
+    pub provider_id: String,
+    pub model_id: String,
+    pub system: Option<String>,
+    pub tool_names: Vec<String>,
+    pub task_depth: u8,
+    pub effort: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ToolFile {
+    pub name: String,
+    pub mime: String,
+    pub bytes: Vec<u8>,
+}
+
+impl ToolContext<'_> {
+    pub fn workspace_path(&self) -> Option<std::path::PathBuf> {
+        if let Some(path) = &self.workspace {
+            return Some(path.clone());
+        }
+        self.app.and_then(crate::pathutil::workspace_from_app)
+    }
+
+    pub fn relative_path(&self, path: &std::path::Path) -> String {
+        crate::pathutil::relative_to_workspace(path, self.workspace_path().as_deref())
+    }
+}
+
+pub(crate) async fn notify_lsp(ctx: &ToolContext<'_>, path: &std::path::Path, deleted: bool) {
+    let Some(app) = ctx.app else {
+        return;
+    };
+    crate::lsp_client::sync_disk_change(app, path, deleted).await;
+}
+
+pub(crate) async fn attach_lsp_diagnostics(
+    ctx: &ToolContext<'_>,
+    outcome: &mut ToolOutcome,
+    paths: &[std::path::PathBuf],
+) {
+    let Some(app) = ctx.app else {
+        return;
+    };
+    let formatted = crate::lsp_client::format_files(app, paths).await;
+    if formatted.len() == 1 && paths.len() == 1 {
+        if let Some(snapshot) = outcome.snapshot.as_mut() {
+            if !snapshot.before.contains("=====") {
+                if let Ok(text) = std::fs::read_to_string(&paths[0]) {
+                    snapshot.after = text;
+                }
+            }
+        }
+    }
+    if !formatted.is_empty() {
+        let names = formatted
+            .iter()
+            .map(|path| ctx.relative_path(path))
+            .collect::<Vec<_>>()
+            .join(", ");
+        outcome.text.push_str(&format!("\nformatted: {names}"));
+    }
+    let Some(found) = crate::lsp_client::diagnostics_after_write(app, paths).await else {
+        return;
+    };
+    let mut notes = Vec::new();
+    for file in found {
+        let rel = ctx.relative_path(&file.path);
+        for note in file.notes {
+            notes.push(ToolDiagnostic {
+                path: rel.clone(),
+                line: note.line,
+                severity: note.severity,
+                message: note.message,
+            });
+            if notes.len() == 12 {
+                break;
+            }
+        }
+        if notes.len() == 12 {
+            break;
+        }
+    }
+    let body = if notes.is_empty() {
+        "none".to_string()
+    } else {
+        notes
+            .iter()
+            .map(|note| {
+                format!(
+                    "{} L{} {}: {}",
+                    note.severity, note.line, note.path, note.message
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    outcome.display.diagnostics = Some(notes);
+    outcome.text.push_str("\ndiagnostics:\n");
+    outcome.text.push_str(&body);
+    outcome.text.push('\n');
+}
+
+pub(crate) fn norm_tool_path(raw: &str) -> String {
+    let unified = raw.trim().replace('\\', "/");
+    let trimmed = unified.trim_start_matches("./");
+    trimmed.trim_end_matches('/').to_string()
+}
+
+pub(crate) fn read_before_edit_enabled(app: Option<&AppHandle>) -> bool {
+    let Some(app) = app else {
+        return false;
+    };
+    let Some(settings) = crate::load_ui_settings(app) else {
+        return true;
+    };
+    settings
+        .get("readBeforeEdit")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(true)
+}
+
+pub(crate) fn require_prior_read(ctx: &ToolContext<'_>, path: &str) -> Result<(), String> {
+    if !read_before_edit_enabled(ctx.app) {
+        return Ok(());
+    }
+    let Some(turn) = &ctx.turn else {
+        return Ok(());
+    };
+    if turn.has_read(path) {
+        return Ok(());
+    }
+    Err(format!(
+        "Read `{path}` with the read tool before editing it."
+    ))
+}
+
+pub(crate) async fn gate_tool(ctx: &ToolContext<'_>, name: &str) -> Result<(), String> {
+    match tool_permission(ctx.app, name) {
+        "deny" => Err(format!("Tool `{name}` is denied.")),
+        "ask" => confirm_tool(ctx, name).await,
+        _ => Ok(()),
+    }
+}
+
+fn tool_permission(app: Option<&AppHandle>, name: &str) -> &'static str {
+    let Some(app) = app else {
+        return "allow";
+    };
+    let Some(settings) = crate::load_ui_settings(app) else {
+        return "allow";
+    };
+    let mode = settings
+        .get("toolPermissions")
+        .and_then(|value| value.get(name))
+        .and_then(|value| value.as_str())
+        .unwrap_or("allow");
+    match mode {
+        "deny" => "deny",
+        "ask" => "ask",
+        _ => "allow",
+    }
+}
+
+fn tool_grants() -> &'static std::sync::Mutex<std::collections::HashSet<String>> {
+    static GRANTS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> =
+        std::sync::OnceLock::new();
+    GRANTS.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()))
+}
+
+async fn confirm_tool(ctx: &ToolContext<'_>, name: &str) -> Result<(), String> {
+    let key = format!("{}::{name}", ctx.session_id.as_deref().unwrap_or(""));
+    if let Ok(grants) = tool_grants().lock() {
+        if grants.contains(&key) {
+            return Ok(());
+        }
+    }
+    let questions = vec![crate::tools::ask_user::AskUserQuestion {
+        id: "tool_permission".into(),
+        header: "Tool".into(),
+        question: format!("Allow `{name}` to run?"),
+        options: vec![
+            crate::tools::ask_user::AskUserOption {
+                label: "Allow".into(),
+                description: Some("Run it for the rest of this chat.".into()),
+                preview: None,
+            },
+            crate::tools::ask_user::AskUserOption {
+                label: "Deny".into(),
+                description: Some("Do not run it.".into()),
+                preview: None,
+            },
+        ],
+        multi_select: false,
+        allow_free_text: false,
+    }];
+    let call_id = format!("tool-permission::{name}::{}", ctx.call_id);
+    let answer = crate::tools::ask_user::ask_user_wait(ctx, &call_id, &questions, "", "").await;
+    let allowed = answer.iter().any(|entry| {
+        entry.question_id == "tool_permission"
+            && !entry.skipped
+            && entry.selected.iter().any(|label| label == "Allow")
+    });
+    if !allowed {
+        return Err(format!("User denied `{name}`."));
+    }
+    if let Ok(mut grants) = tool_grants().lock() {
+        grants.insert(key);
+    }
+    Ok(())
+}
+
+pub(crate) fn tool_cache_dir(app: Option<&AppHandle>, name: &str) -> Option<std::path::PathBuf> {
+    crate::paths::tool_cache_dir(app?, name).ok()
+}
+
+impl ToolContext<'static> {
+    /// Test helper: build a context without an `AppHandle`. Used by
+    /// `src-tauri/tests/tools_examples.rs` to drive every tool from an
+    /// integration test that does not own a Tauri runtime.
+    pub fn for_test(workspace: std::path::PathBuf, parallelism: usize) -> Self {
+        Self {
+            app: None,
+            call_id: "test".into(),
+            session_id: None,
+            thought_signature: String::new(),
+            outside_workspace_allowed: false,
+            http_write_allowed: false,
+            on_chunk: None,
+            question_chunk: None,
+            workspace: Some(workspace),
+            parallelism,
+            allowed_commands: Vec::new(),
+            blocked_commands: Vec::new(),
+            shell_program: String::new(),
+            input_modalities: vec!["text".into(), "image".into(), "pdf".into()],
+            attachment_types: vec![
+                "text".into(),
+                "image".into(),
+                "pdf".into(),
+                "document".into(),
+            ],
+            turn: None,
+            nested: None,
+            agent_personalities: std::sync::Arc::new(std::collections::HashMap::new()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolDisplay {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_line: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_line: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub added: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub removed: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skill_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lines_removed: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_data: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub todos: Option<Vec<crate::tools::todo::TodoItem>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagnostics: Option<Vec<ToolDiagnostic>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub child_session_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolDiagnostic {
+    pub path: String,
+    pub line: u32,
+    pub severity: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct FileSnapshot {
+    pub before: String,
+    pub after: String,
+}
+
+pub struct ToolOutcome {
+    pub text: String,
+    pub display: ToolDisplay,
+    pub snapshot: Option<FileSnapshot>,
+    pub image_png: Option<Vec<u8>>,
+    pub file: Option<ToolFile>,
+}
+
+impl ToolOutcome {
+    pub fn text(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            display: ToolDisplay {
+                kind: TOOL_KIND_CONTEXT.to_string(),
+                ..ToolDisplay::default()
+            },
+            snapshot: None,
+            image_png: None,
+            file: None,
+        }
+    }
+}
+
+pub fn line_add_remove(before: &str, after: &str) -> (u32, u32) {
+    if before == after {
+        return (0, 0);
+    }
+    if before.is_empty() {
+        return (line_count(after), 0);
+    }
+    if after.is_empty() {
+        return (0, line_count(before));
+    }
+    let old_lines: Vec<&str> = before.split('\n').collect();
+    let new_lines: Vec<&str> = after.split('\n').collect();
+    let cells = old_lines.len().saturating_mul(new_lines.len());
+    if cells > 4_000_000 {
+        return span_add_remove(&old_lines, &new_lines);
+    }
+    let shared = lcs_len(&old_lines, &new_lines);
+    (
+        (new_lines.len() - shared) as u32,
+        (old_lines.len() - shared) as u32,
+    )
+}
+
+fn lcs_len(left: &[&str], right: &[&str]) -> usize {
+    let (short, long) = if left.len() <= right.len() {
+        (left, right)
+    } else {
+        (right, left)
+    };
+    let mut prev = vec![0usize; short.len() + 1];
+    let mut curr = vec![0usize; short.len() + 1];
+    for line in long {
+        for (index, other) in short.iter().enumerate() {
+            curr[index + 1] = if line == other {
+                prev[index] + 1
+            } else {
+                curr[index].max(prev[index + 1])
+            };
+        }
+        std::mem::swap(&mut prev, &mut curr);
+        curr.fill(0);
+    }
+    prev[short.len()]
+}
+
+fn span_add_remove(old_lines: &[&str], new_lines: &[&str]) -> (u32, u32) {
+    let mut start = 0usize;
+    while start < old_lines.len() && start < new_lines.len() && old_lines[start] == new_lines[start]
+    {
+        start += 1;
+    }
+    let mut old_end = old_lines.len();
+    let mut new_end = new_lines.len();
+    while old_end > start && new_end > start && old_lines[old_end - 1] == new_lines[new_end - 1] {
+        old_end -= 1;
+        new_end -= 1;
+    }
+    (
+        (new_end.saturating_sub(start)) as u32,
+        (old_end.saturating_sub(start)) as u32,
+    )
+}
+
+fn line_count(text: &str) -> u32 {
+    if text.is_empty() {
+        0
+    } else {
+        text.split('\n').count() as u32
+    }
+}
+
+trait Tool: Send + Sync {
+    fn spec(&self) -> ToolSpec;
+    fn execute(&self, args: &Value, ctx: &ToolContext<'_>) -> ToolOutcome;
+}
+
+fn all_tools() -> Vec<Box<dyn Tool>> {
+    vec![
+        Box::new(skill::SkillTool),
+        Box::new(read::ReadTool),
+        Box::new(write::WriteTool),
+        Box::new(edit::EditTool),
+        Box::new(list_directory::ListDirectoryTool),
+        Box::new(ask_user::AskUserTool),
+        Box::new(create_folder::CreateFolderTool),
+        Box::new(delete::DeleteTool),
+        Box::new(fetch_url::FetchUrlTool),
+        Box::new(internet_search::InternetSearchTool),
+        Box::new(http_request::HttpRequestTool),
+        Box::new(graphql::GraphqlTool),
+        Box::new(page_shot::PageShotTool),
+        Box::new(todo::TodoTool),
+        Box::new(bash::BashTool),
+        Box::new(background::BackgroundTool),
+        Box::new(grep::GrepTool),
+        Box::new(apply_patch::ApplyPatchTool),
+        Box::new(lsp::LspTool),
+        Box::new(task::TaskTool),
+    ]
+}
+
+pub fn specs() -> Vec<ToolSpec> {
+    all_tools().iter().map(|tool| tool.spec()).collect()
+}
+
+pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
+    if name == ask_user::NAME {
+        return ask_user::execute_async(arguments, ctx).await;
+    }
+    if name == read::NAME {
+        return read::execute_async(arguments, ctx).await;
+    }
+    if name == write::NAME {
+        return write::execute_async(arguments, ctx).await;
+    }
+    if name == edit::NAME {
+        return edit::execute_async(arguments, ctx).await;
+    }
+    if name == list_directory::NAME {
+        return list_directory::execute_async(arguments, ctx).await;
+    }
+    if name == create_folder::NAME {
+        return create_folder::execute_async(arguments, ctx).await;
+    }
+    if name == delete::NAME {
+        return delete::execute_async(arguments, ctx).await;
+    }
+    if name == fetch_url::NAME {
+        return fetch_url::execute_async(arguments, ctx).await;
+    }
+    if name == internet_search::NAME {
+        return internet_search::execute_async(arguments, ctx).await;
+    }
+    if name == http_request::NAME {
+        return http_request::execute_async(arguments, ctx).await;
+    }
+    if name == graphql::NAME {
+        return graphql::execute_async(arguments, ctx).await;
+    }
+    if name == page_shot::NAME {
+        return page_shot::execute_async(arguments, ctx).await;
+    }
+    if name == bash::NAME {
+        return bash::execute_async(arguments, ctx).await;
+    }
+    if name == background::NAME {
+        return background::execute_async(arguments, ctx).await;
+    }
+    if name == grep::NAME {
+        return grep::execute_async(arguments, ctx).await;
+    }
+    if name == apply_patch::NAME {
+        return apply_patch::execute_async(arguments, ctx).await;
+    }
+    if name == lsp::NAME {
+        return lsp::execute_async(arguments, ctx).await;
+    }
+    if name == task::NAME {
+        return task::execute_async(arguments, ctx).await;
+    }
+    let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
+    for tool in all_tools() {
+        if tool.spec().name == name {
+            return tool.execute(&args, ctx);
+        }
+    }
+    ToolOutcome::text(format!("Unknown tool `{name}`."))
+}
+
+fn specs_for(names: &[String]) -> Vec<ToolSpec> {
+    specs()
+        .into_iter()
+        .filter(|spec| names.iter().any(|name| name == spec.name))
+        .collect()
+}
+
+pub fn openai_tools_for(names: &[String]) -> Value {
+    json!(specs_for(names)
+        .into_iter()
+        .map(|spec| {
+            json!({
+                "type": "function",
+                "function": {
+                    "name": spec.name,
+                    "description": spec.description,
+                    "parameters": spec.parameters,
+                    "strict": false,
+                }
+            })
+        })
+        .collect::<Vec<_>>())
+}
+
+pub fn anthropic_tools_for(names: &[String]) -> Value {
+    json!(specs_for(names)
+        .into_iter()
+        .map(|spec| {
+            json!({
+                "name": spec.name,
+                "description": spec.description,
+                "input_schema": spec.parameters,
+            })
+        })
+        .collect::<Vec<_>>())
+}
+
+pub fn gemini_tools_for(names: &[String]) -> Value {
+    json!([{
+        "functionDeclarations": specs_for(names)
+            .into_iter()
+            .map(|spec| {
+                json!({
+                    "name": spec.name,
+                    "description": spec.description,
+                    "parameters": sanitize_gemini_schema(&spec.parameters),
+                })
+            })
+            .collect::<Vec<_>>(),
+    }])
+}
+
+pub fn truncate_output(text: &str) -> String {
+    truncate_text(text, MAX_TOOL_OUTPUT_LINES, MAX_TOOL_OUTPUT_CHARS)
+}
+
+pub fn truncate_assistant(text: &str) -> String {
+    truncate_text(text, usize::MAX, MAX_ASSISTANT_CHARS)
+}
+
+fn truncate_text(text: &str, max_lines: usize, max_chars: usize) -> String {
+    let total_chars = text.chars().count();
+    let total_lines = if text.is_empty() {
+        0
+    } else {
+        text.lines().count()
+    };
+    let mut chars = 0usize;
+    let mut lines = 0usize;
+    let mut end = 0usize;
+    for (idx, ch) in text.char_indices() {
+        if ch == '\n' {
+            lines += 1;
+            if lines >= max_lines {
+                end = idx;
+                break;
+            }
+        }
+        chars += 1;
+        if chars >= max_chars {
+            end = idx + ch.len_utf8();
+            break;
+        }
+        end = idx + ch.len_utf8();
+    }
+    if end >= text.len() && lines < max_lines && total_chars <= max_chars {
+        return text.to_string();
+    }
+    let shown = text[..end].trim_end();
+    let shown_chars = shown.chars().count();
+    let shown_lines = if shown.is_empty() {
+        0
+    } else {
+        shown.lines().count()
+    };
+    format!(
+        "{shown}\n\n[truncated: showing {shown_chars}/{total_chars} chars, {shown_lines}/{total_lines} lines. Use read with offset/limit for the rest.]"
+    )
+}
+
+pub fn sanitize_gemini_schema(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let mut out = Map::new();
+            for (key, child) in map {
+                match key.as_str() {
+                    "type" | "description" | "format" | "enum" | "required" | "nullable"
+                    | "minLength" | "maxLength" | "minimum" | "maximum" => {
+                        out.insert(key.clone(), child.clone());
+                    }
+                    "properties" => {
+                        if let Value::Object(props) = child {
+                            let mut cleaned = Map::new();
+                            for (name, schema) in props {
+                                cleaned.insert(name.clone(), sanitize_gemini_schema(schema));
+                            }
+                            out.insert(key.clone(), Value::Object(cleaned));
+                        }
+                    }
+                    "items" => {
+                        out.insert(key.clone(), sanitize_gemini_schema(child));
+                    }
+                    "anyOf" | "oneOf" | "allOf" => {
+                        if let Value::Array(items) = child {
+                            out.insert(
+                                key.clone(),
+                                Value::Array(items.iter().map(sanitize_gemini_schema).collect()),
+                            );
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            if !out.contains_key("type") {
+                out.insert("type".into(), json!("object"));
+            }
+            Value::Object(out)
+        }
+        Value::Array(items) => Value::Array(items.iter().map(sanitize_gemini_schema).collect()),
+        other => other.clone(),
+    }
+}
+
+pub fn context_error(path: Option<&str>, message: &str) -> ToolOutcome {
+    let text = match path {
+        Some(path) => toon_doc(&[
+            ("path", ToonValue::Str(path)),
+            ("status", ToonValue::Str("error")),
+            ("error", ToonValue::Str(message)),
+        ]),
+        None => toon_doc(&[
+            ("status", ToonValue::Str("error")),
+            ("error", ToonValue::Str(message)),
+        ]),
+    };
+    ToolOutcome {
+        text,
+        display: ToolDisplay {
+            kind: TOOL_KIND_CONTEXT.to_string(),
+            path: path.map(str::to_string),
+            status: Some("error".into()),
+            ..ToolDisplay::default()
+        },
+        snapshot: None,
+        image_png: None,
+        file: None,
+    }
+}
+
+pub fn action_error(path: &str, message: &str) -> ToolOutcome {
+    ToolOutcome {
+        text: toon_doc(&[
+            ("path", ToonValue::Str(path)),
+            ("status", ToonValue::Str("error")),
+            ("error", ToonValue::Str(message)),
+        ]),
+        display: ToolDisplay {
+            kind: TOOL_KIND_ACTION.to_string(),
+            path: Some(path.to_string()),
+            status: Some("error".into()),
+            ..ToolDisplay::default()
+        },
+        snapshot: None,
+        image_png: None,
+        file: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn toon_doc_quotes_special_paths() {
+        let text = toon_doc(&[("path", ToonValue::Str("src/foo:bar"))]);
+        assert!(text.starts_with("path:"));
+        assert!(text.contains("src/foo:bar"));
+    }
+
+    #[test]
+    fn toon_block_keeps_body_content() {
+        let text = toon_doc(&[("body", ToonValue::Block("one\ntwo"))]);
+        assert!(text.starts_with("body:"));
+        assert!(text.contains("one"));
+        assert!(text.contains("two"));
+    }
+
+    #[test]
+    fn line_add_remove_counts_hunk() {
+        let before = "a\nb\nc\n";
+        let after = "a\nB\nc\n";
+        assert_eq!(line_add_remove(before, after), (1, 1));
+    }
+
+    #[test]
+    fn line_add_remove_counts_each_hunk() {
+        let before = "a\nkeep\nb\nkeep\nc\n";
+        let after = "A\nkeep\nB\nkeep\nC\n";
+        assert_eq!(line_add_remove(before, after), (3, 3));
+    }
+
+    #[test]
+    fn line_add_remove_create() {
+        assert_eq!(line_add_remove("", "a\nb"), (2, 0));
+    }
+}

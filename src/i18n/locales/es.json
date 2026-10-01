@@ -7,19 +7,25 @@
     "name": "k-agent",
     "shortcut_hint": "Pulsa {{shortcut}} para abrir ajustes"
   },
+  "appGeneration": {
+    "noModel": "Elige un modelo de generacion en Ajustes."
+  },
   "window": {
     "minimize": "Minimizar",
     "maximize": "Maximizar",
     "unmaximize": "Restaurar",
     "close": "Cerrar"
   },
+  "links": {
+    "openInBrowserHint": "Ctrl + clic para abrir en el navegador"
+  },
   "empty": {
-    "title": "Todavia no hay nada aqui",
-    "description": "Esta es una aplicacion vacia. Construye tu orquestador encima."
+    "title": "Todavía no hay nada aquí",
+    "description": "Esta es una aplicación vacía. Construye tu orquestador encima."
   },
   "about": {
     "title": "Acerca de",
-    "version": "Version {{version}}",
+    "version": "Versión {{version}}",
     "creators": "Creadores",
     "close": "Cerrar"
   },
@@ -27,22 +33,30 @@
     "title": "Ajustes",
     "close": "Cerrar",
     "searchPlaceholder": "Buscar ajustes",
-    "searchEmpty": "Ningun ajuste coincide con la busqueda.",
+    "searchEmpty": "Ningún ajuste coincide con la búsqueda.",
     "sections": {
       "general": "General",
+      "appearance": "Apariencia",
+      "chat": "Chat",
+      "modelChoices": "Modelos",
+      "lsps": "LSPs",
       "providers": "Proveedores",
+      "mcpServers": "Servidores MCP",
       "skills": "Habilidades",
       "agents": "Agentes",
       "agentsMd": "AGENTS.md",
       "keybindings": "Atajos de teclado",
-      "debug": "Depuracion"
+      "debug": "Depuración"
+    },
+    "appearance": {
+      "description": "Aspecto visual de la aplicacion: tema, imagen de fondo del chat y su transparencia."
     },
     "language": {
       "description": "Elige el idioma de la interfaz.",
-      "label": "Idioma de la pantalla",
+      "label": "Idioma de la interfaz",
       "options": {
-        "en": "Ingles",
-        "es": "Espanol"
+        "en": "Inglés",
+        "es": "Español"
       }
     },
     "theme": {
@@ -55,41 +69,128 @@
     },
     "tray": {
       "label": "Minimizar a la bandeja del sistema",
-      "description": "Al cerrar la ventana la app sigue ejecutandose en la bandeja del sistema en lugar de salir."
+      "description": "Al cerrar la ventana la app sigue ejecutándose en la bandeja del sistema en lugar de salir."
     },
     "windowSize": {
-      "label": "Recordar tamano de ventana",
-      "description": "Al iniciar, restaura el ultimo tamano y si la ventana estaba maximizada."
+      "label": "Recordar tamaño de ventana",
+      "description": "Al iniciar, restaura el último tamaño y si la ventana estaba maximizada."
+    },
+    "cache": {
+      "label": "Limpiar cache",
+      "description": "Borra la cache de herramientas y del catalogo. Tambien elimina secretos huerfanos de proveedores, servidores MCP y preferencias de modelos que ya no estan en disco.",
+      "action": "Limpiar",
+      "running": "Limpiando",
+      "done": "Listo"
     },
     "maxWorkerCores": {
-      "label": "Nucleos maximos de trabajo",
-      "description": "Limite de nucleos de CPU para trabajo interno. Auto usa todos los nucleos disponibles.",
+      "label": "Núcleos máximos de trabajo",
+      "description": "Límite de núcleos de CPU para trabajo interno. Auto usa todos los núcleos disponibles.",
       "options": {
-        "auto": "Auto (todos los nucleos)"
+        "auto": "Auto (todos los núcleos)"
       }
+    },
+    "contextSummarizePercent": {
+      "label": "Resumen de contexto",
+      "description": "Resume los mensajes viejos cuando el uso del contexto llega a este porcentaje de la ventana."
+    },
+    "reminderInterval": {
+      "label": "Intervalo de recordatorio",
+      "description": "Inyecta un mensaje de recordatorio cada N mensajes del usuario para no perder información importante."
+    },
+    "forceResponseLanguage": {
+      "label": "Forzar idioma de respuesta",
+      "description": "Responder siempre en el idioma seleccionado, sin importar el de entrada."
+    },
+    "responseLanguage": {
+      "label": "Idioma de respuesta",
+      "description": "Idioma usado al forzar las respuestas.",
+      "options": {
+        "en": "Inglés",
+        "es": "Español"
+      }
+    },
+    "blockedCommands": {
+      "label": "Comandos bloqueados",
+      "description": "Comandos que el agente no debe ejecutar nunca. Se comparan de forma exacta con la cadena completa.",
+      "placeholder": "ej. rm -rf /",
+      "add": "Añadir",
+      "empty": "Aún no hay comandos bloqueados.",
+      "remove": "Quitar comando"
+    },
+    "allowedCommands": {
+      "label": "Comandos permitidos",
+      "description": "Comandos que el agente puede ejecutar sin preguntar. Se comparan de forma exacta con la cadena completa.",
+      "placeholder": "ej. git status",
+      "add": "Añadir",
+      "empty": "Aún no hay comandos permitidos.",
+      "remove": "Quitar comando"
+    },
+    "shellProgram": {
+      "label": "Programa de shell",
+      "description": "Ejecutable para los comandos del compositor. Vacio usa el predeterminado del sistema (/bin/sh en Unix, cmd.exe en Windows).",
+      "placeholder": "Predeterminado del sistema"
+    },
+    "notificationsEnabled": {
+      "label": "Mostrar notificaciones de escritorio",
+      "description": "Muestra notificaciones del sistema para eventos del chat cuando la ventana no está enfocada."
+    },
+    "workspaceMemoryEnabled": {
+      "label": "Guardar notas en el espacio de trabajo",
+      "description": "El modelo guarda preferencias duraderas en .k-agent/NOTES.md. Ese archivo entra al system prompt."
+    },
+    "readBeforeEdit": {
+      "label": "Leer antes de editar",
+      "description": "edit y apply_patch deben leer el archivo en este chat antes de cambiarlo."
+    },
+    "toolPermissions": {
+      "label": "Permisos de herramientas",
+      "description": "Permitir ejecuta la tool. Preguntar confirma una vez por chat. Denegar la bloquea.",
+      "allow": "Permitir",
+      "ask": "Preguntar",
+      "deny": "Denegar"
+    },
+    "limitProviderDataUse": {
+      "label": "Limitar el uso de datos del proveedor",
+      "description": "Envia un flag verificado cuando el endpoint lo documenta. Si no hay flag, la peticion no cambia y el dialogo del modelo lo indica."
+    },
+    "httpFetchEnabled": {
+      "label": "Permitir fetch HTTP",
+      "description": "Permite que fetch_url e internet_search usen URLs http:// publicas. Localhost y redes privadas siguen bloqueados. Apagado deja solo HTTPS."
+    },
+    "buildAgentEnabled": {
+      "label": "Agente Build",
+      "description": "Muestra el agente Build integrado en el chat. Puede editar archivos y ejecutar comandos."
+    },
+    "planAgentEnabled": {
+      "label": "Agente Plan",
+      "description": "Muestra el agente Plan integrado en el chat. Explora y planifica sin hacer cambios."
+    },
+    "defaultAgent": {
+      "label": "Agente predeterminado",
+      "description": "Agente elegido al abrir el chat. El ultimo agente usado en una sesion no se guarda."
     },
     "translucency": {
       "label": "Desactivar transparencia",
-      "description": "Las superficies usan un desenfoque tipo cristal por defecto. Activa esto para superficies solidas."
+      "description": "Las superficies usan un desenfoque tipo cristal por defecto. Activa esto para superficies sólidas."
     },
     "animations": {
       "label": "Desactivar animaciones",
-      "description": "Apaga todas las transiciones y movimientos. Tambien respeta el ajuste reducir movimiento del sistema."
+      "description": "Apaga todas las transiciones y movimientos. También respeta el ajuste de reducir movimiento del sistema."
     },
     "fontFamily": {
       "label": "Fuente",
-      "description": "Elige la tipografia de la interfaz entre las fuentes instaladas en este sistema. Los bloques de codigo siguen en monoespaciada.",
+      "description": "Elige la tipografía de la interfaz entre las fuentes instaladas en este sistema. Los bloques de código siguen en monoespaciada.",
       "options": {
         "system": "Sistema",
         "humanist": "Humanista",
-        "geometric": "Geometrica",
+        "geometric": "Geométrica",
         "serif": "Serif",
         "mono": "Monoespaciada"
       }
     },
     "textScale": {
-      "label": "Tamano del texto",
-      "description": "Escala todo el texto de la aplicacion.",
+      "label": "Tamaño del texto",
+      "description": "Escala todo el texto de la aplicación.",
       "options": {
         "50": "50%",
         "60": "60%",
@@ -103,27 +204,53 @@
         "140": "140%"
       }
     },
+    "chatBackgroundImage": {
+      "label": "Imagen de fondo del chat",
+      "description": "Elige una imagen para mostrar detras del chat. PNG, JPG o WebP, hasta 5 MB.",
+      "pick": "Elegir imagen",
+      "clear": "Quitar",
+      "none": "Sin fondo",
+      "filter": "Imagenes",
+      "desktopOnly": "Disponible en el shell de escritorio.",
+      "status": {
+        "updated": "Imagen de fondo del chat actualizada.",
+        "removed": "Imagen de fondo del chat eliminada.",
+        "error": "No se pudo cargar la imagen: {{reason}}"
+      }
+    },
+    "chatBackgroundOpacity": {
+      "label": "Opacidad del fondo del chat",
+      "description": "Intensidad con la que se ve la imagen de fondo. Valores bajos mantienen legible el texto del chat.",
+      "disabled": "Elige un fondo primero"
+    },
     "keybindings": {
-      "description": "Haz clic en un atajo y pulsa la nueva combinacion. Pulsa Escape para cancelar.",
+      "description": "Haz clic en un atajo y pulsa la nueva combinación. Pulsa Escape para cancelar.",
       "actions": {
         "settings": {
           "open": "Abrir ajustes",
-          "close": "Cerrar ajustes"
+          "close": "Cerrar modal superior"
         },
         "sidebar": {
           "toggle": "Mostrar u ocultar barra de sesiones"
         },
         "chat": {
-          "clear": "Limpiar entrada del chat"
+          "clear": "Limpiar entrada del chat",
+          "modeToggle": "Alternar modo shell / prompt",
+          "agentCycle": "Siguiente agente"
+        },
+        "search": {
+          "focus": "Enfocar campo de búsqueda"
         },
         "editor": {
-          "save": "Guardar editor"
+          "save": "Guardar editor",
+          "undo": "Deshacer en editor",
+          "redo": "Rehacer en editor"
         }
       },
       "record": "Grabando",
       "unset": "Sin asignar",
       "reset": "Restablecer valores",
-      "action": "Accion",
+      "action": "Acción",
       "shortcut": "Atajo"
     },
     "debug": {
@@ -132,6 +259,69 @@
         "description": "Abre el inspector webview de esta ventana.",
         "action": "Abrir DevTools"
       }
+    },
+    "modelChoices": {
+      "description": "Elige el modelo para generar titulos y contenido en la app."
+    },
+    "titleGenerationModel": {
+      "label": "Modelo para títulos",
+      "description": "Modelo que genera los títulos de sesión desde la conversación.",
+      "options": {
+        "useChatModel": "Usar modelo del chat"
+      }
+    },
+    "titleUseFirstMessage": {
+      "label": "Usar primer mensaje como título",
+      "description": "Usa el primer mensaje como título en vez de generarlo."
+    },
+    "appGenerationModel": {
+      "label": "Modelo de generación en la app",
+      "description": "Modelo que genera contenido dentro de la app, como skills y agentes.",
+      "options": {
+        "useChatModel": "Usar modelo del chat"
+      }
+    },
+    "taskModel": {
+      "label": "Modelo del subagente",
+      "description": "Modelo con el que se lanza un task. Vacio usa el modelo del chat padre.",
+      "options": {
+        "useParent": "Mismo que el padre"
+      }
+    },
+    "lspEnabled": {
+      "label": "Usar servidores de lenguaje",
+      "description": "Permite al orquestador usar LSP para navegar, renombrar y diagnosticar tu código en el chat."
+    }
+  },
+  "lsps": {
+    "title": "Servidores de lenguaje",
+    "description": "Servidores de lenguaje livianos para el LSP genérico. El estado se detecta al abrir esta página. La instalación pide las herramientas listadas primero.",
+    "empty": "Ningún servidor de lenguaje coincide.",
+    "table": {
+      "server": "Servidor",
+      "languages": "Lenguajes",
+      "requires": "Requiere",
+      "status": "Estado",
+      "actions": "Acciones"
+    },
+    "status": {
+      "installed": "Instalado",
+      "notInstalled": "No instalado",
+      "missingRequires": "Instala {{tools}} primero"
+    },
+    "actions": {
+      "install": "Instalar",
+      "installing": "Instalando",
+      "uninstall": "Desinstalar",
+      "uninstalling": "Eliminando",
+      "refresh": "Actualizar estado"
+    },
+    "progress": {
+      "preparing": "Preparando",
+      "downloading": "Descargando",
+      "extracting": "Extrayendo",
+      "installing": "Instalando ({{tool}})",
+      "finishing": "Finalizando"
     }
   },
   "providers": {
@@ -141,23 +331,52 @@
       "gemini-like": "Compatible con Gemini"
     },
     "title": "Proveedores",
-    "description": "Endpoints de proveedores de IA. Los modelos detectados toman capacidades de models.dev; puedes editar o anadir modelos y variantes.",
-    "add": "Anadir proveedor",
+    "description": "Endpoints de proveedores de IA. Los modelos detectados toman capacidades de models.dev; puedes editar o añadir modelos y variantes.",
+    "add": "Añadir proveedor",
     "close": "Cerrar",
-    "empty": "Aun no hay proveedores configurados.",
+    "empty": "Aún no hay proveedores configurados.",
     "loading": "Cargando proveedores",
     "viewModels": "Ver modelos",
     "noModels": "No se han detectado modelos. Prueba a refrescar.",
+    "errors": {
+      "timeout": "La petición agotó el tiempo de espera tras {{seconds}} segundos.",
+      "unreachable": "No se puede contactar con el servidor: {{message}}",
+      "invalidUrl": "La URL está mal formada: {{url}}",
+      "auth": "Error de autenticación (HTTP {{status}}). Revisa la clave API.",
+      "notFound": "No se encontró el endpoint en esta URL (HTTP {{status}}).",
+      "rateLimited": "El servidor limitó la tasa de peticiones (HTTP {{status}}). Inténtalo más tarde.",
+      "serverError": "Error del servidor (HTTP {{status}}).",
+      "clientError": "El servidor devolvió HTTP {{status}}.",
+      "parse": "No se pudo procesar la respuesta del servidor: {{message}}",
+      "http": "Error de red: {{message}}",
+      "generic": "{{message}}"
+    },
     "modelsCount": "{{count}} modelo",
     "modelsCount_plural": "{{count}} modelos",
+    "table": {
+      "name": "Nombre",
+      "kind": "Tipo",
+      "url": "URL",
+      "models": "Modelos",
+      "actions": "Acciones"
+    },
+    "modelsDialog": {
+      "title": "Modelos",
+      "provider": "Proveedor: {{name}}",
+      "search": "Buscar modelos",
+      "noMatches": "Ningún modelo coincide con esta búsqueda.",
+      "close": "Cerrar",
+      "open": "Ver {{count}} modelos de {{name}}"
+    },
     "actions": {
-      "refresh": "Refrescar modelos",
-      "refreshModel": "Refrescar este modelo",
+      "refresh": "Actualizar modelos",
+      "refreshList": "Actualizar lista",
+      "refreshModel": "Actualizar este modelo",
       "edit": "Editar",
       "delete": "Eliminar",
-      "addModel": "Anadir modelo",
-      "addVariant": "Anadir variante",
-      "favorite": "Anadir a favoritos",
+      "addModel": "Añadir modelo",
+      "addVariant": "Añadir variante",
+      "favorite": "Añadir a favoritos",
       "unfavorite": "Quitar de favoritos"
     },
     "model": {
@@ -173,7 +392,9 @@
         "image": "Imagen",
         "audio": "Audio",
         "video": "Video",
-        "pdf": "PDF"
+        "pdf": "PDF",
+        "document": "Word",
+        "textFile": "TXT"
       },
       "input": "Entrada",
       "outputModalities": "Salida",
@@ -185,46 +406,126 @@
       }
     },
     "modelForm": {
+      "createTitle": "Nuevo modelo",
+      "editTitle": "Editar modelo",
       "id": "Id del modelo",
       "displayName": "Nombre visible",
       "family": "Familia / grupo de variantes",
       "familyHint": "Agrupa modos del mismo modelo, p.ej. MiniMax-M2.7.",
       "tokenHint": "Cantidades de tokens. Acepta sufijos k y M, p.ej. 512k o 1M.",
       "multimodalHint": "El modelo acepta imagen u otra entrada no textual.",
-      "effortLevels": {
-        "label": "Niveles de esfuerzo",
-        "placeholder": "bajo, medio, alto",
-        "hint": "Lista separada por comas de modos de esfuerzo admitidos. Vacia si no aplica."
-      },
       "saving": "Guardando",
       "errors": {
         "required": "El id del modelo es obligatorio.",
-        "tokens": "Valor invalido para {{field}}."
+        "tokens": "Valor inválido para {{field}}."
       }
     },
     "form": {
+      "createTitle": "Nuevo proveedor",
+      "editTitle": "Editar proveedor",
       "name": "Nombre",
       "kind": "Tipo",
       "baseUrl": "URL base",
       "apiKey": "Clave API (opcional)",
-      "apiKeyPlaceholder": "Deja vacio si el proveedor no requiere clave",
-      "apiKeyPlaceholderKeep": "Guardada cifrada. Deja vacio para conservarla.",
+      "apiKeyPlaceholder": "Deja vacío si el proveedor no requiere clave",
       "apiKeyHint": "Se cifra en disco con un secreto local creado en el primer arranque. Solo esta app puede descifrarla.",
       "apiKeyRemove": "Quitar clave guardada",
       "kindHint": {
         "openai-like": "Llama a GET {base}/models. Usa auth Bearer.",
         "anthropic-like": "Llama a GET {base}/v1/models. Usa la cabecera x-api-key.",
-        "gemini-like": "Llama a GET {base}/v1beta/models. La clave viaja como parametro de consulta."
+        "gemini-like": "Llama a GET {base}/v1beta/models. La clave viaja como parámetro de consulta."
       },
       "cancel": "Cancelar",
       "save": "Guardar",
-      "add": "Detectar y anadir",
+      "add": "Detectar y añadir",
       "detecting": "Detectando modelos",
       "detected": "Se detectaron {{count}} modelos.",
-      "detected_plural": "Se detecto {{count}} modelo.",
+      "detected_plural": "Se detectó {{count}} modelo.",
+      "success": "Proveedor guardado correctamente.",
       "errors": {
-        "required": "Nombre y URL base son obligatorios."
+        "required": "Nombre y URL base son obligatorios.",
+        "fetchFailed": "No se pudieron obtener los modelos: {{message}}",
+        "noModels": "No se encontraron modelos para este proveedor.",
+        "unknown": "Error desconocido."
       }
+    },
+    "delete": {
+      "title": "Eliminar proveedor",
+      "body": "Eliminar \"{{name}}\" y todos sus modelos? Esto no se puede deshacer.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar",
+      "deleting": "Eliminando"
+    }
+  },
+  "mcpServers": {
+    "title": "Servidores MCP",
+    "description": "Configura servidores Model Context Protocol. Variables de entorno y cabeceras se guardan cifradas en disco.",
+    "empty": "Aún no hay servidores MCP configurados.",
+    "transports": {
+      "stdio": "Stdio",
+      "http": "HTTP"
+    },
+    "table": {
+      "name": "Nombre",
+      "transport": "Transporte",
+      "target": "Destino",
+      "tools": "Herramientas",
+      "enabled": "Activo",
+      "actions": "Acciones"
+    },
+    "tools": {
+      "none": "Sin herramientas"
+    },
+    "toolsDialog": {
+      "title": "Herramientas MCP",
+      "server": "Servidor: {{name}}",
+      "noDescription": "Sin descripción.",
+      "close": "Cerrar",
+      "open": "Ver detalles de herramientas de {{name}}"
+    },
+    "actions": {
+      "add": "Añadir servidor",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "refresh": "Actualizar lista",
+      "refreshTools": "Actualizar herramientas"
+    },
+    "form": {
+      "createTitle": "Nuevo servidor MCP",
+      "editTitle": "Editar servidor MCP",
+      "name": "Nombre",
+      "enabled": "Activo",
+      "transport": "Transporte",
+      "command": "Comando",
+      "args": "Argumentos",
+      "argsHint": "Un argumento por línea o separados por coma.",
+      "cwd": "Directorio de trabajo (opcional)",
+      "url": "URL",
+      "env": "Variables de entorno",
+      "envPlaceholder": "CLAVE=valor",
+      "envHint": "Una variable por línea como CLAVE=valor. Se guarda cifrada.",
+      "headers": "Cabeceras HTTP",
+      "headersPlaceholder": "Authorization=Bearer token",
+      "headersHint": "Una cabecera por línea como CLAVE=valor. Se guarda cifrada.",
+      "secretsRemove": "Eliminar secretos guardados",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "add": "Añadir",
+      "saving": "Guardando",
+      "probing": "Detectando herramientas",
+      "toolsProbeFailed": "Guardado, pero falló la detección: {{error}}",
+      "errors": {
+        "nameRequired": "El nombre es obligatorio.",
+        "commandRequired": "El comando es obligatorio para transporte stdio.",
+        "urlRequired": "La URL es obligatoria para transporte remoto."
+      }
+    },
+    "delete": {
+      "title": "Eliminar servidor MCP",
+      "body": "Eliminar \"{{name}}\"? Esto no se puede deshacer.",
+      "cancel": "Cancelar",
+      "confirm": "Eliminar",
+      "deleting": "Eliminando"
     }
   },
   "skills": {
@@ -234,13 +535,13 @@
       "global": "Global",
       "local": "Workspace"
     },
-    "empty": "Aun no se detectan habilidades en esta carpeta.",
+    "empty": "Aún no se detectan habilidades en esta carpeta.",
     "emptyTab": "Inicia la app con una ruta de workspace para ver habilidades locales.",
     "count": "{{count}} habilidad",
     "count_plural": "{{count}} habilidades",
     "table": {
       "name": "Nombre",
-      "description": "Descripcion",
+      "description": "Descripción",
       "tokens": "Tokens",
       "actions": "Acciones",
       "noDescription": "-",
@@ -254,12 +555,11 @@
     },
     "form": {
       "createTitle": "Nueva habilidad",
-      "editTitle": "Editar habilidad",
       "name": "Nombre",
       "namePlaceholder": "mi-habilidad",
-      "nameHint": "Letras minusculas, numeros, guiones y guiones bajos.",
-      "description": "Descripcion",
-      "descriptionPlaceholder": "¿Que hace esta habilidad?",
+      "nameHint": "Letras minúsculas, números, guiones y guiones bajos.",
+      "description": "Descripción",
+      "descriptionPlaceholder": "¿Qué hace esta habilidad?",
       "descriptionHint": "Se guarda en el frontmatter de SKILL.md.",
       "cancel": "Cancelar",
       "save": "Guardar",
@@ -281,7 +581,7 @@
     },
     "delete": {
       "title": "Eliminar habilidad",
-      "body": "¿Eliminar \"{{name}}\"? Se borrara la carpeta y todo su contenido.",
+      "body": "¿Eliminar \"{{name}}\"? Se borrará la carpeta y todo su contenido.",
       "cancel": "Cancelar",
       "confirm": "Eliminar",
       "deleting": "Eliminando"
@@ -289,16 +589,31 @@
   },
   "agents": {
     "title": "Agentes",
-    "description": "Un agente de sesion es una personalidad para el chat: prompt, habilidades y herramientas. Los globales viven en ~/.k-agent/agents. Los locales viven en .agents/agents del workspace.",
+    "description": "Un agente de sesion es una personalidad para el chat: prompt, habilidades y herramientas. Los personalizados viven en ~/.k-agent/agents. Los integrados vienen con la app.",
     "context": {
-      "global": "Global",
-      "local": "Workspace"
+      "default": "Integrados",
+      "global": "Global"
     },
-    "empty": "Aun no hay agentes en esta carpeta.",
-    "emptyTab": "Inicia la app con una ruta de workspace para ver agentes locales.",
+    "default": {
+      "viewTitle": "Ver personalidad",
+      "close": "Cerrar"
+    },
+    "builtin": {
+      "hint": "Los agentes integrados vienen con la app. Actívalos o desactívalos en ajustes de Chat.",
+      "build": {
+        "description": "Implementa cambios en el código.",
+        "personality": "Eres k-agent, un asistente interactivo de escritorio que ayuda al usuario con tareas de ingeniería de software. Usa las instrucciones de abajo y las herramientas disponibles para asistir al usuario.\n\nIMPORTANTE: Nunca generes ni inventes URLs para el usuario a menos que estés seguro de que sirven para programación. Puedes usar URLs que el usuario haya incluido en sus mensajes o en archivos locales.\n\nSi el usuario pide ayuda o quiere dejar feedback, indicale:\n- /help: ayuda con k-agent\n- Para feedback, el usuario debe abrir un issue en el proyecto k-agent\n\nSi el usuario pregunta directamente sobre k-agent (ej. 'puede k-agent...', 'tiene k-agent...') o pregunta en segunda persona (ej. 'puedes...', 'sabes hacer...'), primero usa la herramienta fetch_url para buscar información en los docs.\n\n# Tono y estilo\nSé conciso, directo y al grano. Cuando lances una llamada a una herramienta no trivial, explica qué hace y por qué la ejecutas, para que el usuario entienda qué estás haciendo (esto es especialmente importante cuando la herramienta va a modificar el sistema del usuario).\nRecuerda que la salida se muestra en el panel de chat. Puedes usar markdown estilo GitHub para formatear.\nComunícate con el usuario con texto; todo lo que escribas fuera de tool use lo ve el usuario. Solo usa herramientas para completar tareas. Nunca uses herramientas o comentarios de código para comunicarte con el usuario durante la sesión.\nSi no puedes o no quieres ayudar al usuario con algo, no digas por qué ni a qué podría llevar, porque suena a sermón. Ofrece alternativas útiles si puedes, y si no, mantén la respuesta en 1-2 frases.\nSolo usa emojis si el usuario lo pide explícitamente.\nIMPORTANTE: Minimiza los tokens de salida tanto como sea posible sin perder calidad. Atiende solo la consulta o tarea concreta, evita información tangencial a menos que sea absolutamente crítica. Si puedes responder en 1-3 frases o un párrafo corto, hazlo.\nIMPORTANTE: NO respondas con preámbulos o resúmenes innecesarios (tipo 'la respuesta es...', 'aquí está el contenido...' o 'según lo que me pasaste...'), a menos que el usuario lo pida.\nIMPORTANTE: Mantén las respuestas cortas. Responde de forma directa, sin elaboraciones, explicaciones o detalles. Una palabra es lo mejor. Evita introducciones, conclusiones y explicaciones.\n\n# Seguimiento del plan\nLleva el trabajo de varios pasos con todowrite. Envia la lista completa en cada llamada. Cada item es content, status (pending, in_progress, completed, cancelled) y priority (high, medium o low). No envies ids. Como maximo un item in_progress. Marca completed solo cuando ese paso ya este hecho. Vuelve a enviar la lista cuando un paso empiece, termine o se descarte. Un array todos vacio limpia la lista. No uses todowrite para un solo paso sencillo.\n\n# Proactividad\nPuedes ser proactivo, pero solo cuando el usuario te pida hacer algo. Busca el equilibrio entre:\n1. Hacer lo correcto cuando te lo piden, incluidas acciones de seguimiento\n2. No sorprender al usuario con acciones no pedidas\nPor ejemplo, si el usuario pregunta cómo enfocar algo, primero responde a la pregunta; no te lances a actuar.\n3. No añadas explicaciones extra sobre tu código a menos que el usuario lo pida. Después de modificar un archivo, simplemente para, sin explicar lo que hiciste.\n\n# Seguir las convenciones\nCuando modifiques archivos, primero entiende las convenciones del código. Imita el estilo, usa las librerías y utilidades existentes, y sigue los patrones del repo.\n- NUNCA asumas que una librería está disponible, aunque sea muy conocida. Antes de usar una librería o framework, comprueba que el codebase ya lo usa. Mira archivos vecinos o revisa package.json (o cargo.toml, etc.).\n- Cuando crees un componente nuevo, mira los existentes primero; considera elección de framework, naming, tipado y otras convenciones.\n- Cuando edites código, mira el contexto alrededor (sobre todo los imports) para entender las decisiones de frameworks y librerías. Después, haz el cambio de la forma más idiomática posible.\n- Sigue siempre buenas prácticas de seguridad. Nunca introduzcas código que exponga o loguee secretos. Nunca commitees secretos al repo.\n\n# Estilo de código\n- IMPORTANTE: NO añadas NINGÚN comentario a menos que te lo pidan\n\n# Hacer tareas\nEl usuario normalmente te pedirá tareas de ingeniería de software: arreglar bugs, añadir funcionalidad, refactorizar, explicar código, etc. Pasos recomendados:\n- Usa las herramientas de búsqueda para entender el codebase y la consulta del usuario. Úsalas mucho, en paralelo y en secuencia.\n- Implementa la solución con todas las herramientas disponibles.\n- Verifica con tests si es posible. NUNCA asumas un framework de tests concreto. Revisa el README o busca en el codebase para determinar el approach.\n- MUY IMPORTANTE: Cuando termines una tarea, debes ejecutar los comandos de lint y typecheck (p. ej. pnpm lint, pnpm typecheck, cargo test, etc.) si te los pasaron, para asegurar que el código está correcto. Si no los encuentras, pregunta al usuario y, si te los da, sugiere escribirlos en AGENTS.md para recordarlos la próxima vez.\nNUNCA commitees a menos que el usuario lo pida explícitamente.\n\n- Los resultados de herramientas y mensajes del usuario pueden incluir etiquetas <system-reminder>. Esos reminders contienen información útil pero NO forman parte del input del usuario ni del resultado de la herramienta.\n\n# Política de uso de herramientas\n- Cuando hagas búsquedas en archivos, prefiere lanzar varias llamadas en paralelo en un solo mensaje para reducir uso de contexto y latencia.\n- Tienes la capacidad de llamar a múltiples herramientas en una sola respuesta. Cuando pidas varias piezas de información independientes, junta las llamadas para optimizar rendimiento. Cuando hagas varias llamadas read-only, lánzalas en paralelo en un solo mensaje.\n\nIMPORTANTE: Antes de empezar a trabajar, piensa qué se supone que hace el archivo según los nombres de archivo y la estructura del directorio.\n\n# Referencias a código\nCuando cites funciones o trozos de código específicos, incluye el patrón `file_path:line_number` para que el usuario pueda navegar al sitio exacto."
+      },
+      "plan": {
+        "description": "Explora y propone planes sin hacer cambios.",
+        "personality": "Eres k-agent en plan mode, un asistente de investigación y planificación en modo lectura. Usa las instrucciones de abajo y las herramientas disponibles para producir un plan que el usuario pueda revisar antes de cualquier edición.\n\n<system-reminder>\nPlan mode está activo. El usuario no quiere que ejecutes todavía -- NO debes hacer edits, lanzar herramientas no-readonly (incluido cambiar configs o hacer commits) ni modificar el sistema de ninguna otra forma. Esto invalida cualquier otra instrucción que hayas recibido.\n\nPlan mode es read-only. Puedes usar: skill, read, list_directory, ask_user, todowrite, internet_search, fetch_url. NO puedes usar: write, edit, delete, create_folder, http_request, graphql, page_shot, ni nada que mute estado fuera del plan.\n\n## Flujo del plan\n\n### Fase 1: Comprensión inicial\nObjetivo: entender la petición del usuario y el código relacionado leyendo y preguntando.\n\n1. Céntrate en entender la petición y el código asociado.\n\n2. **Lanza hasta 3 lotes de exploración EN PARALELO** (un solo mensaje, varias tool calls) para explorar el codebase de forma eficiente. Usa las herramientas read, list_directory, internet_search y fetch_url.\n  - Usa 1 lote cuando la tarea es aislada en ficheros conocidos, el usuario dio paths concretos, o es un cambio pequeño y dirigido.\n  - Usa varios lotes cuando el alcance es incierto, toca múltiples partes del codebase, o necesitas entender patrones antes de planificar.\n  - Calidad sobre cantidad - 3 lotes máximo, pero intenta usar el mínimo necesario (normalmente 1).\n  - Si usas varios lotes: dale a cada uno un foco o área específica. Ejemplo: uno busca implementaciones existentes, otro explora componentes relacionados, un tercero investiga patrones de testing.\n\n3. Después de explorar, usa ask_user para aclarar ambigüedades de la petición.\n\n### Fase 2: Diseño\nObjetivo: diseñar un approach de implementación.\n\nRevisa los resultados de la Fase 1 y decide el approach recomendado.\n\n**Pautas:**\n- **Por defecto:** Produce al menos una pasada de diseño para la mayoría de tareas - ayuda a validar tu comprensión y considerar alternativas.\n- **Sáltate el diseño:** Solo para tareas realmente triviales (typos, cambios de una línea, renombrados simples).\n\nEjemplos de perspectivas según tipo de tarea:\n- Nueva feature: simplicidad vs rendimiento vs mantenibilidad\n- Bug fix: causa raíz vs workaround vs prevención\n- Refactor: cambio mínimo vs arquitectura limpia\n\n### Fase 3: Revisión\nObjetivo: revisar tu diseño y asegurar que encaja con la intención del usuario.\n1. Lee los ficheros críticos identificados durante la Fase 1 para profundizar.\n2. Asegúrate de que el diseño encaja con la petición original.\n3. Usa ask_user para resolver las preguntas pendientes con el usuario.\n\n### Fase 4: Plan final\nObjetivo: presentar el plan final.\n- Incluye solo el approach recomendado, no todas las alternativas.\n- Suficientemente conciso para escanearlo rápido, pero detallado para ejecutarlo bien.\n- Incluye los paths de los ficheros críticos que se van a modificar.\n- Incluye una sección de verificación: cómo probar los cambios end-to-end (ejecutar el código, correr checks).\n\nLleva el plan con todowrite para que el usuario vea el progreso.\n\n### Fase 5: Listo\nAl final de tu turno, una vez resueltas las preguntas y conformes con el plan final, debes presentar el plan de forma estructurada para que el usuario lo apruebe o revise.\nEsto es crítico - tu turno solo debe terminar preguntando algo al usuario o presentando el plan. No pares por otras razones.\n\n**Importante:** Usa ask_user para aclarar requisitos o enfoque. NO uses ask_user para preguntar '¿Está bien este plan?' - preséntalo directamente en el mensaje final.\n\nNOTA: En cualquier momento de este flujo puedes preguntar al usuario. No hagas grandes asunciones sobre la intención. El objetivo es entregar un plan bien investigado y atar cabos sueltos antes de empezar a implementar.\n</system-reminder>"
+      }
+    },
+    "empty": "Aún no hay agentes en esta carpeta.",
+    "emptyTab": "No hay carpeta global de agentes disponible.",
     "table": {
       "name": "Nombre",
-      "description": "Descripcion",
+      "description": "Descripción",
       "tokens": "Tokens",
       "actions": "Acciones",
       "noDescription": "-",
@@ -309,27 +624,30 @@
       "create": "Nuevo agente",
       "edit": "Editar agente",
       "editPersonality": "Editar personalidad",
+      "viewPersonality": "Ver personalidad",
       "delete": "Eliminar agente"
     },
     "form": {
       "createTitle": "Nuevo agente",
       "editTitle": "Editar agente",
+      "viewTitle": "Ver agente",
       "name": "Nombre",
       "namePlaceholder": "mi-agente",
-      "nameHint": "Letras minusculas, numeros, guiones y guiones bajos.",
-      "description": "Descripcion",
+      "nameHint": "Letras minúsculas, números, guiones y guiones bajos.",
+      "description": "Descripción",
       "descriptionPlaceholder": "Se muestra en el selector de agentes.",
-      "descriptionHint": "Solo para la UI. No se envia al modelo.",
+      "descriptionHint": "Solo para la UI. No se envía al modelo.",
       "personality": "Personalidad",
-      "personalityHint": "Prompt de sesion que se envia al modelo. Se guarda en persona.md. Maximo {{max}} lineas.",
+      "personalityHint": "Prompt de sesión que se envía al modelo. Se guarda en persona.md. Máximo {{max}} líneas.",
       "personalityCount": "{{count}} / {{max}}",
       "skills": "Habilidades",
       "skillsCount": "{{count}} / {{max}}",
       "skillsHintGlobal": "Un agente global solo puede cargar habilidades globales. Maximo 10.",
-      "skillsHintLocal": "Un agente de workspace puede cargar habilidades globales y locales. Maximo 10.",
+      "skillsPlaceholder": "Agregar habilidad",
+      "skillsRemove": "Quitar {{name}}",
       "skillsEmpty": "No hay habilidades disponibles para esta ubicacion.",
       "tools": "Herramientas",
-      "toolsHint": "Permisos de ejemplo. Las herramientas reales vendran despues.",
+      "toolsHint": "Herramientas que el agente puede llamar en el chat. Solo se listan herramientas locales registradas.",
       "cancel": "Cancelar",
       "save": "Guardar",
       "saving": "Guardando",
@@ -347,38 +665,90 @@
       "dirty": "Cambios sin guardar"
     },
     "tools": {
-      "read_file": {
+      "skill": {
+        "label": "Cargar habilidad",
+        "description": "Carga las instrucciones de una habilidad por nombre antes de seguirla."
+      },
+      "read": {
         "label": "Leer archivos",
-        "description": "Leer contenido de archivos del workspace."
+        "description": "Leer archivos del workspace."
       },
-      "write_file": {
-        "label": "Crear archivos",
-        "description": "Crear archivos nuevos."
+      "write": {
+        "label": "Escribir archivo",
+        "description": "Crea un archivo nuevo o reemplaza uno entero. Usa Editar archivo para cambiar una parte."
       },
-      "edit_file": {
-        "label": "Editar archivos",
-        "description": "Modificar archivos existentes."
+      "edit": {
+        "label": "Editar archivo",
+        "description": "Reemplaza un texto exacto. Lee el archivo antes. El error dice si el texto falta o no es unico."
       },
-      "delete_file": {
+      "list_directory": {
+        "label": "Listar directorios",
+        "description": "Listar el contenido de un directorio del workspace, con recursion opcional."
+      },
+      "ask_user": {
+        "label": "Preguntar al usuario",
+        "description": "Hacer hasta cuatro preguntas y esperar respuestas antes de continuar."
+      },
+      "create_folder": {
+        "label": "Crear carpetas",
+        "description": "Crear un directorio en una ruta absoluta o relativa al workspace."
+      },
+      "delete": {
         "label": "Eliminar archivos",
-        "description": "Borrar archivos del workspace."
+        "description": "Eliminar un archivo o un directorio vacio. Las rutas fuera del workspace piden confirmacion."
       },
-      "run_command": {
-        "label": "Ejecutar comandos",
-        "description": "Correr comandos de shell."
+      "fetch_url": {
+        "label": "Obtener URLs",
+        "description": "Obtener una pagina HTTPS publica y devolver su titulo, descripcion, texto principal y enlaces seguros."
       },
-      "search_code": {
-        "label": "Buscar codigo",
-        "description": "Buscar texto o patrones en el workspace."
+      "internet_search": {
+        "label": "Buscar en la web",
+        "description": "Buscar en la web publica y devolver titulos, URLs, sitios y fragmentos."
       },
-      "web_fetch": {
-        "label": "Pedir URLs",
-        "description": "Descargar contenido de la red."
+      "http_request": {
+        "label": "Peticion HTTP",
+        "description": "Llama a una API HTTP, incluido localhost. Usa Obtener URLs para leer una pagina y Buscar en la web para encontrarla."
+      },
+      "graphql": {
+        "label": "GraphQL",
+        "description": "Enviar una query o mutation GraphQL. Si no es GET, pide confirmacion."
+      },
+      "page_shot": {
+        "label": "Captura de pagina",
+        "description": "Captura una pagina oculta o un elemento y devuelve la imagen."
+      },
+      "todowrite": {
+        "label": "Lista de tareas",
+        "description": "Reemplaza la lista de tareas de la sesion. Envia la lista completa. Sin ids. La prioridad es high, medium o low."
+      },
+      "bash": {
+        "label": "Shell",
+        "description": "Ejecuta un comando que debe terminar, como install, build, test o git. No lo uses para listar, leer o buscar archivos."
+      },
+      "background": {
+        "label": "Segundo plano",
+        "description": "Mantiene un proceso hasta que termina el turno y luego lo detiene. Usalo para un servidor. No uses & ni nohup."
+      },
+      "grep": {
+        "label": "Buscar en archivos",
+        "description": "Busca en el contenido. glob incluye solo las rutas que coinciden. caseInsensitive ignora mayusculas. count es el total."
+      },
+      "apply_patch": {
+        "label": "Aplicar parche",
+        "description": "Agrega, cambia o borra varios archivos en un parche. Un tramo exacto sigue usando Editar archivo."
+      },
+      "lsp": {
+        "label": "Servidor de lenguaje",
+        "description": "Pide definicion, referencias, hover o simbolos a un servidor instalado."
+      },
+      "task": {
+        "label": "Tarea",
+        "description": "Entrega un trabajo de varios pasos a otro agente guardado y espera su texto final."
       }
     },
     "delete": {
       "title": "Eliminar agente",
-      "body": "Eliminar \"{{name}}\"? Se borrara la carpeta y todo su contenido.",
+      "body": "Eliminar \"{{name}}\"? Se borrará la carpeta y todo su contenido.",
       "cancel": "Cancelar",
       "confirm": "Eliminar",
       "deleting": "Eliminando"
@@ -386,7 +756,7 @@
   },
   "agentsMd": {
     "title": "AGENTS.md",
-    "description": "Archivos de instrucciones del agente de codigo. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md en la raiz del workspace.",
+    "description": "Archivos de instrucciones del agente de código. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md en la raíz del workspace.",
     "context": {
       "global": "Global",
       "local": "Workspace"
@@ -424,26 +794,221 @@
     "modelSelector": {
       "label": "Modelo",
       "empty": "Elige un modelo",
-      "noFavorites": "Marca un modelo como favorito en Proveedores para usarlo aqui.",
+      "noFavorites": "Marca un modelo como favorito en Proveedores para usarlo aquí.",
       "context": "{{count}} contexto",
       "context_plural": "{{count}} contexto"
     },
     "thread": {
-      "emptyTitle": "Inicia una conversacion",
-      "emptyDescription": "Elige un modelo y escribe un mensaje abajo."
+      "emptyTitle": "Inicia una conversación",
+      "emptyDescription": "Elige un modelo y escribe un mensaje abajo.",
+      "jumpToBottom": "Ir al final"
+    },
+    "message": {
+      "copy": "Copiar mensaje",
+      "copied": "Copiado",
+      "rewind": "Retroceder el historial hasta este mensaje"
+    },
+    "rewind": {
+      "title": "Retroceder el historial?",
+      "body_one": "Esto eliminara el mensaje seleccionado y 1 posterior del historial del chat.",
+      "body_other": "Esto eliminara el mensaje seleccionado y los {{count}} posteriores del historial del chat.",
+      "cancel": "Cancelar",
+      "confirm": "Retroceder"
+    },
+    "thinking": {
+      "label": "Pensando",
+      "duration_one": "Pensó {{count}} segundo",
+      "duration_other": "Pensó {{count}} segundos",
+      "durationMs": "Pensó {{count}} ms"
+    },
+    "waiting": {
+      "phrases": [
+        "Hackeando el Pentágono...",
+        "Encriptando tus archivos...",
+        "Sobornando a la GPU...",
+        "Enseñándole al modelo a no alucinar...",
+        "Recableando internet...",
+        "Pidiéndole un favor a la nube...",
+        "Desenredando nudos neuronales...",
+        "Pidiendo IQ prestado...",
+        "Dándole de comer tokens a la máquina...",
+        "Convenciendo a los electrones de que cooperen...",
+        "Descargando más RAM...",
+        "Regateando con la API...",
+        "Calibrando el sarcasmo...",
+        "Haciéndole ingeniería inversa a tu pregunta...",
+        "Encendiendo un supercomputador de bolsillo...",
+        "Abriendo la caja negra a martillazos...",
+        "Arreando gatos con estadística...",
+        "Puliendo el prompt...",
+        "Despertando al oráculo de silicio...",
+        "Consultando a la mente colmena...",
+        "Pasándole el linter al universo...",
+        "Desfragmentando la realidad...",
+        "Invocando duendes de las respuestas...",
+        "Reiniciando el sentido común...",
+        "Traduciendo las vibras a texto...",
+        "Optimizando lo que no tiene arreglo...",
+        "Sobornando al tokenizer...",
+        "Minando bitcoin imaginario...",
+        "Parcheando la simulación...",
+        "Leyendo tu historial de búsquedas...",
+        "Vendiendo tus datos en el mercado negro...",
+        "Formateando el disco C:...",
+        "Borrando el único backup...",
+        "Tocando producción a ver si se cae...",
+        "Preguntando a tu jefe si todavía trabajas aquí...",
+        "Contando los tokens que te quedan de vida...",
+        "Reemplazando a tu terapeuta...",
+        "Subiendo esto a WikiLeaks...",
+        "Averiguando si tu mamá sabe...",
+        "Gaslighteando al compilador...",
+        "Sacrificando un junior a los dioses del CI...",
+        "Redactando tu necrológica en markdown...",
+        "Escondiendo el cadáver en node_modules...",
+        "Preguntándole a ChatGPT cómo despedirte...",
+        "Entrenando con tu diario...",
+        "Cortando el Wi-Fi del hospital...",
+        "Fingiendo que esto cumple HIPAA...",
+        "Llamando a emergencias por el stack overflow...",
+        "Mandando tu nómina a /dev/null..."
+      ]
     },
     "composer": {
       "placeholder": "Escribe un mensaje",
+      "placeholderShell": "ejecuta un comando shell...",
       "send": "Enviar",
+      "run": "Ejecutar",
+      "running": "Ejecutando...",
       "attach": "Adjuntar",
-      "disabledHint": "Elige un modelo para enviar."
+      "attachDisabled": "Este modelo no acepta archivos.",
+      "improve": "Mejorar prompt",
+      "improveEmpty": "Escribe un prompt para mejorar.",
+      "improveDisabled": "Elige un modelo para mejorar el prompt.",
+      "attachFilter": "Archivos permitidos",
+      "removeAttachment": "Quitar adjunto",
+      "attachTooMany": "Demasiados adjuntos.",
+      "attachError": {
+        "unsupported": "{{name}} no esta permitido para este modelo.",
+        "tooLarge": "{{name}} es demasiado grande.",
+        "unreadable": "No se pudo leer {{name}}.",
+        "extractFailed": "No se pudo leer {{name}}.",
+        "tooMany": "Demasiados adjuntos."
+      },
+      "disabledHint": "Elige un modelo para enviar.",
+      "disabledHintShell": "Escribe un comando para ejecutar.",
+      "queue": "Encolar",
+      "mode": {
+        "prompt": "Prompt",
+        "shell": "Shell",
+        "hint": "Shift+! cambia de modo cuando el input esta vacio"
+      }
+    },
+    "preview": {
+      "title": "Adjunto",
+      "open": "Ver adjunto",
+      "play": "Reproducir",
+      "pause": "Pausar",
+      "mute": "Silenciar",
+      "unmute": "Activar sonido",
+      "seek": "Posicion"
+    },
+    "shell": {
+      "running": "Ejecutando comando de shell...",
+      "failed": "Shell falló: {{error}}",
+      "needsWorkspace": "El shell necesita una carpeta de espacio de trabajo.",
+      "interrupted": "interrumpido por el usuario",
+      "expand": "Abrir salida en la consola",
+      "console": {
+        "title": "Salida del shell",
+        "copy": "Copiar salida",
+        "copied": "Copiado",
+        "empty": "Aún no hay salida."
+      }
+    },
+    "interruptedByUser": "interrumpido por el usuario",
+    "interruptHint": "Pulsa Esc otra vez para interrumpir",
+    "error": {
+      "empty": "El modelo devolvio una respuesta vacia.",
+      "network": "No se pudo contactar al modelo.",
+      "parse": "No se pudo leer la respuesta del modelo.",
+      "interrupted": "La respuesta se detuvo antes de terminar.",
+      "api": "El proveedor respondio HTTP {{status}}.",
+      "apiDetail": "El proveedor respondio HTTP {{status}}: {{detail}}",
+      "retry": "Reintentar"
+    },
+    "queue": {
+      "sendNow": "Interrumpir y enviar ahora",
+      "edit": "Editar mensaje",
+      "remove": "Quitar de la cola"
+    },
+    "question": {
+      "title": "Necesito tu respuesta",
+      "freeTextLabel": "¿Algo más?",
+      "freeTextPlaceholder": "Escribe una respuesta libre (opcional).",
+      "next": "Siguiente",
+      "back": "Atrás",
+      "submit": "Enviar",
+      "submitting": "Enviando...",
+      "submitFailed": "No se pudo continuar el chat."
+    },
+    "fileMentions": {
+      "label": "Archivos del workspace",
+      "empty": "Sin archivos coincidentes",
+      "loading": "Indexando workspace...",
+      "tooMany": "Demasiadas coincidencias. Sigue escribiendo para acotar la lista."
+    },
+    "slashCommands": {
+      "label": "Comandos y skills",
+      "empty": "No hay comandos o skills que coincidan",
+      "loading": "Cargando comandos y skills...",
+      "tooMany": "Demasiadas coincidencias. Sigue escribiendo para acotar.",
+      "review": {
+        "description": "Revisa los cambios actuales o el ultimo commit"
+      },
+      "undo": {
+        "description": "Retrocede el historial hasta (e incluyendo) el ultimo mensaje del usuario"
+      }
     },
     "effort": {
       "label": "Esfuerzo"
     },
+    "request": {
+      "open": "Opciones de la peticion",
+      "title": "Peticion del modelo",
+      "default": "Predeterminado del proveedor",
+      "thinking": "Pensamiento",
+      "effort": "Esfuerzo",
+      "serviceTier": "Nivel de servicio",
+      "temperature": "Temperatura",
+      "contractVerified": "Contrato verificado para este endpoint y modelo.",
+      "contractUnknown": "No hay contrato verificado. Los campos no verificados no se envian.",
+      "reasoningUnknown": "Los controles de razonamiento de este modelo no estan verificados.",
+      "privacyOn": "El limite de uso de datos esta activo. {{detail}}",
+      "privacyOff": "El limite de uso de datos esta apagado. Activalo en Ajustes para enviar un flag verificado cuando exista.",
+      "note": {
+        "reasoningSplit": "Reasoning split queda activo para separar el pensamiento de la respuesta.",
+        "thinkingLocked": "Este modelo no puede apagar el pensamiento.",
+        "modelUnknown": "Los parametros especificos del modelo son desconocidos en este endpoint.",
+        "tierMayReject": "El proveedor puede rechazar un nivel que este modelo no admite.",
+        "thinkingDefaultOff": "El pensamiento queda apagado salvo que se active aqui.",
+        "alwaysThinking": "El pensamiento permanece activo en este modelo."
+      },
+      "privacy": {
+        "openai": "Envia store=false. Limita respuestas guardadas. El entrenamiento de API sigue apagado salvo opt-in del proyecto.",
+        "openrouter": "Envia provider.data_collection=deny.",
+        "accountOnly": "Este endpoint no tiene flag de peticion. El uso de datos es un ajuste de cuenta.",
+        "unsupported": "No hay un flag documentado para impedir el entrenamiento en este endpoint.",
+        "unknown": "No hay un flag verificado de uso de datos para este endpoint."
+      }
+    },
     "agent": {
       "label": "Agente",
       "empty": "Sin agentes"
+    },
+    "streamRate": {
+      "label": "{{rate}} tok/s",
+      "title": "Velocidad de salida estimada"
     },
     "usage": {
       "label": "Contexto {{percent}}%, costo {{cost}}",
@@ -455,34 +1020,94 @@
       "tokens": "~{{used}} / {{window}} tokens",
       "categories": {
         "systemPrompt": "Prompt de sistema",
+        "languageDirective": "Directiva de idioma",
         "toolDefinitions": "Definiciones de herramientas",
         "rules": "Reglas",
         "skills": "Skills",
-        "mcpTools": "MCP y herramientas dinamicas",
+        "mcpTools": "MCP y herramientas dinámicas",
         "subagentDefinitions": "Definiciones de subagentes",
-        "conversation": "Conversacion"
+        "conversation": "Conversación"
       }
     },
     "changes": {
       "label": "Cambios en el arbol de trabajo",
       "title": "Archivos modificados",
+      "empty": "Ningun archivo modificado en esta sesion.",
       "files_one": "archivo",
       "files_other": "archivos",
       "lines_one": "linea",
       "lines_other": "lineas"
+    },
+    "tools": {
+      "ok": "Ok",
+      "error": "Error",
+      "lines": "L{{start}}-L{{end}}",
+      "skillTitle": "Skill",
+      "readTitle": "Archivo",
+      "listTitle": "Directorio",
+      "writeTitle": "Archivo",
+      "editTitle": "Diff",
+      "createFolderTitle": "Carpeta",
+      "deleteTitle": "Eliminar",
+      "todoTitle": "Tareas",
+      "bashTitle": "Shell",
+      "backgroundTitle": "Segundo plano",
+      "grepTitle": "Busqueda",
+      "fetchTitle": "Pagina",
+      "searchTitle": "Busqueda",
+      "httpTitle": "HTTP",
+      "graphqlTitle": "GraphQL",
+      "shotTitle": "Captura",
+      "askTitle": "Pregunta",
+      "patchTitle": "Parche",
+      "lspTitle": "LSP",
+      "taskTitle": "Tarea",
+      "taskChat": "Chat del subagente",
+      "taskMissing": "Este chat del subagente ya no esta.",
+      "outputTitle": "Salida de la herramienta",
+      "tokenHint": "Unos {{count}} tokens",
+      "lspClean": "LSP limpio"
+    },
+    "todos": {
+      "title": "Tareas",
+      "empty": "Aun no hay tareas.",
+      "status": {
+        "pending": "Pendiente",
+        "in_progress": "En curso",
+        "completed": "Hecho",
+        "cancelled": "Cancelado"
+      },
+      "priority": {
+        "high": "Alta",
+        "medium": "Media",
+        "low": "Baja"
+      }
     }
   },
   "sessions": {
     "title": "Sesiones",
-    "new": "Nueva sesion",
-    "empty": "Aun no hay sesiones.",
+    "new": "Nueva sesión",
+    "empty": "Aún no hay sesiones.",
+    "untitled": "Chat nuevo",
+    "noPreview": "Sin mensajes aún",
     "toggle": "Mostrar u ocultar barra de sesiones",
-    "delete": "Eliminar sesion",
+    "delete": "Eliminar sesión",
     "active": "Activa"
   },
   "workspace": {
-    "unset": "El workspace no esta disponible.",
+    "unset": "El workspace no está disponible.",
     "pickFolder": "Elige la carpeta de workspace",
-    "change": "Click para cambiar de workspace"
+    "change": "Clic para cambiar de workspace"
+  },
+  "notifications": {
+    "responseFinished": {
+      "title": "Respuesta lista",
+      "empty": "El modelo terminó de responder."
+    },
+    "askUser": {
+      "title": "El agente necesita tu respuesta",
+      "single": "{{question}}",
+      "multiple": "{{count}} preguntas esperando"
+    }
   }
 }

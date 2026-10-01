@@ -1,9 +1,20 @@
 import { invoke } from "@tauri-apps/api/core";
-import { handleJob, type Host, type JobName, type ListBundle } from "./jobs-handlers";
-import { isTauri } from "./platform";
+import {
+  handleJob,
+  type DiffLinesPayload,
+  type Host,
+  type JobName,
+  type ListBundle,
+  type Timed,
+  type WorkspaceConfigBundle,
+} from "./jobs-handlers";
+import type { DiffEditorValue } from "./session-diff";
+import { DESKTOP_REQUIRED, ipcErrorMessage, isTauri } from "./platform";
 import type { AgentContext } from "@/types/agents";
 import type { AgentsMdFile } from "@/types/agents-md";
+import type { LanguageServerRow, ResolvedLanguageServer } from "@/types/language-servers";
 import type { SkillContext } from "@/types/skills";
+import type { WorkspaceEntry } from "@/types/workspace-files";
 
 type JobResultMessage = {
   kind: "jobResult";
@@ -30,7 +41,7 @@ const jobWaiters = new Map<string, JobWaiter>();
 const tauriHost: Host = {
   invoke: async <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
     if (!isTauri()) {
-      throw new Error("Desktop shell required");
+      throw new Error(DESKTOP_REQUIRED);
     }
     return args ? invoke<T>(cmd, args) : invoke<T>(cmd);
   },
@@ -38,6 +49,13 @@ const tauriHost: Host = {
 
 let worker: Worker | null = null;
 let workerFailed = false;
+
+const failWaiters = (reason: string): void => {
+  for (const waiter of jobWaiters.values()) {
+    waiter.reject(new Error(reason));
+  }
+  jobWaiters.clear();
+};
 
 const attachWorker = (next: Worker): void => {
   next.addEventListener("message", (event: MessageEvent<JobResultMessage | InvokeMessage>) => {
@@ -50,8 +68,7 @@ const attachWorker = (next: Worker): void => {
         .invoke(message.cmd, message.args)
         .then((result) => send(true, result))
         .catch((error: unknown) => {
-          const text = error instanceof Error ? error.message : "invoke failed";
-          send(false, undefined, text);
+          send(false, undefined, ipcErrorMessage(error));
         });
       return;
     }
@@ -61,6 +78,14 @@ const attachWorker = (next: Worker): void => {
     jobWaiters.delete(message.id);
     if (message.ok) waiter.resolve(message.result);
     else waiter.reject(new Error(message.error ?? "job failed"));
+  });
+  next.addEventListener("error", () => {
+    failWaiters("job worker failed");
+    worker = null;
+  });
+  next.addEventListener("messageerror", () => {
+    failWaiters("job worker message failed");
+    worker = null;
   });
 };
 
@@ -102,3 +127,86 @@ export const runListSystemFontsJob = (): Promise<string[]> => runJob("listSystem
 
 export const runEstimateTokensJob = (text: string): Promise<number> =>
   runJob("estimateTokens", { text });
+
+export const runListLanguageServersJob = (): Promise<LanguageServerRow[]> =>
+  runJob("listLanguageServers");
+
+export const runInstallLanguageServerJob = (id: string): Promise<LanguageServerRow> =>
+  runJob("installLanguageServer", { id });
+
+export const runUninstallLanguageServerJob = (id: string): Promise<LanguageServerRow> =>
+  runJob("uninstallLanguageServer", { id });
+
+export const runResolveLanguageServerJob = (path: string): Promise<ResolvedLanguageServer | null> =>
+  runJob("resolveLanguageServer", { path });
+
+export const runLspRequestJob = (
+  path: string,
+  method: string,
+  params?: unknown,
+): Promise<unknown> => runJob("lspRequest", { path, method, params });
+
+export const runListWorkspaceDirJob = (relativeDir = ""): Promise<WorkspaceEntry[]> =>
+  runJob("listWorkspaceFiles", { relativeDir });
+
+export const runSearchWorkspaceFilesJob = (query: string): Promise<WorkspaceEntry[]> =>
+  runJob("searchWorkspaceFiles", { query });
+
+export const runListWorkspaceConfigJob = (): Promise<WorkspaceConfigBundle> =>
+  runJob("listWorkspaceConfig");
+
+export const runRenderMarkdownJob = (
+  source: string,
+  linkTitleHint?: string,
+): Promise<Timed<string>> => runJob("renderMarkdown", { source, linkTitleHint });
+
+export const runHighlightLinesJob = (
+  text: string,
+  language: string | null,
+): Promise<Timed<string[]>> => runJob("highlightLines", { text, language });
+
+export const runDiffLinesJob = (
+  before: string,
+  after: string,
+  context = 3,
+): Promise<Timed<DiffEditorValue>> => {
+  const payload: DiffLinesPayload = { before, after, context };
+  return runJob("diffLines", payload);
+};
+
+export type LatestJob = {
+  push: () => void;
+  stop: () => void;
+};
+
+export const scheduleLatest = (delayMs: number, run: () => Promise<void>): LatestJob => {
+  let timer = 0;
+  let running = false;
+  let dirty = false;
+  let stopped = false;
+  const kick = (): void => {
+    if (stopped || running) return;
+    running = true;
+    dirty = false;
+    void run().finally(() => {
+      running = false;
+      if (!stopped && dirty) kick();
+    });
+  };
+  return {
+    push: () => {
+      if (stopped) return;
+      dirty = true;
+      if (timer || running) return;
+      timer = window.setTimeout(() => {
+        timer = 0;
+        kick();
+      }, delayMs);
+    },
+    stop: () => {
+      stopped = true;
+      if (timer) window.clearTimeout(timer);
+      timer = 0;
+    },
+  };
+};

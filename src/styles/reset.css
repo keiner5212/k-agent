@@ -17,6 +17,7 @@ body,
 }
 
 body {
+  overflow: hidden;
   font-family: var(--font-sans);
   font-size: var(--text-base);
   line-height: var(--leading-normal);

@@ -130,3 +130,9 @@ export const formatChordLabel = (raw: string): string =>
     .join("+");
 
 export const EDITOR_SAVE_EVENT = "k-agent:editor-save";
+
+export const isEditableTarget = (target: EventTarget | null): boolean =>
+  target instanceof HTMLInputElement ||
+  target instanceof HTMLTextAreaElement ||
+  target instanceof HTMLSelectElement ||
+  (target instanceof HTMLElement && target.isContentEditable);

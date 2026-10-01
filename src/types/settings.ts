@@ -1,3 +1,5 @@
+import type { SelectedModel } from "./chat";
+
 export type AppLanguage = "en" | "es";
 export type AppTheme = "dark" | "light";
 
@@ -32,7 +34,53 @@ export const MAX_WORKER_CORES_AUTO = 0;
 export const DEFAULT_MAX_WORKER_CORES = MAX_WORKER_CORES_AUTO;
 export const MAX_WORKER_CORES_CAP = 256;
 
+export const DEFAULT_REMINDER_INTERVAL = 8;
+export const MIN_REMINDER_INTERVAL = 1;
+export const MAX_REMINDER_INTERVAL = 500;
+
+export const REMINDER_INTERVAL_OPTIONS = [4, 6, 8, 10, 12, 16, 20, 30, 50] as const;
+
+export const DEFAULT_CONTEXT_SUMMARIZE_PERCENT = 80;
+export const CONTEXT_SUMMARIZE_OPTIONS = [60, 70, 80, 90] as const;
+
+export const DEFAULT_FORCE_RESPONSE_LANGUAGE = false;
+export const DEFAULT_RESPONSE_LANGUAGE: AppLanguage = DEFAULT_LANGUAGE;
+
+export const COMMAND_LIST_MAX_ITEMS = 200;
+export const COMMAND_LIST_MAX_LENGTH = 200;
+
+export const DEFAULT_BLOCKED_COMMANDS: string[] = [];
+export const DEFAULT_ALLOWED_COMMANDS: string[] = [];
+export const DEFAULT_SHELL_PROGRAM = "";
+export const SHELL_PROGRAM_MAX_LENGTH = 512;
+
+export const DEFAULT_NOTIFICATIONS_ENABLED = true;
+export const DEFAULT_WORKSPACE_MEMORY_ENABLED = false;
+export const DEFAULT_LIMIT_PROVIDER_DATA_USE = false;
+
+export const DEFAULT_TITLE_GENERATION_MODEL: SelectedModel | null = null;
+export const DEFAULT_TITLE_USE_FIRST_MESSAGE = false;
+export const DEFAULT_APP_GENERATION_MODEL: SelectedModel | null = null;
+export const DEFAULT_TASK_MODEL: SelectedModel | null = null;
+export const DEFAULT_READ_BEFORE_EDIT = true;
+
+export type ToolPermission = "allow" | "ask" | "deny";
+
+export const DEFAULT_LSP_ENABLED = false;
+
+export const DEFAULT_HTTP_FETCH_ENABLED = false;
+
 export const DEFAULT_SESSION_SIDEBAR_OPEN = true;
+
+export const DEFAULT_BUILD_AGENT_ENABLED = true;
+export const DEFAULT_PLAN_AGENT_ENABLED = true;
+export const DEFAULT_AGENT = "builtin:build";
+
+export const CHAT_BACKGROUND_FILENAME_PATTERN = /^chat-background\.(png|jpg|jpeg|webp)$/;
+
+export const DEFAULT_LAST_WORKSPACE_PATH: string | null = null;
+export const DEFAULT_CHAT_BACKGROUND_IMAGE: string | null = null;
+export const DEFAULT_CHAT_BACKGROUND_OPACITY = 0.5;
 
 export const hardwareThreadCount = (): number => {
   if (typeof navigator === "undefined") return 8;
@@ -54,7 +102,16 @@ export const DEFAULT_WINDOW_BOUNDS: WindowBounds = {
 };
 
 export type KeybindingAction =
-  "settings.open" | "settings.close" | "sidebar.toggle" | "chat.clear" | "editor.save";
+  | "settings.open"
+  | "settings.close"
+  | "sidebar.toggle"
+  | "chat.clear"
+  | "chat.modeToggle"
+  | "chat.agentCycle"
+  | "search.focus"
+  | "editor.save"
+  | "editor.undo"
+  | "editor.redo";
 
 export type Keybindings = Record<KeybindingAction, string>;
 
@@ -63,7 +120,12 @@ export const DEFAULT_KEYBINDINGS: Keybindings = {
   "settings.close": "Escape",
   "sidebar.toggle": "Ctrl+B",
   "chat.clear": "Alt+C",
+  "chat.modeToggle": "Shift+!",
+  "chat.agentCycle": "Tab",
+  "search.focus": "Ctrl+F",
   "editor.save": "Ctrl+S",
+  "editor.undo": "Ctrl+Z",
+  "editor.redo": "Ctrl+Shift+Z",
 };
 
 export type Settings = {
@@ -77,8 +139,32 @@ export type Settings = {
   textScale: TextScale;
   fontFamily: AppFontFamily;
   maxWorkerCores: number;
+  reminderInterval: number;
+  contextSummarizePercent: number;
+  forceResponseLanguage: boolean;
+  responseLanguage: AppLanguage;
+  blockedCommands: string[];
+  allowedCommands: string[];
+  shellProgram: string;
+  notificationsEnabled: boolean;
+  workspaceMemoryEnabled: boolean;
+  limitProviderDataUse: boolean;
+  titleGenerationModel: SelectedModel | null;
+  titleUseFirstMessage: boolean;
+  appGenerationModel: SelectedModel | null;
+  taskModel: SelectedModel | null;
+  readBeforeEdit: boolean;
+  toolPermissions: Record<string, ToolPermission>;
+  lspEnabled: boolean;
+  httpFetchEnabled: boolean;
   keybindings: Keybindings;
   sessionSidebarOpen: boolean;
+  buildAgentEnabled: boolean;
+  planAgentEnabled: boolean;
+  defaultAgent: string;
+  chatBackgroundImage: string | null;
+  chatBackgroundOpacity: number;
+  lastWorkspacePath: string | null;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -92,6 +178,30 @@ export const DEFAULT_SETTINGS: Settings = {
   textScale: DEFAULT_TEXT_SCALE,
   fontFamily: DEFAULT_FONT_FAMILY,
   maxWorkerCores: DEFAULT_MAX_WORKER_CORES,
+  reminderInterval: DEFAULT_REMINDER_INTERVAL,
+  contextSummarizePercent: DEFAULT_CONTEXT_SUMMARIZE_PERCENT,
+  forceResponseLanguage: DEFAULT_FORCE_RESPONSE_LANGUAGE,
+  responseLanguage: DEFAULT_RESPONSE_LANGUAGE,
+  blockedCommands: DEFAULT_BLOCKED_COMMANDS,
+  allowedCommands: DEFAULT_ALLOWED_COMMANDS,
+  shellProgram: DEFAULT_SHELL_PROGRAM,
+  notificationsEnabled: DEFAULT_NOTIFICATIONS_ENABLED,
+  workspaceMemoryEnabled: DEFAULT_WORKSPACE_MEMORY_ENABLED,
+  limitProviderDataUse: DEFAULT_LIMIT_PROVIDER_DATA_USE,
+  titleGenerationModel: DEFAULT_TITLE_GENERATION_MODEL,
+  titleUseFirstMessage: DEFAULT_TITLE_USE_FIRST_MESSAGE,
+  appGenerationModel: DEFAULT_APP_GENERATION_MODEL,
+  taskModel: DEFAULT_TASK_MODEL,
+  readBeforeEdit: DEFAULT_READ_BEFORE_EDIT,
+  toolPermissions: {},
+  lspEnabled: DEFAULT_LSP_ENABLED,
+  httpFetchEnabled: DEFAULT_HTTP_FETCH_ENABLED,
   keybindings: DEFAULT_KEYBINDINGS,
   sessionSidebarOpen: DEFAULT_SESSION_SIDEBAR_OPEN,
+  buildAgentEnabled: DEFAULT_BUILD_AGENT_ENABLED,
+  planAgentEnabled: DEFAULT_PLAN_AGENT_ENABLED,
+  defaultAgent: DEFAULT_AGENT,
+  chatBackgroundImage: DEFAULT_CHAT_BACKGROUND_IMAGE,
+  chatBackgroundOpacity: DEFAULT_CHAT_BACKGROUND_OPACITY,
+  lastWorkspacePath: DEFAULT_LAST_WORKSPACE_PATH,
 };

@@ -203,7 +203,9 @@ fn derive_aes_key(master: &[u8; MASTER_LEN]) -> [u8; MASTER_LEN] {
 }
 
 fn unseal(cipher: &Aes256Gcm, payload: &str) -> Result<String, SecretError> {
-    let packed = BASE64.decode(payload.trim()).map_err(|_| SecretError::Decrypt)?;
+    let packed = BASE64
+        .decode(payload.trim())
+        .map_err(|_| SecretError::Decrypt)?;
     if packed.len() < NONCE_LEN + 16 {
         return Err(SecretError::Decrypt);
     }

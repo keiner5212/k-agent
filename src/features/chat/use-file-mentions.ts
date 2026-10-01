@@ -1,0 +1,240 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  applyMentionSelection,
+  buildMentionPathSet,
+  mentionListingContext,
+  mentionSearchQuery,
+  mergeMentionEntries,
+  parseActiveMention,
+  type ActiveMention,
+} from "@/lib/file-mentions";
+import {
+  useWorkspaceFilesStore,
+  hasDirInCache,
+  workspaceFilesLoading,
+  type CachedDir,
+  type WorkspaceFilesStore,
+} from "@/lib/workspace-files";
+import type { WorkspaceEntry } from "@/types/workspace-files";
+
+type UseFileMentionsArgs = {
+  value: string;
+  cursor: number;
+  enabled?: boolean;
+  onApply: (next: string, cursor: number) => void;
+};
+
+type UseFileMentionsResult = {
+  menuOpen: boolean;
+  items: WorkspaceEntry[];
+  tooMany: boolean;
+  activeIndex: number;
+  activeMention: ActiveMention | null;
+  mentionPaths: Set<string>;
+  loading: boolean;
+  error?: string;
+  handleKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => boolean;
+  pickItem: (entry: WorkspaceEntry) => void;
+  resetMenu: () => void;
+};
+
+type MentionSelection = {
+  key: string;
+  index: number;
+};
+
+const scheduleIdle = (run: () => void): (() => void) => {
+  if (typeof requestIdleCallback === "function") {
+    const id = requestIdleCallback(run);
+    return () => cancelIdleCallback(id);
+  }
+  const id = window.setTimeout(run, 0);
+  return () => window.clearTimeout(id);
+};
+
+const nameHas = (path: string, needle: string): boolean => {
+  const slash = path.lastIndexOf("/");
+  const name = (slash === -1 ? path : path.slice(slash + 1)).toLowerCase();
+  return name.includes(needle);
+};
+
+const hitsForQuery = (
+  query: string,
+  mentionQuery: string,
+  mentionHits: readonly WorkspaceEntry[],
+): WorkspaceEntry[] => {
+  if (mentionHits.length === 0) return [];
+  if (mentionQuery === query) return [...mentionHits];
+  const folded = query.toLowerCase();
+  const slash = folded.lastIndexOf("/");
+  const dir = slash === -1 ? "" : folded.slice(0, slash);
+  const needle = slash === -1 ? folded : folded.slice(slash + 1);
+  return mentionHits.filter((entry) => {
+    const path = entry.path.toLowerCase();
+    if (dir && path !== dir && !path.startsWith(`${dir}/`)) return false;
+    if (!needle) return true;
+    return nameHas(path, needle);
+  });
+};
+
+const collectWorkspaceEntries = (dirs: Record<string, CachedDir>): WorkspaceEntry[] => {
+  const entries: WorkspaceEntry[] = [];
+  for (const key of Object.keys(dirs)) {
+    const cached = dirs[key];
+    if (cached) entries.push(...cached.entries);
+  }
+  return entries;
+};
+
+export const useFileMentions = ({
+  value,
+  cursor,
+  enabled = true,
+  onApply,
+}: UseFileMentionsArgs): UseFileMentionsResult => {
+  const dirs = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.dirs);
+  const error = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.error);
+  const ensureRootLoaded = useWorkspaceFilesStore(
+    (state: WorkspaceFilesStore) => state.ensureRootLoaded,
+  );
+  const ensureMentionScope = useWorkspaceFilesStore(
+    (state: WorkspaceFilesStore) => state.ensureMentionScope,
+  );
+  const searchMention = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.searchMention);
+  const mentionQuery = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.mentionQuery);
+  const mentionHits = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.mentionHits);
+  const prefetchDir = useWorkspaceFilesStore((state: WorkspaceFilesStore) => state.prefetchDir);
+  const [selection, setSelection] = useState<MentionSelection>({ key: "", index: 0 });
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+
+  const activeMention = useMemo(() => parseActiveMention(value, cursor), [value, cursor]);
+  const mentionKey = activeMention ? `${activeMention.start}:${activeMention.query}` : "";
+  const menuOpen = enabled && mentionKey.length > 0 && dismissedKey !== mentionKey;
+  const listing = useMemo(
+    () => mentionListingContext(activeMention?.query ?? "", (path) => hasDirInCache(dirs, path)),
+    [activeMention?.query, dirs],
+  );
+  const loading = useWorkspaceFilesStore((state: WorkspaceFilesStore): boolean =>
+    workspaceFilesLoading(state, listing.parentDir),
+  );
+  const activeIndex = selection.key === mentionKey ? selection.index : 0;
+
+  const searchQuery = mentionSearchQuery(activeMention?.query ?? "");
+  const filterResult = useMemo(() => {
+    const current = dirs[listing.parentDir]?.entries ?? [];
+    const scoped =
+      listing.prefix.length > 0 && !searchQuery?.includes("/")
+        ? collectWorkspaceEntries(dirs)
+        : current;
+    const hits = searchQuery ? hitsForQuery(searchQuery, mentionQuery, mentionHits) : [];
+    return mergeMentionEntries(scoped, listing.prefix, hits);
+  }, [dirs, listing.parentDir, listing.prefix, mentionHits, mentionQuery, searchQuery]);
+  const items = filterResult.items;
+  const tooMany = filterResult.tooMany;
+
+  const mentionPaths = useMemo(() => {
+    if (!value.includes("@")) return new Set<string>();
+    return buildMentionPathSet(collectWorkspaceEntries(dirs));
+  }, [dirs, value]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    void ensureRootLoaded();
+  }, [enabled, ensureRootLoaded]);
+
+  useEffect(() => {
+    if (!enabled || !activeMention) return;
+    void ensureMentionScope(activeMention.query);
+  }, [activeMention, enabled, ensureMentionScope]);
+
+  useEffect(() => {
+    if (!enabled || !searchQuery) return;
+    const timer = window.setTimeout(() => {
+      void searchMention(searchQuery);
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [enabled, searchMention, searchQuery]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const entry = items[activeIndex];
+    if (!entry || entry.kind !== "dir") return;
+    return scheduleIdle(() => prefetchDir(entry.path));
+  }, [activeIndex, items, menuOpen, prefetchDir]);
+
+  const setActiveIndex = useCallback(
+    (next: number | ((prev: number) => number)) => {
+      setSelection((prev) => {
+        const base = prev.key === mentionKey ? prev.index : 0;
+        const index = typeof next === "function" ? next(base) : next;
+        return { key: mentionKey, index };
+      });
+    },
+    [mentionKey],
+  );
+
+  const pickItem = useCallback(
+    (entry: WorkspaceEntry) => {
+      if (!activeMention) return;
+      const { next, cursor: nextCursor } = applyMentionSelection(value, activeMention, entry);
+      const slash = entry.path.lastIndexOf("/");
+      if (slash !== -1) prefetchDir(entry.path.slice(0, slash));
+      onApply(next, nextCursor);
+      setSelection({ key: "", index: 0 });
+      setDismissedKey(null);
+    },
+    [activeMention, onApply, prefetchDir, value],
+  );
+
+  const resetMenu = useCallback(() => {
+    setDismissedKey(mentionKey);
+    setSelection({ key: mentionKey, index: 0 });
+  }, [mentionKey]);
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLTextAreaElement>): boolean => {
+      if (!enabled || !menuOpen || tooMany) return false;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        if (items.length === 0) return true;
+        setActiveIndex((prev) => (prev + 1) % items.length);
+        return true;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        if (items.length === 0) return true;
+        setActiveIndex((prev) => (prev - 1 + items.length) % items.length);
+        return true;
+      }
+      if (event.key === "Enter" && !event.shiftKey) {
+        if (items.length === 0) return false;
+        event.preventDefault();
+        const entry = items[activeIndex];
+        if (entry) pickItem(entry);
+        return true;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        resetMenu();
+        return true;
+      }
+      return false;
+    },
+    [activeIndex, enabled, items, menuOpen, pickItem, resetMenu, setActiveIndex, tooMany],
+  );
+
+  return {
+    menuOpen,
+    items,
+    tooMany,
+    activeIndex,
+    activeMention,
+    mentionPaths,
+    loading:
+      loading || (Boolean(searchQuery) && mentionQuery !== searchQuery && items.length === 0),
+    error,
+    handleKeyDown,
+    pickItem,
+    resetMenu,
+  };
+};

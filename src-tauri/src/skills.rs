@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 use thiserror::Error;
 
+use crate::pathutil;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum SkillContextKind {
@@ -75,7 +77,7 @@ pub struct SkillPathOnlyInput {
     pub path: String,
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error)]
 pub enum SkillError {
     #[error("invalid path: {0}")]
     InvalidPath(String),
@@ -87,6 +89,12 @@ pub enum SkillError {
     NotFound(String),
     #[error("forbidden: path escapes skills root")]
     Forbidden,
+}
+
+impl Serialize for SkillError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        crate::serialize_error(self, serializer)
+    }
 }
 
 fn expand_path(input: &str) -> Option<PathBuf> {
@@ -114,7 +122,7 @@ fn absolute_root(expanded: PathBuf) -> Result<PathBuf, SkillError> {
 }
 
 pub(crate) fn global_skills_root(home: &Path) -> PathBuf {
-    home.join(crate::APP_CONFIG_DIR).join("skills")
+    crate::paths::config_root(home).join("skills")
 }
 
 pub(crate) fn local_skills_root(workspace: &Path) -> PathBuf {
@@ -220,7 +228,7 @@ fn resolve_root_path(raw: &str) -> Result<PathBuf, SkillError> {
 }
 
 fn canonicalize_safe(p: &Path) -> Result<PathBuf, SkillError> {
-    fs::canonicalize(p).map_err(|error| SkillError::Io(error.to_string()))
+    pathutil::canonicalize_path(p).map_err(|error| SkillError::Io(error.to_string()))
 }
 
 fn ensure_inside(child: &Path, root: &Path) -> Result<(), SkillError> {
@@ -445,6 +453,47 @@ fn collect_skill_contexts(app: &AppHandle) -> Result<Vec<SkillContext>, SkillErr
     Ok(contexts)
 }
 
+pub(crate) struct LoadedSkill {
+    pub path: String,
+    pub body: String,
+}
+
+fn skill_markdown_body(raw: &str) -> String {
+    let trimmed = raw.trim_start_matches('\u{feff}');
+    if !trimmed.starts_with("---") {
+        return raw.to_string();
+    }
+    let after_first = trimmed.trim_start_matches('-').trim_start_matches('\n');
+    let Some(end) = after_first.find("\n---") else {
+        return raw.to_string();
+    };
+    after_first[end + 4..].trim_start_matches('\n').to_string()
+}
+
+pub(crate) fn find_skill_by_name(
+    app: &AppHandle,
+    query: &str,
+) -> Result<Option<LoadedSkill>, SkillError> {
+    let needle = query.trim().to_ascii_lowercase();
+    if needle.is_empty() {
+        return Ok(None);
+    }
+    for context in collect_skill_contexts(app)? {
+        for skill in context.skills {
+            if skill.name.to_ascii_lowercase() != needle && skill.id.to_ascii_lowercase() != needle
+            {
+                continue;
+            }
+            let raw = read_skill_raw(Path::new(&skill.path))?;
+            return Ok(Some(LoadedSkill {
+                path: skill.path,
+                body: skill_markdown_body(&raw),
+            }));
+        }
+    }
+    Ok(None)
+}
+
 #[tauri::command]
 pub async fn read_skill_meta(input: SkillPathInput) -> Result<SkillMeta, SkillError> {
     let root = resolve_root_path(&input.root_path)?;
@@ -591,5 +640,5 @@ fn skill_context_kind(app: &AppHandle, root: &Path) -> Option<crate::agents::Age
     {
         return Some(crate::agents::AgentContextKind::Global);
     }
-    Some(crate::agents::AgentContextKind::Local)
+    None
 }

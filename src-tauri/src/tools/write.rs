@@ -1,0 +1,169 @@
+use std::fs;
+use std::path::PathBuf;
+
+use serde_json::{json, Value};
+
+use super::{
+    line_add_remove, toon_doc, FileSnapshot, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec,
+    ToonValue, TOOL_KIND_ACTION,
+};
+
+pub const NAME: &str = "write";
+
+const DESCRIPTION: &str = "Create a new file or replace an entire file. Path is absolute or workspace-relative. To change part of an existing file, use edit. Paths outside the workspace wait for the user to allow or deny. Parent dirs are created.";
+
+pub struct WriteTool;
+
+impl Tool for WriteTool {
+    fn spec(&self) -> ToolSpec {
+        ToolSpec {
+            name: NAME,
+            description: DESCRIPTION,
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "description": "File contents"
+                    },
+                    "filePath": {
+                        "type": "string",
+                        "description": "Absolute or workspace-relative path"
+                    }
+                },
+                "required": ["content", "filePath"]
+            }),
+        }
+    }
+
+    fn execute(&self, args: &Value, ctx: &ToolContext<'_>) -> ToolOutcome {
+        let Some(content) = args.get("content").and_then(Value::as_str) else {
+            return super::action_error("", "write tool requires a string `content`.");
+        };
+        let Some(raw_path) = args.get("filePath").and_then(Value::as_str) else {
+            return super::action_error("", "write tool requires a string `filePath`.");
+        };
+        let trimmed_path = raw_path.trim();
+        if trimmed_path.is_empty() {
+            return super::action_error("", "write tool `filePath` is empty.");
+        }
+        let resolved = match resolve_path(ctx, trimmed_path) {
+            Ok(value) => value,
+            Err(message) => return super::action_error(trimmed_path, &message),
+        };
+        if super::tool_utils::workspace::reject_if_unconfirmed(
+            &resolved,
+            ctx.workspace_path().as_deref(),
+        ) {
+            return super::action_error(
+                trimmed_path,
+                "write outside the workspace must run on the async dispatch path.",
+            );
+        }
+        let rel = ctx.relative_path(&resolved);
+        if let Some(parent) = resolved.parent() {
+            if !parent.as_os_str().is_empty() {
+                if let Err(error) = fs::create_dir_all(parent) {
+                    return super::action_error(
+                        &rel,
+                        &format!(
+                            "Unable to create parent directory `{}`: {error}",
+                            parent.display()
+                        ),
+                    );
+                }
+            }
+        }
+        let before = fs::read_to_string(&resolved).unwrap_or_default();
+        match fs::write(&resolved, content) {
+            Ok(()) => {
+                let (added, removed) = line_add_remove(&before, content);
+                ToolOutcome {
+                    text: toon_doc(&[
+                        ("path", ToonValue::Str(&rel)),
+                        ("status", ToonValue::Str("ok")),
+                    ]),
+                    display: ToolDisplay {
+                        kind: TOOL_KIND_ACTION.to_string(),
+                        path: Some(rel),
+                        added: Some(added),
+                        removed: Some(removed),
+                        status: Some("ok".into()),
+                        ..ToolDisplay::default()
+                    },
+                    snapshot: Some(FileSnapshot {
+                        before,
+                        after: content.to_string(),
+                    }),
+                    image_png: None,
+                    file: None,
+                }
+            }
+            Err(error) => super::action_error(
+                &rel,
+                &format!("Unable to write `{}`: {error}", resolved.display()),
+            ),
+        }
+    }
+}
+
+pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
+    let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
+    let raw = args
+        .get("filePath")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim();
+    let mut outcome = super::tool_utils::workspace::guard(ctx, raw, "Write", true, || {
+        WriteTool.execute(&args, ctx)
+    })
+    .await;
+    if outcome.display.status.as_deref() == Some("ok") {
+        if let Ok(path) = resolve_path(ctx, raw) {
+            super::attach_lsp_diagnostics(ctx, &mut outcome, &[path]).await;
+        }
+    }
+    outcome
+}
+
+fn resolve_path(ctx: &ToolContext<'_>, raw: &str) -> Result<PathBuf, String> {
+    crate::pathutil::resolve_tool_path(raw, ctx.workspace_path().as_deref())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn tempdir() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "k-agent-write-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn writes_file_in_workspace() {
+        let dir = tempdir();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = WriteTool.execute(&json!({"filePath": "hello.txt", "content": "hi"}), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("ok"));
+        assert_eq!(fs::read_to_string(dir.join("hello.txt")).unwrap(), "hi");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_missing_path() {
+        let dir = tempdir();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
+        let outcome = WriteTool.execute(&json!({"content": "hi"}), &ctx);
+        assert_eq!(outcome.display.status.as_deref(), Some("error"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+}

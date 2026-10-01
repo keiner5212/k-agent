@@ -74,19 +74,25 @@ const AgentsMdEditorBody = ({ file, onCancel, onSave }: AgentsMdEditorBodyProps)
     };
   }, [content]);
 
-  const handleSave = useCallback(async (): Promise<void> => {
-    if (submitting) return;
-    if (file.exists && content === original) return;
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (submitting) return false;
+    if (file.exists && content === original) return true;
     setSubmitting(true);
     setError(null);
     const saveError = await onSave(content);
     setSubmitting(false);
     if (saveError) {
       setError(saveError);
-      return;
+      return false;
     }
     setOriginal(content);
+    return true;
   }, [submitting, file.exists, content, original, onSave]);
+
+  const handleDone = async (): Promise<void> => {
+    const saved = await handleSave();
+    if (saved) onCancel();
+  };
 
   const handleRevert = (): void => {
     setContent(original);
@@ -104,15 +110,17 @@ const AgentsMdEditorBody = ({ file, onCancel, onSave }: AgentsMdEditorBodyProps)
 
   return (
     <div className="skill-editor">
-      <div className="skill-editor__path" title={file.path}>
-        {file.path}
+      <div className="skill-editor__head">
+        <div className="skill-editor__path" title={file.path}>
+          {file.path}
+        </div>
       </div>
       {error ? (
         <div className="form-error" role="alert">
           {error}
         </div>
       ) : null}
-      <LineEditor value={content} onChange={setContent} />
+      <LineEditor value={content} onChange={setContent} language="markdown" />
       <div className="skill-editor__meta">
         <span className="agent-form__count">
           {t("agentsMd.tokens", { value: formatContextWindow(tokens) })}
@@ -122,11 +130,11 @@ const AgentsMdEditorBody = ({ file, onCancel, onSave }: AgentsMdEditorBodyProps)
         </span>
       </div>
       <div className="form-actions">
-        <GlassButton variant="ghost" onClick={handleRevert} disabled={submitting || !dirty}>
+        <GlassButton variant="secondary" onClick={handleRevert} disabled={submitting || !dirty}>
           {t("agentsMd.editor.revert")}
         </GlassButton>
         <GlassButton
-          variant="ghost"
+          variant="secondary"
           onClick={() => void handleSave()}
           disabled={submitting || (file.exists && !dirty)}
         >
@@ -139,7 +147,7 @@ const AgentsMdEditorBody = ({ file, onCancel, onSave }: AgentsMdEditorBodyProps)
             <span>{t("agentsMd.editor.save")}</span>
           )}
         </GlassButton>
-        <GlassButton variant="primary" onClick={onCancel} disabled={submitting}>
+        <GlassButton variant="primary" onClick={() => void handleDone()} disabled={submitting}>
           {t("agentsMd.editor.done")}
         </GlassButton>
       </div>

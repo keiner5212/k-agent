@@ -1,15 +1,26 @@
-import { useEffect, useState, type ReactNode } from "react";
+import type { TFunction } from "i18next";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import { GlassButton } from "@/components/GlassButton";
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "@/lib/platform";
 import { highlightMatch } from "@/lib/highlight";
+import { useAgentsStore } from "@/lib/agents";
+import { resolveAgentMeta } from "@/lib/builtin-agents";
+import { listComposerAgentKeys } from "@/lib/composer-agents";
+import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { useSettingsStore } from "@/lib/settings";
+import { AGENT_TOOL_IDS } from "@/types/agents";
+import type { ToolPermission } from "@/types/settings";
+import { useProvidersStore } from "@/lib/providers";
 import { listSystemFonts } from "@/lib/system-fonts";
 import {
   FONT_FAMILY_OPTIONS,
+  CONTEXT_SUMMARIZE_OPTIONS,
+  REMINDER_INTERVAL_OPTIONS,
   SUPPORTED_LANGUAGES,
   hardwareThreadCount,
   type AppFontFamily,
@@ -18,16 +29,169 @@ import {
   type KeybindingAction,
   type TextScale,
 } from "@/types/settings";
+import type { SelectedModel } from "@/types/chat";
+import type { Provider } from "@/types/providers";
 import type { SettingItem as SettingItemDef } from "./registry";
 import { KeybindingField } from "./KeybindingField";
+import { ListEditor } from "./ListEditor";
+
+type ChatBackgroundUpdate = {
+  filename: string;
+  url: string;
+};
 
 type SettingItemProps = {
   item: SettingItemDef;
   query: string;
 };
 
+const ChatBackgroundPicker = (): ReactNode => {
+  const { t } = useTranslation();
+  const chatBackgroundImage = useSettingsStore((state) => state.chatBackgroundImage);
+  const chatBackgroundUrl = useSettingsStore((state) => state.chatBackgroundUrl);
+  const chatBackgroundLoading = useSettingsStore((state) => state.chatBackgroundLoading);
+  const setChatBackgroundImage = useSettingsStore((state) => state.setChatBackgroundImage);
+  const [picking, setPicking] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageStatus, setImageStatus] = useState<string | null>(null);
+
+  const handlePick = async (): Promise<void> => {
+    if (picking || !isTauri()) return;
+    setPicking(true);
+    setImageError(null);
+    try {
+      const picked = await openDialog({
+        directory: false,
+        multiple: false,
+        title: t("settings.chatBackgroundImage.pick"),
+        filters: [
+          {
+            name: t("settings.chatBackgroundImage.filter"),
+            extensions: ["png", "jpg", "jpeg", "webp"],
+          },
+        ],
+      });
+      if (typeof picked !== "string") {
+        setPicking(false);
+        return;
+      }
+      const update = await invoke<ChatBackgroundUpdate>("set_chat_background_image", {
+        sourcePath: picked,
+      });
+      setChatBackgroundImage(update.filename, update.url);
+      setImageStatus(t("settings.chatBackgroundImage.status.updated"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setImageError(message);
+      setImageStatus(t("settings.chatBackgroundImage.status.error", { reason: message }));
+    } finally {
+      setPicking(false);
+    }
+  };
+
+  const handleClear = async (): Promise<void> => {
+    if (!isTauri()) return;
+    setImageError(null);
+    try {
+      await invoke("clear_chat_background_image");
+      setChatBackgroundImage(null, null);
+      setImageStatus(t("settings.chatBackgroundImage.status.removed"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setImageError(message);
+      setImageStatus(t("settings.chatBackgroundImage.status.error", { reason: message }));
+    }
+  };
+
+  return (
+    <div className="appearance-image-picker">
+      <GlassButton
+        variant="primary"
+        onClick={() => void handlePick()}
+        disabled={!isTauri() || picking || chatBackgroundLoading}
+        aria-label={t("settings.chatBackgroundImage.pick")}
+      >
+        {t("settings.chatBackgroundImage.pick")}
+      </GlassButton>
+      {chatBackgroundUrl ? (
+        <span className="appearance-image-picker__preview">
+          <img className="appearance-image-picker__thumb" src={chatBackgroundUrl} alt="" />
+        </span>
+      ) : (
+        <span className="appearance-image-picker__empty">
+          {t("settings.chatBackgroundImage.none")}
+        </span>
+      )}
+      {chatBackgroundImage ? (
+        <span className="appearance-image-picker__name" title={chatBackgroundImage}>
+          {chatBackgroundImage}
+        </span>
+      ) : null}
+      {chatBackgroundImage ? (
+        <GlassButton
+          variant="secondary"
+          onClick={() => void handleClear()}
+          aria-label={t("settings.chatBackgroundImage.clear")}
+        >
+          {t("settings.chatBackgroundImage.clear")}
+        </GlassButton>
+      ) : null}
+      {!isTauri() ? (
+        <p className="appearance-image-picker__error">
+          {t("settings.chatBackgroundImage.desktopOnly")}
+        </p>
+      ) : null}
+      {imageError ? (
+        <p className="appearance-image-picker__error" role="alert">
+          {imageError}
+        </p>
+      ) : null}
+      <span role="status" aria-live="polite" className="visually-hidden">
+        {imageStatus ?? ""}
+      </span>
+    </div>
+  );
+};
+
+const ChatBackgroundOpacitySlider = (): ReactNode => {
+  const { t } = useTranslation();
+  const chatBackgroundImage = useSettingsStore((state) => state.chatBackgroundImage);
+  const chatBackgroundOpacity = useSettingsStore((state) => state.chatBackgroundOpacity);
+  const setChatBackgroundOpacity = useSettingsStore((state) => state.setChatBackgroundOpacity);
+  const opacityPercent = Math.round(Math.min(1, Math.max(0, chatBackgroundOpacity)) * 100);
+
+  return (
+    <div className="appearance-slider" data-disabled={!chatBackgroundImage || undefined}>
+      <input
+        id="setting-chatBackgroundOpacity"
+        className="appearance-slider__input"
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={opacityPercent}
+        onChange={(event) => {
+          const clamped = Math.min(100, Math.max(0, Math.round(Number(event.target.value))));
+          setChatBackgroundOpacity(clamped / 100);
+        }}
+        aria-valuetext={`${opacityPercent} percent`}
+        disabled={!chatBackgroundImage}
+        style={{ "--value": `${opacityPercent}%` } as CSSProperties}
+      />
+      <span
+        className="appearance-slider__value"
+        data-disabled={!chatBackgroundImage || undefined}
+        aria-hidden="true"
+      >
+        {chatBackgroundImage ? `${opacityPercent}%` : t("settings.chatBackgroundOpacity.disabled")}
+      </span>
+    </div>
+  );
+};
+
 export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const { t } = useTranslation();
+  const [cacheState, setCacheState] = useState<"idle" | "running" | "done">("idle");
   const language = useSettingsStore((state) => state.language);
   const theme = useSettingsStore((state) => state.theme);
   const textScale = useSettingsStore((state) => state.textScale);
@@ -37,11 +201,57 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const minimizeToTray = useSettingsStore((state) => state.minimizeToTray);
   const rememberWindowSize = useSettingsStore((state) => state.rememberWindowSize);
   const maxWorkerCores = useSettingsStore((state) => state.maxWorkerCores);
+  const reminderInterval = useSettingsStore((state) => state.reminderInterval);
+  const contextSummarizePercent = useSettingsStore((state) => state.contextSummarizePercent);
+  const forceResponseLanguage = useSettingsStore((state) => state.forceResponseLanguage);
+  const responseLanguage = useSettingsStore((state) => state.responseLanguage);
+  const blockedCommands = useSettingsStore((state) => state.blockedCommands);
+  const allowedCommands = useSettingsStore((state) => state.allowedCommands);
+  const shellProgram = useSettingsStore((state) => state.shellProgram);
+  const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
+  const workspaceMemoryEnabled = useSettingsStore((state) => state.workspaceMemoryEnabled);
+  const limitProviderDataUse = useSettingsStore((state) => state.limitProviderDataUse);
+  const buildAgentEnabled = useSettingsStore((state) => state.buildAgentEnabled);
+  const planAgentEnabled = useSettingsStore((state) => state.planAgentEnabled);
+  const defaultAgent = useSettingsStore((state) => state.defaultAgent);
+  const agentContexts = useAgentsStore((state) => state.contexts);
+  const titleGenerationModel = useSettingsStore((state) => state.titleGenerationModel);
+  const titleUseFirstMessage = useSettingsStore((state) => state.titleUseFirstMessage);
+  const appGenerationModel = useSettingsStore((state) => state.appGenerationModel);
+  const taskModel = useSettingsStore((state) => state.taskModel);
+  const lspEnabled = useSettingsStore((state) => state.lspEnabled);
+  const httpFetchEnabled = useSettingsStore((state) => state.httpFetchEnabled);
+  const readBeforeEdit = useSettingsStore((state) => state.readBeforeEdit);
+  const toolPermissions = useSettingsStore((state) => state.toolPermissions);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const setTextScale = useSettingsStore((state) => state.setTextScale);
   const setFontFamily = useSettingsStore((state) => state.setFontFamily);
   const setMaxWorkerCores = useSettingsStore((state) => state.setMaxWorkerCores);
+  const setReminderInterval = useSettingsStore((state) => state.setReminderInterval);
+  const setContextSummarizePercent = useSettingsStore((state) => state.setContextSummarizePercent);
+  const setForceResponseLanguage = useSettingsStore((state) => state.setForceResponseLanguage);
+  const setResponseLanguage = useSettingsStore((state) => state.setResponseLanguage);
+  const setBlockedCommands = useSettingsStore((state) => state.setBlockedCommands);
+  const setAllowedCommands = useSettingsStore((state) => state.setAllowedCommands);
+  const setShellProgram = useSettingsStore((state) => state.setShellProgram);
+  const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
+  const setWorkspaceMemoryEnabled = useSettingsStore((state) => state.setWorkspaceMemoryEnabled);
+  const setLimitProviderDataUse = useSettingsStore((state) => state.setLimitProviderDataUse);
+  const setBuildAgentEnabled = useSettingsStore((state) => state.setBuildAgentEnabled);
+  const setPlanAgentEnabled = useSettingsStore((state) => state.setPlanAgentEnabled);
+  const setDefaultAgent = useSettingsStore((state) => state.setDefaultAgent);
+  const setTitleGenerationModel = useSettingsStore((state) => state.setTitleGenerationModel);
+  const setTitleUseFirstMessage = useSettingsStore((state) => state.setTitleUseFirstMessage);
+  const setAppGenerationModel = useSettingsStore((state) => state.setAppGenerationModel);
+  const setTaskModel = useSettingsStore((state) => state.setTaskModel);
+  const setLspEnabled = useSettingsStore((state) => state.setLspEnabled);
+  const setHttpFetchEnabled = useSettingsStore((state) => state.setHttpFetchEnabled);
+  const setReadBeforeEdit = useSettingsStore((state) => state.setReadBeforeEdit);
+  const setToolPermission = useSettingsStore((state) => state.setToolPermission);
+  const providers = useProvidersStore((state) => state.providers);
+  const providersLoading = useProvidersStore((state) => state.loading);
+  const loadProviders = useProvidersStore((state) => state.load);
   const setTranslucencyEnabled = useSettingsStore((state) => state.setTranslucencyEnabled);
   const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
   const setMinimizeToTray = useSettingsStore((state) => state.setMinimizeToTray);
@@ -58,6 +268,18 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
       cancelled = true;
     };
   }, [item.id]);
+
+  useEffect(() => {
+    if (item.id !== "defaultAgent") return;
+    void hydrateWorkspaceConfig();
+  }, [item.id]);
+
+  useEffect(() => {
+    if (item.type !== "modelChoice") return;
+    if (providers.length === 0 && !providersLoading) {
+      void loadProviders();
+    }
+  }, [item.type, providers.length, providersLoading, loadProviders]);
 
   const titleText = t(item.titleKey);
   const descriptionText = t(item.descriptionKey);
@@ -78,6 +300,10 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               textScale,
               fontFamily,
               maxWorkerCores,
+              reminderInterval,
+              contextSummarizePercent,
+              responseLanguage,
+              defaultAgent,
             })}
             onChange={(next) =>
               onSelectChange(item.id, next, {
@@ -86,10 +312,60 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setTextScale,
                 setFontFamily,
                 setMaxWorkerCores,
+                setReminderInterval,
+                setContextSummarizePercent,
+                setResponseLanguage,
+                setDefaultAgent,
               })
             }
-            options={selectOptions(item, t, { systemFonts, fontFamily })}
+            options={selectOptions(item, t, {
+              systemFonts,
+              fontFamily,
+              defaultAgent,
+              agentContexts,
+              buildAgentEnabled,
+              planAgentEnabled,
+            })}
           />
+        ) : null}
+
+        {item.type === "modelChoice" ? (
+          <Select
+            id={`setting-${item.id}`}
+            value={modelChoiceValue(item.id, {
+              titleGenerationModel,
+              appGenerationModel,
+              taskModel,
+            })}
+            onChange={(next) =>
+              onModelChoiceChange(item.id, next, {
+                setTitleGenerationModel,
+                setAppGenerationModel,
+                setTaskModel,
+              })
+            }
+            options={modelChoiceOptions(item, t, providers)}
+          />
+        ) : null}
+
+        {item.type === "toolPermissions" ? (
+          <div className="tool-permissions">
+            {AGENT_TOOL_IDS.map((tool) => (
+              <label key={tool} className="tool-permissions__row">
+                <span>{t(`agents.tools.${tool}.label`)}</span>
+                <Select
+                  id={`tool-permission-${tool}`}
+                  value={toolPermissions[tool] ?? "allow"}
+                  onChange={(next) => setToolPermission(tool, next as ToolPermission)}
+                  options={[
+                    { value: "allow", label: t("settings.toolPermissions.allow") },
+                    { value: "ask", label: t("settings.toolPermissions.ask") },
+                    { value: "deny", label: t("settings.toolPermissions.deny") },
+                  ]}
+                />
+              </label>
+            ))}
+          </div>
         ) : null}
 
         {item.type === "toggle" ? (
@@ -100,6 +376,16 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               animationsEnabled,
               minimizeToTray,
               rememberWindowSize,
+              forceResponseLanguage,
+              notificationsEnabled,
+              workspaceMemoryEnabled,
+              limitProviderDataUse,
+              buildAgentEnabled,
+              planAgentEnabled,
+              titleUseFirstMessage,
+              lspEnabled,
+              httpFetchEnabled,
+              readBeforeEdit,
             })}
             onChange={(next) =>
               onToggleChange(item.id, next, {
@@ -107,6 +393,16 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                 setAnimationsEnabled,
                 setMinimizeToTray,
                 setRememberWindowSize,
+                setForceResponseLanguage,
+                setNotificationsEnabled,
+                setWorkspaceMemoryEnabled,
+                setLimitProviderDataUse,
+                setBuildAgentEnabled,
+                setPlanAgentEnabled,
+                setTitleUseFirstMessage,
+                setLspEnabled,
+                setHttpFetchEnabled,
+                setReadBeforeEdit,
               })
             }
             label={titleText}
@@ -119,10 +415,70 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
         ) : null}
 
         {item.type === "action" ? (
-          <GlassButton variant="ghost" onClick={() => runSettingAction(item.id)}>
-            {t("settings.debug.devtools.action")}
+          <GlassButton
+            variant="secondary"
+            disabled={item.id === "clearAppCache" && cacheState === "running"}
+            onClick={() => {
+              if (item.id === "clearAppCache") {
+                if (!isTauri()) {
+                  console.warn("clear_app_cache skipped: not running in Tauri");
+                  return;
+                }
+                setCacheState("running");
+                void invoke("clear_app_cache")
+                  .then(() => setCacheState("done"))
+                  .catch((error: unknown) => {
+                    console.warn("clear_app_cache failed", error);
+                    setCacheState("idle");
+                  });
+                return;
+              }
+              runSettingAction(item.id);
+            }}
+          >
+            {item.id === "clearAppCache"
+              ? t(
+                  cacheState === "running"
+                    ? "settings.cache.running"
+                    : cacheState === "done"
+                      ? "settings.cache.done"
+                      : "settings.cache.action",
+                )
+              : t("settings.debug.devtools.action")}
           </GlassButton>
         ) : null}
+
+        {item.type === "list" ? (
+          <ListEditor
+            id={`setting-${item.id}`}
+            value={listValue(item.id, { blockedCommands, allowedCommands })}
+            onChange={(next) =>
+              onListChange(item.id, next, { setBlockedCommands, setAllowedCommands })
+            }
+            placeholder={t(`${listKeys(item.id)}.placeholder`)}
+            addLabel={t(`${listKeys(item.id)}.add`)}
+            emptyMessage={t(`${listKeys(item.id)}.empty`)}
+            removeLabel={t(`${listKeys(item.id)}.remove`)}
+          />
+        ) : null}
+
+        {item.type === "text" ? (
+          <input
+            id={`setting-${item.id}`}
+            className="input input--mono"
+            type="text"
+            value={item.id === "shellProgram" ? shellProgram : ""}
+            onChange={(event) => {
+              if (item.id === "shellProgram") setShellProgram(event.target.value);
+            }}
+            placeholder={t(`settings.${item.id}.placeholder`)}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        ) : null}
+
+        {item.type === "imagePicker" ? <ChatBackgroundPicker /> : null}
+        {item.type === "slider" ? <ChatBackgroundOpacitySlider /> : null}
       </div>
     </div>
   );
@@ -133,12 +489,34 @@ type ThemeState = { theme: AppTheme };
 type ScaleState = { textScale: TextScale };
 type FontState = { fontFamily: AppFontFamily };
 type CoresState = { maxWorkerCores: number };
+type ReminderState = { reminderInterval: number; contextSummarizePercent: number };
+type ResponseLangState = { responseLanguage: AppLanguage };
 
 const selectOptions = (
   item: SettingItemDef,
-  t: (key: string) => string,
-  extras: { systemFonts: string[]; fontFamily: string },
+  t: TFunction,
+  extras: {
+    systemFonts: string[];
+    fontFamily: string;
+    defaultAgent: string;
+    agentContexts: ReturnType<typeof useAgentsStore.getState>["contexts"];
+    buildAgentEnabled: boolean;
+    planAgentEnabled: boolean;
+  },
 ): { value: string; label: ReactNode }[] => {
+  if (item.id === "defaultAgent") {
+    const keys = listComposerAgentKeys(t, extras.agentContexts, {
+      build: extras.buildAgentEnabled,
+      plan: extras.planAgentEnabled,
+    });
+    const values = keys.includes(extras.defaultAgent) ? keys : [extras.defaultAgent, ...keys];
+    return values
+      .filter((value) => value.length > 0)
+      .map((value) => ({
+        value,
+        label: resolveAgentMeta(value, extras.agentContexts, t)?.name ?? value,
+      }));
+  }
   if (item.id === "maxWorkerCores") {
     const options = [{ value: "0", label: t("settings.maxWorkerCores.options.auto") }];
     const max = hardwareThreadCount();
@@ -146,6 +524,18 @@ const selectOptions = (
       options.push({ value: String(n), label: String(n) });
     }
     return options;
+  }
+  if (item.id === "reminderInterval") {
+    return REMINDER_INTERVAL_OPTIONS.map((value) => ({
+      value: String(value),
+      label: String(value),
+    }));
+  }
+  if (item.id === "contextSummarizePercent") {
+    return CONTEXT_SUMMARIZE_OPTIONS.map((value) => ({
+      value: String(value),
+      label: `${value}%`,
+    }));
   }
   if (item.id === "fontFamily") {
     return fontFamilyOptions(t, extras.systemFonts, extras.fontFamily);
@@ -187,6 +577,16 @@ type ToggleState = {
   animationsEnabled: boolean;
   minimizeToTray: boolean;
   rememberWindowSize: boolean;
+  forceResponseLanguage: boolean;
+  notificationsEnabled: boolean;
+  workspaceMemoryEnabled: boolean;
+  limitProviderDataUse: boolean;
+  buildAgentEnabled: boolean;
+  planAgentEnabled: boolean;
+  titleUseFirstMessage: boolean;
+  lspEnabled: boolean;
+  httpFetchEnabled: boolean;
+  readBeforeEdit: boolean;
 };
 
 const runSettingAction = (id: string): void => {
@@ -202,7 +602,13 @@ const runSettingAction = (id: string): void => {
 
 const selectValue = (
   id: string,
-  state: LangState & ThemeState & ScaleState & FontState & CoresState,
+  state: LangState &
+    ThemeState &
+    ScaleState &
+    FontState &
+    CoresState &
+    ReminderState &
+    ResponseLangState & { defaultAgent: string },
 ): string => {
   switch (id) {
     case "language":
@@ -215,6 +621,14 @@ const selectValue = (
       return state.fontFamily;
     case "maxWorkerCores":
       return String(state.maxWorkerCores);
+    case "reminderInterval":
+      return String(state.reminderInterval);
+    case "contextSummarizePercent":
+      return String(state.contextSummarizePercent);
+    case "responseLanguage":
+      return state.responseLanguage;
+    case "defaultAgent":
+      return state.defaultAgent;
     default:
       return "";
   }
@@ -229,6 +643,10 @@ const onSelectChange = (
     setTextScale: (s: TextScale) => void;
     setFontFamily: (f: AppFontFamily) => void;
     setMaxWorkerCores: (n: number) => void;
+    setReminderInterval: (n: number) => void;
+    setContextSummarizePercent: (n: number) => void;
+    setResponseLanguage: (l: AppLanguage) => void;
+    setDefaultAgent: (agent: string) => void;
   },
 ): void => {
   switch (id) {
@@ -249,6 +667,20 @@ const onSelectChange = (
     case "maxWorkerCores":
       setters.setMaxWorkerCores(Number(next));
       return;
+    case "reminderInterval":
+      setters.setReminderInterval(Number(next));
+      return;
+    case "contextSummarizePercent":
+      setters.setContextSummarizePercent(Number(next));
+      return;
+    case "responseLanguage":
+      if ((SUPPORTED_LANGUAGES as readonly string[]).includes(next)) {
+        setters.setResponseLanguage(next as AppLanguage);
+      }
+      return;
+    case "defaultAgent":
+      setters.setDefaultAgent(next);
+      return;
   }
 };
 
@@ -262,6 +694,26 @@ const toggleChecked = (id: string, state: ToggleState): boolean => {
       return state.minimizeToTray;
     case "rememberWindowSize":
       return state.rememberWindowSize;
+    case "forceResponseLanguage":
+      return state.forceResponseLanguage;
+    case "notificationsEnabled":
+      return state.notificationsEnabled;
+    case "workspaceMemoryEnabled":
+      return state.workspaceMemoryEnabled;
+    case "limitProviderDataUse":
+      return state.limitProviderDataUse;
+    case "buildAgentEnabled":
+      return state.buildAgentEnabled;
+    case "planAgentEnabled":
+      return state.planAgentEnabled;
+    case "titleUseFirstMessage":
+      return state.titleUseFirstMessage;
+    case "lspEnabled":
+      return state.lspEnabled;
+    case "httpFetchEnabled":
+      return state.httpFetchEnabled;
+    case "readBeforeEdit":
+      return state.readBeforeEdit;
     default:
       return false;
   }
@@ -275,6 +727,16 @@ const onToggleChange = (
     setAnimationsEnabled: (v: boolean) => void;
     setMinimizeToTray: (v: boolean) => void;
     setRememberWindowSize: (v: boolean) => void;
+    setForceResponseLanguage: (v: boolean) => void;
+    setNotificationsEnabled: (v: boolean) => void;
+    setWorkspaceMemoryEnabled: (v: boolean) => void;
+    setLimitProviderDataUse: (v: boolean) => void;
+    setBuildAgentEnabled: (v: boolean) => void;
+    setPlanAgentEnabled: (v: boolean) => void;
+    setTitleUseFirstMessage: (v: boolean) => void;
+    setLspEnabled: (v: boolean) => void;
+    setHttpFetchEnabled: (v: boolean) => void;
+    setReadBeforeEdit: (v: boolean) => void;
   },
 ): void => {
   switch (id) {
@@ -290,5 +752,143 @@ const onToggleChange = (
     case "rememberWindowSize":
       setters.setRememberWindowSize(next);
       return;
+    case "forceResponseLanguage":
+      setters.setForceResponseLanguage(next);
+      return;
+    case "notificationsEnabled":
+      setters.setNotificationsEnabled(next);
+      return;
+    case "workspaceMemoryEnabled":
+      setters.setWorkspaceMemoryEnabled(next);
+      return;
+    case "limitProviderDataUse":
+      setters.setLimitProviderDataUse(next);
+      return;
+    case "buildAgentEnabled":
+      setters.setBuildAgentEnabled(next);
+      return;
+    case "planAgentEnabled":
+      setters.setPlanAgentEnabled(next);
+      return;
+    case "titleUseFirstMessage":
+      setters.setTitleUseFirstMessage(next);
+      return;
+    case "lspEnabled":
+      setters.setLspEnabled(next);
+      return;
+    case "httpFetchEnabled":
+      setters.setHttpFetchEnabled(next);
+      return;
+    case "readBeforeEdit":
+      setters.setReadBeforeEdit(next);
+      return;
   }
+};
+
+type ListValueState = { blockedCommands: string[]; allowedCommands: string[] };
+
+const listValue = (id: string, state: ListValueState): string[] => {
+  switch (id) {
+    case "blockedCommands":
+      return state.blockedCommands;
+    case "allowedCommands":
+      return state.allowedCommands;
+    default:
+      return [];
+  }
+};
+
+const onListChange = (
+  id: string,
+  next: string[],
+  setters: { setBlockedCommands: (v: string[]) => void; setAllowedCommands: (v: string[]) => void },
+): void => {
+  switch (id) {
+    case "blockedCommands":
+      setters.setBlockedCommands(next);
+      return;
+    case "allowedCommands":
+      setters.setAllowedCommands(next);
+      return;
+  }
+};
+
+const listKeys = (id: string): string => `settings.${id}`;
+
+type ModelChoiceState = {
+  titleGenerationModel: SelectedModel | null;
+  appGenerationModel: SelectedModel | null;
+  taskModel: SelectedModel | null;
+};
+
+const encodeModel = (model: SelectedModel | null): string => {
+  if (!model) return "";
+  return `${model.providerId}::${model.modelId}`;
+};
+
+const decodeModel = (value: string): SelectedModel | null => {
+  if (value.length === 0) return null;
+  const idx = value.indexOf("::");
+  if (idx <= 0 || idx >= value.length - 2) return null;
+  const providerId = value.slice(0, idx);
+  const modelId = value.slice(idx + 2);
+  if (providerId.length === 0 || modelId.length === 0) return null;
+  return { providerId, modelId };
+};
+
+const modelChoiceValue = (id: string, state: ModelChoiceState): string => {
+  switch (id) {
+    case "titleGenerationModel":
+      return encodeModel(state.titleGenerationModel);
+    case "appGenerationModel":
+      return encodeModel(state.appGenerationModel);
+    case "taskModel":
+      return encodeModel(state.taskModel);
+    default:
+      return "";
+  }
+};
+
+const onModelChoiceChange = (
+  id: string,
+  next: string,
+  setters: {
+    setTitleGenerationModel: (m: SelectedModel | null) => void;
+    setAppGenerationModel: (m: SelectedModel | null) => void;
+    setTaskModel: (m: SelectedModel | null) => void;
+  },
+): void => {
+  const model = decodeModel(next);
+  switch (id) {
+    case "titleGenerationModel":
+      setters.setTitleGenerationModel(model);
+      return;
+    case "appGenerationModel":
+      setters.setAppGenerationModel(model);
+      return;
+    case "taskModel":
+      setters.setTaskModel(model);
+      return;
+  }
+};
+
+const modelChoiceOptions = (
+  item: SettingItemDef,
+  t: (key: string) => string,
+  providers: Provider[],
+): { value: string; label: ReactNode }[] => {
+  const emptyKey =
+    item.id === "taskModel"
+      ? "settings.taskModel.options.useParent"
+      : `${listKeys(item.id)}.options.useChatModel`;
+  const options: { value: string; label: ReactNode }[] = [{ value: "", label: t(emptyKey) }];
+  for (const provider of providers) {
+    for (const model of provider.models) {
+      options.push({
+        value: encodeModel({ providerId: provider.id, modelId: model.id }),
+        label: `${provider.name} / ${model.displayName ?? model.id}`,
+      });
+    }
+  }
+  return options;
 };

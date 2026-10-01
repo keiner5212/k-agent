@@ -1,0 +1,89 @@
+/* ========== LSP catalog ========== */
+
+.lsps-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-4);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lsps-panel__head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+}
+
+.lsps-panel__head .section__heading,
+.lsps-panel__head .section__description {
+  grid-column: 1;
+  margin: 0;
+}
+
+.lsps-panel__refresh {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+}
+
+.lsps-panel__empty {
+  margin: 0;
+  padding: var(--space-4) 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.lsp-table__name,
+.lsp-table__command,
+.lsp-table__error {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lsp-table__name {
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.lsp-table__command {
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.lsp-table__error {
+  margin-top: var(--space-1);
+  color: var(--danger);
+}
+
+.lsp-table__progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.lsp-table__progress-label {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.lsp-table__progress-track {
+  height: 4px;
+  border-radius: var(--radius-sm);
+  background-color: var(--border);
+  overflow: hidden;
+}
+
+.lsp-table__progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--accent);
+  transition: width var(--duration-fast) var(--ease-out);
+}

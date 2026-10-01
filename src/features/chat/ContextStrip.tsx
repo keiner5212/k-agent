@@ -3,27 +3,32 @@ import { useTranslation } from "react-i18next";
 import { Folder, GitBranch } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useSkillsStore } from "@/lib/skills";
+import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
+import { useWorkspaceFilesStore } from "@/lib/workspace-files";
 import { ChangeBar } from "./ChangeBar";
 import { useRepoInfo } from "./use-repo-info";
 
 const shortPath = (path: string): string => {
-  const home = path.includes("/home/") ? path.replace(/^\/home\/[^/]+/, "~") : path;
+  const posix = path.replace(/\\/g, "/");
+  const home = posix.includes("/home/") ? posix.replace(/^\/home\/[^/]+/, "~") : posix;
   const parts = home.split("/").filter(Boolean);
-  if (parts.length <= 3) return home;
+  if (parts.length <= 3) return path;
   return `…/${parts.slice(-2).join("/")}`;
 };
 
 export const ContextStrip = (): ReactNode => {
   const { t } = useTranslation();
-  const loadSkills = useSkillsStore((state) => state.load);
   const setWorkspacePath = useSkillsStore((state) => state.setWorkspacePath);
   const workspacePath = useSkillsStore((state) => state.workspacePath);
+  const invalidateWorkspaceFiles = useWorkspaceFilesStore((state) => state.invalidate);
+  const ensureRootLoaded = useWorkspaceFilesStore((state) => state.ensureRootLoaded);
 
   const repo = useRepoInfo(workspacePath);
 
   useEffect(() => {
-    void loadSkills();
-  }, [loadSkills]);
+    void hydrateWorkspaceConfig();
+    void ensureRootLoaded();
+  }, [ensureRootLoaded]);
 
   const handlePickWorkspace = (event: MouseEvent<HTMLButtonElement>): void => {
     event.preventDefault();
@@ -34,7 +39,9 @@ export const ContextStrip = (): ReactNode => {
         title: t("workspace.pickFolder"),
       });
       if (typeof picked !== "string") return;
+      invalidateWorkspaceFiles();
       await setWorkspacePath(picked);
+      await ensureRootLoaded();
     })();
   };
 

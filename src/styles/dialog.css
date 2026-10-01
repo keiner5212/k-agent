@@ -7,25 +7,48 @@
   bottom: 0;
   left: 0;
   z-index: 50;
+  display: grid;
+  place-items: center;
 }
 
 .dialog-overlay {
   position: absolute;
   inset: 0;
   background-color: rgba(0, 0, 0, 0.55);
-  animation: overlay-in var(--duration-enter) var(--ease-out);
+  opacity: 0;
+  transition: opacity 220ms var(--ease-out);
 }
 
-.dialog-surface {
-  position: absolute;
-  inset: 0;
+.dialog-root[data-state="open"] .dialog-overlay {
+  opacity: 1;
+}
+
+.dialog-slot {
+  position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
-  margin: auto;
   width: min(1040px, calc(100vw - var(--space-6)));
   height: min(92vh, calc(100vh - var(--titlebar-height) - var(--space-6)));
+  max-height: calc(100vh - var(--titlebar-height) - var(--space-6));
+  min-width: 0;
   min-height: 0;
+}
+
+.dialog-slot[data-size="narrow"] {
+  width: min(520px, calc(100vw - var(--space-6)));
+}
+
+.dialog-slot[data-size="wide"] {
+  width: min(1144px, calc(100vw - var(--space-6)));
+}
+
+.dialog-surface {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
   background-color: var(--surface);
   color: var(--text-primary);
   border: 1px solid var(--border-strong);
@@ -34,15 +57,23 @@
     var(--shadow-md),
     inset 0 1px 0 color-mix(in oklch, var(--text-primary) 6%, transparent);
   overflow: hidden;
-  animation: dialog-in var(--duration-enter) var(--ease-out);
+  transform-origin: center top;
+  opacity: 0;
+  transform: translateY(16px) scale(0.96);
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 280ms var(--ease-out);
 }
 
-.dialog-surface[data-size="narrow"] {
-  width: min(520px, calc(100vw - var(--space-6)));
+.dialog-root[data-state="open"] .dialog-surface {
+  opacity: 1;
+  transform: none;
 }
 
-.dialog-surface[data-size="wide"] {
-  width: min(1144px, calc(100vw - var(--space-6)));
+.dialog-root[data-state="closed"] .dialog-overlay,
+.dialog-root[data-state="closed"] .dialog-surface {
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
 }
 
 .dialog-panel {
@@ -58,12 +89,12 @@
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
 }
 
 .dialog-title {
-  font-size: var(--text-sm);
+  font-size: var(--text-content);
   font-weight: var(--weight-semibold);
   letter-spacing: 0.01em;
 }
@@ -71,11 +102,13 @@
 .dialog-body {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  padding: 0;
+  gap: var(--space-2);
+  padding: var(--space-4);
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+  font-size: var(--text-content);
+  color: var(--text-primary);
 }
 
 .dialog-footer {
@@ -83,41 +116,38 @@
   justify-content: flex-end;
   flex-shrink: 0;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border);
   overflow: hidden;
+  font-size: var(--text-content);
 }
 
 /* ========== Dialog placement: center ========== */
 
-.dialog-surface[data-placement="center"] {
-  inset: auto;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+.dialog-slot[data-placement="center"] {
   height: auto;
   max-height: calc(100vh - var(--titlebar-height) - var(--space-6));
-  animation: dialog-in-center var(--duration-enter) var(--ease-out);
 }
 
-.dialog-surface[data-placement="center"] .dialog-panel {
+.dialog-slot[data-placement="center"] .dialog-surface {
+  flex: 0 1 auto;
+  max-height: inherit;
+}
+
+.dialog-slot[data-placement="center"] .dialog-panel {
   max-height: inherit;
   min-height: 0;
 }
 
-.dialog-surface[data-placement="center"] .dialog-body {
+.dialog-slot[data-placement="center"] .dialog-body {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-@keyframes dialog-in-center {
-  from {
-    opacity: 0;
-    transform: translate(-50%, calc(-50% + 8px)) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%);
+@media (prefers-reduced-motion: reduce) {
+  .dialog-overlay,
+  .dialog-surface {
+    animation: none;
   }
 }
 
@@ -125,7 +155,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: 0;
 }
 
 .about-dialog__version {

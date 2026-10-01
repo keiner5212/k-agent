@@ -2,15 +2,40 @@ import { create } from "zustand";
 import { LazyStore } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  CHAT_BACKGROUND_FILENAME_PATTERN,
+  COMMAND_LIST_MAX_ITEMS,
+  COMMAND_LIST_MAX_LENGTH,
   DEFAULT_ANIMATIONS_ENABLED,
+  DEFAULT_CHAT_BACKGROUND_IMAGE,
+  DEFAULT_CHAT_BACKGROUND_OPACITY,
   DEFAULT_FONT_FAMILY,
+  DEFAULT_LAST_WORKSPACE_PATH,
+  DEFAULT_FORCE_RESPONSE_LANGUAGE,
+  DEFAULT_AGENT,
+  DEFAULT_BUILD_AGENT_ENABLED,
+  DEFAULT_LSP_ENABLED,
+  DEFAULT_HTTP_FETCH_ENABLED,
+  DEFAULT_LIMIT_PROVIDER_DATA_USE,
+  DEFAULT_PLAN_AGENT_ENABLED,
   DEFAULT_MAX_WORKER_CORES,
+  DEFAULT_NOTIFICATIONS_ENABLED,
+  CONTEXT_SUMMARIZE_OPTIONS,
+  DEFAULT_CONTEXT_SUMMARIZE_PERCENT,
+  DEFAULT_READ_BEFORE_EDIT,
+  DEFAULT_REMINDER_INTERVAL,
+  DEFAULT_RESPONSE_LANGUAGE,
   DEFAULT_SETTINGS,
+  DEFAULT_SHELL_PROGRAM,
+  SHELL_PROGRAM_MAX_LENGTH,
   DEFAULT_TEXT_SCALE,
+  DEFAULT_TITLE_USE_FIRST_MESSAGE,
   DEFAULT_TRANSLUCENCY_ENABLED,
   DEFAULT_WINDOW_BOUNDS,
+  DEFAULT_WORKSPACE_MEMORY_ENABLED,
   FONT_FAMILY_OPTIONS,
+  MAX_REMINDER_INTERVAL,
   MAX_WORKER_CORES_AUTO,
+  MIN_REMINDER_INTERVAL,
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
   SUPPORTED_LANGUAGES,
@@ -21,10 +46,13 @@ import {
   type AppTheme,
   type Keybindings,
   type Settings,
+  type ToolPermission,
   type TextScale,
   type WindowBounds,
 } from "@/types/settings";
+import type { SelectedModel } from "@/types/chat";
 import { isTauri } from "@/lib/platform";
+import { syncWorkerCoreConfig } from "@/lib/worker-cores";
 
 const STORE_FILE = "settings.json";
 const STORE_KEY = "settings";
@@ -75,6 +103,28 @@ const sanitizeWindowBounds = (value: unknown): WindowBounds => {
   };
 };
 
+const sanitizeLastWorkspacePath = (value: unknown): string | null => {
+  if (typeof value !== "string") return DEFAULT_LAST_WORKSPACE_PATH;
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > 4096) return DEFAULT_LAST_WORKSPACE_PATH;
+  if (trimmed.includes("\0") || /[\n\r]/.test(trimmed)) return DEFAULT_LAST_WORKSPACE_PATH;
+  return trimmed;
+};
+
+const sanitizeChatBackgroundImage = (value: unknown): string | null => {
+  if (typeof value !== "string") return DEFAULT_CHAT_BACKGROUND_IMAGE;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return DEFAULT_CHAT_BACKGROUND_IMAGE;
+  if (!CHAT_BACKGROUND_FILENAME_PATTERN.test(trimmed)) return DEFAULT_CHAT_BACKGROUND_IMAGE;
+  return trimmed;
+};
+
+const sanitizeChatBackgroundOpacity = (value: unknown): number => {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(n)) return DEFAULT_CHAT_BACKGROUND_OPACITY;
+  return Math.min(1, Math.max(0, n));
+};
+
 const sanitizeKeybindings = (value: unknown): Keybindings => {
   if (!value || typeof value !== "object") return DEFAULT_SETTINGS.keybindings;
   const merged: Keybindings = { ...DEFAULT_SETTINGS.keybindings };
@@ -97,6 +147,90 @@ const sanitizeMaxWorkerCores = (value: unknown): number => {
   return Math.min(max, Math.max(1, rounded));
 };
 
+const sanitizeContextSummarizePercent = (value: unknown): number => {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(n)) return DEFAULT_CONTEXT_SUMMARIZE_PERCENT;
+  const rounded = Math.round(n);
+  if ((CONTEXT_SUMMARIZE_OPTIONS as readonly number[]).includes(rounded)) return rounded;
+  return DEFAULT_CONTEXT_SUMMARIZE_PERCENT;
+};
+
+const sanitizeReminderInterval = (value: unknown): number => {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(n)) return DEFAULT_REMINDER_INTERVAL;
+  const rounded = Math.round(n);
+  return Math.min(MAX_REMINDER_INTERVAL, Math.max(MIN_REMINDER_INTERVAL, rounded));
+};
+
+const sanitizeCommandList = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") continue;
+    const trimmed = entry.trim();
+    if (trimmed.length === 0) continue;
+    const clipped =
+      trimmed.length > COMMAND_LIST_MAX_LENGTH
+        ? trimmed.slice(0, COMMAND_LIST_MAX_LENGTH)
+        : trimmed;
+    if (seen.has(clipped)) continue;
+    seen.add(clipped);
+    out.push(clipped);
+    if (out.length >= COMMAND_LIST_MAX_ITEMS) break;
+  }
+  return out;
+};
+
+const sanitizeShellProgram = (value: unknown): string => {
+  if (typeof value !== "string") return DEFAULT_SHELL_PROGRAM;
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.includes("\0")) return DEFAULT_SHELL_PROGRAM;
+  if (trimmed.length > SHELL_PROGRAM_MAX_LENGTH) {
+    return trimmed.slice(0, SHELL_PROGRAM_MAX_LENGTH);
+  }
+  return trimmed;
+};
+
+const sanitizeDefaultAgent = (value: unknown): string => {
+  if (typeof value !== "string") return DEFAULT_AGENT;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : DEFAULT_AGENT;
+};
+
+const sanitizeToolPermissions = (value: unknown): Record<string, ToolPermission> => {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, ToolPermission> = {};
+  for (const [key, mode] of Object.entries(value as Record<string, unknown>)) {
+    if (mode === "allow" || mode === "ask" || mode === "deny") out[key] = mode;
+  }
+  return out;
+};
+
+const sanitizeModelChoice = (value: unknown): SelectedModel | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    if (
+      typeof obj.providerId === "string" &&
+      obj.providerId.length > 0 &&
+      typeof obj.modelId === "string" &&
+      obj.modelId.length > 0
+    ) {
+      return { providerId: obj.providerId, modelId: obj.modelId };
+    }
+    return null;
+  }
+  if (typeof value === "string" && value.length > 0) {
+    const idx = value.indexOf("::");
+    if (idx <= 0 || idx >= value.length - 2) return null;
+    const providerId = value.slice(0, idx);
+    const modelId = value.slice(idx + 2);
+    return { providerId, modelId };
+  }
+  return null;
+};
+
 const sanitizeSettings = (raw: unknown): Settings => {
   if (!raw || typeof raw !== "object") return DEFAULT_SETTINGS;
   const obj = raw as Record<string, unknown>;
@@ -114,16 +248,54 @@ const sanitizeSettings = (raw: unknown): Settings => {
     textScale: sanitizeTextScale(obj.textScale),
     fontFamily: sanitizeFontFamily(obj.fontFamily),
     maxWorkerCores: sanitizeMaxWorkerCores(obj.maxWorkerCores),
+    reminderInterval: sanitizeReminderInterval(obj.reminderInterval),
+    contextSummarizePercent: sanitizeContextSummarizePercent(obj.contextSummarizePercent),
+    forceResponseLanguage: sanitizeBoolean(
+      obj.forceResponseLanguage,
+      DEFAULT_FORCE_RESPONSE_LANGUAGE,
+    ),
+    responseLanguage: sanitizeLanguage(obj.responseLanguage ?? DEFAULT_RESPONSE_LANGUAGE),
+    blockedCommands: sanitizeCommandList(obj.blockedCommands),
+    allowedCommands: sanitizeCommandList(obj.allowedCommands),
+    shellProgram: sanitizeShellProgram(obj.shellProgram),
+    notificationsEnabled: sanitizeBoolean(obj.notificationsEnabled, DEFAULT_NOTIFICATIONS_ENABLED),
+    workspaceMemoryEnabled: sanitizeBoolean(
+      obj.workspaceMemoryEnabled,
+      DEFAULT_WORKSPACE_MEMORY_ENABLED,
+    ),
+    limitProviderDataUse: sanitizeBoolean(
+      obj.limitProviderDataUse,
+      DEFAULT_LIMIT_PROVIDER_DATA_USE,
+    ),
+    titleGenerationModel: sanitizeModelChoice(obj.titleGenerationModel),
+    titleUseFirstMessage: sanitizeBoolean(
+      obj.titleUseFirstMessage,
+      DEFAULT_TITLE_USE_FIRST_MESSAGE,
+    ),
+    appGenerationModel: sanitizeModelChoice(obj.appGenerationModel),
+    taskModel: sanitizeModelChoice(obj.taskModel),
+    readBeforeEdit: sanitizeBoolean(obj.readBeforeEdit, DEFAULT_READ_BEFORE_EDIT),
+    toolPermissions: sanitizeToolPermissions(obj.toolPermissions),
+    lspEnabled: sanitizeBoolean(obj.lspEnabled, DEFAULT_LSP_ENABLED),
+    httpFetchEnabled: sanitizeBoolean(obj.httpFetchEnabled, DEFAULT_HTTP_FETCH_ENABLED),
     keybindings: sanitizeKeybindings(obj.keybindings),
     sessionSidebarOpen: sanitizeBoolean(
       obj.sessionSidebarOpen,
       DEFAULT_SETTINGS.sessionSidebarOpen,
     ),
+    buildAgentEnabled: sanitizeBoolean(obj.buildAgentEnabled, DEFAULT_BUILD_AGENT_ENABLED),
+    planAgentEnabled: sanitizeBoolean(obj.planAgentEnabled, DEFAULT_PLAN_AGENT_ENABLED),
+    defaultAgent: sanitizeDefaultAgent(obj.defaultAgent),
+    chatBackgroundImage: sanitizeChatBackgroundImage(obj.chatBackgroundImage),
+    chatBackgroundOpacity: sanitizeChatBackgroundOpacity(obj.chatBackgroundOpacity),
+    lastWorkspacePath: sanitizeLastWorkspacePath(obj.lastWorkspacePath),
   };
 };
 
-type SettingsStore = Settings & {
+export type SettingsStore = Settings & {
   hydrated: boolean;
+  chatBackgroundUrl: string | null;
+  chatBackgroundLoading: boolean;
   hydrate: () => Promise<void>;
   setLanguage: (language: AppLanguage) => void;
   setTheme: (theme: AppTheme) => void;
@@ -135,8 +307,32 @@ type SettingsStore = Settings & {
   setTextScale: (scale: TextScale) => void;
   setFontFamily: (family: AppFontFamily) => void;
   setMaxWorkerCores: (cores: number) => void;
+  setReminderInterval: (interval: number) => void;
+  setContextSummarizePercent: (percent: number) => void;
+  setForceResponseLanguage: (enabled: boolean) => void;
+  setResponseLanguage: (language: AppLanguage) => void;
+  setBlockedCommands: (commands: string[]) => void;
+  setAllowedCommands: (commands: string[]) => void;
+  setShellProgram: (program: string) => void;
+  setNotificationsEnabled: (enabled: boolean) => void;
+  setWorkspaceMemoryEnabled: (enabled: boolean) => void;
+  setLimitProviderDataUse: (enabled: boolean) => void;
+  setTitleGenerationModel: (model: SelectedModel | null) => void;
+  setTitleUseFirstMessage: (enabled: boolean) => void;
+  setAppGenerationModel: (model: SelectedModel | null) => void;
+  setTaskModel: (model: SelectedModel | null) => void;
+  setReadBeforeEdit: (enabled: boolean) => void;
+  setToolPermission: (tool: string, mode: ToolPermission) => void;
+  setLspEnabled: (enabled: boolean) => void;
+  setHttpFetchEnabled: (enabled: boolean) => void;
   setKeybinding: (action: keyof Keybindings, chord: string) => void;
   setSessionSidebarOpen: (open: boolean) => void;
+  setBuildAgentEnabled: (enabled: boolean) => void;
+  setPlanAgentEnabled: (enabled: boolean) => void;
+  setDefaultAgent: (agent: string) => void;
+  setChatBackgroundImage: (filename: string | null, url: string | null) => void;
+  setChatBackgroundOpacity: (opacity: number) => void;
+  setLastWorkspacePath: (path: string) => void;
   resetKeybindings: () => void;
   resetAll: () => void;
 };
@@ -197,12 +393,25 @@ const systemPrefersReducedMotion = (): boolean => {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 };
 
-const applyChrome = (settings: Settings): void => {
+const applyChatBackground = (url: string | null, opacity: number): void => {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  root.style.setProperty("--chat-background-image", url ? `url("${url}")` : "none");
+  root.style.setProperty("--chat-background-opacity", String(opacity));
+  if (url) {
+    root.dataset.chatBackground = "set";
+  } else {
+    delete root.dataset.chatBackground;
+  }
+};
+
+const applyChrome = (settings: Settings, chatBackgroundUrl: string | null): void => {
   applyTheme(settings.theme);
   applyTranslucency(settings.translucencyEnabled);
   applyAnimations(settings.animationsEnabled && !systemPrefersReducedMotion());
   applyTextScale(settings.textScale);
   applyFontFamily(settings.fontFamily);
+  applyChatBackground(chatBackgroundUrl, settings.chatBackgroundOpacity);
 };
 
 const syncMinimizeToTray = async (enabled: boolean): Promise<void> => {
@@ -225,29 +434,81 @@ const snapshot = (state: SettingsStore): Settings => ({
   textScale: state.textScale,
   fontFamily: state.fontFamily,
   maxWorkerCores: state.maxWorkerCores,
+  reminderInterval: state.reminderInterval,
+  contextSummarizePercent: state.contextSummarizePercent,
+  forceResponseLanguage: state.forceResponseLanguage,
+  responseLanguage: state.responseLanguage,
+  blockedCommands: state.blockedCommands,
+  allowedCommands: state.allowedCommands,
+  shellProgram: state.shellProgram,
+  notificationsEnabled: state.notificationsEnabled,
+  workspaceMemoryEnabled: state.workspaceMemoryEnabled,
+  limitProviderDataUse: state.limitProviderDataUse,
+  titleGenerationModel: state.titleGenerationModel,
+  titleUseFirstMessage: state.titleUseFirstMessage,
+  appGenerationModel: state.appGenerationModel,
+  taskModel: state.taskModel,
+  readBeforeEdit: state.readBeforeEdit,
+  toolPermissions: state.toolPermissions,
+  lspEnabled: state.lspEnabled,
+  httpFetchEnabled: state.httpFetchEnabled,
   keybindings: state.keybindings,
   sessionSidebarOpen: state.sessionSidebarOpen,
+  buildAgentEnabled: state.buildAgentEnabled,
+  planAgentEnabled: state.planAgentEnabled,
+  defaultAgent: state.defaultAgent,
+  chatBackgroundImage: state.chatBackgroundImage,
+  chatBackgroundOpacity: state.chatBackgroundOpacity,
+  lastWorkspacePath: state.lastWorkspacePath,
 });
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
   ...DEFAULT_SETTINGS,
   hydrated: false,
+  chatBackgroundUrl: null,
+  chatBackgroundLoading: false,
 
   hydrate: async () => {
     if (!isTauri()) {
-      applyChrome(DEFAULT_SETTINGS);
+      applyChrome(DEFAULT_SETTINGS, null);
+      syncWorkerCoreConfig(DEFAULT_SETTINGS.maxWorkerCores);
       set({ hydrated: true });
       return;
     }
     try {
       const raw = await getStore().get<Settings>(STORE_KEY);
       const next = sanitizeSettings(raw);
-      applyChrome(next);
+      applyChrome(next, null);
       void syncMinimizeToTray(next.minimizeToTray);
+      syncWorkerCoreConfig(next.maxWorkerCores);
       set({ ...next, hydrated: true });
+      if (next.chatBackgroundImage) {
+        set({ chatBackgroundLoading: true });
+        invoke<string | null>("get_chat_background_data_url")
+          .then((url) => {
+            const current = get().chatBackgroundImage;
+            if (current !== next.chatBackgroundImage) return;
+            set({ chatBackgroundUrl: url });
+            applyChrome(get(), url);
+          })
+          .catch((error: unknown) => {
+            console.warn("chat background load failed", error);
+            const current = get().chatBackgroundImage;
+            if (current !== next.chatBackgroundImage) return;
+            set({ chatBackgroundUrl: null });
+            applyChrome(get(), null);
+          })
+          .finally(() => {
+            const current = get().chatBackgroundImage;
+            if (current === next.chatBackgroundImage) {
+              set({ chatBackgroundLoading: false });
+            }
+          });
+      }
     } catch (error) {
       console.warn("settings hydrate failed", error);
-      applyChrome(DEFAULT_SETTINGS);
+      applyChrome(DEFAULT_SETTINGS, null);
+      syncWorkerCoreConfig(DEFAULT_SETTINGS.maxWorkerCores);
       set({ hydrated: true });
     }
   },
@@ -317,7 +578,100 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   },
 
   setMaxWorkerCores: (cores) => {
-    set({ maxWorkerCores: sanitizeMaxWorkerCores(cores) });
+    const maxWorkerCores = sanitizeMaxWorkerCores(cores);
+    syncWorkerCoreConfig(maxWorkerCores);
+    set({ maxWorkerCores });
+    void persist(snapshot(get()));
+  },
+
+  setReminderInterval: (interval) => {
+    set({ reminderInterval: sanitizeReminderInterval(interval) });
+    void persist(snapshot(get()));
+  },
+
+  setContextSummarizePercent: (percent) => {
+    set({ contextSummarizePercent: sanitizeContextSummarizePercent(percent) });
+    void persist(snapshot(get()));
+  },
+
+  setForceResponseLanguage: (enabled) => {
+    set({ forceResponseLanguage: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setResponseLanguage: (language) => {
+    set({ responseLanguage: sanitizeLanguage(language) });
+    void persist(snapshot(get()));
+  },
+
+  setBlockedCommands: (commands) => {
+    set({ blockedCommands: sanitizeCommandList(commands) });
+    void persist(snapshot(get()));
+  },
+
+  setAllowedCommands: (commands) => {
+    set({ allowedCommands: sanitizeCommandList(commands) });
+    void persist(snapshot(get()));
+  },
+
+  setShellProgram: (program) => {
+    set({ shellProgram: sanitizeShellProgram(program) });
+    void persist(snapshot(get()));
+  },
+
+  setNotificationsEnabled: (enabled) => {
+    set({ notificationsEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setWorkspaceMemoryEnabled: (enabled) => {
+    set({ workspaceMemoryEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setLimitProviderDataUse: (enabled) => {
+    set({ limitProviderDataUse: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setTitleGenerationModel: (model) => {
+    set({ titleGenerationModel: sanitizeModelChoice(model) });
+    void persist(snapshot(get()));
+  },
+
+  setTitleUseFirstMessage: (enabled) => {
+    set({ titleUseFirstMessage: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setAppGenerationModel: (model) => {
+    set({ appGenerationModel: sanitizeModelChoice(model) });
+    void persist(snapshot(get()));
+  },
+
+  setTaskModel: (model) => {
+    set({ taskModel: sanitizeModelChoice(model) });
+    void persist(snapshot(get()));
+  },
+
+  setReadBeforeEdit: (enabled) => {
+    set({ readBeforeEdit: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setToolPermission: (tool, mode) => {
+    const toolPermissions = { ...get().toolPermissions, [tool]: mode };
+    set({ toolPermissions });
+    void persist(snapshot(get()));
+  },
+
+  setLspEnabled: (enabled) => {
+    set({ lspEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setHttpFetchEnabled: (enabled) => {
+    set({ httpFetchEnabled: enabled });
     void persist(snapshot(get()));
   },
 
@@ -332,15 +686,64 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     void persist(snapshot(get()));
   },
 
+  setBuildAgentEnabled: (enabled) => {
+    set({ buildAgentEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setPlanAgentEnabled: (enabled) => {
+    set({ planAgentEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setDefaultAgent: (agent) => {
+    set({ defaultAgent: sanitizeDefaultAgent(agent) });
+    void persist(snapshot(get()));
+  },
+
+  setChatBackgroundImage: (filename, url) => {
+    set({
+      chatBackgroundImage: filename,
+      chatBackgroundUrl: url,
+      chatBackgroundLoading: false,
+    });
+    applyChrome(get(), url);
+    void persist(snapshot(get()));
+  },
+
+  setLastWorkspacePath: (path) => {
+    const next = sanitizeLastWorkspacePath(path);
+    if (!next || next === get().lastWorkspacePath) return;
+    set({ lastWorkspacePath: next });
+    void persist(snapshot(get()));
+  },
+
+  setChatBackgroundOpacity: (opacity) => {
+    const next = sanitizeChatBackgroundOpacity(opacity);
+    set({ chatBackgroundOpacity: next });
+    applyChrome(get(), get().chatBackgroundUrl);
+    void persist(snapshot(get()));
+  },
+
   resetKeybindings: () => {
     set({ keybindings: DEFAULT_SETTINGS.keybindings });
     void persist(snapshot(get()));
   },
 
   resetAll: () => {
-    applyChrome(DEFAULT_SETTINGS);
+    applyChrome(DEFAULT_SETTINGS, null);
     void syncMinimizeToTray(DEFAULT_SETTINGS.minimizeToTray);
-    set({ ...DEFAULT_SETTINGS, hydrated: true });
+    if (isTauri()) {
+      void invoke("clear_chat_background_image").catch((error: unknown) => {
+        console.warn("chat background clear failed", error);
+      });
+    }
+    set({
+      ...DEFAULT_SETTINGS,
+      hydrated: true,
+      chatBackgroundUrl: null,
+      chatBackgroundLoading: false,
+    });
     void persist(DEFAULT_SETTINGS);
   },
 }));

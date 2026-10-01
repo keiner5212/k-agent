@@ -1,0 +1,5 @@
+{
+  "filePath": "draft-skill.md",
+  "oldString": "    1. Read each touched file once for shape. Skim public surface, skip\ninternal helpers unless they carry risk.\n2. Diff against the project's last green commit on the same branch.\nAnything that lands outside the stated intent of the PR is suspect.\n3. Confirm the change set leaves the test suite green. A review that\ncannot reproduce the green state is a review that approves a guess.",
+  "newString": "    1. Read each touched file once for shape. Skim public surface, skip\ninternal helpers unless they carry risk.\n2. Diff against the project's last green commit on the same branch.\nAnything that lands outside the stated intent of the PR is suspect.\n2.5. If the diff is huge, ask the author to split it before reviewing.\n3. Confirm the change set leaves the test suite green. A review that\ncannot reproduce the green state is a review that approves a guess."
+}

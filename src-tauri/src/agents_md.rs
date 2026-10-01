@@ -37,7 +37,7 @@ pub struct WriteAgentsMdInput {
     pub content: String,
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error)]
 pub enum AgentsMdError {
     #[error("io error: {0}")]
     Io(String),
@@ -47,6 +47,12 @@ pub enum AgentsMdError {
     NoWorkspace,
 }
 
+impl Serialize for AgentsMdError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        crate::serialize_error(self, serializer)
+    }
+}
+
 fn resolve_workspace(app: &AppHandle) -> Option<PathBuf> {
     let state = app.state::<crate::LocalWorkspace>();
     state.path.lock().ok().and_then(|guard| guard.clone())
@@ -54,13 +60,7 @@ fn resolve_workspace(app: &AppHandle) -> Option<PathBuf> {
 
 fn resolve_dir(app: &AppHandle, kind: AgentsMdKind) -> Result<PathBuf, AgentsMdError> {
     match kind {
-        AgentsMdKind::Global => {
-            let home = app
-                .path()
-                .home_dir()
-                .map_err(|error| AgentsMdError::Io(error.to_string()))?;
-            Ok(home.join(crate::APP_CONFIG_DIR))
-        }
+        AgentsMdKind::Global => crate::paths::config_dir(app).map_err(AgentsMdError::Io),
         AgentsMdKind::Local => resolve_workspace(app).ok_or(AgentsMdError::NoWorkspace),
     }
 }
@@ -96,7 +96,8 @@ fn file_from_disk(kind: AgentsMdKind, path: PathBuf) -> Result<AgentsMdFile, Age
             estimated_tokens: 0,
         });
     }
-    let content = fs::read_to_string(&path).map_err(|error| AgentsMdError::Io(error.to_string()))?;
+    let content =
+        fs::read_to_string(&path).map_err(|error| AgentsMdError::Io(error.to_string()))?;
     let estimated_tokens = estimate_tokens(&content);
     Ok(AgentsMdFile {
         kind,
@@ -122,10 +123,7 @@ fn write_agents_md_sync(
     file_from_disk(input.kind, path)
 }
 
-fn delete_agents_md_sync(
-    app: &AppHandle,
-    kind: AgentsMdKind,
-) -> Result<(), AgentsMdError> {
+fn delete_agents_md_sync(app: &AppHandle, kind: AgentsMdKind) -> Result<(), AgentsMdError> {
     let dir = resolve_dir(app, kind)?;
     let path = locate_agents_md(&dir);
     if !path.is_file() {
@@ -133,6 +131,18 @@ fn delete_agents_md_sync(
     }
     fs::remove_file(&path).map_err(|error| AgentsMdError::Io(error.to_string()))?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn read_workspace_notes(app: AppHandle) -> String {
+    let Some(root) = crate::pathutil::workspace_from_app(&app) else {
+        return String::new();
+    };
+    let path = root.join(".k-agent").join("NOTES.md");
+    let Ok(text) = fs::read_to_string(path) else {
+        return String::new();
+    };
+    text.chars().take(8_000).collect()
 }
 
 #[tauri::command]
@@ -162,7 +172,10 @@ pub async fn write_agents_md(
 }
 
 #[tauri::command]
-pub async fn delete_agents_md(app: AppHandle, input: AgentsMdKindInput) -> Result<(), AgentsMdError> {
+pub async fn delete_agents_md(
+    app: AppHandle,
+    input: AgentsMdKindInput,
+) -> Result<(), AgentsMdError> {
     tokio::task::spawn_blocking(move || delete_agents_md_sync(&app, input.kind))
         .await
         .map_err(|error| AgentsMdError::Io(error.to_string()))?
