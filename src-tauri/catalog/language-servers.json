@@ -68,22 +68,6 @@
       }
     },
     {
-      "id": "eslint",
-      "name": "ESLint Language Server",
-      "languageIds": ["javascript", "javascriptreact", "typescript", "typescriptreact", "vue"],
-      "extensions": [".js", ".jsx", ".ts", ".tsx", ".vue"],
-      "filenames": [],
-      "rootMarkers": [".eslintrc.json", ".eslintrc.js", "eslint.config.js", "package.json"],
-      "command": "vscode-eslint-language-server",
-      "args": ["--stdio"],
-      "requires": ["npm"],
-      "install": {
-        "method": "npm",
-        "dir": "vscode-langservers-extracted",
-        "packages": ["vscode-langservers-extracted"]
-      }
-    },
-    {
       "id": "yaml",
       "name": "YAML Language Server",
       "languageIds": ["yaml"],
@@ -189,30 +173,6 @@
       }
     },
     {
-      "id": "tailwindcss",
-      "name": "Tailwind CSS Language Server",
-      "languageIds": [
-        "html",
-        "css",
-        "javascript",
-        "javascriptreact",
-        "typescript",
-        "typescriptreact",
-        "vue",
-        "svelte"
-      ],
-      "extensions": [".html", ".css", ".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte"],
-      "filenames": [],
-      "rootMarkers": ["tailwind.config.js", "tailwind.config.ts", "package.json"],
-      "command": "tailwindcss-language-server",
-      "args": ["--stdio"],
-      "requires": ["npm"],
-      "install": {
-        "method": "npm",
-        "packages": ["@tailwindcss/language-server"]
-      }
-    },
-    {
       "id": "graphql",
       "name": "GraphQL Language Server",
       "languageIds": ["graphql"],
@@ -270,43 +230,6 @@
       "install": {
         "method": "npm",
         "packages": ["@astrojs/language-server", "typescript"]
-      }
-    },
-    {
-      "id": "emmet",
-      "name": "Emmet Language Server",
-      "languageIds": ["html", "css", "scss", "javascriptreact", "typescriptreact"],
-      "extensions": [".html", ".css", ".scss", ".jsx", ".tsx"],
-      "filenames": [],
-      "rootMarkers": ["package.json"],
-      "command": "emmet-ls",
-      "args": ["--stdio"],
-      "requires": ["npm"],
-      "install": {
-        "method": "npm",
-        "packages": ["emmet-ls"]
-      }
-    },
-    {
-      "id": "biome",
-      "name": "Biome",
-      "languageIds": [
-        "javascript",
-        "javascriptreact",
-        "typescript",
-        "typescriptreact",
-        "json",
-        "jsonc"
-      ],
-      "extensions": [".js", ".jsx", ".ts", ".tsx", ".json", ".jsonc"],
-      "filenames": [],
-      "rootMarkers": ["biome.json", "biome.jsonc", "package.json"],
-      "command": "biome",
-      "args": ["lsp-proxy"],
-      "requires": ["npm"],
-      "install": {
-        "method": "npm",
-        "packages": ["@biomejs/biome"]
       }
     },
     {
@@ -427,21 +350,6 @@
       "install": {
         "method": "go",
         "module": "github.com/sqls-server/sqls@latest"
-      }
-    },
-    {
-      "id": "ruff",
-      "name": "Ruff",
-      "languageIds": ["python"],
-      "extensions": [".py", ".pyi"],
-      "filenames": [],
-      "rootMarkers": ["ruff.toml", "pyproject.toml"],
-      "command": "ruff",
-      "args": ["server"],
-      "requires": ["python3"],
-      "install": {
-        "method": "pip",
-        "packages": ["ruff"]
       }
     },
     {

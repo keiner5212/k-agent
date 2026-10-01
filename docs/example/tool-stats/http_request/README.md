@@ -4,7 +4,7 @@ Send one HTTP request and return the status, headers, and body.
 
 ## Does
 
-- Accepts any `http` or `https` URL, including localhost and private hosts.
+- Accepts any `http` or `https` URL, including localhost and private hosts. `bash` refuses `curl` and `wget`.
 - Accepts methods `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`, and `OPTIONS`. Default `GET`.
 - Appends a `query` object to the URL and sends a `headers` object as request headers.
 - Sends `body` for methods other than `GET` and `HEAD`. Body cap is `1 MB`.

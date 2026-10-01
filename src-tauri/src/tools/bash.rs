@@ -12,7 +12,7 @@ use super::{
 
 pub const NAME: &str = "bash";
 
-const DESCRIPTION: &str = "Run one shell command in the workspace and wait for it to finish. Exact blockedCommands never run. Exact allowedCommands run without a prompt. Destructive commands, real file redirects, and non-local network commands wait for the user. `2>&1` and redirects to `/dev/null` do not ask. curl or wget to localhost, 127.0.0.1, or ::1 does not ask. Do not start a dev server here. Use background for a process that must stay up until the turn ends. Do not kill a pid returned by background. That process is stopped when the turn ends. Do not use &, nohup, or disown. Do not list, read, search, write, edit, or delete files here. Use list_directory, read, grep, write, edit, create_folder, and delete. bash is for install, build, test, and git. Output is capped.";
+const DESCRIPTION: &str = "Run one shell command in the workspace and wait for it to finish. Exact blockedCommands never run. Exact allowedCommands run without a prompt. Destructive commands, real file redirects, and non-local network commands wait for the user. `2>&1` and redirects to `/dev/null` do not ask. Do not use curl or wget. Use http_request for an API, including localhost. Do not start a dev server here. Use background for a process that must stay up until the turn ends. Do not kill a pid returned by background. That process is stopped when the turn ends. Do not use &, nohup, or disown. Do not list, read, search, write, edit, or delete files here. Use list_directory, read, grep, write, edit, create_folder, and delete. bash is for install, build, test, and git. Output is capped.";
 
 const MAX_OUTPUT_CHARS: usize = 50_000;
 const TIMEOUT: Duration = Duration::from_secs(30);
@@ -41,6 +41,7 @@ pub enum Decision {
     Confirm,
     Empty,
     Background,
+    Http,
 }
 
 pub struct BashTool;
@@ -74,6 +75,9 @@ impl Tool for BashTool {
             Decision::Background => error_outcome(
                 "bash does not start background jobs. Do not use &, nohup, or disown.",
             ),
+            Decision::Http => {
+                error_outcome("bash refused: use http_request for HTTP. Do not use curl or wget.")
+            }
             Decision::Confirm => {
                 error_outcome("bash: a dangerous command must run on the async dispatch path.")
             }
@@ -96,6 +100,9 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
         Decision::Blocked => error_outcome("bash refused: command is on the block list."),
         Decision::Background => {
             error_outcome("bash does not start background jobs. Do not use &, nohup, or disown.")
+        }
+        Decision::Http => {
+            error_outcome("bash refused: use http_request for HTTP. Do not use curl or wget.")
         }
         Decision::Confirm => {
             if shell_session_granted(ctx) {
@@ -165,6 +172,9 @@ pub(crate) fn classify(command: &str, allowed: &[String], blocked: &[String]) ->
     if is_background_job(trimmed) {
         return Decision::Background;
     }
+    if uses_http_client(trimmed) {
+        return Decision::Http;
+    }
     if is_dangerous(trimmed) {
         Decision::Confirm
     } else {
@@ -233,12 +243,6 @@ fn is_dangerous(command: &str) -> bool {
         let Some(name) = command_name(&tokens) else {
             continue;
         };
-        if name.eq_ignore_ascii_case("curl") || name.eq_ignore_ascii_case("wget") {
-            if !loopback_fetch(&tokens) {
-                return true;
-            }
-            continue;
-        }
         if DANGEROUS.iter().any(|item| name.eq_ignore_ascii_case(item)) {
             return true;
         }
@@ -428,34 +432,17 @@ fn harmless_redirect(from_gt: &[char]) -> bool {
     token == "/dev/null"
 }
 
-fn loopback_fetch(tokens: &[String]) -> bool {
-    let mut urls = Vec::new();
-    let mut index = 0usize;
-    while index < tokens.len() {
-        let token = &tokens[index];
-        if token == "-o" || token == "--output" || token == "-O" {
-            let dest = tokens.get(index + 1).map(String::as_str).unwrap_or("");
-            if dest != "/dev/null" {
-                return false;
-            }
+fn uses_http_client(command: &str) -> bool {
+    for segment in split_segments(command) {
+        let tokens = tokenize(segment);
+        let Some(name) = command_name(&tokens) else {
+            continue;
+        };
+        if name.eq_ignore_ascii_case("curl") || name.eq_ignore_ascii_case("wget") {
+            return true;
         }
-        if token.starts_with("http://") || token.starts_with("https://") {
-            urls.push(token.as_str());
-        }
-        index += 1;
     }
-    !urls.is_empty() && urls.iter().all(|url| is_loopback_url(url))
-}
-
-fn is_loopback_url(url: &str) -> bool {
-    let Ok(parsed) = reqwest::Url::parse(url) else {
-        return false;
-    };
-    let Some(host) = parsed.host_str() else {
-        return false;
-    };
-    let host = host.trim_matches(|ch| ch == '[' || ch == ']');
-    host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1" || host == "::1"
+    false
 }
 
 fn pipes_to_shell(command: &str) -> bool {
@@ -660,11 +647,11 @@ mod tests {
         );
         assert_eq!(
             classify("curl -s -o /dev/null http://[::1]:5173/", &[], &[]),
-            Decision::Run
+            Decision::Http
         );
         assert_eq!(
             classify("curl https://example.com", &[], &[]),
-            Decision::Confirm
+            Decision::Http
         );
     }
 

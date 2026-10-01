@@ -90,6 +90,13 @@ const ThinkingBlock = ({
 }): ReactNode => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const bodyRef = useRef<HTMLPreElement>(null);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const node = bodyRef.current;
+    if (!node) return;
+    node.scrollTop = node.scrollHeight;
+  }, [open, reasoning]);
   if (reasoning.length === 0) return null;
   const seconds =
     !streaming && thinkingMs !== undefined && thinkingMs >= 1000
@@ -111,7 +118,9 @@ const ThinkingBlock = ({
         {label}
       </button>
       <Dialog open={open} onOpenChange={setOpen} titleKey="chat.thinking.label" size="wide">
-        <pre className="chat-thinking-dialog__body">{reasoning}</pre>
+        <pre ref={bodyRef} className="chat-thinking-dialog__body">
+          {reasoning}
+        </pre>
       </Dialog>
     </>
   );

@@ -9,7 +9,7 @@ Run one shell command in the workspace. The command string is checked against th
 - Refuse a blocked command even when the same string is also allowed.
 - Run an allowed command with no prompt, including commands that would otherwise look dangerous.
 - Run a command that is not listed and does not look dangerous.
-- Ask the user to deny, allow once, or allow for this chat when the command looks destructive, hits a non-local network, or writes a file. `2>&1` and a redirect to `/dev/null` do not ask. `curl` or `wget` to `localhost`, `127.0.0.1`, or `::1` does not ask.
+- Ask the user to deny, allow once, or allow for this chat when the command looks destructive, hits a non-local network, or writes a file. `2>&1` and a redirect to `/dev/null` do not ask.
 - Treat `Accept for this chat` as a session grant for later dangerous commands. The block list still wins.
 - Cap combined stdout and stderr at `50000` chars and stop the process after `30` seconds.
 - Return `status`, `exitCode`, and `output`.
@@ -25,6 +25,7 @@ Run one shell command in the workspace. The command string is checked against th
 - Bypass a block list entry because the session already allowed dangerous commands.
 - Start a background job. A single `&`, `nohup`, or `disown` returns an error. `&&` and `2>&1` still follow the normal rules. A process that must stay up uses `background`.
 - Kill a pid that `background` still owns. That process stops when the turn ends.
+- Call HTTP with `curl` or `wget`. Use `http_request`. An exact allow-list match still runs.
 - List, read, or search files. Use `list_directory`, `read`, and `grep`.
 - Create, change, or delete files. Use `write`, `edit`, `create_folder`, and `delete`.
 
@@ -58,6 +59,7 @@ See `response.toon` for the concrete wire shape the LLM sees.
 - `bash: a dangerous command must run on the async dispatch path.`: the sync path refused to prompt.
 - `bash does not start background jobs.`: the command backgrounds with `&`, `nohup`, or `disown`.
 - `bash refused: pid`: the command tried to kill a pid `background` still owns.
+- `bash refused: use http_request`: the command used `curl` or `wget`.
 
 ## Source
 

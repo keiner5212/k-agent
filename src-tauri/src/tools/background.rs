@@ -187,6 +187,9 @@ async fn authorize(command: &str, ctx: &ToolContext<'_>) -> Result<(), ToolOutco
         bash::Decision::Background => Err(error_outcome(
             "background keeps the process until the turn ends. Do not use &, nohup, or disown.",
         )),
+        bash::Decision::Http => Err(error_outcome(
+            "background refused: use http_request for HTTP. Do not use curl or wget.",
+        )),
         bash::Decision::Run | bash::Decision::Allowed => Ok(()),
         bash::Decision::Confirm => {
             if bash::shell_session_granted(ctx) {

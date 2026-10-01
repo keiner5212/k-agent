@@ -29,13 +29,17 @@ struct StoredDiag {
     notes: Vec<RawDiag>,
 }
 
+struct OpenedFile {
+    version: i32,
+    language_id: String,
+}
+
 struct LspSession {
     stdin: Mutex<ChildStdin>,
     pending: std::sync::Mutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>,
     next_id: AtomicU64,
-    opened: Mutex<HashMap<String, i32>>,
+    opened: Mutex<HashMap<String, OpenedFile>>,
     diagnostics: Mutex<HashMap<String, StoredDiag>>,
-    language_id: String,
     _child: Mutex<Child>,
 }
 
@@ -165,7 +169,6 @@ async fn start_session(
     dir: &Path,
     command: &str,
     root: &Path,
-    language_id: String,
 ) -> Result<Arc<LspSession>, LspError> {
     let mut child = spawn_server(spec, dir, command)?;
     let stdin = child
@@ -182,7 +185,6 @@ async fn start_session(
         next_id: AtomicU64::new(1),
         opened: Mutex::new(HashMap::new()),
         diagnostics: Mutex::new(HashMap::new()),
-        language_id,
         _child: Mutex::new(child),
     });
     let reader_session = Arc::clone(&session);
@@ -291,14 +293,8 @@ async fn session_for(
         }
     }
     let dir = install_dir(app, &resolved.row.spec)?;
-    let session = start_session(
-        &resolved.row.spec,
-        &dir,
-        command,
-        Path::new(&resolved.root),
-        resolved.language_id.clone(),
-    )
-    .await?;
+    let session =
+        start_session(&resolved.row.spec, &dir, command, Path::new(&resolved.root)).await?;
     let mut sessions = hub.sessions.lock().await;
     if let Some(existing) = sessions.get(&key) {
         return Ok(Arc::clone(existing));
@@ -344,36 +340,68 @@ async fn notify(session: &LspSession, method: &str, params: Value) -> Result<(),
     write_rpc(&mut stdin, &body).await
 }
 
-async fn ensure_open(session: &LspSession, path: &Path) -> Result<String, LspError> {
+async fn ensure_open(
+    session: &LspSession,
+    path: &Path,
+    language_id: &str,
+) -> Result<String, LspError> {
     let uri = file_uri(path);
-    {
+    let current = {
         let opened = session.opened.lock().await;
-        if opened.contains_key(&uri) {
-            return Ok(uri);
-        }
+        opened.get(&uri).map(|doc| doc.language_id.clone())
+    };
+    if current.as_deref() == Some(language_id) {
+        return Ok(uri);
+    }
+    if current.is_some() {
+        close_document(session, &uri).await;
     }
     let text = tokio::fs::read_to_string(path)
         .await
         .map_err(|error| LspError::Io(error.to_string()))?;
-    open_document(session, &uri, &text).await?;
+    open_document(session, &uri, &text, language_id).await?;
     Ok(uri)
 }
 
-async fn open_document(session: &LspSession, uri: &str, text: &str) -> Result<(), LspError> {
+async fn close_document(session: &LspSession, uri: &str) {
+    let removed = session.opened.lock().await.remove(uri).is_some();
+    if !removed {
+        return;
+    }
+    let _ = notify(
+        session,
+        "textDocument/didClose",
+        json!({ "textDocument": { "uri": uri } }),
+    )
+    .await;
+}
+
+async fn open_document(
+    session: &LspSession,
+    uri: &str,
+    text: &str,
+    language_id: &str,
+) -> Result<(), LspError> {
     notify(
         session,
         "textDocument/didOpen",
         json!({
             "textDocument": {
                 "uri": uri,
-                "languageId": session.language_id,
+                "languageId": language_id,
                 "version": 1,
                 "text": text
             }
         }),
     )
     .await?;
-    session.opened.lock().await.insert(uri.to_string(), 1);
+    session.opened.lock().await.insert(
+        uri.to_string(),
+        OpenedFile {
+            version: 1,
+            language_id: language_id.to_string(),
+        },
+    );
     Ok(())
 }
 
@@ -560,20 +588,15 @@ async fn push_change(app: &AppHandle, path: &Path, deleted: bool) -> Option<Touc
     let session = session_for(hub.inner(), app, &resolved).await.ok()?;
     let uri = file_uri(path);
     if deleted {
-        let mut opened = session.opened.lock().await;
-        if opened.remove(&uri).is_none() {
+        let known = session.opened.lock().await.contains_key(&uri);
+        if !known {
             return None;
         }
-        drop(opened);
-        let _ = notify(
-            &session,
-            "textDocument/didClose",
-            json!({ "textDocument": { "uri": uri } }),
-        )
-        .await;
+        close_document(&session, &uri).await;
         return None;
     }
     let text = tokio::fs::read_to_string(path).await.ok()?;
+    let language_id = resolved.language_id;
     session.diagnostics.lock().await.insert(
         uri.clone(),
         StoredDiag {
@@ -581,17 +604,28 @@ async fn push_change(app: &AppHandle, path: &Path, deleted: bool) -> Option<Touc
             notes: Vec::new(),
         },
     );
+    let wrong_language = {
+        let opened = session.opened.lock().await;
+        opened
+            .get(&uri)
+            .is_some_and(|doc| doc.language_id != language_id)
+    };
+    if wrong_language {
+        close_document(&session, &uri).await;
+    }
     let version = {
         let mut opened = session.opened.lock().await;
-        if let Some(version) = opened.get_mut(&uri) {
-            *version += 1;
-            *version
+        if let Some(doc) = opened.get_mut(&uri) {
+            doc.version += 1;
+            doc.version
         } else {
             0
         }
     };
     let sent = if version == 0 {
-        open_document(&session, &uri, &text).await.is_ok()
+        open_document(&session, &uri, &text, &language_id)
+            .await
+            .is_ok()
     } else {
         notify(
             &session,
@@ -694,7 +728,7 @@ pub async fn lsp_request(
     let session = session_for(&hub, &app, &resolved).await?;
     let mut params = params.unwrap_or(json!({}));
     if method.starts_with("textDocument/") {
-        let uri = ensure_open(&session, &file).await?;
+        let uri = ensure_open(&session, &file, &resolved.language_id).await?;
         params = inject_uri(params, &uri);
     }
     request(&session, &method, params).await
