@@ -243,6 +243,29 @@ export const answerSummary = (
     })
     .join("\n");
 
+const keepMeasuredThinking = (
+  incoming: ToolRoundTrace[] | undefined,
+  local: ToolRoundTrace[] | undefined,
+): ToolRoundTrace[] | undefined => {
+  const rows = incoming && incoming.length > 0 ? incoming : local;
+  if (!rows) return undefined;
+  const merged = rows.map((round, index) => {
+    const kept = local?.[index]?.thinkingMs;
+    if (kept === undefined) return round;
+    return { ...round, thinkingMs: kept };
+  });
+  const extra = (local ?? [])
+    .slice(rows.length)
+    .map((round) => ((round.calls?.length ?? 0) === 0 ? { ...round, content: undefined } : round))
+    .filter(
+      (round) =>
+        round.reasoning.length > 0 ||
+        (round.content?.length ?? 0) > 0 ||
+        (round.calls?.length ?? 0) > 0,
+    );
+  return extra.length > 0 ? [...merged, ...extra] : merged;
+};
+
 const thinkingDurationMs = (
   startedAt: number | undefined,
   endedAt: number | undefined,
@@ -1158,6 +1181,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           const toolCall = parseToolChunkText(chunk.text);
           if (toolCall) activeRound.calls = [...activeRound.calls, toolCall];
         } else if (chunk.kind === "content") {
+          recordRoundThinkingMs(activeRound, Date.now());
           contentParts.push(chunk.text);
         }
         lastChunkKind = chunk.kind;
@@ -1283,7 +1307,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           reasoningSignature: result.reasoningSignature || current.reasoningSignature,
           thinkingMs: duration ?? current.thinkingMs,
           toolCalls: undefined,
-          toolRounds: result.toolRounds?.length ? result.toolRounds : current.toolRounds,
+          toolRounds: keepMeasuredThinking(result.toolRounds, current.toolRounds),
           streaming: false,
         };
         return {

@@ -1050,18 +1050,65 @@ button.change-bar__stat:focus-visible {
   outline-offset: 2px;
 }
 
+.chat-live-label {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+  background-image: linear-gradient(
+    100deg,
+    var(--text-muted) 0%,
+    var(--text-muted) 38%,
+    var(--text-primary) 50%,
+    var(--text-muted) 62%,
+    var(--text-muted) 100%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: chat-live-shimmer 1.6s linear infinite;
+}
+
+@keyframes chat-live-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+.chat-tools__line:has(.chat-live-label) {
+  opacity: 1;
+}
+
+.chat-tools__name.chat-live-label {
+  text-decoration-color: var(--text-muted);
+}
+
+:root[data-animations="disabled"] .chat-live-label,
+:root[data-animations="false"] .chat-live-label {
+  color: var(--text-muted);
+  background-image: none;
+  -webkit-text-fill-color: var(--text-muted);
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-live-label {
+    color: var(--text-muted);
+    background-image: none;
+    -webkit-text-fill-color: var(--text-muted);
+    animation: none;
+  }
+}
+
 .chat-thinking-dialog__body {
-  flex: 1 1 auto;
-  min-height: 0;
+  max-height: min(60vh, 32rem);
   margin: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  font-family: inherit;
-  font-size: var(--text-content);
-  line-height: var(--leading-normal);
-  color: var(--text-primary);
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
   cursor: text;
   user-select: text;
   -webkit-user-select: text;
@@ -1126,8 +1173,6 @@ button.change-bar__stat:focus-visible {
   min-width: 0;
   overflow: hidden;
   font: inherit;
-  color: inherit;
-  background: transparent;
   border: 0;
   cursor: pointer;
   text-decoration: underline;
@@ -1136,13 +1181,22 @@ button.change-bar__stat:focus-visible {
   white-space: nowrap;
 }
 
-.chat-tools__name:hover {
+.chat-tools__name:not(.chat-live-label) {
+  color: inherit;
+  background: transparent;
+}
+
+.chat-tools__name:not(.chat-live-label):hover {
   color: var(--text-primary);
 }
 
-.chat-tools__name:focus-visible {
+.chat-tools__name:not(.chat-live-label):focus-visible {
   outline: none;
   color: var(--accent);
+}
+
+.chat-tools__name.chat-live-label:focus-visible {
+  outline: none;
 }
 
 .chat-tools__status {

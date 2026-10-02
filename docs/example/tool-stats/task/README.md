@@ -10,7 +10,7 @@ Run one saved agent on a side task and return its final text.
 - The child starts with a fresh prompt. It does not see the parent transcript.
 - The child is that agent. It loads that agent's skills, personality, and tools.
 - It does not inherit the parent system prompt.
-- The result is capped at 6000 characters.
+- Returns the child's full final text.
 - File writes from the child land in the same session snapshots.
 - `plan` cannot edit files. `build` can.
 - A saved agent is matched by name or id, case ignored.
@@ -23,7 +23,7 @@ Run one saved agent on a side task and return its final text.
 ## Does not
 
 - Start another task from inside a task. The error is `task cannot start another task.`
-- Stream the child's tokens into the parent chat. The parent row is one result. The transcript opens after the task ends.
+- Mix the child's tokens into the parent chat. The parent row stays one result. Open the child transcript to watch tokens and thinking while it runs.
 - Replace one `read` or one `grep`. Those stay direct calls.
 - Run without a chat session. The example harness returns that error.
 

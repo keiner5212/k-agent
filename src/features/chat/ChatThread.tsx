@@ -9,7 +9,6 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, FileText, Film, Sparkles } from "lucide-react";
-import { Dialog } from "@/components/Dialog";
 import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
 import { useAskUserStore } from "@/lib/ask-user";
 import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
@@ -20,6 +19,7 @@ import { ChatWaitingLine } from "./ChatWaitingLine";
 import { MessageActions } from "./MessageActions";
 import { QuestionDialog } from "./QuestionDialog";
 import { TodoList } from "./TodoList";
+import { ThinkingBlock, thinkingIsLive } from "./ThinkingBlock";
 import { ToolCallsBlock } from "./ToolCallsBlock";
 
 const clipDetail = (value: string): string => {
@@ -46,53 +46,6 @@ const formatChatError = (
     return t("chat.error.api", { status });
   }
   return clipDetail(text);
-};
-
-const ThinkingBlock = ({
-  reasoning,
-  streaming,
-  thinkingMs,
-}: {
-  reasoning: string;
-  streaming?: boolean;
-  thinkingMs?: number;
-}): ReactNode => {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const bodyRef = useRef<HTMLPreElement>(null);
-  useLayoutEffect(() => {
-    if (!open) return;
-    const node = bodyRef.current;
-    if (!node) return;
-    node.scrollTop = node.scrollHeight;
-  }, [open, reasoning]);
-  if (reasoning.length === 0) return null;
-  const seconds =
-    !streaming && thinkingMs !== undefined && thinkingMs >= 1000
-      ? Math.max(1, Math.round(thinkingMs / 1000))
-      : undefined;
-  const ms =
-    !streaming && thinkingMs !== undefined && thinkingMs < 1000
-      ? Math.max(0, thinkingMs)
-      : undefined;
-  const label =
-    seconds !== undefined
-      ? t("chat.thinking.duration", { count: seconds })
-      : ms !== undefined
-        ? t("chat.thinking.durationMs", { count: ms })
-        : t("chat.thinking.label");
-  return (
-    <>
-      <button type="button" className="chat-thinking" onClick={() => setOpen(true)}>
-        {label}
-      </button>
-      <Dialog open={open} onOpenChange={setOpen} titleKey="chat.thinking.label" size="wide">
-        <pre ref={bodyRef} className="chat-thinking-dialog__body">
-          {reasoning}
-        </pre>
-      </Dialog>
-    </>
-  );
 };
 
 const InterruptedFooter = ({ interrupted }: { interrupted: boolean }): ReactNode => {
@@ -222,11 +175,22 @@ const MessageBody = memo(function MessageBody({
               <div key={`round-${index}`}>
                 <ThinkingBlock
                   reasoning={round.reasoning}
-                  streaming={Boolean(message.streaming) && isLastRound}
-                  thinkingMs={!message.streaming ? round.thinkingMs : undefined}
+                  live={thinkingIsLive({
+                    streaming: message.streaming,
+                    isLast: isLastRound,
+                    reasoning: round.reasoning,
+                    content: round.content,
+                    calls: calls.length,
+                    thinkingMs: round.thinkingMs,
+                  })}
+                  thinkingMs={round.thinkingMs}
                 />
                 <ChatMarkdown content={round.content ?? ""} />
-                <ToolCallsBlock sessionId={sessionId} calls={calls} />
+                <ToolCallsBlock
+                  sessionId={sessionId}
+                  calls={calls}
+                  pending={Boolean(message.streaming) && isLastRound}
+                />
               </div>
             );
           })}
@@ -239,10 +203,21 @@ const MessageBody = memo(function MessageBody({
       <>
         <ThinkingBlock
           reasoning={message.reasoning ?? ""}
-          streaming={message.streaming}
+          live={thinkingIsLive({
+            streaming: message.streaming,
+            isLast: true,
+            reasoning: message.reasoning ?? "",
+            content: message.content,
+            calls: message.toolCalls?.length ?? 0,
+            thinkingMs: message.thinkingMs,
+          })}
           thinkingMs={message.thinkingMs}
         />
-        <ToolCallsBlock sessionId={sessionId} calls={message.toolCalls ?? []} />
+        <ToolCallsBlock
+          sessionId={sessionId}
+          calls={message.toolCalls ?? []}
+          pending={Boolean(message.streaming)}
+        />
         <ChatMarkdown content={message.content} />
         <InterruptedFooter interrupted={message.interrupted ?? false} />
       </>
@@ -316,12 +291,19 @@ const ActiveThread = ({
   const scrollerRef = useRef<HTMLElement>(null);
   const stickRef = useRef(true);
   const pinningRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
   const pinBottom = useCallback((): void => {
     const node = scrollerRef.current;
     if (!node || !stickRef.current) return;
     pinningRef.current = true;
     node.scrollTop = node.scrollHeight;
+    lastScrollTopRef.current = node.scrollTop;
     window.requestAnimationFrame(() => {
+      const next = scrollerRef.current;
+      if (next && stickRef.current) {
+        next.scrollTop = next.scrollHeight;
+        lastScrollTopRef.current = next.scrollTop;
+      }
       window.requestAnimationFrame(() => {
         pinningRef.current = false;
       });
@@ -331,27 +313,32 @@ const ActiveThread = ({
     if (pinningRef.current) return;
     const node = scrollerRef.current;
     if (!node) return;
-    const distance = node.scrollHeight - node.clientHeight - node.scrollTop;
-    stickRef.current = distance < STICK_PX;
+    const top = node.scrollTop;
+    const distance = node.scrollHeight - node.clientHeight - top;
+    if (top < lastScrollTopRef.current - 1) stickRef.current = distance < STICK_PX;
+    else if (distance < STICK_PX) stickRef.current = true;
+    lastScrollTopRef.current = top;
     const jumped = distance > JUMP_PX;
     setShowJump((current) => (current === jumped ? current : jumped));
   }, []);
   const jumpToBottom = useCallback((): void => {
     stickRef.current = true;
     setShowJump(false);
-    const node = scrollerRef.current;
-    if (!node) return;
-    pinningRef.current = true;
-    node.scrollTop = node.scrollHeight;
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        pinningRef.current = false;
-      });
-    });
-  }, []);
+    pinBottom();
+  }, [pinBottom]);
   useLayoutEffect(() => {
     pinBottom();
   }, [messages, waiting, error, pinBottom]);
+  useLayoutEffect(() => {
+    const node = scrollerRef.current;
+    const target = node?.querySelector(".chat-thread__messages");
+    if (!target) return;
+    const observer = new ResizeObserver(() => {
+      pinBottom();
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [pinBottom]);
 
   return (
     <>
