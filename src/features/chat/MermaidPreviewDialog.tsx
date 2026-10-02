@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
+import { domToBlob } from "modern-screenshot";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 
@@ -89,34 +90,67 @@ const paint = (svg: string, palette: Palette): string => {
     ${scope} .sequenceNumber { fill: ${palette.node} !important; color: ${palette.node} !important; }
   </style>`;
   const close = svg.lastIndexOf("</style>");
-  if (close >= 0) return svg.slice(0, close + "</style>".length) + style + svg.slice(close + "</style>".length);
+  if (close >= 0)
+    return svg.slice(0, close + "</style>".length) + style + svg.slice(close + "</style>".length);
   return svg.replace(/<svg\b[^>]*>/, (open) => `${open}${style}`);
 };
 
-const rasterPng = async (svg: string): Promise<Blob | null> => {
-  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
+const SVG_NS = "http://www.w3.org/2000/svg";
+const XLINK_NS = "http://www.w3.org/1999/xlink";
+const shotOptions = { scale: 2, backgroundColor: null, font: false } as const;
+
+const readDataUrl = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("read"));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("read"));
+    reader.readAsDataURL(blob);
+  });
+
+const embedLabels = async (live: SVGSVGElement, clone: SVGSVGElement): Promise<void> => {
+  const sources = [...live.querySelectorAll("foreignObject")];
+  const targets = [...clone.querySelectorAll("foreignObject")];
+  await Promise.all(
+    sources.map(async (source, index) => {
+      const target = targets[index];
+      const label = source.firstElementChild;
+      if (!target || !(label instanceof HTMLElement)) return;
+      const shot = await domToBlob(label, shotOptions);
+      const href = await readDataUrl(shot);
+      const image = document.createElementNS(SVG_NS, "image");
+      image.setAttribute("x", source.getAttribute("x") ?? "0");
+      image.setAttribute("y", source.getAttribute("y") ?? "0");
+      image.setAttribute("width", source.getAttribute("width") ?? `${label.offsetWidth}`);
+      image.setAttribute("height", source.getAttribute("height") ?? `${label.offsetHeight}`);
+      image.setAttribute("href", href);
+      image.setAttributeNS(XLINK_NS, "href", href);
+      target.replaceWith(image);
+    }),
+  );
+};
+
+const capturePng = async (host: HTMLElement): Promise<Blob | null> => {
+  const live = host.querySelector("svg");
+  if (!live) return null;
+  const box = live.getBoundingClientRect();
+  if (box.width < 1 || box.height < 1) return null;
+  const clone = live.cloneNode(true) as SVGSVGElement;
+  await embedLabels(live, clone);
+  clone.setAttribute("width", String(Math.ceil(box.width)));
+  clone.setAttribute("height", String(Math.ceil(box.height)));
+  const holder = document.createElement("div");
+  holder.style.cssText = `position:fixed;left:-10000px;top:0;width:${box.width}px;height:${box.height}px`;
+  holder.append(clone);
+  document.body.append(holder);
   try {
-    const img = new Image();
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error("image"));
-      img.src = url;
-    });
-    const width = img.naturalWidth || 800;
-    const height = img.naturalHeight || 600;
-    const canvas = document.createElement("canvas");
-    canvas.width = width * 2;
-    canvas.height = height * 2;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.scale(2, 2);
-    ctx.drawImage(img, 0, 0, width, height);
-    return await new Promise((resolve) => canvas.toBlob((next) => resolve(next), "image/png"));
+    return await domToBlob(clone, shotOptions);
   } catch {
     return null;
   } finally {
-    URL.revokeObjectURL(url);
+    holder.remove();
   }
 };
 
@@ -125,8 +159,10 @@ const downloadBlob = (blob: Blob, name: string): void => {
   const link = document.createElement("a");
   link.href = url;
   link.download = name;
+  document.body.append(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
 };
 
 type MermaidPreviewDialogProps = {
@@ -141,6 +177,7 @@ export const MermaidPreviewDialog = ({
   onOpenChange,
 }: MermaidPreviewDialogProps): ReactNode => {
   const { t } = useTranslation();
+  const shotRef = useRef<HTMLDivElement>(null);
   const [paletteId, setPaletteId] = useState<PaletteId>("app");
   const [rawSvg, setRawSvg] = useState("");
   const [loading, setLoading] = useState(false);
@@ -183,8 +220,9 @@ export const MermaidPreviewDialog = ({
   }, [job]);
 
   const onDownload = (): void => {
-    if (svg.length === 0) return;
-    void rasterPng(svg).then((png) => {
+    const host = shotRef.current;
+    if (!host) return;
+    void capturePng(host).then((png) => {
       if (!png) return;
       downloadBlob(png, "diagram.png");
       setDownloaded(true);
@@ -193,8 +231,9 @@ export const MermaidPreviewDialog = ({
   };
 
   const onCopy = (): void => {
-    if (svg.length === 0 || typeof ClipboardItem === "undefined") return;
-    void rasterPng(svg).then(async (png) => {
+    const host = shotRef.current;
+    if (!host || typeof ClipboardItem === "undefined") return;
+    void capturePng(host).then(async (png) => {
       if (!png) return;
       try {
         await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
@@ -245,7 +284,11 @@ export const MermaidPreviewDialog = ({
         ) : null}
         {failed ? <p className="diagram-view__status">{t("chat.diagram.error")}</p> : null}
         {svg.length > 0 ? (
-          <div className="diagram-view__svg" dangerouslySetInnerHTML={{ __html: svg }} />
+          <div
+            className="diagram-view__svg"
+            ref={shotRef}
+            dangerouslySetInnerHTML={{ __html: svg }}
+          />
         ) : null}
       </div>
     </Dialog>

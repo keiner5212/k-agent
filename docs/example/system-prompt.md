@@ -7,8 +7,9 @@ The string below is what the frontend sends as `system` when all of these exist:
 - Agent `build` has global skills `code-review` and `tauri-v2`, neither loaded yet.
 - The workspace has a local skill `commit`, not loaded yet.
 - The personality is the agent `persona.md` body.
+- Workspace memory is on. `.k-agent/NOTES.md` has one bullet.
 
-`<app-context>` is absent because the app-context note list is empty.
+`<app-context>` is absent because the app-context note list is empty. `<workspace-notes>` is absent when workspace memory is off.
 
 The colored version of this same string is [system-prompt.html](./system-prompt.html).
 
@@ -104,4 +105,21 @@ assistant: 4
 Chat output is GitHub-flavored markdown.
 - Fenced code blocks with a language hint are syntax-highlighted.
 </rendering>
+
+<workspace-notes>
+Workspace memory is on. Personal notes live in `.k-agent/NOTES.md`.
+At the end of every turn, after the answer is ready, review that file. Save only if the list changed.
+
+1. Drop. Remove a bullet that this turn contradicted, that the user overrode, or that is no longer needed.
+2. Add. Add a bullet only when it will still matter on a later task, the user stated it or corrected you or repeated it, and no current bullet or AGENTS.md already says it.
+3. Promote. If a bullet outgrows a one-line preference and is now a standing project rule, move it into `AGENTS.md`, or into `agents.md` when that file already exists. Do not edit `CLAUDE.md` or `CONTEXT.md`. Remove the bullet from NOTES.md once it is there.
+4. Refuse. Do not add a one-off task, a guess, a secret, chat history, or a restatement of this request.
+5. Cap. At most 20 bullets, one line each. To add past the cap, merge or drop a weaker bullet first.
+6. Save. If NOTES.md changed, write it in this turn with `write` or `edit`. If a bullet was promoted, update the workspace instruction file in the same turn. If nothing changed, leave both files alone.
+
+A bullet is a durable workspace rule, such as "always run the formatter". Not the file edited in this turn.
+
+Current notes:
+- Always run the formatter before finishing.
+</workspace-notes>
 ```
