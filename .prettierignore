@@ -7,3 +7,5 @@ docs/example/tool-stats/**/response.toon
 docs/example/tool-stats/**/input.json
 src-tauri/resources/mermaid-check.cjs
 scripts/mermaid-check.mjs
+# pnpm rewrites this file. Prettier quote/wrap style fights the next install.
+pnpm-lock.yaml
