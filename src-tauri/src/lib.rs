@@ -551,6 +551,39 @@ fn register_linux_identity() {
 #[cfg(not(target_os = "linux"))]
 fn register_linux_identity() {}
 
+// WebKitWebProcess aborts with heap corruption while the webview drops, and KDE reports that as an app crash.
+#[cfg(target_os = "linux")]
+fn quit_without_webkit_teardown() -> ! {
+    kill_descendants(std::process::id());
+    std::process::exit(0);
+}
+
+#[cfg(target_os = "linux")]
+fn kill_descendants(root: u32) {
+    let mut pending = vec![root];
+    let mut descendants = Vec::new();
+    while let Some(pid) = pending.pop() {
+        let Ok(text) = std::fs::read_to_string(format!("/proc/{pid}/task/{pid}/children")) else {
+            continue;
+        };
+        for token in text.split_whitespace() {
+            let Ok(child) = token.parse::<u32>() else {
+                continue;
+            };
+            if child == root || descendants.contains(&child) {
+                continue;
+            }
+            descendants.push(child);
+            pending.push(child);
+        }
+    }
+    for pid in descendants.into_iter().rev() {
+        unsafe {
+            libc::kill(pid as i32, libc::SIGKILL);
+        }
+    }
+}
+
 #[tauri::command]
 fn get_workspace_path(state: State<'_, LocalWorkspace>) -> Option<String> {
     state
@@ -794,7 +827,12 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "toggle" => toggle_window_visibility(app),
-                    "quit" => app.exit(0),
+                    "quit" => {
+                        #[cfg(target_os = "linux")]
+                        quit_without_webkit_teardown();
+                        #[cfg(not(target_os = "linux"))]
+                        app.exit(0);
+                    }
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -818,7 +856,11 @@ pub fn run() {
                 if enabled {
                     api.prevent_close();
                     let _ = window.hide();
+                    return;
                 }
+                let _ = api;
+                #[cfg(target_os = "linux")]
+                quit_without_webkit_teardown();
             }
             _ => {}
         })

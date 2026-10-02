@@ -8,10 +8,11 @@ Write one Mermaid diagram from a written brief and return the source.
 - Calls the app generation model. If that setting is empty, uses the chat model.
 - The hidden call gets a Mermaid syntax sheet and returns one fence.
 - When `node` is on PATH, runs the packaged `mermaid` checker before returning.
+- A semicolon or an HTML tag is rejected and retried. The source text is not rewritten.
 - The checker is `src-tauri/resources/mermaid-check.cjs`. It uses happy-dom. No window opens.
 - A parse error is sent back to that model. It retries up to 3 times.
 - A source that still fails is not returned. The error is `diagram did not parse:`.
-- Without `node`, or without the checker file, the first draft is returned with `checked: false`.
+- Without `node`, or without the checker file, a draft that passes the text rules is returned with `checked: false`.
 - Rebuild the checker with `pnpm bundle:mermaid-check` after a Mermaid upgrade.
 - Output is capped at 4096 tokens.
 - The brief is capped at 8000 characters.
@@ -34,12 +35,11 @@ Write one Mermaid diagram from a written brief and return the source.
 
 ## Response
 
-| Field      | Type   | Notes                                      |
-| ---------- | ------ | ------------------------------------------ |
-| `status`   | string | `ok` when a source is returned.            |
-| `checked`  | string | `true` when Node accepted the source.      |
-| `attempts` | string | How many drafts were written.              |
-| `source`   | string | Mermaid text. Paste it in a mermaid fence. |
+| Field     | Type   | Notes                                      |
+| --------- | ------ | ------------------------------------------ |
+| `status`  | string | `ok` when a source is returned.            |
+| `checked` | string | `true` when Node accepted the source.      |
+| `source`  | string | Mermaid text. Paste it in a mermaid fence. |
 
 See `response.toon`. The example run has no desktop shell, so it returns an error instead.
 

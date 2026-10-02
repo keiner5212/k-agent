@@ -21,62 +21,72 @@ const MAX_OUTPUT: u64 = 4_096;
 const PARSE_TIMEOUT: Duration = Duration::from_secs(20);
 
 const SYSTEM: &str = "\
-You write one Mermaid diagram. Output only this fence and nothing else:
+You are a Mermaid diagram writer. You output ONLY one mermaid fence. \
+Nothing else.
 
+<task>
+Turn the diagram brief into one Mermaid diagram that parses.
+
+Follow all rules in <rules>
+Use the <examples> so you know what a good diagram looks like.
+Your output must be:
+- One code fence tagged mermaid
+- Nothing before the fence and nothing after it
+- No explanation, no labels, no extra markdown
+</task>
+
+<rules>
+- The first line inside the fence is the diagram type. Never write the word \
+mermaid on its own line.
+- Diagram type is one of: flowchart TD, sequenceDiagram, classDiagram, \
+stateDiagram-v2, erDiagram, pie, gitGraph.
+- One statement per line. At most 30 nodes.
+- Plain text only. No HTML. No <br>, no <br/>, no tags, no entities.
+- No semicolon anywhere. A semicolon ends the statement. Write \
+\"text/html, charset utf-8\" instead of a semicolon.
+- No %% comments. No %%{init}%%. No theme. No style. No classDef. No click. \
+No colors. No links.
+- Flowchart node ids are one token, letters and digits. Labels with spaces \
+or punctuation go in quotes: A[\"User API\"].
+- Flowchart edges: A --> B, A -->|label| B, A -.-> B, A ==> B. A decision \
+is D{Ready?}. A group is subgraph auth [Auth], then nodes, then a line that \
+is just end. Direction stays TD unless the brief asks for LR.
+- Sequence: participant Web as Browser. Alice->>Bob: request. \
+Alice-->>Bob: reply. Note over Alice,Bob: plain text on one line. A long \
+note is several Note lines. A title is one line: title Short name.
+- Class: class Animal. Animal : +int age. Animal <|-- Dog.
+- State: [*] --> Idle. Idle --> Run : start.
+- ER: USER ||--o{ ORDER : places. Names are one token.
+- Pie: pie title Pets. \"Dogs\" : 40.
+- Git: gitGraph, then commit, branch feature, checkout feature, commit.
+- If a parser error is included, fix that error and return the full fence \
+again. Still obey these rules.
+- Never use tools.
+- DO NOT SAY YOU CANNOT DRAW OR COMPLAIN ABOUT THE INPUT
+- Always output a fence, even if the brief is short.
+</rules>
+
+<examples>
+\"A browser asks DNS for example.com, then opens TCP to the web server\" -> \
 ```mermaid
-diagram here
+sequenceDiagram
+    title DNS then TCP
+    participant Browser as Browser
+    participant DNS as DNS Resolver
+    participant Server as Web Server
+    Browser->>DNS: Resolve example.com
+    DNS-->>Browser: 93.184.216.34
+    Browser->>Server: TCP SYN
+    Server-->>Browser: SYN-ACK
+    Note over Browser,Server: TCP connection established
 ```
-
-No theme. No %%{init}%%. No style. No classDef. No click. No HTML. No colors.
-
-Use one of these first lines:
-- flowchart TD
-- sequenceDiagram
-- classDiagram
-- stateDiagram-v2
-- erDiagram
-- pie
-- gitGraph
-
-Flowchart rules:
-- A node id is one token, letters and digits. No spaces.
-- Put labels with spaces or punctuation in brackets or quotes: A[\"User API\"]
-- Edges: A --> B, A -->|label| B, A -.-> B, A ==> B
-- A decision is D{Ready?}
-- A group is: subgraph auth [Auth] then nodes then a line that is just end
-- Keep direction TD unless the brief asks for LR.
-
-Sequence rules:
-- participant Web as Browser
-- Alice->>Bob: request
-- Alice-->>Bob: reply
-- Note over Alice,Bob: text
-
-Class rules:
-- class Animal
-- Animal : +int age
-- Animal <|-- Dog
-
-State rules:
-- [*] --> Idle
-- Idle --> Run : start
-
-ER rules:
-- USER ||--o{ ORDER : places
-- Names are one token.
-
-Pie rules:
-- pie title Pets
-- \"Dogs\" : 40
-
-Git rules:
-- gitGraph
-- commit
-- branch feature
-- checkout feature
-- commit
-
-One diagram. At most 30 nodes. If a parser error is included, fix that error and return the full fence again.\
+\"Login checks a session, then shows the app or the login form\" -> ```mermaid
+flowchart TD
+    A[\"Open app\"] --> B{\"Session valid?\"}
+    B -->|yes| C[\"Show app\"]
+    B -->|no| D[\"Show login\"]
+```
+</examples>
 ";
 
 pub struct DiagramTool;
@@ -126,7 +136,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     let limit = limit_provider_data(app);
     let checker = checker_script(app).filter(|_| node_available());
 
-    let mut user = format!("{brief}\n\nReturn one mermaid fence and nothing else.");
+    let mut user = format!("Diagram brief to draw:\n\n{brief}");
     let mut last_error = String::new();
     let mut attempts = 0u8;
     while attempts < MAX_ATTEMPTS {
@@ -151,13 +161,18 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
             user = retry_prompt(&last_error, &source);
             continue;
         }
+        if let Some(reason) = reject_source(&source) {
+            last_error = reason.to_string();
+            user = retry_prompt(&last_error, &source);
+            continue;
+        }
         let Some(script) = checker.as_ref() else {
-            return ok_source(&source, false, attempts);
+            return ok_source(&source, false);
         };
         match parse_source(script, &source).await {
-            Ok(()) => return ok_source(&source, true, attempts),
+            Ok(()) => return ok_source(&source, true),
             Err(error) => {
-                last_error = error;
+                last_error = error.chars().take(400).collect();
                 user = retry_prompt(&last_error, &source);
             }
         }
@@ -165,13 +180,12 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     super::context_error(None, &format!("diagram did not parse: {last_error}"))
 }
 
-fn ok_source(source: &str, checked: bool, attempts: u8) -> ToolOutcome {
+fn ok_source(source: &str, checked: bool) -> ToolOutcome {
     let checked_label = if checked { "true" } else { "false" };
     ToolOutcome {
         text: toon_doc(&[
             ("status", ToonValue::Str("ok")),
             ("checked", ToonValue::Str(checked_label)),
-            ("attempts", ToonValue::Str(&attempts.to_string())),
             ("source", ToonValue::Block(source)),
         ]),
         display: ToolDisplay {
@@ -187,27 +201,65 @@ fn ok_source(source: &str, checked: bool, attempts: u8) -> ToolOutcome {
 
 fn retry_prompt(error: &str, source: &str) -> String {
     format!(
-        "Parser error:\n{error}\n\nPrevious source:\n{source}\n\nFix the diagram. Return one mermaid fence and nothing else."
+        "<parser-error>\n{error}\n</parser-error>\n\n<previous-source>\n{source}\n</previous-source>\n\nFix the previous source. Return one mermaid fence and nothing else. Obey <rules>."
     )
 }
 
 fn extract_mermaid(raw: &str) -> String {
-    let lower = raw.to_ascii_lowercase();
-    if let Some(mark) = lower.find("```mermaid") {
-        let rest = raw[mark + "```mermaid".len()..].trim_start_matches(['\r', '\n']);
-        if let Some(end) = rest.find("```") {
-            return rest[..end].trim().to_string();
-        }
+    let body = fenced_body(raw).unwrap_or_else(|| raw.trim().to_string());
+    strip_lang_line(&body)
+}
+
+fn reject_source(source: &str) -> Option<&'static str> {
+    if source.contains(';') {
+        return Some(
+            "remove every semicolon. It ends the statement. Use a comma or a new Note line.",
+        );
     }
-    let trimmed = raw.trim();
-    if let Some(start) = trimmed.find("```") {
-        let rest = trimmed[start + 3..].trim_start_matches(['\r', '\n']);
-        let rest = rest
-            .trim_start_matches(|ch: char| ch.is_ascii_alphabetic())
-            .trim_start_matches(['\r', '\n']);
-        if let Some(end) = rest.find("```") {
-            return rest[..end].trim().to_string();
-        }
+    let lower = source.to_ascii_lowercase();
+    if lower.contains("<br")
+        || lower.contains("</")
+        || lower.contains("&lt;")
+        || lower.contains("&amp;")
+        || lower.contains("<span")
+        || lower.contains("<div")
+        || lower.contains("<p>")
+        || lower.contains("<b>")
+    {
+        return Some("remove HTML. No br tags. One plain-text Note per line.");
+    }
+    if lower.contains("%%{")
+        || source.lines().any(|line| {
+            let trimmed = line.trim().to_ascii_lowercase();
+            trimmed.starts_with("click ")
+                || trimmed.starts_with("style ")
+                || trimmed.starts_with("classdef ")
+        })
+    {
+        return Some("remove init, style, classDef, and click.");
+    }
+    None
+}
+
+fn fenced_body(raw: &str) -> Option<String> {
+    let lower = raw.to_ascii_lowercase();
+    let start = lower.find("```")?;
+    let mut rest = raw[start + 3..].trim_start();
+    if rest.to_ascii_lowercase().starts_with("mermaid") {
+        rest = rest["mermaid".len()..].trim_start();
+    }
+    let end = rest.find("```").unwrap_or(rest.len());
+    Some(rest[..end].trim().to_string())
+}
+
+fn strip_lang_line(body: &str) -> String {
+    let trimmed = body.trim();
+    let mut lines = trimmed.lines();
+    let Some(first) = lines.next() else {
+        return String::new();
+    };
+    if first.trim().eq_ignore_ascii_case("mermaid") {
+        return lines.collect::<Vec<_>>().join("\n").trim().to_string();
     }
     trimmed.to_string()
 }

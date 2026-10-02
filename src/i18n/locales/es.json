@@ -860,10 +860,10 @@
       "copy": "Copiar imagen",
       "copied": "Copiado",
       "palettes": {
-        "ink": "Tinta",
-        "tide": "Marea",
-        "dusk": "Ocaso",
-        "paper": "Papel"
+        "app": "App",
+        "blush": "Rosa",
+        "mist": "Niebla",
+        "sand": "Arena"
       }
     },
     "rewind": {

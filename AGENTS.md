@@ -210,7 +210,9 @@ The README template below covers docs and the `cargo test --test tools_examples`
 1. Decide the flavor (sync, sync with workspace gate, async). See Tool execution model above.
 2. Implement under `src-tauri/src/tools/<name>.rs`. Export `pub const NAME: &str = "<name>";`.
 3. Add to `all_tools()` in `mod.rs` and export `pub const <NAME>_TOOL_NAME: &str = ...;` next to the others.
-4. Add the tool id to `AGENT_TOOL_IDS` in `src/types/agents.ts`. Decide which agents get it (build, plan, both) and add to `PLAN_AGENT_TOOL_IDS` if relevant.
+4. Add the tool id to both allowlists. Same string. Missing the Rust list makes the agent-form toggle look saved, then `sanitize_tools` drops it.
+   - `AGENT_TOOL_IDS` in `src/types/agents.ts`. Decide which agents get it (build, plan, both) and add to `PLAN_AGENT_TOOL_IDS` if relevant.
+   - `AGENT_TOOLS` in `src-tauri/src/agents.rs`. Builtin `build` is this list. Builtin `plan` is the separate array in `builtin_agent`. Keep that array aligned with `PLAN_AGENT_TOOL_IDS`.
 5. Add `agents.tools.<id>.label` and `agents.tools.<id>.description` in `en.json` and `es.json`. Add `chat.tools.<id>Title` if the tool gets a preview in `ToolCallsBlock`.
 6. Add `CHAT_TOOL_DESCRIPTIONS[id]` in `src/types/agents.ts` (English, sent to the LLM).
 7. If the result renders inline (like todowrite's `TodoList`), add a renderer branch to `ToolCallsBlock` and a small CSS section in `src/styles/chat.css`. If it opens a modal (like read/write), reuse `ReadOnlyEditorDialog`.
@@ -260,6 +262,7 @@ Two builtin session agents, selected by `DEFAULT_AGENT` (`builtin:build` is the 
 
 - `AGENT_TOOL_IDS` - build agent. Full tool set including write/edit/apply_patch/bash/delete.
 - `PLAN_AGENT_TOOL_IDS` - plan agent. Read-only plus ask_user/todowrite/internet_search/fetch_url. Use for read-only exploration; fall back to build when a mutation is needed.
+- `AGENT_TOOLS` in `src-tauri/src/agents.rs` - the save allowlist. `sanitize_tools` keeps only these ids. An id only in `AGENT_TOOL_IDS` shows on the form and is dropped on create/update.
 
 When the user picks an agent in the UI, the session keeps it until changed. Tool labels and descriptions are localized via `agents.tools.<id>.label` / `.description` in `en.json` + `es.json`.
 
