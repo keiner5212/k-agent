@@ -1216,6 +1216,7 @@ button.change-bar__stat:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
+  line-height: 1;
   color: var(--text-secondary);
   border-color: color-mix(in oklch, var(--accent) 38%, var(--border));
   background-color: color-mix(in oklch, var(--accent) 8%, var(--surface-elevated));
@@ -1230,8 +1231,11 @@ button.change-bar__stat:focus-visible {
 
 .chat-waiting__icon {
   position: relative;
-  display: inline-flex;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  line-height: 0;
   color: var(--accent);
   filter: drop-shadow(0 0 6px color-mix(in oklch, var(--accent) 55%, transparent));
   animation: chat-waiting-icon 2.6s var(--ease-standard) infinite;
@@ -1250,17 +1254,26 @@ button.change-bar__stat:focus-visible {
   animation: chat-waiting-spark 1.7s var(--ease-standard) infinite;
 }
 
+.chat-waiting__icon svg {
+  display: block;
+}
+
 .chat-waiting__copy {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
   min-width: 0;
   overflow: hidden;
+  line-height: 1;
 }
 
 .chat-waiting__phrase {
-  display: inline-block;
+  display: block;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1;
   transform-origin: center;
   animation: chat-waiting-phrase var(--duration-base) var(--ease-out) backwards;
 }

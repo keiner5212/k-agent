@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2 } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
@@ -21,10 +21,14 @@ const PASTELS: Record<Exclude<PaletteId, "app">, Palette> = {
   sand: { id: "sand", node: "#f6e7cf", text: "#6a5230", line: "#c4a36a" },
 };
 
+const APP_PALETTE: Record<"light" | "dark", Palette> = {
+  light: { id: "app", node: "#ffffff", text: "#0e1116", line: "#2a7a8e" },
+  dark: { id: "app", node: "#1c2128", text: "#e6eaf2", line: "#5eb6cc" },
+};
+
 const resolvePalette = (id: PaletteId, light: boolean): Palette => {
-  if (id !== "app") return PASTELS[id];
-  if (light) return { id: "app", node: "#ffffff", text: "#0e1116", line: "#2a7a8e" };
-  return { id: "app", node: "#1c2128", text: "#e6eaf2", line: "#5eb6cc" };
+  if (id === "app") return light ? APP_PALETTE.light : APP_PALETTE.dark;
+  return PASTELS[id];
 };
 
 type MermaidApi = {
@@ -33,30 +37,59 @@ type MermaidApi = {
 };
 
 let mermaidApi: Promise<MermaidApi> | null = null;
+let renderSerial = 0;
 
 const loadMermaid = (): Promise<MermaidApi> => {
-  mermaidApi ??= import("mermaid").then((mod) => mod.default as MermaidApi);
+  mermaidApi ??= import("mermaid").then((mod) => {
+    const api = mod.default as MermaidApi;
+    api.initialize({ startOnLoad: false, securityLevel: "strict", theme: "neutral" });
+    return api;
+  });
   return mermaidApi;
 };
 
 const paint = (svg: string, palette: Palette): string => {
+  const id = svg.match(/\bid="(kDiagram\d+)"/)?.[1];
+  const scope = id ? `#${id}` : "svg";
   const style = `<style>
-    svg { background: transparent !important; }
-    rect.actor, polygon.actor, rect.note, .labelBox, rect.activation0, rect.activation1, rect.activation2,
-    .node rect, .node polygon, .node circle, .node ellipse, .node path {
+    ${scope} { background: transparent !important; }
+    ${scope} .actor, ${scope} rect.actor, ${scope} polygon.actor, ${scope} rect.note, ${scope} .note,
+    ${scope} .labelBox, ${scope} .activation0, ${scope} .activation1, ${scope} .activation2,
+    ${scope} .node rect, ${scope} .node polygon, ${scope} .node circle, ${scope} .node ellipse, ${scope} .node path {
       fill: ${palette.node} !important;
       stroke: ${palette.line} !important;
     }
-    .actor-line, .messageLine0, .messageLine1, .loopLine, .edgePath path, .flowchart-link, line {
+    ${scope} .actor-line, ${scope} .messageLine0, ${scope} .messageLine1, ${scope} .loopLine,
+    ${scope} .edgePath path, ${scope} .flowchart-link {
       stroke: ${palette.line} !important;
     }
-    .arrowheadPath, .marker path, polygon.arrowhead { fill: ${palette.line} !important; stroke: ${palette.line} !important; }
-    .cluster rect { fill: transparent !important; stroke: ${palette.line} !important; }
-    text.actor, .messageText, .noteText, .loopText, .nodeLabel, .edgeLabel, .label, .nodeLabel span {
-      color: ${palette.text} !important;
-      fill: ${palette.text} !important;
+    ${scope} .arrowheadPath, ${scope} .marker path, ${scope} polygon.arrowhead,
+    ${scope} [id$="-arrowhead"] path, ${scope} [id$="-crosshead"] path, ${scope} [id$="-sequencenumber"] circle {
+      fill: ${palette.line} !important;
+      stroke: ${palette.line} !important;
     }
+    ${scope} .cluster rect { fill: transparent !important; stroke: ${palette.line} !important; }
+    ${scope} .edgeLabel, ${scope} .edgeLabel p, ${scope} .edgeLabel div, ${scope} .labelBkg,
+    ${scope} .edgeLabel rect, ${scope} .edgeLabel .label rect {
+      fill: transparent !important;
+      background: transparent !important;
+      background-color: ${palette.line} !important;
+      stroke: none !important;
+      opacity: 1 !important;
+    }
+    ${scope} text, ${scope} tspan, ${scope} .messageText, ${scope} .noteText, ${scope} .loopText,
+    ${scope} .labelText, ${scope} .sectionTitle, ${scope} text.actor > tspan,
+    ${scope} .nodeLabel, ${scope} .edgeLabel text, ${scope} .edgeLabel span, ${scope} .edgeLabel p,
+    ${scope} .nodeLabel span, ${scope} foreignObject div, ${scope} foreignObject span {
+      fill: ${palette.text} !important;
+      color: ${palette.text} !important;
+      stroke: none !important;
+    }
+    ${scope} .edgeLabel span, ${scope} .edgeLabel text, ${scope} .edgeLabel tspan, ${scope} .edgeLabel p,
+    ${scope} .sequenceNumber { fill: ${palette.node} !important; color: ${palette.node} !important; }
   </style>`;
+  const close = svg.lastIndexOf("</style>");
+  if (close >= 0) return svg.slice(0, close + "</style>".length) + style + svg.slice(close + "</style>".length);
   return svg.replace(/<svg\b[^>]*>/, (open) => `${open}${style}`);
 };
 
@@ -109,62 +142,37 @@ export const MermaidPreviewDialog = ({
 }: MermaidPreviewDialogProps): ReactNode => {
   const { t } = useTranslation();
   const [paletteId, setPaletteId] = useState<PaletteId>("app");
-  const [svg, setSvg] = useState("");
+  const [rawSvg, setRawSvg] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
   const light = document.documentElement.getAttribute("data-theme") === "light";
   const palette = resolvePalette(paletteId, light);
-  const request = open && source.length > 0 ? `${paletteId}\0${light ? "l" : "d"}\0${source}` : "";
-  const [activeRequest, setActiveRequest] = useState(request);
-  if (request !== activeRequest) {
-    setActiveRequest(request);
-    setLoading(request.length > 0);
-    setError(null);
-    setSvg("");
+  const job = open && source.length > 0 ? source : "";
+  const [jobKey, setJobKey] = useState(job);
+  if (job !== jobKey) {
+    setJobKey(job);
+    setLoading(job.length > 0);
+    setFailed(false);
+    setRawSvg("");
     setCopied(false);
+    setDownloaded(false);
   }
+  const svg = useMemo(() => (rawSvg.length > 0 ? paint(rawSvg, palette) : ""), [rawSvg, palette]);
 
   useEffect(() => {
-    if (request.length === 0) return;
+    if (job.length === 0) return;
     let alive = true;
+    const id = `kDiagram${++renderSerial}`;
     void (async () => {
       try {
         const api = await loadMermaid();
-        api.initialize({
-          startOnLoad: false,
-          securityLevel: "strict",
-          theme: "base",
-          themeVariables: {
-            background: "transparent",
-            primaryColor: palette.node,
-            primaryTextColor: palette.text,
-            primaryBorderColor: palette.line,
-            lineColor: palette.line,
-            secondaryColor: "transparent",
-            tertiaryColor: "transparent",
-            mainBkg: palette.node,
-            nodeBorder: palette.line,
-            clusterBkg: "transparent",
-            clusterBorder: palette.line,
-            titleColor: palette.text,
-            edgeLabelBackground: "transparent",
-            textColor: palette.text,
-            noteBkgColor: palette.node,
-            noteTextColor: palette.text,
-            noteBorderColor: palette.line,
-            actorBkg: palette.node,
-            actorBorder: palette.line,
-            actorTextColor: palette.text,
-            signalColor: palette.line,
-            signalTextColor: palette.text,
-          },
-        });
-        const drawn = await api.render(`diagram${Date.now()}`, source);
+        const drawn = await api.render(id, job);
         if (!alive) return;
-        setSvg(paint(drawn.svg, palette));
+        setRawSvg(drawn.svg);
       } catch {
-        if (alive) setError(t("chat.diagram.error"));
+        if (alive) setFailed(true);
       } finally {
         if (alive) setLoading(false);
       }
@@ -172,16 +180,15 @@ export const MermaidPreviewDialog = ({
     return () => {
       alive = false;
     };
-  }, [request, source, palette, t]);
+  }, [job]);
 
   const onDownload = (): void => {
     if (svg.length === 0) return;
     void rasterPng(svg).then((png) => {
-      if (png) {
-        downloadBlob(png, "diagram.png");
-        return;
-      }
-      downloadBlob(new Blob([svg], { type: "image/svg+xml" }), "diagram.svg");
+      if (!png) return;
+      downloadBlob(png, "diagram.png");
+      setDownloaded(true);
+      window.setTimeout(() => setDownloaded(false), 1600);
     });
   };
 
@@ -223,7 +230,7 @@ export const MermaidPreviewDialog = ({
               {copied ? t("chat.diagram.copied") : t("chat.diagram.copy")}
             </GlassButton>
             <GlassButton variant="primary" onClick={onDownload} disabled={svg.length === 0}>
-              {t("chat.diagram.download")}
+              {downloaded ? t("chat.diagram.downloaded") : t("chat.diagram.download")}
             </GlassButton>
           </div>
         </div>
@@ -236,7 +243,7 @@ export const MermaidPreviewDialog = ({
             <span>{t("chat.diagram.loading")}</span>
           </p>
         ) : null}
-        {error ? <p className="diagram-view__status">{error}</p> : null}
+        {failed ? <p className="diagram-view__status">{t("chat.diagram.error")}</p> : null}
         {svg.length > 0 ? (
           <div className="diagram-view__svg" dangerouslySetInnerHTML={{ __html: svg }} />
         ) : null}

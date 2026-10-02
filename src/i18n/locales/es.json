@@ -857,6 +857,7 @@
       "loading": "Preparando el diagrama",
       "error": "No se pudo dibujar este diagrama.",
       "download": "Descargar",
+      "downloaded": "Descargado",
       "copy": "Copiar imagen",
       "copied": "Copiado",
       "palettes": {
