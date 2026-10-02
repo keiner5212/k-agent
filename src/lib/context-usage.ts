@@ -356,6 +356,17 @@ const LSP_TOOL_PARAMETERS = {
   required: ["operation", "filePath"],
 } as const;
 
+const DIAGRAM_TOOL_PARAMETERS = {
+  type: "object",
+  properties: {
+    brief: {
+      type: "string",
+      description: "Full description of the diagram. Not Mermaid source.",
+    },
+  },
+  required: ["brief"],
+} as const;
+
 const TASK_TOOL_PARAMETERS = {
   type: "object",
   properties: {
@@ -387,6 +398,7 @@ const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   apply_patch: APPLY_PATCH_TOOL_PARAMETERS,
   lsp: LSP_TOOL_PARAMETERS,
   task: TASK_TOOL_PARAMETERS,
+  diagram: DIAGRAM_TOOL_PARAMETERS,
 };
 
 export const CONTEXT_CATEGORY_IDS = [

@@ -916,8 +916,8 @@ pub(crate) fn seal_turn(
     session_id: &str,
     noted: Vec<crate::checkpoints::NotedFile>,
 ) -> Result<Option<(String, Vec<FileTouch>)>, SessionError> {
-    let Some(sealed) =
-        crate::checkpoints::seal(&session_dir(app, session_id)?, noted).map_err(SessionError::Io)?
+    let Some(sealed) = crate::checkpoints::seal(&session_dir(app, session_id)?, noted)
+        .map_err(SessionError::Io)?
     else {
         return Ok(None);
     };

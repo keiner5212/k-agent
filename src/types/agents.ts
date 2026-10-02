@@ -23,6 +23,7 @@ export const AGENT_TOOL_IDS = [
   "apply_patch",
   "lsp",
   "task",
+  "diagram",
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
@@ -74,6 +75,8 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
     "Apply one patch that adds, updates, or deletes several files. All files are checked before any write. Update hunks need context lines. One exact span in one file still uses edit.",
   lsp: "Ask the installed language server for a definition, references, hover, or symbols. line and character are 1-based. If no server is installed for the file, the error says so.",
   task: "Hand a multi-step side job to another saved agent and wait for its result text. Do not use this for one read, one grep, or one edit. Several task calls run one at a time. The child cannot start another task.",
+  diagram:
+    "Write one Mermaid diagram from a full brief. Pass the picture in words. Do not write Mermaid yourself. Paste the returned source in a mermaid fence and do not edit it. If status is error, say the diagram did not parse.",
 };
 
 export const MAX_AGENT_SKILLS = 10;

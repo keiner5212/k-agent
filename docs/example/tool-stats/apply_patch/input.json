@@ -1,0 +1,3 @@
+{
+  "patchText": "*** Begin Patch\n*** Add File: patch-new.txt\n+from patch\n*** End Patch\n"
+}

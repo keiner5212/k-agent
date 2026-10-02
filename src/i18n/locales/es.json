@@ -780,6 +780,10 @@
       "task": {
         "label": "Tarea",
         "description": "Entrega un trabajo de varios pasos a otro agente guardado y espera su texto final."
+      },
+      "diagram": {
+        "label": "Diagrama",
+        "description": "Escribe un diagrama Mermaid a partir de una descripcion. El chat muestra el fuente hasta que lo abras."
       }
     },
     "delete": {
@@ -846,6 +850,21 @@
       "copied": "Copiado",
       "rewind": "Retroceder el historial hasta este mensaje",
       "retry": "Deshacer y enviar este mensaje de nuevo"
+    },
+    "diagram": {
+      "view": "Ver",
+      "title": "Diagrama",
+      "loading": "Preparando el diagrama",
+      "error": "No se pudo dibujar este diagrama.",
+      "download": "Descargar",
+      "copy": "Copiar imagen",
+      "copied": "Copiado",
+      "palettes": {
+        "ink": "Tinta",
+        "tide": "Marea",
+        "dusk": "Ocaso",
+        "paper": "Papel"
+      }
     },
     "rewind": {
       "title": "Retroceder el historial?",
@@ -1114,6 +1133,7 @@
       "patchTitle": "Parche",
       "lspTitle": "LSP",
       "taskTitle": "Tarea",
+      "diagramTitle": "Diagrama",
       "taskChat": "Chat del subagente",
       "taskMissing": "Este chat del subagente ya no esta.",
       "outputTitle": "Salida de la herramienta",

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { runRenderMarkdownJob } from "@/lib/jobs";
+import { MermaidPreviewDialog } from "@/features/chat/MermaidPreviewDialog";
 import { finishMarkdown, withCodeCopy } from "@/lib/markdown";
 
 const COPY_FEEDBACK_MS = 1200;
@@ -24,7 +25,9 @@ export const ChatMarkdown = ({ content }: ChatMarkdownProps): ReactNode => {
   const linkHint = t("links.openInBrowserHint");
   const copyLabel = t("chat.message.copyCode");
   const copiedLabel = t("chat.message.copied");
+  const viewLabel = t("chat.diagram.view");
   const [html, setHtml] = useState("");
+  const [diagram, setDiagram] = useState<string | null>(null);
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
@@ -51,6 +54,14 @@ export const ChatMarkdown = ({ content }: ChatMarkdownProps): ReactNode => {
   const onClick = (event: MouseEvent<HTMLDivElement>): void => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    const view = target.closest<HTMLButtonElement>("[data-view-mermaid]");
+    if (view) {
+      event.preventDefault();
+      const pre = view.parentElement?.querySelector("pre");
+      const text = (pre?.textContent ?? "").replace(/\n$/, "");
+      if (text.length > 0) setDiagram(text);
+      return;
+    }
     const button = target.closest<HTMLButtonElement>("[data-copy-code]");
     if (!button) return;
     event.preventDefault();
@@ -78,12 +89,21 @@ export const ChatMarkdown = ({ content }: ChatMarkdownProps): ReactNode => {
   if (html.length === 0) {
     return <div className="chat-message__content">{content}</div>;
   }
-  const shown = withCodeCopy(html, copyLabel);
+  const shown = withCodeCopy(html, copyLabel, viewLabel);
   return (
-    <div
-      className="chat-message__content chat-message__markdown"
-      onClick={onClick}
-      dangerouslySetInnerHTML={{ __html: shown }}
-    />
+    <>
+      <div
+        className="chat-message__content chat-message__markdown"
+        onClick={onClick}
+        dangerouslySetInnerHTML={{ __html: shown }}
+      />
+      <MermaidPreviewDialog
+        open={diagram !== null}
+        source={diagram ?? ""}
+        onOpenChange={(open) => {
+          if (!open) setDiagram(null);
+        }}
+      />
+    </>
   );
 };

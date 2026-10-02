@@ -56,8 +56,8 @@ use providers::{
     refresh_single_model, save_provider, set_model_favorite, upsert_provider_model,
 };
 use sessions::{
-    load_sessions, read_session, read_session_attachment, read_session_file_revision, rollback_files,
-    save_sessions,
+    load_sessions, read_session, read_session_attachment, read_session_file_revision,
+    rollback_files, save_sessions,
 };
 use shell::run_shell_command;
 

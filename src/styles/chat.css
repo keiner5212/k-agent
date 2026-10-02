@@ -1553,7 +1553,8 @@ button.change-bar__stat:focus-visible {
   margin: 0 0 var(--space-2);
 }
 
-.md-code__copy {
+.md-code__copy,
+.md-code__view {
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
@@ -1572,7 +1573,12 @@ button.change-bar__stat:focus-visible {
   -webkit-user-select: none;
 }
 
-.md-code__copy:hover {
+.md-code__view {
+  right: calc(var(--space-2) + 1.8rem);
+}
+
+.md-code__copy:hover,
+.md-code__view:hover {
   color: var(--text-primary);
 }
 
@@ -1596,6 +1602,49 @@ button.change-bar__stat:focus-visible {
 .chat-message__markdown .md-code pre {
   margin: 0;
   padding-right: calc(var(--space-3) + 1.6rem);
+}
+
+.chat-message__markdown .md-code:has(.md-code__view) pre {
+  padding-right: calc(var(--space-3) + 3.4rem);
+}
+
+.diagram-view__stage {
+  min-height: 240px;
+  overflow: auto;
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.diagram-view__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-height: 200px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.diagram-view__svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.diagram-view__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.diagram-view__palettes,
+.diagram-view__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .chat-message__markdown pre code {

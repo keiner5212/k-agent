@@ -101,7 +101,7 @@ Window min size is 720x480 in `src/types/settings.ts` and `src-tauri/src/lib.rs`
   2. A `[[permission]]` block in `src-tauri/permissions/providers.toml`
   3. The `[default]` permission list in that same file
   4. `src-tauri/capabilities/default.json`
-  Missing any one of these surfaces as `Command <name> not allowed by ACL`. After the permission files change, run `cargo check` in `src-tauri` so `src-tauri/gen/schemas/desktop-schema.json` picks up the new ids. That schema is gitignored. A stale copy only warns in the editor.
+     Missing any one of these surfaces as `Command <name> not allowed by ACL`. After the permission files change, run `cargo check` in `src-tauri` so `src-tauri/gen/schemas/desktop-schema.json` picks up the new ids. That schema is gitignored. A stale copy only warns in the editor.
 
 ## Rust disk layout
 
