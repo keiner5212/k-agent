@@ -13,6 +13,7 @@ import { skillNameFromCall, type ChatToolCall, type ToolDisplay } from "@/types/
 import type { SessionRecord } from "@/types/sessions";
 import { formatContextWindow } from "@/types/providers";
 import { ChatTranscript } from "./ChatTranscript";
+import { assistantIsAnswering, ChatWaitingLine } from "./ChatWaitingLine";
 
 type ToolCallsBlockProps = {
   calls: ChatToolCall[];
@@ -404,6 +405,12 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
       <TaskChatDialog
         key={taskSessionId ?? "closed"}
         sessionId={taskSessionId}
+        live={calls.some(
+          (call) =>
+            call.name === "task" &&
+            call.display?.childSessionId === taskSessionId &&
+            callIsRunning(call, pending),
+        )}
         onClose={() => setTaskSessionId(null)}
       />
     </>
@@ -429,6 +436,24 @@ const taskTranscriptStamp = (session: SessionRecord): string => {
   return parts.join(":");
 };
 
+const showChildReasoning = (messages: SessionRecord["messages"]): SessionRecord["messages"] =>
+  messages.map((message) => {
+    if (message.role !== "assistant") return message;
+    const reasoning = message.reasoning?.trim() ?? "";
+    const rounds = message.toolRounds ?? [];
+    if (reasoning.length === 0 || rounds.length === 0) return message;
+    if (rounds.some((round) => round.reasoning.trim().length > 0)) return message;
+    const last = rounds[rounds.length - 1];
+    if (!last) return message;
+    const next = rounds.slice();
+    next[next.length - 1] = {
+      ...last,
+      reasoning,
+      thinkingMs: last.thinkingMs ?? message.thinkingMs,
+    };
+    return { ...message, toolRounds: next };
+  });
+
 const liveChildMessages = (
   messages: SessionRecord["messages"],
   running: boolean,
@@ -444,19 +469,21 @@ const liveChildMessages = (
 
 const TaskChatDialog = ({
   sessionId,
+  live,
   onClose,
 }: {
   sessionId: string | null;
+  live: boolean;
   onClose: () => void;
 }): ReactNode => {
   const { t } = useTranslation();
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [missing, setMissing] = useState(false);
-  const [running, setRunning] = useState(true);
   const messages = useMemo(
-    () => liveChildMessages(session?.messages ?? [], running),
-    [running, session],
+    () => liveChildMessages(showChildReasoning(session?.messages ?? []), live),
+    [live, session],
   );
+  const waiting = live && !messages.some(assistantIsAnswering);
   useEffect(() => {
     if (!sessionId) return;
     let alive = true;
@@ -480,10 +507,8 @@ const TaskChatDialog = ({
             quiet = 0;
             delay = 100;
             setSession(next);
-            setRunning(true);
           } else {
             quiet += 1;
-            if (quiet === 5) setRunning(false);
             if (quiet >= 5) delay = 1000;
           }
           schedule();
@@ -512,7 +537,9 @@ const TaskChatDialog = ({
     >
       <div className="chat-thread-host">
         {missing ? <p className="task-chat__status">{t("chat.tools.taskMissing")}</p> : null}
-        <ChatTranscript messages={messages} sessionId={sessionId} actions={false} />
+        <ChatTranscript messages={messages} sessionId={sessionId} actions={false} peer="parent">
+          <div className="chat-thread__reserve">{waiting ? <ChatWaitingLine /> : null}</div>
+        </ChatTranscript>
       </div>
     </Dialog>
   );

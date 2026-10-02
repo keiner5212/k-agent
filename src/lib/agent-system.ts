@@ -184,6 +184,10 @@ const buildAgentRoster = (
     "agents",
     [
       "Call `task` with `agent` set to one of these names when the job matches that purpose.",
+      "A child keeps that agent's skills and personality. Its tools are the read-only subagent set, not the tools saved for main mode.",
+      "The child cannot ask the user, edit the plan, write files, or run a command that changes state.",
+      "If the result contains a question, resolve it: ask the user or decide, then call `task` again with that answer in the prompt.",
+      "You alone ask the user, update the plan, and do the work.",
       "Do not invent a name. A one-step read or edit stays in this chat.",
       "",
       ...lines,
@@ -212,7 +216,7 @@ const buildToolChoice = (agent: AgentMeta, shape: PromptShape): string => {
   }
   if (hasTool(agent, "task")) {
     lines.push(
-      "Use `task` for a multi-step side job. The `agent` name must be one listed in <agents>. Several calls run one at a time.",
+      "Use `task` for a multi-step read-only side job. The child keeps that agent's skills and personality, and only the read-only subagent tools. You ask the user, update the plan, and do the work. If the child asks a question, answer it and call `task` again.",
     );
   }
   if (hasTool(agent, "write")) lines.push("Create or overwrite a file with `write`.");

@@ -163,22 +163,25 @@ const MessageBody = memo(function MessageBody({
   );
 });
 
-const messageClass = (message: ChatMessage): string => {
+const messageClass = (message: ChatMessage, fromParent: boolean): string => {
   const shell = message.kind === "shell" ? " chat-message--shell" : "";
   const streaming = message.streaming ? " chat-message--streaming" : "";
   const interrupted = message.interrupted ? " chat-message--interrupted" : "";
-  return `chat-message chat-message--${message.role}${shell}${streaming}${interrupted}`;
+  const role = fromParent ? "parent" : message.role;
+  return `chat-message chat-message--${role}${shell}${streaming}${interrupted}`;
 };
 
 export const ChatTranscript = ({
   messages,
   sessionId,
   actions = true,
+  peer = "user",
   children,
 }: {
   messages: ChatMessage[];
   sessionId: string | null;
   actions?: boolean;
+  peer?: "user" | "parent";
   children?: ReactNode;
 }): ReactNode => {
   const { t } = useTranslation();
@@ -188,12 +191,22 @@ export const ChatTranscript = ({
     <>
       <section ref={scrollRef} className="chat-thread chat-thread--active" aria-live="polite">
         <div ref={contentRef} className="chat-thread__messages">
-          {messages.map((message) => (
-            <article key={message.id} className={messageClass(message)} data-role={message.role}>
-              <MessageBody message={message} sessionId={sessionId} />
-              {actions ? <MessageActions message={message} /> : null}
-            </article>
-          ))}
+          {messages.map((message) => {
+            const fromParent = peer === "parent" && message.role === "user";
+            return (
+              <article
+                key={message.id}
+                className={messageClass(message, fromParent)}
+                data-role={fromParent ? "parent" : message.role}
+              >
+                {fromParent ? (
+                  <span className="chat-message__kicker">{t("chat.tools.taskParent")}</span>
+                ) : null}
+                <MessageBody message={message} sessionId={sessionId} />
+                {actions ? <MessageActions message={message} /> : null}
+              </article>
+            );
+          })}
           {children}
         </div>
       </section>

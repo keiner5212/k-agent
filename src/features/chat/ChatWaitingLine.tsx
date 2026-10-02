@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Sparkles } from "lucide-react";
+import type { ChatMessage } from "@/types/chat";
+
+export const assistantIsAnswering = (message: ChatMessage): boolean => {
+  if (!message.streaming || message.role !== "assistant") return false;
+  const rounds = message.toolRounds;
+  const last = rounds && rounds.length > 0 ? rounds[rounds.length - 1] : undefined;
+  if (!last) return message.content.length > 0;
+  if ((last.calls?.length ?? 0) > 0) return false;
+  return (last.content?.length ?? 0) > 0;
+};
+
+export const shellIsStreaming = (message: ChatMessage): boolean =>
+  message.kind === "shell" && message.streaming === true;
 
 const ROTATE_MS = 2800;
 

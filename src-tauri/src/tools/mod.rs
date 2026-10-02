@@ -63,6 +63,30 @@ pub const TASK_TOOL_NAME: &str = task::NAME;
 pub const DIAGRAM_TOOL_NAME: &str = diagram::NAME;
 pub const LIST_DIRECTORY_MAX_PARALLELISM: usize = list_directory::MAX_PARALLELISM;
 
+/// Tools a child may call. The agent's saved tool list applies only in main mode.
+pub const SUBAGENT_TOOL_NAMES: &[&str] = &[
+    SKILL_TOOL_NAME,
+    READ_TOOL_NAME,
+    LIST_DIRECTORY_TOOL_NAME,
+    GREP_TOOL_NAME,
+    LSP_TOOL_NAME,
+    INTERNET_SEARCH_TOOL_NAME,
+    FETCH_URL_TOOL_NAME,
+];
+
+pub fn subagent_tool_names() -> Vec<String> {
+    SUBAGENT_TOOL_NAMES
+        .iter()
+        .map(|name| (*name).to_string())
+        .collect()
+}
+
+fn subagent_call(ctx: &ToolContext<'_>) -> bool {
+    ctx.nested
+        .as_ref()
+        .is_some_and(|scope| scope.task_depth >= 1)
+}
+
 pub const TOOL_KIND_CONTEXT: &str = "context";
 pub const TOOL_KIND_ACTION: &str = "action";
 
@@ -253,6 +277,9 @@ pub(crate) fn require_prior_read(ctx: &ToolContext<'_>, path: &str) -> Result<()
 pub(crate) async fn gate_tool(ctx: &ToolContext<'_>, name: &str) -> Result<(), String> {
     match tool_permission(ctx.app, name) {
         "deny" => Err(format!("Tool `{name}` is denied.")),
+        "ask" if subagent_call(ctx) => Err(format!(
+            "Tool `{name}` needs the user's permission. Report that to the parent."
+        )),
         "ask" => confirm_tool(ctx, name).await,
         _ => Ok(()),
     }
@@ -538,6 +565,12 @@ pub fn specs() -> Vec<ToolSpec> {
 }
 
 pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
+    if subagent_call(ctx) && !SUBAGENT_TOOL_NAMES.contains(&name) {
+        return context_error(
+            None,
+            "subagent is read-only. report this to the parent. the parent asks the user, updates the plan, and does the work.",
+        );
+    }
     if name == ask_user::NAME {
         return ask_user::execute_async(arguments, ctx).await;
     }
