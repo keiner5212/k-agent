@@ -13,7 +13,7 @@ import { skillNameFromCall, type ChatToolCall, type ToolDisplay } from "@/types/
 import type { SessionRecord } from "@/types/sessions";
 import { formatContextWindow } from "@/types/providers";
 import { ChatTranscript } from "./ChatTranscript";
-import { assistantIsAnswering, ChatWaitingLine } from "./ChatWaitingLine";
+import { assistantIsAnswering, assistantIsThinking, ChatWaitingLine } from "./ChatWaitingLine";
 
 type ToolCallsBlockProps = {
   calls: ChatToolCall[];
@@ -483,7 +483,9 @@ const TaskChatDialog = ({
     () => liveChildMessages(showChildReasoning(session?.messages ?? []), live),
     [live, session],
   );
-  const waiting = live && !messages.some(assistantIsAnswering);
+  const waiting =
+    live &&
+    !messages.some((message) => assistantIsAnswering(message) || assistantIsThinking(message));
   useEffect(() => {
     if (!sessionId) return;
     let alive = true;

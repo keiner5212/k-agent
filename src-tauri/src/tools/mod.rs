@@ -182,15 +182,7 @@ pub(crate) async fn attach_lsp_diagnostics(
         return;
     };
     let formatted = crate::lsp_client::format_files(app, paths).await;
-    if formatted.len() == 1 && paths.len() == 1 {
-        if let Some(snapshot) = outcome.snapshot.as_mut() {
-            if !snapshot.before.contains("=====") {
-                if let Ok(text) = std::fs::read_to_string(&paths[0]) {
-                    snapshot.after = text;
-                }
-            }
-        }
-    }
+    // Snapshot stays the edit so added/removed match the diff. Format stays on disk.
     if !formatted.is_empty() {
         let names = formatted
             .iter()

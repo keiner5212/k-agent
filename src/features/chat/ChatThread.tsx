@@ -5,7 +5,12 @@ import { useAskUserStore } from "@/lib/ask-user";
 import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import type { ChatMessage } from "@/types/chat";
 import { ChatTranscript } from "./ChatTranscript";
-import { assistantIsAnswering, ChatWaitingLine, shellIsStreaming } from "./ChatWaitingLine";
+import {
+  assistantIsAnswering,
+  assistantIsThinking,
+  ChatWaitingLine,
+  shellIsStreaming,
+} from "./ChatWaitingLine";
 import { QuestionDialog } from "./QuestionDialog";
 import { TodoList } from "./TodoList";
 
@@ -166,7 +171,10 @@ export const ChatThread = (): ReactNode => {
     busy &&
     !error &&
     !asking &&
-    !messages.some((message) => assistantIsAnswering(message) || shellIsStreaming(message));
+    !messages.some(
+      (message) =>
+        assistantIsAnswering(message) || assistantIsThinking(message) || shellIsStreaming(message),
+    );
 
   if (messages.length === 0 && !error) {
     return (
