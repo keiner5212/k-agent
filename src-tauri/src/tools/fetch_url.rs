@@ -872,7 +872,11 @@ mod tests {
     #[test]
     #[ignore]
     fn parses_probed_cancer_page() {
-        let html = std::fs::read_to_string("/tmp/k-agent-probe/cancer.html").expect("probe html");
+        let html = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../.tmp/k-agent-probe/cancer.html"),
+        )
+        .expect("probe html");
         let parsed = ContentParser::parse(
             &html,
             "https://www.cancer.gov/about-cancer/understanding/what-is-cancer",

@@ -877,6 +877,7 @@
     },
     "thinking": {
       "label": "Pensando",
+      "done": "Pensó",
       "duration_one": "Pensó {{count}} segundo",
       "duration_other": "Pensó {{count}} segundos",
       "durationMs": "Pensó {{count}} ms"

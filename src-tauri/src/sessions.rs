@@ -90,6 +90,8 @@ pub struct RedoRecord {
     pub messages: Vec<SessionMessage>,
     #[serde(default)]
     pub checkpoints: Vec<TurnCheckpoint>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub todos: Option<Vec<crate::tools::todo::TodoItem>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

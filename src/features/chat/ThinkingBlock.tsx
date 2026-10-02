@@ -1,9 +1,19 @@
-import { useLayoutEffect, useRef, useState, type ReactNode, type UIEvent } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Dialog } from "@/components/Dialog";
 import { ChatMarkdown } from "./ChatMarkdown";
+import { useChatStick } from "./use-chat-stick";
 
-const STICK_PX = 48;
+const ThinkingDialogBody = ({ reasoning }: { reasoning: string }): ReactNode => {
+  const { scrollRef, contentRef } = useChatStick();
+  return (
+    <div ref={scrollRef} className="chat-thinking-dialog__body">
+      <div ref={contentRef}>
+        <ChatMarkdown content={reasoning} />
+      </div>
+    </div>
+  );
+};
 
 export const thinkingIsLive = ({
   streaming,
@@ -38,17 +48,6 @@ export const ThinkingBlock = ({
 }): ReactNode => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const stickRef = useRef(true);
-  useLayoutEffect(() => {
-    if (!open) {
-      stickRef.current = true;
-      return;
-    }
-    const node = bodyRef.current;
-    if (!node || !stickRef.current) return;
-    node.scrollTop = node.scrollHeight;
-  }, [open, reasoning]);
   if (reasoning.length === 0) return null;
   const seconds =
     !live && thinkingMs !== undefined && thinkingMs >= 1000
@@ -61,12 +60,9 @@ export const ThinkingBlock = ({
       ? t("chat.thinking.duration", { count: seconds })
       : ms !== undefined
         ? t("chat.thinking.durationMs", { count: ms })
-        : t("chat.thinking.label");
-  const onBodyScroll = (event: UIEvent<HTMLDivElement>): void => {
-    const node = event.currentTarget;
-    const distance = node.scrollHeight - node.clientHeight - node.scrollTop;
-    stickRef.current = distance < STICK_PX;
-  };
+        : live
+          ? t("chat.thinking.label")
+          : t("chat.thinking.done");
   return (
     <>
       <button
@@ -84,9 +80,7 @@ export const ThinkingBlock = ({
         size="wide"
         placement="center"
       >
-        <div ref={bodyRef} className="chat-thinking-dialog__body" onScroll={onBodyScroll}>
-          <ChatMarkdown content={reasoning} />
-        </div>
+        <ThinkingDialogBody reasoning={reasoning} />
       </Dialog>
     </>
   );

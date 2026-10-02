@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { Dialog } from "@/components/Dialog";
@@ -9,16 +9,10 @@ import { runDiffLinesJob } from "@/lib/jobs";
 import { useProvidersStore } from "@/lib/providers";
 import { readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
 import { useSelectionStore } from "@/lib/selected-model";
-import {
-  skillNameFromCall,
-  type ChatMessage,
-  type ChatToolCall,
-  type ToolDisplay,
-} from "@/types/chat";
+import { skillNameFromCall, type ChatToolCall, type ToolDisplay } from "@/types/chat";
 import type { SessionRecord } from "@/types/sessions";
 import { formatContextWindow } from "@/types/providers";
-import { ChatMarkdown } from "./ChatMarkdown";
-import { ThinkingBlock, thinkingIsLive } from "./ThinkingBlock";
+import { ChatTranscript } from "./ChatTranscript";
 
 type ToolCallsBlockProps = {
   calls: ChatToolCall[];
@@ -435,67 +429,16 @@ const taskTranscriptStamp = (session: SessionRecord): string => {
   return parts.join(":");
 };
 
-const TaskMessage = ({
-  message,
-  sessionId,
-  running,
-}: {
-  message: ChatMessage;
-  sessionId: string;
-  running: boolean;
-}): ReactNode => {
-  const rounds = message.toolRounds ?? [];
-  const lastIndex = rounds.length - 1;
-  const lastRound = rounds[lastIndex]?.content;
-  const trailing = rounds.length > 0 && message.content !== (lastRound ?? "");
-  return (
-    <div className={`chat-message chat-message--${message.role}`}>
-      {message.role === "user" ? (
-        message.content ? (
-          <p className="chat-message__content">{message.content}</p>
-        ) : null
-      ) : (
-        <>
-          {rounds.length === 0 ? (
-            <ThinkingBlock
-              reasoning={message.reasoning ?? ""}
-              live={thinkingIsLive({
-                streaming: running,
-                isLast: true,
-                reasoning: message.reasoning ?? "",
-                content: message.content,
-                calls: 0,
-                thinkingMs: message.thinkingMs,
-              })}
-              thinkingMs={message.thinkingMs}
-            />
-          ) : null}
-          {rounds.map((round, index) => (
-            <div key={`round-${index}`}>
-              <ThinkingBlock
-                reasoning={round.reasoning}
-                live={thinkingIsLive({
-                  streaming: running,
-                  isLast: index === lastIndex,
-                  reasoning: round.reasoning,
-                  content: round.content,
-                  calls: round.calls?.length ?? 0,
-                  thinkingMs: round.thinkingMs,
-                })}
-                thinkingMs={round.thinkingMs}
-              />
-              <ChatMarkdown content={round.content ?? ""} />
-              <ToolCallsBlock
-                sessionId={sessionId}
-                calls={round.calls ?? []}
-                pending={running && index === lastIndex}
-              />
-            </div>
-          ))}
-          {rounds.length === 0 || trailing ? <ChatMarkdown content={message.content} /> : null}
-        </>
-      )}
-    </div>
+const liveChildMessages = (
+  messages: SessionRecord["messages"],
+  running: boolean,
+): SessionRecord["messages"] => {
+  if (!running || messages.length === 0) return messages;
+  const lastIndex = messages.length - 1;
+  const last = messages[lastIndex];
+  if (!last || last.role !== "assistant") return messages;
+  return messages.map((message, index) =>
+    index === lastIndex ? { ...message, streaming: true } : message,
   );
 };
 
@@ -510,9 +453,10 @@ const TaskChatDialog = ({
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [missing, setMissing] = useState(false);
   const [running, setRunning] = useState(true);
-  const scrollerRef = useRef<HTMLDivElement>(null);
-  const stickRef = useRef(true);
-  const lastScrollTopRef = useRef(0);
+  const messages = useMemo(
+    () => liveChildMessages(session?.messages ?? [], running),
+    [running, session],
+  );
   useEffect(() => {
     if (!sessionId) return;
     let alive = true;
@@ -557,12 +501,6 @@ const TaskChatDialog = ({
       window.clearTimeout(timer);
     };
   }, [sessionId]);
-  useLayoutEffect(() => {
-    const node = scrollerRef.current;
-    if (!node || !stickRef.current) return;
-    node.scrollTop = node.scrollHeight;
-    lastScrollTopRef.current = node.scrollTop;
-  }, [session]);
   return (
     <Dialog
       open={sessionId !== null}
@@ -572,27 +510,9 @@ const TaskChatDialog = ({
       titleKey="chat.tools.taskChat"
       size="wide"
     >
-      <div
-        ref={scrollerRef}
-        className="task-chat"
-        onScroll={(event) => {
-          const node = event.currentTarget;
-          const top = node.scrollTop;
-          const distance = node.scrollHeight - node.clientHeight - top;
-          if (top < lastScrollTopRef.current - 1) stickRef.current = distance < 48;
-          else if (distance < 48) stickRef.current = true;
-          lastScrollTopRef.current = top;
-        }}
-      >
+      <div className="chat-thread-host">
         {missing ? <p className="task-chat__status">{t("chat.tools.taskMissing")}</p> : null}
-        {session?.messages.map((message) => (
-          <TaskMessage
-            key={message.id}
-            message={message}
-            sessionId={sessionId ?? ""}
-            running={running}
-          />
-        ))}
+        <ChatTranscript messages={messages} sessionId={sessionId} actions={false} />
       </div>
     </Dialog>
   );
