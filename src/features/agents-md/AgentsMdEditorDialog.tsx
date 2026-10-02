@@ -115,6 +115,9 @@ const AgentsMdEditorBody = ({ file, onCancel, onSave }: AgentsMdEditorBodyProps)
           {file.path}
         </div>
       </div>
+      {file.exists && !file.managed ? (
+        <p className="skill-editor__note">{t("agentsMd.editor.promote")}</p>
+      ) : null}
       {error ? (
         <div className="form-error" role="alert">
           {error}

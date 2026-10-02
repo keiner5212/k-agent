@@ -58,7 +58,9 @@ permissions = [
   "allow-read-session",
   "allow-read-session-attachment",
   "allow-read-session-file-revision",
+  "allow-rollback-files",
   "allow-generate-session-title",
+  "allow-summarize-conversation",
   "allow-generate-app-content",
   "allow-run-shell-command",
 ]
@@ -374,9 +376,19 @@ description = "Read a write or edit file snapshot from a session folder."
 commands.allow = ["read_session_file_revision"]
 
 [[permission]]
+identifier = "allow-rollback-files"
+description = "Restore workspace files from a session turn snapshot."
+commands.allow = ["rollback_files"]
+
+[[permission]]
 identifier = "allow-generate-session-title"
 description = "Generate a session title from the first message."
 commands.allow = ["generate_session_title"]
+
+[[permission]]
+identifier = "allow-summarize-conversation"
+description = "Summarize a conversation transcript for context compaction."
+commands.allow = ["summarize_conversation"]
 
 [[permission]]
 identifier = "allow-generate-app-content"

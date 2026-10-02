@@ -792,7 +792,7 @@
   },
   "agentsMd": {
     "title": "AGENTS.md",
-    "description": "Archivos de instrucciones del agente de código. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md en la raíz del workspace.",
+    "description": "Archivos de instrucciones del agente de código. Global: ~/.k-agent/AGENTS.md. Workspace: gana el primer archivo en la raíz: AGENTS.md, agents.md, CLAUDE.md, CONTEXT.md.",
     "context": {
       "global": "Global",
       "local": "Workspace"
@@ -816,7 +816,8 @@
       "saving": "Guardando",
       "done": "Listo",
       "clean": "Guardado",
-      "dirty": "Cambios sin guardar"
+      "dirty": "Cambios sin guardar",
+      "promote": "Guardar escribe AGENTS.md y no modifica este archivo."
     },
     "delete": {
       "title": "Eliminar AGENTS.md",

@@ -792,7 +792,7 @@
   },
   "agentsMd": {
     "title": "AGENTS.md",
-    "description": "Instruction files for the coding agent. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md at the workspace root.",
+    "description": "Instruction files for the coding agent. Global: ~/.k-agent/AGENTS.md. Workspace: the first file at the root wins: AGENTS.md, agents.md, CLAUDE.md, CONTEXT.md.",
     "context": {
       "global": "Global",
       "local": "Workspace"
@@ -816,7 +816,8 @@
       "saving": "Saving",
       "done": "Done",
       "clean": "Saved",
-      "dirty": "Unsaved changes"
+      "dirty": "Unsaved changes",
+      "promote": "Saving writes AGENTS.md and leaves this file unchanged."
     },
     "delete": {
       "title": "Delete AGENTS.md",

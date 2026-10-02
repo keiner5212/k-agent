@@ -159,9 +159,11 @@ const AgentsMdFileView = ({
             <IconButton label={t("agentsMd.actions.edit")} onClick={onEdit}>
               <Pencil size={12} strokeWidth={1.5} />
             </IconButton>
-            <IconButton label={t("agentsMd.actions.delete")} onClick={onDelete}>
-              <Trash2 size={12} strokeWidth={1.5} />
-            </IconButton>
+            {file.managed ? (
+              <IconButton label={t("agentsMd.actions.delete")} onClick={onDelete}>
+                <Trash2 size={12} strokeWidth={1.5} />
+              </IconButton>
+            ) : null}
           </>
         ) : (
           <GlassButton
