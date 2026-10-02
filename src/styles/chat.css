@@ -13,6 +13,7 @@
   flex: 1;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto auto;
+  min-width: 0;
   min-height: 0;
   padding: 0;
   position: relative;
@@ -1018,6 +1019,18 @@ button.change-bar__stat:focus-visible {
   border-color: color-mix(in oklch, var(--accent) 28%, var(--border));
 }
 
+.chat-message--parent {
+  align-self: flex-end;
+  border-color: color-mix(in oklch, var(--text-secondary) 45%, var(--border));
+}
+
+.chat-message__kicker {
+  display: block;
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
 .chat-message--user.chat-message--shell {
   border-color: color-mix(in oklch, #5fd99e 38%, var(--border));
   background-color: color-mix(in oklch, #5fd99e 8%, var(--surface-elevated));
@@ -1848,6 +1861,9 @@ button.change-bar__stat:focus-visible {
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-2);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: var(--space-3);
   border-top: 1px solid var(--border);
   background-color: var(--background);
@@ -1865,17 +1881,24 @@ button.change-bar__stat:focus-visible {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .composer-queue__list {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin: 0;
   padding: 0;
   list-style: none;
   max-height: 7.5rem;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
 }
 
@@ -1883,6 +1906,8 @@ button.change-bar__stat:focus-visible {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border);
@@ -1908,10 +1933,13 @@ button.change-bar__stat:focus-visible {
 }
 
 .composer-queue__now {
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 11rem;
   height: var(--control-height);
   padding: 0 var(--space-2);
   gap: var(--space-1);
+  overflow: hidden;
   font-size: var(--text-xs);
 }
 

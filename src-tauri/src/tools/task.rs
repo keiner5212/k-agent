@@ -7,10 +7,13 @@ use super::{
 pub const NAME: &str = "task";
 
 const DESCRIPTION: &str = "\
-Hand a multi-step side job to another saved agent and wait for its result text. \
+Hand a multi-step read-only side job to another saved agent and wait for its result text. \
 Do not use this for one read, one grep, or one file edit. \
 agent is that agent's name. prompt is the full task, including what to return. \
-description is 3 to 5 words. The child is that agent: its skills, personality, and tools. \
+description is 3 to 5 words. The child keeps that agent's skills and personality. \
+Its tools are the read-only subagent set, not the tools saved for main mode. \
+It cannot ask the user, edit the plan, write files, or run a command that changes state. \
+If the result asks a question, resolve it and call task again with the answer. \
 It does not inherit the parent system prompt. It cannot start another task. \
 Several task calls run one at a time. Each returns its text before the next starts. \
 The user can open the child chat from this call while it runs.\

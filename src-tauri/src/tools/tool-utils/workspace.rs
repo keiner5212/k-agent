@@ -46,10 +46,18 @@ pub async fn guard(
     if !is_outside_workspace(&resolved, workspace.as_deref()) {
         return run();
     }
+    let rel = ctx.relative_path(&resolved);
+    if child_blocked(ctx) {
+        let message = "Outside the workspace. Report this path to the parent.";
+        return if action {
+            action_error(&rel, message)
+        } else {
+            context_error(Some(&rel), message)
+        };
+    }
     if session_granted(ctx) {
         return with_confirmed(run);
     }
-    let rel = ctx.relative_path(&resolved);
     match confirm_outside(ctx, verb, &resolved, &rel).await {
         OutsideChoice::Deny => {
             let message = "User denied access outside the workspace.";
@@ -71,6 +79,12 @@ enum OutsideChoice {
     Deny,
     Once,
     Session,
+}
+
+fn child_blocked(ctx: &ToolContext<'_>) -> bool {
+    ctx.nested
+        .as_ref()
+        .is_some_and(|scope| scope.task_depth >= 1)
 }
 
 fn session_grants() -> &'static Mutex<HashSet<String>> {
@@ -137,6 +151,11 @@ pub fn http_write_allowed(ctx: &ToolContext<'_>) -> bool {
 pub async fn ensure_http_write(ctx: &ToolContext<'_>, method: &str) -> Result<(), String> {
     if method.eq_ignore_ascii_case("GET") || method.eq_ignore_ascii_case("HEAD") {
         return Ok(());
+    }
+    if child_blocked(ctx) {
+        return Err(
+            "HTTP writes are not available to a subagent. Report this to the parent.".into(),
+        );
     }
     if http_write_allowed(ctx) {
         return Ok(());

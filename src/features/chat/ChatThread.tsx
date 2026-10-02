@@ -5,7 +5,12 @@ import { useAskUserStore } from "@/lib/ask-user";
 import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
 import type { ChatMessage } from "@/types/chat";
 import { ChatTranscript } from "./ChatTranscript";
-import { ChatWaitingLine } from "./ChatWaitingLine";
+import {
+  assistantIsAnswering,
+  assistantIsThinking,
+  ChatWaitingLine,
+  shellIsStreaming,
+} from "./ChatWaitingLine";
 import { QuestionDialog } from "./QuestionDialog";
 import { TodoList } from "./TodoList";
 
@@ -35,6 +40,18 @@ const formatChatError = (
   return clipDetail(text);
 };
 
+const todosDismissedByLaterUser = (messages: ChatMessage[]): boolean => {
+  let lastTodo = -1;
+  let lastUser = -1;
+  for (let index = 0; index < messages.length; index += 1) {
+    const message = messages[index];
+    if (!message) continue;
+    if (message.role === "user") lastUser = index;
+    if (message.todos !== undefined) lastTodo = index;
+  }
+  return lastTodo >= 0 && lastUser > lastTodo;
+};
+
 const ThreadTail = ({ messages }: { messages: ChatMessage[] }): ReactNode => {
   const todos = useSessionsStore((state) => {
     const id = state.activeSessionId;
@@ -43,8 +60,9 @@ const ThreadTail = ({ messages }: { messages: ChatMessage[] }): ReactNode => {
     }
     return undefined;
   });
-  const latestTodos =
-    todos ?? [...messages].reverse().find((message) => message.todos !== undefined)?.todos;
+  const latestTodos = todosDismissedByLaterUser(messages)
+    ? undefined
+    : (todos ?? [...messages].reverse().find((message) => message.todos !== undefined)?.todos);
   const questionsByCallId = useAskUserStore((state) => state.byCallId);
   const messageIds = new Set(messages.map((message) => message.id));
   const pending = Object.values(questionsByCallId).filter(
@@ -63,17 +81,6 @@ const ThreadTail = ({ messages }: { messages: ChatMessage[] }): ReactNode => {
       ) : null}
     </div>
   );
-};
-
-const assistantIsWriting = (message: ChatMessage): boolean => {
-  if (!message.streaming || message.role !== "assistant") return false;
-  const rounds = message.toolRounds;
-  const last = rounds && rounds.length > 0 ? rounds[rounds.length - 1] : undefined;
-  if (!last) {
-    return message.content.length > 0 || (message.reasoning?.length ?? 0) > 0;
-  }
-  if ((last.calls?.length ?? 0) > 0) return false;
-  return (last.content?.length ?? 0) > 0 || last.reasoning.length > 0;
 };
 
 const InterruptHint = (): ReactNode => {
@@ -149,11 +156,25 @@ export const ChatThread = (): ReactNode => {
   const messages = useSessionsStore(selectActiveMessages);
   const sending = useSessionsStore((state) => state.sending);
   const sendingSessionId = useSessionsStore((state) => state.sendingSessionId);
+  const shellRunning = useSessionsStore((state) => state.shellRunning);
+  const shellRunningSessionId = useSessionsStore((state) => state.shellRunningSessionId);
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
   const error = useSessionsStore((state) => state.error);
   const canRetry = useSessionsStore((state) => state.canRetry);
+  const asking = useAskUserStore((state) =>
+    Object.values(state.byCallId).some((item) => item.sessionId === activeSessionId),
+  );
+  const busy =
+    (sending && sendingSessionId === activeSessionId) ||
+    (shellRunning && shellRunningSessionId === activeSessionId);
   const waiting =
-    sending && sendingSessionId === activeSessionId && !error && !messages.some(assistantIsWriting);
+    busy &&
+    !error &&
+    !asking &&
+    !messages.some(
+      (message) =>
+        assistantIsAnswering(message) || assistantIsThinking(message) || shellIsStreaming(message),
+    );
 
   if (messages.length === 0 && !error) {
     return (
@@ -163,6 +184,7 @@ export const ChatThread = (): ReactNode => {
             <Sparkles size={20} strokeWidth={1.5} />
             <h2 className="chat-thread__empty-title">{t("chat.thread.emptyTitle")}</h2>
             <p className="chat-thread__empty-description">{t("chat.thread.emptyDescription")}</p>
+            {waiting ? <ChatWaitingLine /> : null}
           </div>
         </section>
       </div>

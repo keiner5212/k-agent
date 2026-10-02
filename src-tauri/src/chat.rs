@@ -3366,23 +3366,7 @@ pub(crate) async fn run_task(
     if let Some(text) = ctx.agent_personalities.get(&key) {
         agent.personality.clone_from(text);
     }
-    let mut tool_names: Vec<String> = agent
-        .tools
-        .iter()
-        .filter(|name| name.as_str() != tools::TASK_TOOL_NAME)
-        .cloned()
-        .collect();
-    if tool_names.is_empty() {
-        tool_names = scope
-            .tool_names
-            .iter()
-            .filter(|name| name.as_str() != tools::TASK_TOOL_NAME)
-            .cloned()
-            .collect();
-    }
-    if !agent.skills.is_empty() && !tool_names.iter().any(|name| name == tools::SKILL_TOOL_NAME) {
-        tool_names.insert(0, tools::SKILL_TOOL_NAME.to_string());
-    }
+    let tool_names = tools::subagent_tool_names();
     let (provider_id, model_id, same_parent) = task_model_choice(app, scope);
     let (provider, model) = load_provider_model(app, &provider_id, &model_id)
         .await

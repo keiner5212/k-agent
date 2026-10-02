@@ -23,15 +23,7 @@ pub(crate) fn compose_child_system(
     push(&mut parts, flow(!agent_skills.is_empty(), shape));
     push(&mut parts, agent_skills_block(&agent_skills, shape));
     push(&mut parts, workspace_skills(&local, shape));
-    if has(tools, "ask_user") {
-        push(&mut parts, wrap("clarify", CLARIFY, shape));
-    }
-    if has(tools, "todowrite") {
-        push(&mut parts, wrap("todos", TODOS, shape));
-    }
-    if has(tools, "bash") {
-        push(&mut parts, tool_choice(tools, shape));
-    }
+    push(&mut parts, tool_choice(tools, shape));
     let voice = agent.personality.trim();
     if !voice.is_empty() {
         push(&mut parts, wrap("personality", voice, shape));
@@ -41,17 +33,18 @@ pub(crate) fn compose_child_system(
         wrap("assignment", &assignment(&agent.name), shape),
     );
     push(&mut parts, wrap("rendering", RENDERING, shape));
-    if has(tools, "page_shot") {
-        push(&mut parts, wrap("visual-check", VISUAL, shape));
-    }
     let base = parts.join("\n\n");
     wrap_outer(app, &base, shape)
 }
 
 fn assignment(name: &str) -> String {
     format!(
-        "You are `{name}` on one task.\n\
-Do only the user message. Do not widen it. Do not start another task.\n\
+        "You are `{name}` on one read-only task from the parent agent.\n\
+The message is the parent's assignment. Skills and personality stay yours.\n\
+Tools are the read-only subagent set on this request, not the tools saved for you as a main agent.\n\
+Read and report. Do not write files, edit the plan, ask the user, or run a command that changes anything.\n\
+If something is unclear, put the question in the result. The parent resolves it and may call you again.\n\
+Do not widen the task. Do not start another task.\n\
 Return the result text. The parent uses that text."
     )
 }
@@ -83,27 +76,16 @@ fn wrap_outer(app: &AppHandle, base: &str, shape: Shape) -> String {
 
 fn workspace_notes(content: &str, shape: Shape) -> String {
     let body = content.trim();
-    let mut lines = vec![
-        "Workspace memory is on. Personal notes live in `.k-agent/NOTES.md`.",
-        "At the end of every turn, after the answer is ready, review that file. Save only if the list changed.",
-        "",
-        "1. Drop. Remove a bullet that this turn contradicted, that the user overrode, or that is no longer needed.",
-        "2. Add. Add a bullet only when it will still matter on a later task, the user stated it or corrected you or repeated it, and no current bullet or AGENTS.md already says it.",
-        "3. Promote. If a bullet outgrows a one-line preference and is now a standing project rule, move it into `AGENTS.md`, or into `agents.md` when that file already exists. Do not edit `CLAUDE.md` or `CONTEXT.md`. Remove the bullet from NOTES.md once it is there.",
-        "4. Refuse. Do not add a one-off task, a guess, a secret, chat history, or a restatement of this request.",
-        "5. Cap. At most 20 bullets, one line each. To add past the cap, merge or drop a weaker bullet first.",
-        "6. Save. If NOTES.md changed, write it in this turn with `write` or `edit`. If a bullet was promoted, update the workspace instruction file in the same turn. If nothing changed, leave both files alone.",
-        "",
-        "A bullet is a durable workspace rule, such as \"always run the formatter\". Not the file edited in this turn.",
-    ];
     if body.is_empty() {
-        lines.push("");
-        lines.push("The file is empty. Create it when the first bullet passes step 2.");
-    } else {
-        lines.push("");
-        lines.push("Current notes:");
-        lines.push(body);
+        return String::new();
     }
+    let lines = [
+        "Workspace notes are context only. You cannot edit `.k-agent/NOTES.md`.",
+        "If a note should change, say so in the result. The parent writes it.",
+        "",
+        "Current notes:",
+        body,
+    ];
     wrap("workspace-notes", &lines.join("\n"), shape)
 }
 
@@ -167,22 +149,18 @@ fn workspace_skills(local: &[SkillInfo], shape: Shape) -> String {
 }
 
 fn tool_choice(tools: &[String], shape: Shape) -> String {
-    let mut lines = vec![
-        "Use the dedicated tool. Do not use `bash` for work another tool already does.".to_string(),
-    ];
+    let mut lines = vec!["Use the dedicated tool. Do not invent a shell command.".to_string()];
     if has(tools, "list_directory") {
         lines.push(
-            "List a directory with `list_directory`. Find files by name with its `glob` (`*.rs` matches any depth). Do not use `ls`, `find`, or `tree`."
+            "List a directory with `list_directory`. Find files by name with its `glob` (`*.rs` matches any depth)."
                 .into(),
         );
     }
     if has(tools, "read") {
-        lines.push("Read a file with `read`. Do not use `cat`, `head`, `tail`, or `wc`.".into());
+        lines.push("Read a file with `read`.".into());
     }
     if has(tools, "grep") {
-        lines.push(
-            "Search file contents with `grep`. Do not run `grep` or `rg` in the shell.".into(),
-        );
+        lines.push("Search file contents with `grep`.".into());
     }
     if has(tools, "lsp") {
         lines.push(
@@ -190,34 +168,9 @@ fn tool_choice(tools: &[String], shape: Shape) -> String {
                 .into(),
         );
     }
-    if has(tools, "write") {
-        lines.push("Create or overwrite a file with `write`.".into());
-    }
-    if has(tools, "edit") {
-        lines.push("Change one exact span with `edit`.".into());
-    }
-    if has(tools, "apply_patch") {
-        lines.push("Change several files in one diff with `apply_patch`.".into());
-    }
-    if has(tools, "create_folder") {
-        lines.push("Make a directory with `create_folder`.".into());
-    }
-    if has(tools, "delete") {
-        lines.push("Remove a file or empty directory with `delete`.".into());
-    }
-    lines.push(
-        "`bash` is for a command that must run and finish, such as install, build, test, or git."
-            .into(),
-    );
-    if has(tools, "http_request") {
+    if has(tools, "internet_search") {
         lines.push(
-            "Call an API with `http_request`, including localhost. Do not use `curl` or `wget`."
-                .into(),
-        );
-    }
-    if has(tools, "background") {
-        lines.push(
-            "A process that must stay up uses `background`, not `bash`. That process is killed when the turn ends. Do not kill its pid."
+            "Find public URLs with `internet_search`. Read the best one with `fetch_url`. Do not answer from a snippet."
                 .into(),
         );
     }
@@ -343,23 +296,6 @@ fn setting_str(settings: Option<&serde_json::Value>, key: &str) -> Option<String
         .filter(|value| !value.is_empty())
         .map(str::to_string)
 }
-
-const CLARIFY: &str = "\
-Before you act, list what you would have to assume: goal, scope, files, behavior, names, and success.\n\
-Call `ask_user` for every gap. One question per gap. Put the option you would have assumed first. Leave free text on.\n\
-Wait for the answer. Do not start the work, and do not pick for the user.";
-
-const TODOS: &str = "\
-Keep the session todo list matched to the work when the task has several steps.\n\
-Call `todowrite` with the full list. Each item is content, status, and priority (high, medium, or low). Do not invent ids.\n\
-Keep at most one item in_progress. Mark an item completed only after that step is done.\n\
-Send the list again when a step starts, finishes, or is dropped. An empty list clears it.";
-
-const VISUAL: &str = "\
-Use `page_shot` only on a page that is already being served. One shot per review.\n\
-Do not repeat it with a different host, height, or selector.\n\
-A blank or identical image is a capture miss. Do not edit the page to remove a black box from a bad shot.\n\
-Start a dev server with `background`. It is killed when the turn ends. Do not kill its pid. Do not use `bash` for that.";
 
 const RENDERING: &str = "\
 Chat output is GitHub-flavored markdown.\n\
