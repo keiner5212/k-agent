@@ -1,0 +1,3 @@
+path: missing.rs
+status: error
+error: lsp needs the desktop shell.

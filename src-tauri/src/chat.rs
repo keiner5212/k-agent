@@ -2649,9 +2649,11 @@ pub async fn generate_session_title(
         child_session_id: None,
     };
     let title = normalize_generated_title(
-        &send_message(&app, &provider, &call, None, None, false, false, false, false)
-            .await?
-            .content,
+        &send_message(
+            &app, &provider, &call, None, None, false, false, false, false,
+        )
+        .await?
+        .content,
     );
     if title.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -2729,9 +2731,11 @@ pub async fn summarize_conversation(
         child_session_id: None,
     };
     let summary = normalize_generated_text(
-        &send_message(&app, &provider, &call, None, None, false, false, false, false)
-            .await?
-            .content,
+        &send_message(
+            &app, &provider, &call, None, None, false, false, false, false,
+        )
+        .await?
+        .content,
     );
     if summary.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -2863,6 +2867,52 @@ fn app_content_output_cap(kind: GenerateAppContentKind) -> u64 {
     }
 }
 
+pub(crate) async fn complete_quiet(
+    app: &AppHandle,
+    provider_id: &str,
+    model_id: &str,
+    system: &str,
+    user: &str,
+    max_output: u64,
+    limit_provider_data_use: bool,
+) -> Result<String, ChatError> {
+    let (provider, model) = load_provider_model(app, provider_id, model_id).await?;
+    let turns = vec![user_turn(user.to_string())];
+    let max_output = capped_output(&model, max_output);
+    let options = quiet_request_options(limit_provider_data_use);
+    let plan = request_plan(&provider, &model, &options, max_output);
+    let call = ChatCall {
+        model: &model,
+        turns: &turns,
+        system: Some(system),
+        effort: None,
+        max_output: plan.max_output,
+        enable_reasoning: plan.enable_reasoning,
+        plan: &plan,
+        tool_names: &[],
+        mcp_tools: &[],
+        parallelism: 1,
+        allowed_commands: &[],
+        blocked_commands: &[],
+        shell_program: "",
+        nested: None,
+        question_chunk: None,
+        agent_personalities: no_personalities(),
+        child_session_id: None,
+    };
+    let text = normalize_generated_text(
+        &send_message(
+            app, &provider, &call, None, None, false, false, false, false,
+        )
+        .await?
+        .content,
+    );
+    if text.is_empty() {
+        return Err(ChatError::EmptyResponse);
+    }
+    Ok(text)
+}
+
 #[tauri::command]
 pub async fn generate_app_content(
     app: AppHandle,
@@ -2894,9 +2944,11 @@ pub async fn generate_app_content(
         child_session_id: None,
     };
     let text = normalize_generated_text(
-        &send_message(&app, &provider, &call, None, None, false, false, false, false)
-            .await?
-            .content,
+        &send_message(
+            &app, &provider, &call, None, None, false, false, false, false,
+        )
+        .await?
+        .content,
     );
     if text.is_empty() {
         return Err(ChatError::EmptyResponse);

@@ -780,6 +780,10 @@
       "task": {
         "label": "Task",
         "description": "Hand a multi-step side job to another saved agent and wait for its final text."
+      },
+      "diagram": {
+        "label": "Diagram",
+        "description": "Write one Mermaid diagram from a written brief. The chat shows the source until you open it."
       }
     },
     "delete": {
@@ -792,7 +796,7 @@
   },
   "agentsMd": {
     "title": "AGENTS.md",
-    "description": "Instruction files for the coding agent. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md at the workspace root.",
+    "description": "Instruction files for the coding agent. Global: ~/.k-agent/AGENTS.md. Workspace: the first file at the root wins: AGENTS.md, agents.md, CLAUDE.md, CONTEXT.md.",
     "context": {
       "global": "Global",
       "local": "Workspace"
@@ -816,7 +820,8 @@
       "saving": "Saving",
       "done": "Done",
       "clean": "Saved",
-      "dirty": "Unsaved changes"
+      "dirty": "Unsaved changes",
+      "promote": "Saving writes AGENTS.md and leaves this file unchanged."
     },
     "delete": {
       "title": "Delete AGENTS.md",
@@ -845,6 +850,22 @@
       "copied": "Copied",
       "rewind": "Rewind history up to this message",
       "retry": "Undo and send this message again"
+    },
+    "diagram": {
+      "view": "Visualize",
+      "title": "Diagram",
+      "loading": "Preparing the diagram",
+      "error": "This diagram could not be drawn.",
+      "download": "Download",
+      "downloaded": "Downloaded",
+      "copy": "Copy image",
+      "copied": "Copied",
+      "palettes": {
+        "app": "App",
+        "blush": "Blush",
+        "mist": "Mist",
+        "sand": "Sand"
+      }
     },
     "rewind": {
       "title": "Rewind history?",
@@ -1113,6 +1134,7 @@
       "patchTitle": "Patch",
       "lspTitle": "LSP",
       "taskTitle": "Task",
+      "diagramTitle": "Diagram",
       "taskChat": "Subagent chat",
       "taskMissing": "This subagent chat is gone.",
       "outputTitle": "Tool output",

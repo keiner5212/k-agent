@@ -604,6 +604,13 @@
   flex-shrink: 0;
 }
 
+.skill-editor__note {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
 .skill-editor__head--end {
   justify-content: flex-end;
 }

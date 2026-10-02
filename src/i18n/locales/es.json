@@ -780,6 +780,10 @@
       "task": {
         "label": "Tarea",
         "description": "Entrega un trabajo de varios pasos a otro agente guardado y espera su texto final."
+      },
+      "diagram": {
+        "label": "Diagrama",
+        "description": "Escribe un diagrama Mermaid a partir de una descripcion. El chat muestra el fuente hasta que lo abras."
       }
     },
     "delete": {
@@ -792,7 +796,7 @@
   },
   "agentsMd": {
     "title": "AGENTS.md",
-    "description": "Archivos de instrucciones del agente de código. Global: ~/.k-agent/AGENTS.md. Workspace: AGENTS.md en la raíz del workspace.",
+    "description": "Archivos de instrucciones del agente de código. Global: ~/.k-agent/AGENTS.md. Workspace: gana el primer archivo en la raíz: AGENTS.md, agents.md, CLAUDE.md, CONTEXT.md.",
     "context": {
       "global": "Global",
       "local": "Workspace"
@@ -816,7 +820,8 @@
       "saving": "Guardando",
       "done": "Listo",
       "clean": "Guardado",
-      "dirty": "Cambios sin guardar"
+      "dirty": "Cambios sin guardar",
+      "promote": "Guardar escribe AGENTS.md y no modifica este archivo."
     },
     "delete": {
       "title": "Eliminar AGENTS.md",
@@ -845,6 +850,22 @@
       "copied": "Copiado",
       "rewind": "Retroceder el historial hasta este mensaje",
       "retry": "Deshacer y enviar este mensaje de nuevo"
+    },
+    "diagram": {
+      "view": "Ver",
+      "title": "Diagrama",
+      "loading": "Preparando el diagrama",
+      "error": "No se pudo dibujar este diagrama.",
+      "download": "Descargar",
+      "downloaded": "Descargado",
+      "copy": "Copiar imagen",
+      "copied": "Copiado",
+      "palettes": {
+        "app": "App",
+        "blush": "Rosa",
+        "mist": "Niebla",
+        "sand": "Arena"
+      }
     },
     "rewind": {
       "title": "Retroceder el historial?",
@@ -1113,6 +1134,7 @@
       "patchTitle": "Parche",
       "lspTitle": "LSP",
       "taskTitle": "Tarea",
+      "diagramTitle": "Diagrama",
       "taskChat": "Chat del subagente",
       "taskMissing": "Este chat del subagente ya no esta.",
       "outputTitle": "Salida de la herramienta",

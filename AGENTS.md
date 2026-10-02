@@ -22,15 +22,19 @@ Never vendor `.tmp` into `src/` or `src-tauri/`.
 ## Layout
 
 ```
-src/components/     reusable UI (Dialog, Select, Toggle, GlassButton, IconButton)
-src/features/       product surfaces (settings, providers)
-src/lib/            stores, platform, IPC helpers
+src/components/     reusable UI (Dialog, Select, Toggle, GlassButton, IconButton, Table, GearButton, LineEditor, MagicGenerateButton, WindowControls, WindowResizeFrame)
+src/features/       product surfaces (about, agents, agents-md, chat, lsps, mcp-servers, providers, sessions, settings, skills)
+src/lib/            stores, platform, IPC helpers, kebab-case
+src/styles/         tokens.css + per-feature css (agents, chat, dialog, lsps, providers, settings, skills, table, ...)
 src/types/          shared TS types and defaults
 src/i18n/locales/   en.json + es.json only
 src-tauri/src/      Tauri commands and domain
-src-tauri/catalog/  bundled models.json (Rust only; never import in the UI)
+src-tauri/catalog/  bundled models.json + language-servers.json (Rust only; never import in the UI)
+src-tauri/src/tools/<tool>.rs    one file per LLM-callable tool
+src-tauri/src/tools/tool-utils/  helpers shared across tools (not tools themselves)
 ```
 
+- TS imports use the `@/` alias for `src/` (`vite.config.ts`, `tsconfig.app.json`).
 - Components: PascalCase files.
 - lib: kebab-case files (`window-bounds.ts`, `use-global-keybindings.ts`).
 - Feature UI: PascalCase. Feature data: `registry.ts` + `registry-data.ts`.
@@ -92,6 +96,12 @@ Window min size is 720x480 in `src/types/settings.ts` and `src-tauri/src/lib.rs`
 - Never send API key plaintext back over IPC. Disk uses `enc:v1:` blobs in the app data dir. UI only sees `hasApiKey`. Empty edit keeps the key; explicit clear removes it.
 - `ModelInfo` in `src/types/providers.ts` matches the Rust IPC shape, including optional capability fields. The model form does not edit those fields; upsert omits empty vectors so Rust keeps catalog values.
 - Provider kind labels: `t("providers.kinds." + kind)`.
+- A new Tauri command is denied until it is allowlisted. Register it in the same change:
+  1. `invoke_handler` in `src-tauri/src/lib.rs`
+  2. A `[[permission]]` block in `src-tauri/permissions/providers.toml`
+  3. The `[default]` permission list in that same file
+  4. `src-tauri/capabilities/default.json`
+     Missing any one of these surfaces as `Command <name> not allowed by ACL`. After the permission files change, run `cargo check` in `src-tauri` so `src-tauri/gen/schemas/desktop-schema.json` picks up the new ids. That schema is gitignored. A stale copy only warns in the editor.
 
 ## Rust disk layout
 
@@ -120,9 +130,9 @@ App data dir:
 
 Workspace `{workspace}/.agents/skills/`: local skills. Created on first local skill create.
 Session agents live in `~/.k-agent/agents/` only. Builtin agents are app-defined.
-Workspace `{workspace}/AGENTS.md`: optional workspace instruction file (fallback `agents.md`). List never creates it. Create/edit/delete from Settings. Session agents are not stored as AGENTS.md.
+Workspace instruction file: first existing file at the workspace root wins, in order `AGENTS.md`, `agents.md`, `CLAUDE.md`, `CONTEXT.md`. Only that one file is loaded. List never creates it. Create and edit from Settings write `AGENTS.md` or an existing `agents.md`, and do not modify `CLAUDE.md` or `CONTEXT.md`. Delete removes only the owned file. Session agents are not stored as AGENTS.md.
 
-Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then bundled overlay. User-edited / custom models are not overwritten.
+Bundled catalog: `include_str` + parse once (`OnceLock`). Remote overlay, then bundled overlay. User-edited / custom models are not overwritten. `language-servers.json` follows the same pattern; LSP install/uninstall lives in `src-tauri/src/lsp.rs` and the UI panel is `src/features/lsps/LspsPanel.tsx`.
 
 ## Session schema migration
 
@@ -200,7 +210,9 @@ The README template below covers docs and the `cargo test --test tools_examples`
 1. Decide the flavor (sync, sync with workspace gate, async). See Tool execution model above.
 2. Implement under `src-tauri/src/tools/<name>.rs`. Export `pub const NAME: &str = "<name>";`.
 3. Add to `all_tools()` in `mod.rs` and export `pub const <NAME>_TOOL_NAME: &str = ...;` next to the others.
-4. Add the tool id to `AGENT_TOOL_IDS` in `src/types/agents.ts`. Decide which agents get it (build, plan, both) and add to `PLAN_AGENT_TOOL_IDS` if relevant.
+4. Add the tool id to both allowlists. Same string. Missing the Rust list makes the agent-form toggle look saved, then `sanitize_tools` drops it.
+   - `AGENT_TOOL_IDS` in `src/types/agents.ts`. Decide which agents get it (build, plan, both) and add to `PLAN_AGENT_TOOL_IDS` if relevant.
+   - `AGENT_TOOLS` in `src-tauri/src/agents.rs`. Builtin `build` is this list. Builtin `plan` is the separate array in `builtin_agent`. Keep that array aligned with `PLAN_AGENT_TOOL_IDS`.
 5. Add `agents.tools.<id>.label` and `agents.tools.<id>.description` in `en.json` and `es.json`. Add `chat.tools.<id>Title` if the tool gets a preview in `ToolCallsBlock`.
 6. Add `CHAT_TOOL_DESCRIPTIONS[id]` in `src/types/agents.ts` (English, sent to the LLM).
 7. If the result renders inline (like todowrite's `TodoList`), add a renderer branch to `ToolCallsBlock` and a small CSS section in `src/styles/chat.css`. If it opens a modal (like read/write), reuse `ReadOnlyEditorDialog`.
@@ -244,9 +256,21 @@ Also:
 - Zustand: select fields, do not subscribe to the whole store in hot views.
 - Heavy disk/CPU work (skills, agents, fonts, token estimates, workspace files, future jobs): `runJob` in `src/lib/jobs.ts`. Add a `JobName` and a `handleJob` case. Tauri IPC stays on the UI thread; the worker asks for it with `kind: "invoke"`.
 
+## Agents
+
+Two builtin session agents, selected by `DEFAULT_AGENT` (`builtin:build` is the default). Tool allowlists live in `src/types/agents.ts`:
+
+- `AGENT_TOOL_IDS` - build agent. Full tool set including write/edit/apply_patch/bash/delete.
+- `PLAN_AGENT_TOOL_IDS` - plan agent. Read-only plus ask_user/todowrite/internet_search/fetch_url. Use for read-only exploration; fall back to build when a mutation is needed.
+- `AGENT_TOOLS` in `src-tauri/src/agents.rs` - the save allowlist. `sanitize_tools` keeps only these ids. An id only in `AGENT_TOOL_IDS` shows on the form and is dropped on create/update.
+
+When the user picks an agent in the UI, the session keeps it until changed. Tool labels and descriptions are localized via `agents.tools.<id>.label` / `.description` in `en.json` + `es.json`.
+
 ## CSS conventions
 
 Spacing and text sizes follow a fixed scale. Do not pick values off the top of your head.
+
+Color tokens live in `src/styles/tokens.css` (no `--color-` prefix). Always reference tokens, never raw hex. Semantic set: `--background`, `--surface`, `--surface-elevated`, `--border`, `--border-strong`, `--text-primary`, `--text-secondary`, `--text-muted`, `--text-inverse`, `--accent`, `--accent-hover`, `--accent-fg`, `--danger`, `--success`, `--warning`, `--focus-ring`. Light theme overrides land under `:root[data-theme="light"]`. Syntax highlight palette: `--syntax-*`. Frosted-glass helpers: `--frost-*` (do not roll your own `backdrop-filter`).
 
 Spacing scale (`--space-0` through `--space-10`, increments of 4px):
 

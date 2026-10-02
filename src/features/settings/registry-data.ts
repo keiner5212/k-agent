@@ -452,7 +452,14 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
     id: "agentsMd",
     titleKey: "settings.sections.agentsMd",
     descriptionKey: "agentsMd.description",
-    keywords: ["agents.md", "AGENTS.md", "instructions", "instrucciones"],
+    keywords: [
+      "agents.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      "CONTEXT.md",
+      "instructions",
+      "instrucciones",
+    ],
     items: [],
   },
   {

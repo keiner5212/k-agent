@@ -1,4 +1,5 @@
 mod apply_patch;
+mod diagram;
 mod edit;
 mod fetch_url;
 mod graphql;
@@ -59,6 +60,7 @@ pub const GREP_TOOL_NAME: &str = grep::NAME;
 pub const APPLY_PATCH_TOOL_NAME: &str = apply_patch::NAME;
 pub const LSP_TOOL_NAME: &str = lsp::NAME;
 pub const TASK_TOOL_NAME: &str = task::NAME;
+pub const DIAGRAM_TOOL_NAME: &str = diagram::NAME;
 pub const LIST_DIRECTORY_MAX_PARALLELISM: usize = list_directory::MAX_PARALLELISM;
 
 pub const TOOL_KIND_CONTEXT: &str = "context";
@@ -527,6 +529,7 @@ fn all_tools() -> Vec<Box<dyn Tool>> {
         Box::new(apply_patch::ApplyPatchTool),
         Box::new(lsp::LspTool),
         Box::new(task::TaskTool),
+        Box::new(diagram::DiagramTool),
     ]
 }
 
@@ -588,6 +591,9 @@ pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> Tool
     }
     if name == task::NAME {
         return task::execute_async(arguments, ctx).await;
+    }
+    if name == diagram::NAME {
+        return diagram::execute_async(arguments, ctx).await;
     }
     let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
     for tool in all_tools() {

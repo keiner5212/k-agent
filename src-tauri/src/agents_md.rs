@@ -20,6 +20,7 @@ pub struct AgentsMdFile {
     pub kind: AgentsMdKind,
     pub path: String,
     pub exists: bool,
+    pub managed: bool,
     pub content: String,
     pub estimated_tokens: u32,
 }
@@ -65,25 +66,37 @@ fn resolve_dir(app: &AppHandle, kind: AgentsMdKind) -> Result<PathBuf, AgentsMdE
     }
 }
 
-fn locate_agents_md(dir: &Path) -> PathBuf {
-    let upper = dir.join("AGENTS.md");
-    if upper.is_file() {
-        return upper;
+const OWNED_NAMES: &[&str] = &["AGENTS.md", "agents.md"];
+const LOCAL_READ_NAMES: &[&str] = &["AGENTS.md", "agents.md", "CLAUDE.md", "CONTEXT.md"];
+
+fn read_names(kind: AgentsMdKind) -> &'static [&'static str] {
+    match kind {
+        AgentsMdKind::Global => OWNED_NAMES,
+        AgentsMdKind::Local => LOCAL_READ_NAMES,
     }
-    let lower = dir.join("agents.md");
-    if lower.is_file() {
-        return lower;
-    }
-    upper
+}
+
+fn first_file(dir: &Path, names: &[&str]) -> Option<PathBuf> {
+    names
+        .iter()
+        .map(|name| dir.join(name))
+        .find(|path| path.is_file())
+}
+
+fn file_name(path: &Path) -> Option<&str> {
+    path.file_name().and_then(|name| name.to_str())
+}
+
+fn is_managed(path: &Path) -> bool {
+    file_name(path).is_some_and(|name| OWNED_NAMES.contains(&name))
+}
+
+fn locate_agents_md(dir: &Path, kind: AgentsMdKind) -> PathBuf {
+    first_file(dir, read_names(kind)).unwrap_or_else(|| dir.join("AGENTS.md"))
 }
 
 fn write_target(dir: &Path) -> PathBuf {
-    let located = locate_agents_md(dir);
-    if located.is_file() {
-        located
-    } else {
-        dir.join("AGENTS.md")
-    }
+    first_file(dir, OWNED_NAMES).unwrap_or_else(|| dir.join("AGENTS.md"))
 }
 
 fn file_from_disk(kind: AgentsMdKind, path: PathBuf) -> Result<AgentsMdFile, AgentsMdError> {
@@ -92,6 +105,7 @@ fn file_from_disk(kind: AgentsMdKind, path: PathBuf) -> Result<AgentsMdFile, Age
             kind,
             path: path.display().to_string(),
             exists: false,
+            managed: is_managed(&path),
             content: String::new(),
             estimated_tokens: 0,
         });
@@ -103,13 +117,14 @@ fn file_from_disk(kind: AgentsMdKind, path: PathBuf) -> Result<AgentsMdFile, Age
         kind,
         path: path.display().to_string(),
         exists: true,
+        managed: is_managed(&path),
         content,
         estimated_tokens,
     })
 }
 
 fn read_agents_md(kind: AgentsMdKind, dir: &Path) -> Result<AgentsMdFile, AgentsMdError> {
-    file_from_disk(kind, locate_agents_md(dir))
+    file_from_disk(kind, locate_agents_md(dir, kind))
 }
 
 fn write_agents_md_sync(
@@ -125,7 +140,7 @@ fn write_agents_md_sync(
 
 fn delete_agents_md_sync(app: &AppHandle, kind: AgentsMdKind) -> Result<(), AgentsMdError> {
     let dir = resolve_dir(app, kind)?;
-    let path = locate_agents_md(&dir);
+    let path = write_target(&dir);
     if !path.is_file() {
         return Err(AgentsMdError::NotFound(path.display().to_string()));
     }

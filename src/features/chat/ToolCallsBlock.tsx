@@ -60,6 +60,7 @@ const TOOL_TITLE: Record<string, string> = {
   apply_patch: "chat.tools.patchTitle",
   lsp: "chat.tools.lspTitle",
   task: "chat.tools.taskTitle",
+  diagram: "chat.tools.diagramTitle",
 };
 
 const TOOL_SYMBOL: Record<string, string> = {

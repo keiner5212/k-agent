@@ -22,10 +22,10 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use k_agent_lib::tools::ask_user::{execute_async as ask_user_execute_async, AskUserAnswerEntry};
 use k_agent_lib::tools::{
     execute, ToolContext, APPLY_PATCH_TOOL_NAME, ASK_USER_TOOL_NAME, BACKGROUND_TOOL_NAME,
-    BASH_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, EDIT_TOOL_NAME, FETCH_URL_TOOL_NAME,
-    GRAPHQL_TOOL_NAME, GREP_TOOL_NAME, HTTP_REQUEST_TOOL_NAME, INTERNET_SEARCH_TOOL_NAME,
-    LIST_DIRECTORY_TOOL_NAME, LSP_TOOL_NAME, PAGE_SHOT_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME,
-    TASK_TOOL_NAME, TODO_TOOL_NAME, WRITE_TOOL_NAME,
+    BASH_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, DIAGRAM_TOOL_NAME, EDIT_TOOL_NAME,
+    FETCH_URL_TOOL_NAME, GRAPHQL_TOOL_NAME, GREP_TOOL_NAME, HTTP_REQUEST_TOOL_NAME,
+    INTERNET_SEARCH_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME, LSP_TOOL_NAME, PAGE_SHOT_TOOL_NAME,
+    READ_TOOL_NAME, SKILL_TOOL_NAME, TASK_TOOL_NAME, TODO_TOOL_NAME, WRITE_TOOL_NAME,
 };
 
 const REALISTIC_FILE_BODY: &str = "# Draft: sample skill body\n\
@@ -662,11 +662,19 @@ async fn dumps_tool_examples() {
         write_stats(TASK_TOOL_NAME, &stats, &outcome, &ctx_docs);
     }
 
+    {
+        let args = r#"{"brief":"A client calls an API, then the API writes to a database."}"#;
+        let (stats, outcome) =
+            measure(async { execute(DIAGRAM_TOOL_NAME, args, &ctx_docs).await }).await;
+        write_input(DIAGRAM_TOOL_NAME, args);
+        write_stats(DIAGRAM_TOOL_NAME, &stats, &outcome, &ctx_docs);
+    }
+
     // Clean up the scratch directory so cargo test leaves docs/ tidy.
     cleanup_scratch(&scratch);
 
     eprintln!(
-        "[tool-examples] dumped all 19 tools at {}",
+        "[tool-examples] dumped all 20 tools at {}",
         output_dir().display()
     );
 }
