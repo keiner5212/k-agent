@@ -300,20 +300,23 @@ Pick inline when the result fits in 5-8 lines and the user reads it as part of t
 
 ## Checks
 
-Run before commit. CI runs the same four. All must exit zero.
+Run locally before push. The GitHub `publish-tauri` job (`.github/workflows/release.yml`) runs these steps and fails the release if any exit non-zero. Do not leave that job as the first run.
 
 ```
 pnpm typecheck
 pnpm test
 pnpm lint
 pnpm format:check
+pnpm build
 ```
 
-Order: typecheck, then test, then lint, then format. Fix in that order; lint errors after a type fix are usually follow-ons.
+Order: typecheck, then test, then lint, then format, then build. Fix in that order; lint errors after a type fix are usually follow-ons.
 
-Rust tool tests: `cd src-tauri && cargo test --lib`. Not part of the four; run when touching `src-tauri/src/tools/`.
+Rust tool tests: `cd src-tauri && cargo test --lib`. Not part of the GitHub job; run when touching `src-tauri/src/tools/`.
 
 `pnpm format` (prettier --write) is the only acceptable way to resolve format failures. Do not hand-edit whitespace to satisfy prettier.
+
+Scratch files, probes, and temp output go in `./.tmp` at the repo root. That directory is gitignored. Never use `/tmp`.
 
 ## Do not
 
@@ -322,5 +325,6 @@ Rust tool tests: `cd src-tauri && cargo test --lib`. Not part of the four; run w
 - Add a second Dialog/Select/Toggle/store/platform helper.
 - Comment what the code already says. Comment only a non-obvious why.
 - Expand scope past the asked change.
-- Ship code with `pnpm format:check`, `pnpm lint`, `pnpm test`, or `pnpm typecheck` failing.
+- Ship code with `pnpm format:check`, `pnpm lint`, `pnpm test`, `pnpm typecheck`, or `pnpm build` failing.
+- Write scratch files under `/tmp`. Use `./.tmp` at the repo root.
 - Start dev servers, watchers, daemons, or any long-running foreground process. They block the shell and stay alive between turns. Prohibited.

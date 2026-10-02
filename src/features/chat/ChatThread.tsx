@@ -1,26 +1,13 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, FileText, Film, Sparkles } from "lucide-react";
-import { Dialog } from "@/components/Dialog";
-import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
+import { Sparkles } from "lucide-react";
 import { useAskUserStore } from "@/lib/ask-user";
 import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
-import type { ChatAttachment, ChatMessage } from "@/types/chat";
-import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
-import { ChatMarkdown } from "./ChatMarkdown";
+import type { ChatMessage } from "@/types/chat";
+import { ChatTranscript } from "./ChatTranscript";
 import { ChatWaitingLine } from "./ChatWaitingLine";
-import { MessageActions } from "./MessageActions";
 import { QuestionDialog } from "./QuestionDialog";
 import { TodoList } from "./TodoList";
-import { ToolCallsBlock } from "./ToolCallsBlock";
 
 const clipDetail = (value: string): string => {
   const flat = value.replace(/\s+/g, " ").trim();
@@ -46,120 +33,6 @@ const formatChatError = (
     return t("chat.error.api", { status });
   }
   return clipDetail(text);
-};
-
-const ThinkingBlock = ({
-  reasoning,
-  streaming,
-  thinkingMs,
-}: {
-  reasoning: string;
-  streaming?: boolean;
-  thinkingMs?: number;
-}): ReactNode => {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const bodyRef = useRef<HTMLPreElement>(null);
-  useLayoutEffect(() => {
-    if (!open) return;
-    const node = bodyRef.current;
-    if (!node) return;
-    node.scrollTop = node.scrollHeight;
-  }, [open, reasoning]);
-  if (reasoning.length === 0) return null;
-  const seconds =
-    !streaming && thinkingMs !== undefined && thinkingMs >= 1000
-      ? Math.max(1, Math.round(thinkingMs / 1000))
-      : undefined;
-  const ms =
-    !streaming && thinkingMs !== undefined && thinkingMs < 1000
-      ? Math.max(0, thinkingMs)
-      : undefined;
-  const label =
-    seconds !== undefined
-      ? t("chat.thinking.duration", { count: seconds })
-      : ms !== undefined
-        ? t("chat.thinking.durationMs", { count: ms })
-        : t("chat.thinking.label");
-  return (
-    <>
-      <button type="button" className="chat-thinking" onClick={() => setOpen(true)}>
-        {label}
-      </button>
-      <Dialog open={open} onOpenChange={setOpen} titleKey="chat.thinking.label" size="wide">
-        <pre ref={bodyRef} className="chat-thinking-dialog__body">
-          {reasoning}
-        </pre>
-      </Dialog>
-    </>
-  );
-};
-
-const InterruptedFooter = ({ interrupted }: { interrupted: boolean }): ReactNode => {
-  const { t } = useTranslation();
-  if (!interrupted) return null;
-  return <p className="chat-message__interrupted">{t("chat.interruptedByUser")}</p>;
-};
-
-const AttachmentThumb = ({
-  item,
-  sessionId,
-  onOpen,
-}: {
-  item: ChatAttachment;
-  sessionId: string | null;
-  onOpen: (item: ChatAttachment) => void;
-}): ReactNode => {
-  const hydrated = useHydratedAttachment(sessionId, item);
-  const thumb = attachmentPreviewUrl(hydrated);
-  return (
-    <button
-      type="button"
-      className="chat-message__attachment-open"
-      title={item.name}
-      onClick={() => onOpen(hydrated)}
-    >
-      {thumb ? (
-        <img src={thumb} alt={item.name} className="chat-message__attachment-image" />
-      ) : (
-        <span className="chat-message__attachment-file">
-          {item.kind === "video" ? (
-            <Film size={14} strokeWidth={1.5} />
-          ) : (
-            <FileText size={14} strokeWidth={1.5} />
-          )}
-          <span>{item.name}</span>
-        </span>
-      )}
-    </button>
-  );
-};
-
-const MessageAttachments = ({
-  items,
-  sessionId,
-}: {
-  items: ChatAttachment[];
-  sessionId: string | null;
-}): ReactNode => {
-  const [preview, setPreview] = useState<ChatAttachment | null>(null);
-  if (items.length === 0) return null;
-  return (
-    <>
-      <ul className="chat-message__attachments">
-        {items.map((item) => (
-          <li key={item.id} className="chat-message__attachment">
-            <AttachmentThumb item={item} sessionId={sessionId} onOpen={setPreview} />
-          </li>
-        ))}
-      </ul>
-      <AttachmentPreviewDialog
-        sessionId={sessionId}
-        item={preview}
-        onClose={() => setPreview(null)}
-      />
-    </>
-  );
 };
 
 const ThreadTail = ({ messages }: { messages: ChatMessage[] }): ReactNode => {
@@ -191,73 +64,6 @@ const ThreadTail = ({ messages }: { messages: ChatMessage[] }): ReactNode => {
     </div>
   );
 };
-
-const MessageBody = memo(function MessageBody({
-  message,
-  sessionId,
-}: {
-  message: ChatMessage;
-  sessionId: string | null;
-}): ReactNode {
-  if (message.kind === "shell") {
-    return (
-      <>
-        <pre className="chat-message__content chat-message__shell">{message.content}</pre>
-        <InterruptedFooter interrupted={message.interrupted ?? false} />
-      </>
-    );
-  }
-  if (message.role === "assistant") {
-    const rounds = message.toolRounds;
-    if (rounds && rounds.length > 0) {
-      const lastRoundIndex = rounds.length - 1;
-      const showTrailingContent =
-        !message.streaming && rounds[rounds.length - 1]?.content !== message.content;
-      return (
-        <>
-          {rounds.map((round, index) => {
-            const calls = round.calls ?? [];
-            const isLastRound = index === lastRoundIndex;
-            return (
-              <div key={`round-${index}`}>
-                <ThinkingBlock
-                  reasoning={round.reasoning}
-                  streaming={Boolean(message.streaming) && isLastRound}
-                  thinkingMs={!message.streaming ? round.thinkingMs : undefined}
-                />
-                <ChatMarkdown content={round.content ?? ""} />
-                <ToolCallsBlock sessionId={sessionId} calls={calls} />
-              </div>
-            );
-          })}
-          {showTrailingContent ? <ChatMarkdown content={message.content} /> : null}
-          <InterruptedFooter interrupted={message.interrupted ?? false} />
-        </>
-      );
-    }
-    return (
-      <>
-        <ThinkingBlock
-          reasoning={message.reasoning ?? ""}
-          streaming={message.streaming}
-          thinkingMs={message.thinkingMs}
-        />
-        <ToolCallsBlock sessionId={sessionId} calls={message.toolCalls ?? []} />
-        <ChatMarkdown content={message.content} />
-        <InterruptedFooter interrupted={message.interrupted ?? false} />
-      </>
-    );
-  }
-  return (
-    <>
-      <MessageAttachments sessionId={sessionId} items={message.attachments ?? []} />
-      {message.content ? <p className="chat-message__content">{message.content}</p> : null}
-    </>
-  );
-});
-
-const STICK_PX = 64;
-const JUMP_PX = 240;
 
 const assistantIsWriting = (message: ChatMessage): boolean => {
   if (!message.streaming || message.role !== "assistant") return false;
@@ -312,94 +118,29 @@ const ActiveThread = ({
   sessionId: string | null;
 }): ReactNode => {
   const { t } = useTranslation();
-  const [showJump, setShowJump] = useState(false);
-  const scrollerRef = useRef<HTMLElement>(null);
-  const stickRef = useRef(true);
-  const pinningRef = useRef(false);
-  const pinBottom = useCallback((): void => {
-    const node = scrollerRef.current;
-    if (!node || !stickRef.current) return;
-    pinningRef.current = true;
-    node.scrollTop = node.scrollHeight;
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        pinningRef.current = false;
-      });
-    });
-  }, []);
-  const onThreadScroll = useCallback((): void => {
-    if (pinningRef.current) return;
-    const node = scrollerRef.current;
-    if (!node) return;
-    const distance = node.scrollHeight - node.clientHeight - node.scrollTop;
-    stickRef.current = distance < STICK_PX;
-    const jumped = distance > JUMP_PX;
-    setShowJump((current) => (current === jumped ? current : jumped));
-  }, []);
-  const jumpToBottom = useCallback((): void => {
-    stickRef.current = true;
-    setShowJump(false);
-    const node = scrollerRef.current;
-    if (!node) return;
-    pinningRef.current = true;
-    node.scrollTop = node.scrollHeight;
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        pinningRef.current = false;
-      });
-    });
-  }, []);
-  useLayoutEffect(() => {
-    pinBottom();
-  }, [messages, waiting, error, pinBottom]);
 
   return (
-    <>
-      <section
-        ref={scrollerRef}
-        className="chat-thread chat-thread--active"
-        aria-live="polite"
-        onScroll={onThreadScroll}
-      >
-        <div className="chat-thread__messages">
-          {messages.map((message) => (
-            <article
-              key={message.id}
-              className={`chat-message chat-message--${message.role}${message.kind === "shell" ? " chat-message--shell" : ""}${message.streaming ? " chat-message--streaming" : ""}${message.interrupted ? " chat-message--interrupted" : ""}`}
-              data-role={message.role}
+    <ChatTranscript messages={messages} sessionId={sessionId}>
+      <ThreadTail messages={messages} />
+      <div className="chat-thread__reserve">{waiting ? <ChatWaitingLine /> : null}</div>
+      <InterruptHint />
+      {error ? (
+        <div className="chat-thread__error" role="alert">
+          <p className="chat-thread__error-text">{formatChatError(error, t)}</p>
+          {canRetry ? (
+            <button
+              type="button"
+              className="chat-thread__error-retry"
+              onClick={() => {
+                useSessionsStore.getState().retryLast();
+              }}
             >
-              <MessageBody message={message} sessionId={sessionId} />
-              <MessageActions message={message} />
-            </article>
-          ))}
-          <ThreadTail messages={messages} />
-          <div className="chat-thread__reserve">{waiting ? <ChatWaitingLine /> : null}</div>
-          <InterruptHint />
-          {error ? (
-            <div className="chat-thread__error" role="alert">
-              <p className="chat-thread__error-text">{formatChatError(error, t)}</p>
-              {canRetry ? (
-                <button
-                  type="button"
-                  className="chat-thread__error-retry"
-                  onClick={() => {
-                    useSessionsStore.getState().retryLast();
-                  }}
-                >
-                  {t("chat.error.retry")}
-                </button>
-              ) : null}
-            </div>
+              {t("chat.error.retry")}
+            </button>
           ) : null}
         </div>
-      </section>
-      {showJump ? (
-        <button type="button" className="chat-jump" onClick={jumpToBottom}>
-          <ArrowDown size={14} strokeWidth={1.75} aria-hidden="true" />
-          <span>{t("chat.thread.jumpToBottom")}</span>
-        </button>
       ) : null}
-    </>
+    </ChatTranscript>
   );
 };
 

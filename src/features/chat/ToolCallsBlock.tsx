@@ -9,19 +9,15 @@ import { runDiffLinesJob } from "@/lib/jobs";
 import { useProvidersStore } from "@/lib/providers";
 import { readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
 import { useSelectionStore } from "@/lib/selected-model";
-import {
-  skillNameFromCall,
-  type ChatMessage,
-  type ChatToolCall,
-  type ToolDisplay,
-} from "@/types/chat";
+import { skillNameFromCall, type ChatToolCall, type ToolDisplay } from "@/types/chat";
 import type { SessionRecord } from "@/types/sessions";
 import { formatContextWindow } from "@/types/providers";
-import { ChatMarkdown } from "./ChatMarkdown";
+import { ChatTranscript } from "./ChatTranscript";
 
 type ToolCallsBlockProps = {
   calls: ChatToolCall[];
   sessionId: string | null;
+  pending?: boolean;
 };
 
 type PreviewState = {
@@ -228,7 +224,13 @@ const toolCallLabel = (call: ChatToolCall, lineRange = ""): string => {
   return name;
 };
 
-const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode => {
+const callIsRunning = (call: ChatToolCall, pending: boolean | undefined): boolean => {
+  if (!pending) return false;
+  if (call.display?.status) return false;
+  return (call.output?.length ?? 0) === 0;
+};
+
+const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): ReactNode => {
   const { t } = useTranslation();
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [image, setImage] = useState<{ titleKey: string; data: string } | null>(null);
@@ -313,6 +315,7 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
               ? t("chat.tools.lines", { start: display.startLine, end: display.endLine })
               : "";
           const label = toolCallLabel(call, lineRange);
+          const runningCall = callIsRunning(call, pending);
           const canOpen =
             Boolean(call.output) ||
             Boolean(display?.imageData) ||
@@ -330,7 +333,9 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
                 {canOpen ? (
                   <button
                     type="button"
-                    className="chat-tools__name"
+                    className={
+                      runningCall ? "chat-tools__name chat-live-label" : "chat-tools__name"
+                    }
                     onClick={() => {
                       void openPreview(call);
                     }}
@@ -338,7 +343,7 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
                     {label}
                   </button>
                 ) : (
-                  <span>{label}</span>
+                  <span className={runningCall ? "chat-live-label" : undefined}>{label}</span>
                 )}
                 {isAction ? (
                   <span
@@ -405,34 +410,35 @@ const ToolCallsBlock = ({ calls, sessionId }: ToolCallsBlockProps): ReactNode =>
   );
 };
 
-const TaskMessage = ({
-  message,
-  sessionId,
-}: {
-  message: ChatMessage;
-  sessionId: string;
-}): ReactNode => {
-  const rounds = message.toolRounds ?? [];
-  const lastRound = rounds[rounds.length - 1]?.content;
-  const trailing = rounds.length > 0 && message.content !== (lastRound ?? "");
-  return (
-    <div className={`chat-message chat-message--${message.role}`}>
-      {message.role === "user" ? (
-        message.content ? (
-          <p className="chat-message__content">{message.content}</p>
-        ) : null
-      ) : (
-        <>
-          {rounds.map((round, index) => (
-            <div key={`round-${index}`}>
-              <ChatMarkdown content={round.content ?? ""} />
-              <ToolCallsBlock sessionId={sessionId} calls={round.calls ?? []} />
-            </div>
-          ))}
-          {rounds.length === 0 || trailing ? <ChatMarkdown content={message.content} /> : null}
-        </>
-      )}
-    </div>
+const taskTranscriptStamp = (session: SessionRecord): string => {
+  const parts: string[] = [];
+  for (const message of session.messages) {
+    parts.push(String(message.content.length), String(message.reasoning?.length ?? 0));
+    for (const round of message.toolRounds ?? []) {
+      parts.push(
+        String(round.reasoning.length),
+        String(round.content?.length ?? 0),
+        String(round.calls.length),
+        String(round.thinkingMs ?? ""),
+      );
+      for (const call of round.calls) {
+        parts.push(call.id ?? "", String(call.output?.length ?? 0), call.display?.status ?? "");
+      }
+    }
+  }
+  return parts.join(":");
+};
+
+const liveChildMessages = (
+  messages: SessionRecord["messages"],
+  running: boolean,
+): SessionRecord["messages"] => {
+  if (!running || messages.length === 0) return messages;
+  const lastIndex = messages.length - 1;
+  const last = messages[lastIndex];
+  if (!last || last.role !== "assistant") return messages;
+  return messages.map((message, index) =>
+    index === lastIndex ? { ...message, streaming: true } : message,
   );
 };
 
@@ -446,25 +452,53 @@ const TaskChatDialog = ({
   const { t } = useTranslation();
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [missing, setMissing] = useState(false);
+  const [running, setRunning] = useState(true);
+  const messages = useMemo(
+    () => liveChildMessages(session?.messages ?? [], running),
+    [running, session],
+  );
   useEffect(() => {
     if (!sessionId) return;
     let alive = true;
-    const load = () => {
+    let seen = false;
+    let timer = 0;
+    let delay = 100;
+    let quiet = 0;
+    let stamp = "";
+    const schedule = (): void => {
+      timer = window.setTimeout(load, delay);
+    };
+    const load = (): void => {
       void invoke<SessionRecord>("read_session", { sessionId })
         .then((next) => {
           if (!alive) return;
+          seen = true;
           setMissing(false);
-          setSession(next);
+          const nextStamp = taskTranscriptStamp(next);
+          if (nextStamp !== stamp) {
+            stamp = nextStamp;
+            quiet = 0;
+            delay = 100;
+            setSession(next);
+            setRunning(true);
+          } else {
+            quiet += 1;
+            if (quiet === 5) setRunning(false);
+            if (quiet >= 5) delay = 1000;
+          }
+          schedule();
         })
         .catch(() => {
-          if (alive) setMissing(true);
+          if (!alive) return;
+          if (!seen) setMissing(true);
+          delay = 1000;
+          schedule();
         });
     };
     load();
-    const timer = window.setInterval(load, 1000);
     return () => {
       alive = false;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
   }, [sessionId]);
   return (
@@ -476,11 +510,9 @@ const TaskChatDialog = ({
       titleKey="chat.tools.taskChat"
       size="wide"
     >
-      <div className="task-chat">
+      <div className="chat-thread-host">
         {missing ? <p className="task-chat__status">{t("chat.tools.taskMissing")}</p> : null}
-        {session?.messages.map((message) => (
-          <TaskMessage key={message.id} message={message} sessionId={sessionId ?? ""} />
-        ))}
+        <ChatTranscript messages={messages} sessionId={sessionId} actions={false} />
       </div>
     </Dialog>
   );

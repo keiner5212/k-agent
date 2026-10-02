@@ -15,6 +15,7 @@ export type TurnCheckpoint = {
 export type RedoRecord = {
   messages: ChatMessage[];
   checkpoints: TurnCheckpoint[];
+  todos?: TodoItem[];
 };
 
 export type TodoHistoryEvent = {

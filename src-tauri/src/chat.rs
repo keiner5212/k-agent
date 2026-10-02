@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
@@ -253,6 +254,13 @@ fn tool_parallelism(worker_cores: Option<u32>) -> usize {
 
 fn tools_enabled(call: &ChatCall<'_>) -> bool {
     !call.tool_names.is_empty() || !call.mcp_tools.is_empty()
+}
+
+fn response_streams(
+    call: &ChatCall<'_>,
+    on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
+) -> bool {
+    on_chunk.is_some() || call.child_session_id.is_some()
 }
 
 #[derive(Debug, Error)]
@@ -1203,6 +1211,7 @@ fn emit_chunk(on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>, kind: &str, tex
             text: text.to_string(),
         });
     }
+    child_feed_note(kind, text);
 }
 
 fn emit_tool_result(on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>, call: &PersistedToolCall) {
@@ -1669,7 +1678,7 @@ async fn send_openai_like(
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
 ) -> Result<ChatOutput, ChatError> {
-    let stream = on_chunk.is_some();
+    let stream = response_streams(call, on_chunk);
     let client = if stream {
         stream_http_client()?
     } else {
@@ -1777,7 +1786,7 @@ async fn send_anthropic_like(
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
 ) -> Result<ChatOutput, ChatError> {
-    let stream = on_chunk.is_some();
+    let stream = response_streams(call, on_chunk);
     let client = if stream {
         stream_http_client()?
     } else {
@@ -1884,7 +1893,7 @@ async fn send_gemini_like(
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
 ) -> Result<ChatOutput, ChatError> {
-    let stream = on_chunk.is_some();
+    let stream = response_streams(call, on_chunk);
     let client = if stream {
         stream_http_client()?
     } else {
@@ -2352,7 +2361,9 @@ async fn send_message(
         return Err(ChatError::EmptyMessage);
     }
     if !tools_enabled(call) {
+        child_feed_begin(call, &[]);
         let mut output = dispatch_with_retry(provider, call, on_chunk).await?;
+        child_feed_seal(call);
         output.content = tools::truncate_assistant(&output.content);
         return Ok(SentMessage {
             content: output.content,
@@ -2427,17 +2438,21 @@ async fn send_message(
             agent_personalities: Arc::clone(&call.agent_personalities),
             child_session_id: call.child_session_id.clone(),
         };
+        child_feed_begin(call, &tool_rounds);
         let round_started = std::time::Instant::now();
         let output = dispatch_with_retry(provider, &round_call, on_chunk).await?;
-        let thinking_ms = round_started.elapsed().as_millis() as u64;
-        if on_chunk.is_none() && !output.reasoning.is_empty() {
+        child_feed_seal(call);
+        let thinking_ms =
+            child_feed_measured(call).unwrap_or_else(|| round_started.elapsed().as_millis() as u64);
+        let streamed = response_streams(call, on_chunk);
+        if !streamed && !output.reasoning.is_empty() {
             emit_chunk(on_chunk, "reasoning", &output.reasoning);
         }
 
         if output.tool_calls.is_empty() {
             if !output.content.is_empty() {
                 let content = tools::truncate_assistant(&output.content);
-                if on_chunk.is_none() {
+                if !streamed {
                     emit_chunk(on_chunk, "content", &content);
                 }
                 publish_child(
@@ -3140,6 +3155,198 @@ struct GeminiFunctionCall {
     args: serde_json::Value,
 }
 
+const CHILD_FLUSH: Duration = Duration::from_millis(80);
+
+struct ChildFeed {
+    app: AppHandle,
+    content: String,
+    reasoning: String,
+    thinking_ms: Option<u64>,
+    started: Option<Instant>,
+    prior: Vec<ToolRoundTrace>,
+    last_flush: Instant,
+}
+
+struct ChildSnap {
+    app: AppHandle,
+    id: String,
+    content: String,
+    reasoning: String,
+    rounds: Vec<ToolRoundTrace>,
+}
+
+struct FeedGuard(String);
+
+impl Drop for FeedGuard {
+    fn drop(&mut self) {
+        child_feed_close(&self.0);
+    }
+}
+
+fn child_feeds() -> &'static Mutex<HashMap<String, ChildFeed>> {
+    static FEEDS: OnceLock<Mutex<HashMap<String, ChildFeed>>> = OnceLock::new();
+    FEEDS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+tokio::task_local! {
+    static CHILD_FEED_ID: String;
+}
+
+fn child_feed_lock() -> std::sync::MutexGuard<'static, HashMap<String, ChildFeed>> {
+    child_feeds().lock().unwrap_or_else(|err| err.into_inner())
+}
+
+fn child_feed_open(app: AppHandle, id: String) {
+    child_feed_lock().insert(
+        id,
+        ChildFeed {
+            app,
+            content: String::new(),
+            reasoning: String::new(),
+            thinking_ms: None,
+            started: None,
+            prior: Vec::new(),
+            last_flush: Instant::now(),
+        },
+    );
+}
+
+fn child_feed_close(id: &str) {
+    child_feed_lock().remove(id);
+}
+
+fn child_feed_begin(call: &ChatCall<'_>, prior: &[ToolRoundTrace]) {
+    let Some(id) = call.child_session_id.as_deref() else {
+        return;
+    };
+    let mut feeds = child_feed_lock();
+    let Some(feed) = feeds.get_mut(id) else {
+        return;
+    };
+    feed.prior = prior.to_vec();
+    feed.content.clear();
+    feed.reasoning.clear();
+    feed.thinking_ms = None;
+    feed.started = None;
+}
+
+fn child_feed_thinking_ms(id: &str) -> Option<u64> {
+    child_feed_lock().get(id).and_then(|feed| feed.thinking_ms)
+}
+
+fn child_feed_measured(call: &ChatCall<'_>) -> Option<u64> {
+    call.child_session_id
+        .as_deref()
+        .and_then(child_feed_thinking_ms)
+}
+
+fn child_snap(id: &str, feed: &ChildFeed) -> ChildSnap {
+    let mut rounds = feed.prior.clone();
+    if !feed.content.is_empty() || !feed.reasoning.is_empty() {
+        rounds.push(ToolRoundTrace {
+            reasoning: feed.reasoning.clone(),
+            reasoning_signature: String::new(),
+            content: feed.content.clone(),
+            calls: Vec::new(),
+            thinking_ms: feed.thinking_ms,
+        });
+    }
+    let content = if !feed.content.is_empty() {
+        feed.content.clone()
+    } else {
+        rounds
+            .iter()
+            .rev()
+            .find(|round| !round.content.is_empty())
+            .map(|round| round.content.clone())
+            .unwrap_or_default()
+    };
+    ChildSnap {
+        app: feed.app.clone(),
+        id: id.to_string(),
+        content,
+        reasoning: feed.reasoning.clone(),
+        rounds,
+    }
+}
+
+fn write_child_snap(snap: ChildSnap) {
+    let _ = crate::sessions::update_child_session(
+        &snap.app,
+        &snap.id,
+        &snap.content,
+        &snap.reasoning,
+        "",
+        snap.rounds,
+    );
+}
+
+fn child_feed_note(kind: &str, text: &str) {
+    let Ok(id) = CHILD_FEED_ID.try_with(|value| value.clone()) else {
+        return;
+    };
+    let snap = {
+        let mut feeds = child_feed_lock();
+        let Some(feed) = feeds.get_mut(&id) else {
+            return;
+        };
+        let was_empty = feed.content.is_empty() && feed.reasoning.is_empty();
+        let mut sealed = false;
+        match kind {
+            "reasoning" => {
+                if feed.started.is_none() {
+                    feed.started = Some(Instant::now());
+                }
+                feed.reasoning.push_str(text);
+            }
+            "content" => {
+                if feed.thinking_ms.is_none() {
+                    if let Some(start) = feed.started {
+                        if !feed.reasoning.is_empty() {
+                            feed.thinking_ms = Some(start.elapsed().as_millis() as u64);
+                            sealed = true;
+                        }
+                    }
+                }
+                feed.content.push_str(text);
+            }
+            _ => return,
+        }
+        let due = feed.last_flush.elapsed() >= CHILD_FLUSH;
+        if !was_empty && !sealed && !due {
+            return;
+        }
+        feed.last_flush = Instant::now();
+        child_snap(&id, feed)
+    };
+    write_child_snap(snap);
+}
+
+fn child_feed_seal(call: &ChatCall<'_>) {
+    let Some(id) = call.child_session_id.as_deref() else {
+        return;
+    };
+    let snap = {
+        let mut feeds = child_feed_lock();
+        let Some(feed) = feeds.get_mut(id) else {
+            return;
+        };
+        if feed.thinking_ms.is_none() {
+            if let Some(start) = feed.started {
+                if !feed.reasoning.is_empty() {
+                    feed.thinking_ms = Some(start.elapsed().as_millis() as u64);
+                }
+            }
+        }
+        if feed.content.is_empty() && feed.reasoning.is_empty() {
+            return;
+        }
+        feed.last_flush = Instant::now();
+        child_snap(id, feed)
+    };
+    write_child_snap(snap);
+}
+
 fn task_queue() -> &'static tokio::sync::Mutex<()> {
     static SLOT: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
     SLOT.get_or_init(|| tokio::sync::Mutex::new(()))
@@ -3265,7 +3472,11 @@ pub(crate) async fn run_task(
         agent_personalities: Arc::clone(&ctx.agent_personalities),
         child_session_id: child_session_id.clone(),
     };
-    let output = send_message(
+    let feed_guard = child_session_id.clone().map(|id| {
+        child_feed_open(app.clone(), id.clone());
+        FeedGuard(id)
+    });
+    let pending = send_message(
         app,
         &provider,
         &call,
@@ -3275,18 +3486,34 @@ pub(crate) async fn run_task(
         ctx.http_write_allowed,
         false,
         false,
-    )
-    .await
+    );
+    let output = match feed_guard.as_ref() {
+        Some(guard) => CHILD_FEED_ID.scope(guard.0.clone(), pending).await,
+        None => pending.await,
+    }
     .map_err(|error| error.to_string())?;
-    let text = clip_task_text(&output.content);
+    let text = output.content.clone();
     if let Some(id) = child_session_id.as_deref() {
+        let mut rounds = output.tool_rounds.clone();
+        let saved = rounds
+            .last()
+            .is_some_and(|round| round.reasoning == output.reasoning);
+        if !output.reasoning.is_empty() && !saved {
+            rounds.push(ToolRoundTrace {
+                reasoning: output.reasoning.clone(),
+                reasoning_signature: output.reasoning_signature.clone(),
+                content: output.content.clone(),
+                calls: Vec::new(),
+                thinking_ms: child_feed_thinking_ms(id),
+            });
+        }
         let _ = crate::sessions::update_child_session(
             app,
             id,
             &output.content,
             &output.reasoning,
             &output.reasoning_signature,
-            output.tool_rounds.clone(),
+            rounds,
         );
     }
     Ok(TaskRun {
@@ -3323,15 +3550,6 @@ fn task_model_choice(app: &AppHandle, scope: &tools::NestedScope) -> (String, St
     }
     let same = provider_id == parent.0 && model_id == parent.1;
     (provider_id.to_string(), model_id.to_string(), same)
-}
-
-fn clip_task_text(text: &str) -> String {
-    const MAX: usize = 6_000;
-    if text.chars().count() <= MAX {
-        return text.to_string();
-    }
-    let clipped: String = text.chars().take(MAX).collect();
-    format!("{clipped}... (truncated)")
 }
 
 #[tauri::command]

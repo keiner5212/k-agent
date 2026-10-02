@@ -243,6 +243,29 @@ export const answerSummary = (
     })
     .join("\n");
 
+const keepMeasuredThinking = (
+  incoming: ToolRoundTrace[] | undefined,
+  local: ToolRoundTrace[] | undefined,
+): ToolRoundTrace[] | undefined => {
+  const rows = incoming && incoming.length > 0 ? incoming : local;
+  if (!rows) return undefined;
+  const merged = rows.map((round, index) => {
+    const kept = local?.[index]?.thinkingMs;
+    if (kept === undefined) return round;
+    return { ...round, thinkingMs: kept };
+  });
+  const extra = (local ?? [])
+    .slice(rows.length)
+    .map((round) => ((round.calls?.length ?? 0) === 0 ? { ...round, content: undefined } : round))
+    .filter(
+      (round) =>
+        round.reasoning.length > 0 ||
+        (round.content?.length ?? 0) > 0 ||
+        (round.calls?.length ?? 0) > 0,
+    );
+  return extra.length > 0 ? [...merged, ...extra] : merged;
+};
+
 const thinkingDurationMs = (
   startedAt: number | undefined,
   endedAt: number | undefined,
@@ -316,6 +339,16 @@ const persistableSnapshot = (snapshot: SessionsSnapshot): SessionsSnapshot => ({
       }),
   })),
 });
+
+const cloneTodos = (todos: TodoItem[]): TodoItem[] => todos.map((item) => ({ ...item }));
+
+const todosFromMessages = (messages: ChatMessage[]): TodoItem[] => {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const todos = messages[index]?.todos;
+    if (todos) return cloneTodos(todos);
+  }
+  return [];
+};
 
 const restoreTodos = (sessions: SessionRecord[]): void => {
   // Todos are session-scoped. Restore the latest snapshot into each session
@@ -1158,6 +1191,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           const toolCall = parseToolChunkText(chunk.text);
           if (toolCall) activeRound.calls = [...activeRound.calls, toolCall];
         } else if (chunk.kind === "content") {
+          recordRoundThinkingMs(activeRound, Date.now());
           contentParts.push(chunk.text);
         }
         lastChunkKind = chunk.kind;
@@ -1247,8 +1281,12 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         onChunk,
       });
       cancelPaint();
+      commitBuffer();
       if (epoch !== sendEpoch) return true;
       const replyAt = Date.now();
+      const activeRound = rounds[activeRoundIndex];
+      if (activeRound) recordRoundThinkingMs(activeRound, replyAt);
+      const measuredRounds = snapshotRounds();
       const duration = thinkingDurationMs(thinkingStartedAt, thinkingEndedAt ?? replyAt);
       const withAssistant = get().sessions.map((session) => {
         if (session.id !== sessionId) return session;
@@ -1268,7 +1306,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
                 reasoning: result.reasoning,
                 reasoningSignature: result.reasoningSignature,
                 thinkingMs: duration,
-                toolRounds: result.toolRounds,
+                toolRounds: keepMeasuredThinking(result.toolRounds, measuredRounds),
               },
             ],
           };
@@ -1283,7 +1321,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           reasoningSignature: result.reasoningSignature || current.reasoningSignature,
           thinkingMs: duration ?? current.thinkingMs,
           toolCalls: undefined,
-          toolRounds: result.toolRounds?.length ? result.toolRounds : current.toolRounds,
+          toolRounds: keepMeasuredThinking(result.toolRounds, measuredRounds),
           streaming: false,
         };
         return {
@@ -1476,18 +1514,22 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       await putCheckpointBack(sessionId, checkpoints, "after");
       return false;
     }
+    const currentTodos = cloneTodos(session.todos ?? todosFromMessages(messages));
+    const restoredTodos = todosFromMessages(kept);
     const nextSessions = sortSessions(
       patchActiveSession(get().sessions, sessionId, (item) => ({
         ...item,
         messages: kept,
         preview: previewFromMessages(kept),
         updatedAt: Date.now(),
+        todos: restoredTodos,
         fileCheckpoints: (item.fileCheckpoints ?? []).filter(
           (checkpoint) => !turnIds.has(checkpoint.turnId),
         ),
         redo: {
           messages: removed,
           checkpoints,
+          todos: currentTodos,
         },
       })),
     );
@@ -1532,6 +1574,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           messages,
           preview: previewFromMessages(messages),
           updatedAt: Date.now(),
+          todos: redo.todos !== undefined ? cloneTodos(redo.todos) : item.todos,
           fileCheckpoints: [...(item.fileCheckpoints ?? []), ...redo.checkpoints],
           redo: undefined,
         };

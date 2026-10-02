@@ -877,6 +877,7 @@
     },
     "thinking": {
       "label": "Thinking",
+      "done": "Thought",
       "duration_one": "Thought for {{count}} second",
       "duration_other": "Thought for {{count}} seconds",
       "durationMs": "Thought for {{count}} ms"

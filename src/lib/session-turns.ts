@@ -172,7 +172,7 @@ const sanitizeCheckpoints = (value: unknown): TurnCheckpoint[] => {
 
 const sanitizeRedo = (value: unknown): RedoRecord | undefined => {
   if (!value || typeof value !== "object") return undefined;
-  const item = value as { messages?: unknown; checkpoints?: unknown };
+  const item = value as { messages?: unknown; checkpoints?: unknown; todos?: unknown };
   if (!Array.isArray(item.messages)) return undefined;
   const messages = item.messages.filter(
     (message): message is ChatMessage =>
@@ -182,7 +182,12 @@ const sanitizeRedo = (value: unknown): RedoRecord | undefined => {
       typeof (message as ChatMessage).role === "string" &&
       typeof (message as ChatMessage).content === "string",
   );
-  return { messages, checkpoints: sanitizeCheckpoints(item.checkpoints) };
+  const todos = Array.isArray(item.todos) ? sanitizeTodoItems(item.todos) : undefined;
+  return {
+    messages,
+    checkpoints: sanitizeCheckpoints(item.checkpoints),
+    ...(todos !== undefined ? { todos } : {}),
+  };
 };
 
 export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => {
