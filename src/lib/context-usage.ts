@@ -64,22 +64,39 @@ const EDIT_TOOL_PARAMETERS = {
   properties: {
     filePath: {
       type: "string",
-      description: "Absolute or workspace-relative path",
+      description:
+        "Single-edit shape only. Absolute or workspace-relative path. Omit this when edits is set. It is not a parent path for edits.",
     },
     oldString: {
       type: "string",
-      description: "Text to find",
+      description: "Single-edit shape only. Text to find. Omit this when edits is set.",
     },
     newString: {
       type: "string",
-      description: "Replacement text",
+      description: "Single-edit shape only. Replacement text. Omit this when edits is set.",
     },
     replaceAll: {
       type: "boolean",
-      description: "Replace every match (default false)",
+      description:
+        "Single-edit shape only. Replace every match (default false). Omit this when edits is set.",
+    },
+    edits: {
+      type: "array",
+      description:
+        "Multi-edit shape only. Each item has its own filePath, oldString, newString, and optional replaceAll. Omit top-level filePath, oldString, newString, and replaceAll.",
+      items: {
+        type: "object",
+        properties: {
+          filePath: { type: "string" },
+          oldString: { type: "string" },
+          newString: { type: "string" },
+          replaceAll: { type: "boolean" },
+        },
+        required: ["filePath", "oldString", "newString"],
+      },
     },
   },
-  required: ["filePath", "oldString", "newString"],
+  anyOf: [{ required: ["filePath", "oldString", "newString"] }, { required: ["edits"] }],
 } as const;
 
 const LIST_DIRECTORY_TOOL_PARAMETERS = {

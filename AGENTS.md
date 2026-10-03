@@ -314,6 +314,24 @@ Order: typecheck, then test, then lint, then format, then build. Fix in that ord
 
 Rust tool tests: `cd src-tauri && cargo test --lib`. Not part of the GitHub job; run when touching `src-tauri/src/tools/`.
 
+`/tmp` is a small volume. Cargo and `cc` fill it when `CARGO_TARGET_DIR` or `TMPDIR` land there. Every `cargo` command in this repo sets both to local paths. Create `.tmp` first.
+
+From the repo root:
+
+```
+mkdir -p .tmp
+CARGO_TARGET_DIR="$PWD/src-tauri/target" TMPDIR="$PWD/.tmp" cargo test --lib
+```
+
+From `src-tauri`:
+
+```
+mkdir -p ../.tmp
+CARGO_TARGET_DIR="$PWD/target" TMPDIR="$PWD/../.tmp" cargo test --lib
+```
+
+Do not point `CARGO_TARGET_DIR` or `TMPDIR` at `/tmp`.
+
 `pnpm format` (prettier --write) is the only acceptable way to resolve format failures. Do not hand-edit whitespace to satisfy prettier.
 
 Scratch files, probes, and temp output go in `./.tmp` at the repo root. That directory is gitignored. Never use `/tmp`.
@@ -327,4 +345,5 @@ Scratch files, probes, and temp output go in `./.tmp` at the repo root. That dir
 - Expand scope past the asked change.
 - Ship code with `pnpm format:check`, `pnpm lint`, `pnpm test`, `pnpm typecheck`, or `pnpm build` failing.
 - Write scratch files under `/tmp`. Use `./.tmp` at the repo root.
+- Run `cargo` without a repo-local `CARGO_TARGET_DIR` and `TMPDIR`. `/tmp` fills up.
 - Start dev servers, watchers, daemons, or any long-running foreground process. They block the shell and stay alive between turns. Prohibited.

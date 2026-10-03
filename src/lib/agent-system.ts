@@ -241,8 +241,8 @@ const buildToolChoice = (agent: AgentMeta, shape: PromptShape, readBeforeEdit: b
   if (hasTool(agent, "edit")) {
     lines.push(
       readBeforeEdit
-        ? "Change one exact span with `edit` only after `read` of that same path in this conversation. A file just written with `write` still needs `read` before `edit`."
-        : "Change one exact span with `edit`.",
+        ? "Change text with `edit` only after `read` of that same path in this conversation. A file just written with `write` still needs `read` before `edit`. One edit sends only `filePath`, `oldString`, and `newString`. Several edits send only `edits`, and each item has its own `filePath`. Never send both shapes. Top-level `filePath` is not a parent of `edits`."
+        : "Change text with `edit`. One edit sends only `filePath`, `oldString`, and `newString`. Several edits send only `edits`, and each item has its own `filePath`. Never send both shapes. Top-level `filePath` is not a parent of `edits`.",
     );
   }
   if (hasTool(agent, "apply_patch")) {
