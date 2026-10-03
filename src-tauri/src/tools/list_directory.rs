@@ -13,7 +13,7 @@ use super::{
 
 pub const NAME: &str = "list_directory";
 
-const DESCRIPTION: &str = "List a directory, or find files by glob. Without glob, each line is [dir] or [file], indented when recursive. With glob, returns sorted file paths only (*.rs matches any depth, src/**/*.ts matches that prefix, *.{ts,tsx} is either suffix). At most 200 glob hits. Path is absolute or workspace-relative (default: workspace root). Paths outside the workspace wait for the user. recursive walks the tree; maxDepth default 3, or 10 when glob is set, max 10. Skips noise dirs. Capped at 5000 lines. Walks subtrees in parallel using configured worker cores. Use this instead of ls, find, or tree.";
+const DESCRIPTION: &str = "List a directory, or find files by name. There is no glob tool: pass glob on this call. *.rs matches any depth, src/**/*.ts matches that prefix, *.{ts,tsx} is either suffix. At most 200 glob hits. Without glob, each line is [dir] or [file], indented when recursive. With glob, returns sorted file paths only. Path is absolute or workspace-relative (default: workspace root). Paths outside the workspace wait for the user. recursive walks the tree; maxDepth default 3, or 10 when glob is set, max 10. Skips dependency, cache, and build directories (node_modules, .git, target, dist, build, vendor, virtualenvs). Still lists .github and .agents. Other names starting with . are skipped. Capped at 5000 lines. Walks subtrees in parallel using configured worker cores. Use this instead of ls, find, or tree.";
 
 const MAX_ENTRIES_PER_DIR: usize = 2_000;
 const MAX_OUTPUT_LINES: usize = 5_000;
@@ -22,72 +22,6 @@ const MAX_DEPTH_DEFAULT: usize = 3;
 const GLOB_DEPTH_DEFAULT: usize = 10;
 const CACHE_TTL: Duration = Duration::from_millis(1000);
 pub const MAX_PARALLELISM: usize = 16;
-
-const SKIP_DIR_NAMES: &[&str] = &[
-    "node_modules",
-    ".git",
-    ".svn",
-    ".hg",
-    "target",
-    "dist",
-    "build",
-    "out",
-    "output",
-    "__pycache__",
-    ".pytest_cache",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".venv",
-    "venv",
-    ".tox",
-    "env",
-    "vendor",
-    ".next",
-    ".nuxt",
-    ".svelte-kit",
-    ".turbo",
-    ".cache",
-    ".parcel-cache",
-    "coverage",
-    ".nyc_output",
-    "bin",
-    "obj",
-    "Pods",
-    ".gradle",
-    "elm-stuff",
-    "_build",
-    "deps",
-    ".stack-work",
-    ".pnpm",
-    ".yarn",
-    "bower_components",
-    "jspm_packages",
-    ".serverless",
-    ".terraform",
-    ".cargo",
-    "zig-cache",
-    "zig-out",
-    ".dart_tool",
-    "DerivedData",
-    "Carthage",
-    ".bundle",
-    "htmlcov",
-    ".hypothesis",
-    "site-packages",
-    ".mvn",
-    ".idea",
-    ".vscode",
-    ".vs",
-    ".local",
-    ".config",
-    "snap",
-    ".var",
-    ".mozilla",
-    ".thunderbird",
-    ".npm",
-    ".nvm",
-    "go",
-];
 
 pub struct ListDirectoryTool;
 
@@ -114,7 +48,7 @@ impl Tool for ListDirectoryTool {
                     },
                     "glob": {
                         "type": "string",
-                        "description": "Return only matching file paths. *.rs matches any depth. src/**/*.ts matches that prefix. *.{ts,tsx} matches either suffix."
+                        "description": "Argument of list_directory, not a separate tool. Return only matching file paths. *.rs matches any depth. src/**/*.ts matches that prefix. *.{ts,tsx} matches either suffix."
                     }
                 }
             }),
@@ -305,12 +239,7 @@ fn collect_entries(dir: &Path, limit: usize) -> std::io::Result<Vec<DirEntry>> {
 }
 
 fn should_skip(name: &str) -> bool {
-    if name.starts_with('.') {
-        return true;
-    }
-    SKIP_DIR_NAMES
-        .iter()
-        .any(|item| name.eq_ignore_ascii_case(item))
+    crate::walk_policy::skip_entry(name)
 }
 
 fn render_tree(
@@ -850,6 +779,32 @@ mod tests {
         let root_idx = outcome.text.find("root.txt").unwrap();
         let nested_idx = outcome.text.find("child/nested.txt").unwrap();
         assert!(nested_idx < root_idx);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn lists_github_and_skips_node_modules() {
+        let dir = std::env::temp_dir().join(format!(
+            "k-agent-list-policy-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(dir.join(".github/workflows")).unwrap();
+        fs::write(dir.join(".github/workflows/release.yml"), "name: x\n").unwrap();
+        fs::create_dir_all(dir.join("node_modules/leftpad")).unwrap();
+        fs::write(dir.join("node_modules/leftpad/index.js"), "module\n").unwrap();
+        fs::write(dir.join(".env"), "SECRET\n").unwrap();
+        let ctx = crate::tools::ToolContext::for_test(dir.clone(), 2);
+        let listed = ListDirectoryTool.execute(&json!({"dirPath": "."}), &ctx);
+        assert!(listed.text.contains("[dir] .github"));
+        assert!(!listed.text.contains("node_modules"));
+        assert!(!listed.text.contains(".env"));
+        let found = ListDirectoryTool.execute(&json!({"dirPath": ".", "glob": "*.yml"}), &ctx);
+        assert!(found.text.contains(".github/workflows/release.yml"));
+        assert!(!found.text.contains("node_modules"));
         let _ = fs::remove_dir_all(&dir);
     }
 }

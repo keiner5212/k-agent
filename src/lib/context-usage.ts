@@ -101,7 +101,7 @@ const LIST_DIRECTORY_TOOL_PARAMETERS = {
     glob: {
       type: "string",
       description:
-        "Return only matching file paths. *.rs matches any depth. *.{ts,tsx} matches either suffix.",
+        "Argument of list_directory, not a separate tool. Return only matching file paths. *.rs matches any depth. *.{ts,tsx} matches either suffix.",
     },
   },
 } as const;
@@ -319,7 +319,8 @@ const GREP_TOOL_PARAMETERS = {
     path: { type: "string", description: "File or directory. Default workspace root." },
     glob: {
       type: "string",
-      description: "Include only paths matching this glob. A leading ! excludes.",
+      description:
+        "Argument of grep, not a separate tool. Include only paths matching this glob. A leading ! excludes.",
     },
     caseInsensitive: {
       type: "boolean",

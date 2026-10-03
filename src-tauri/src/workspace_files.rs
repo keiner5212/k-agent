@@ -14,85 +14,13 @@ pub struct WorkspaceEntry {
     pub kind: String,
 }
 
-const SKIP_DIR_NAMES: &[&str] = &[
-    "node_modules",
-    ".git",
-    ".svn",
-    ".hg",
-    "target",
-    "dist",
-    "build",
-    "out",
-    "output",
-    "__pycache__",
-    ".pytest_cache",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".venv",
-    "venv",
-    ".tox",
-    "env",
-    "vendor",
-    ".next",
-    ".nuxt",
-    ".svelte-kit",
-    ".turbo",
-    ".cache",
-    ".parcel-cache",
-    "coverage",
-    ".nyc_output",
-    "bin",
-    "obj",
-    "Pods",
-    ".gradle",
-    "elm-stuff",
-    "_build",
-    "deps",
-    ".stack-work",
-    ".pnpm",
-    ".yarn",
-    "bower_components",
-    "jspm_packages",
-    ".serverless",
-    ".terraform",
-    ".cargo",
-    "zig-cache",
-    "zig-out",
-    ".dart_tool",
-    "DerivedData",
-    "Carthage",
-    ".bundle",
-    "htmlcov",
-    ".hypothesis",
-    "site-packages",
-    ".mvn",
-    ".idea",
-    ".vscode",
-    ".vs",
-    ".local",
-    ".config",
-    "snap",
-    ".var",
-    ".mozilla",
-    ".thunderbird",
-    ".npm",
-    ".nvm",
-    "go",
-];
-
 const MAX_DIR_ENTRIES: usize = 2_000;
 const MAX_SEARCH_VISIT: usize = 20_000;
 const MAX_SEARCH_DEPTH: usize = 16;
 const MAX_SEARCH_HITS: usize = 40;
 
 fn should_skip_dir(name: &str) -> bool {
-    if SKIP_DIR_NAMES
-        .iter()
-        .any(|item| name.eq_ignore_ascii_case(item))
-    {
-        return true;
-    }
-    name.starts_with('.') && name != ".agents"
+    crate::walk_policy::skip_entry(name)
 }
 
 fn path_to_posix(path: &Path) -> String {
@@ -346,6 +274,29 @@ mod tests {
         let hits = search_tree(&root, "index");
         let _ = fs::remove_dir_all(&root);
         assert!(hits.iter().any(|entry| entry.path == "index.ts"));
+        assert!(hits
+            .iter()
+            .all(|entry| !entry.path.contains("node_modules")));
+    }
+
+    #[test]
+    fn search_includes_github_and_skips_node_modules() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("k-agent-mention-github-{nanos}"));
+        let workflow = root.join(".github").join("workflows");
+        fs::create_dir_all(&workflow).expect("dir");
+        fs::write(workflow.join("release.yml"), "x").expect("file");
+        let skipped = root.join("node_modules").join("leftpad");
+        fs::create_dir_all(&skipped).expect("dir");
+        fs::write(skipped.join("release.js"), "x").expect("file");
+        let hits = search_tree(&root, "release");
+        let _ = fs::remove_dir_all(&root);
+        assert!(hits
+            .iter()
+            .any(|entry| entry.path == ".github/workflows/release.yml"));
         assert!(hits
             .iter()
             .all(|entry| !entry.path.contains("node_modules")));

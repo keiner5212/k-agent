@@ -15,7 +15,7 @@ use super::{
 
 pub const NAME: &str = "grep";
 
-const DESCRIPTION: &str = "Search file contents with the ripgrep engine compiled into the app. pattern is a regex. path defaults to the workspace. glob is an include filter (*.rs, *.{ts,tsx}); a leading ! excludes. caseInsensitive matches either letter case. filesOnly returns matching paths and skips line text. count is the number of matching lines. matches is a sample: at most 20 lines per file and 100 lines overall, or 100 paths when filesOnly. No system rg binary. Uses configured worker cores. Use this instead of grep or rg in bash.";
+const DESCRIPTION: &str = "Search file contents with the ripgrep engine compiled into the app. pattern is a regex. path defaults to the workspace. There is no glob tool: pass glob on this call to include only matching paths (*.rs, *.{ts,tsx}); a leading ! excludes. caseInsensitive matches either letter case. filesOnly returns matching paths and skips line text. count is the number of matching lines. matches is a sample: at most 20 lines per file and 100 lines overall, or 100 paths when filesOnly. Skips the same directories as list_directory (node_modules, .git, target, dist, and other dependency, cache, and build directories). Still searches .github and .agents. Other hidden names are skipped. Gitignore rules still apply. No system rg binary. Uses configured worker cores. Use this instead of grep or rg in bash.";
 
 const MAX_MATCHES: usize = 100;
 const MAX_PER_FILE: usize = 20;
@@ -43,7 +43,7 @@ impl Tool for GrepTool {
                     },
                     "glob": {
                         "type": "string",
-                        "description": "Include only paths matching this glob, for example *.ts or *.{rs,toml}. A leading ! excludes instead."
+                        "description": "Argument of grep, not a separate tool. Include only paths matching this glob, for example *.ts or *.{rs,toml}. A leading ! excludes instead."
                     },
                     "caseInsensitive": {
                         "type": "boolean",
@@ -230,13 +230,12 @@ fn search(
 fn configure_walk(root: &Path, glob: &str, jobs: usize) -> Result<WalkBuilder, String> {
     let mut walk = WalkBuilder::new(root);
     walk.threads(jobs)
-        .hidden(true)
+        .hidden(false)
         .git_ignore(true)
         .git_exclude(true)
         .parents(true)
         .filter_entry(|entry| {
-            let name = entry.file_name().to_string_lossy();
-            !matches!(name.as_ref(), ".git" | "node_modules" | "target" | "dist")
+            !crate::walk_policy::skip_entry(&entry.file_name().to_string_lossy())
         });
     if !glob.is_empty() {
         let base = if root.is_dir() {
@@ -527,6 +526,31 @@ mod tests {
         let found = search(&dir, Some(&dir), "HIT", "", false, false, 1).unwrap();
         assert_eq!(found.total, 150);
         assert_eq!(found.lines.len(), MAX_PER_FILE);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn searches_github_and_skips_node_modules() {
+        let dir = scratch();
+        fs::create_dir_all(dir.join(".github")).unwrap();
+        fs::write(dir.join(".github/workflow.yml"), "TOKEN_TARGET\n").unwrap();
+        fs::create_dir_all(dir.join("node_modules/pkg")).unwrap();
+        fs::write(dir.join("node_modules/pkg/index.js"), "TOKEN_TARGET\n").unwrap();
+        fs::write(dir.join(".env"), "TOKEN_TARGET\n").unwrap();
+        let found = search(&dir, Some(&dir), "TOKEN_TARGET", "", false, false, 1).unwrap();
+        assert!(
+            found
+                .lines
+                .iter()
+                .any(|line| line.contains(".github/workflow.yml")),
+            "{found:?}"
+        );
+        assert!(found
+            .lines
+            .iter()
+            .all(|line| !line.contains("node_modules")));
+        assert!(found.lines.iter().all(|line| !line.contains(".env")));
+        assert_eq!(found.total, 1, "{found:?}");
         let _ = fs::remove_dir_all(dir);
     }
 }
