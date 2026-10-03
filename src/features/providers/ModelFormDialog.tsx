@@ -557,6 +557,7 @@ const ModelFormBody = ({
               <Select
                 value={row.kind}
                 options={KIND_OPTIONS}
+                menuMinWidth={144}
                 ariaLabel={t("providers.modelForm.paramKind")}
                 onChange={(next) => {
                   if (isKind(next)) updateParam(row.key, { kind: next });

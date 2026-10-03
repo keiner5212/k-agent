@@ -816,22 +816,37 @@ fn gemini_shell() -> Contract {
     )
 }
 
+fn kind_native(kind: ProviderKind) -> &'static str {
+    match kind {
+        ProviderKind::OpenAiLike => "openai",
+        ProviderKind::AnthropicLike => "anthropic",
+        ProviderKind::GeminiLike => "gemini",
+    }
+}
+
+fn host_native(base_url: &str) -> Option<&'static str> {
+    match vendor(base_url) {
+        Vendor::MiniMax => Some("minimax"),
+        Vendor::OpenAi => Some("openai"),
+        Vendor::Anthropic => Some("anthropic"),
+        Vendor::Gemini => Some("gemini"),
+        _ => None,
+    }
+}
+
 fn active_spec(query: &Query<'_>) -> Option<ModelRequestSpec> {
-    let native = match vendor(query.base_url) {
-        Vendor::MiniMax => "minimax",
-        Vendor::OpenAi if query.kind == ProviderKind::OpenAiLike => "openai",
-        Vendor::Anthropic if query.kind == ProviderKind::AnthropicLike => "anthropic",
-        Vendor::Gemini if query.kind == ProviderKind::GeminiLike => "gemini",
-        _ => return None,
-    };
     let spec = crate::catalog::bundled_lookup(query.model_id)?
         .request
         .clone()?;
-    if spec.native.iter().any(|name| name == native) {
-        Some(spec)
-    } else {
-        None
+    if !spec.known {
+        return None;
     }
+    let kind_name = kind_native(query.kind);
+    let host_name = host_native(query.base_url);
+    let matches = spec.native.iter().any(|name| {
+        name == kind_name || host_name.is_some_and(|host| name == host)
+    });
+    if matches { Some(spec) } else { None }
 }
 
 fn apply_spec(contract: &mut Contract, spec: &ModelRequestSpec, kind: ProviderKind) {
@@ -1067,15 +1082,15 @@ mod tests {
     }
 
     #[test]
-    fn routed_minimax_does_not_inherit_direct_contract() {
+    fn routed_minimax_uses_catalog_contract() {
         let query = query(
             ProviderKind::OpenAiLike,
             "https://openrouter.ai/api/v1",
             "MiniMax-M3",
         );
         let plan = prepare(&query, &ChatRequestOptions::default(), 4096);
-        assert!(plan.openai_thinking.is_none());
-        assert!(!plan.reasoning_split);
+        assert_eq!(plan.openai_thinking.as_deref(), Some("adaptive"));
+        assert!(plan.reasoning_split);
         assert!(plan.reasoning_effort.is_none());
         let opted = ChatRequestOptions {
             limit_provider_data_use: true,
@@ -1089,7 +1104,7 @@ mod tests {
     }
 
     #[test]
-    fn unknown_host_omits_unverified_effort() {
+    fn unknown_host_uses_openai_catalog_contract() {
         let query = query(
             ProviderKind::OpenAiLike,
             "https://proxy.example.com/v1",
@@ -1100,7 +1115,7 @@ mod tests {
             ..ChatRequestOptions::default()
         };
         let plan = prepare(&query, &choices, 4096);
-        assert!(plan.reasoning_effort.is_none());
+        assert_eq!(plan.reasoning_effort.as_deref(), Some("high"));
     }
 
     #[test]
