@@ -10,7 +10,11 @@ Settings stores `request.params` on a provider model. Each param has a name, a t
 
 `thinking`, `effort`, `temperature`, `serviceTier`, and `reasoningSplit` map onto the existing request controls. Any other saved name is an extra field on the wire body.
 
-The edit dialog has two sections. The first is the shared model record (id, name, family, context, output, modalities, flags, cost), filled from the catalog after the models.dev refresh. The second is the param list. With no saved params, that list is seeded from the catalog `request` for the model id. No catalog `request` means an empty list.
+The edit dialog has two sections. The first is the shared model record (id, name, family, context, output, modalities, flags, cost), filled from the catalog after the models.dev refresh. The second is the param list. With no saved params, that list is seeded from the catalog `request` for the model id. A `known: false` request seeds an empty list.
+
+Every catalog entry has a `request` object. `known` and `native` are always present. Extra fields (`reasoning`, `sampling`, `tiers`, `tokenField`, `reasoningSplitOpenai`) appear only when that wire is verified.
+
+`known: true` is sent when the provider kind matches a protocol in `native` (`openai` for openai-like, `anthropic` for anthropic-like, `gemini` for gemini-like) on any base URL, or when the host is MiniMax, OpenAI, Anthropic, or Gemini and `native` names that host. `known: false` stays in the catalog and is not sent. MiniMax contracts list `minimax`, `openai`, and `anthropic`, so both MiniMax wires work on any host that speaks one of those protocols.
 
 ```mermaid
 flowchart TD
@@ -27,10 +31,6 @@ flowchart TD
   catalogWire --> menu
 ```
 
-
-
-
-
 ## Catalog snapshot
 
-The bundled file was refreshed on 2026-10-03 from models.dev
+Refreshed on 2026-10-03

@@ -843,10 +843,15 @@ fn active_spec(query: &Query<'_>) -> Option<ModelRequestSpec> {
     }
     let kind_name = kind_native(query.kind);
     let host_name = host_native(query.base_url);
-    let matches = spec.native.iter().any(|name| {
-        name == kind_name || host_name.is_some_and(|host| name == host)
-    });
-    if matches { Some(spec) } else { None }
+    let matches = spec
+        .native
+        .iter()
+        .any(|name| name == kind_name || host_name.is_some_and(|host| name == host));
+    if matches {
+        Some(spec)
+    } else {
+        None
+    }
 }
 
 fn apply_spec(contract: &mut Contract, spec: &ModelRequestSpec, kind: ProviderKind) {
