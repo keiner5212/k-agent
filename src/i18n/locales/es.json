@@ -883,6 +883,7 @@
       "durationMs": "Pensó {{count}} ms"
     },
     "turn": {
+      "ended": "Termino despues de {{time}}",
       "seconds_one": "{{count}} s",
       "seconds_other": "{{count}} s",
       "minutes": "{{minutes}} min {{seconds}} s",

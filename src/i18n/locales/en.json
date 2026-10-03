@@ -883,6 +883,7 @@
       "durationMs": "Thought for {{count}} ms"
     },
     "turn": {
+      "ended": "Ended after {{time}}",
       "seconds_one": "{{count}}s",
       "seconds_other": "{{count}}s",
       "minutes": "{{minutes}}m {{seconds}}s",

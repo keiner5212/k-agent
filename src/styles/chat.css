@@ -2000,10 +2000,20 @@ button.change-bar__stat:focus-visible {
 .chat-composer__input--mentions {
   font-size: var(--text-sm);
   font-family: inherit;
+  font-weight: inherit;
   line-height: var(--leading-normal);
+  letter-spacing: normal;
+  font-kerning: none;
+  font-variant-ligatures: none;
+  font-feature-settings:
+    "liga" 0,
+    "calt" 0,
+    "kern" 0;
+  text-rendering: geometricPrecision;
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-break: break-word;
+  scrollbar-width: none;
 }
 
 .chat-composer__input-backdrop {
@@ -2015,15 +2025,33 @@ button.change-bar__stat:focus-visible {
   padding-right: 4.75rem;
   padding-bottom: 2.5rem;
   color: var(--text-primary);
-  border: 1px solid transparent;
+  border: none;
   border-radius: var(--radius-sm);
+}
+
+.chat-composer__input-backdrop::-webkit-scrollbar,
+.chat-composer__input--mentions::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.chat-composer__input-backdrop span,
+.chat-composer__mention {
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  font-kerning: inherit;
+  font-variant-ligatures: inherit;
+  font-feature-settings: inherit;
+  padding: 0;
+  margin: 0;
+  border: 0;
 }
 
 .chat-composer__mention {
   color: var(--accent);
   background-color: color-mix(in oklch, var(--accent) 14%, transparent);
   border-radius: 2px;
-  padding: 0;
 }
 
 .chat-composer__input {
