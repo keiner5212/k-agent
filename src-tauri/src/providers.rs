@@ -143,6 +143,34 @@ pub(crate) fn derive_attachment_types(input: &[String], attachment: bool) -> Vec
     out
 }
 
+fn clean_list(values: Vec<String>) -> Vec<String> {
+    let mut out = Vec::new();
+    for value in values {
+        let trimmed = value.trim();
+        if trimmed.is_empty() || out.iter().any(|item: &String| item == trimmed) {
+            continue;
+        }
+        out.push(trimmed.to_string());
+    }
+    out
+}
+
+fn sanitize_cost(cost: Option<ModelCost>) -> Option<ModelCost> {
+    let cost = cost?;
+    if !cost.input.is_finite() || !cost.output.is_finite() || cost.input < 0.0 || cost.output < 0.0
+    {
+        return None;
+    }
+    let finite = |value: Option<f64>| value.filter(|item| item.is_finite() && *item >= 0.0);
+    Some(ModelCost {
+        input: cost.input,
+        output: cost.output,
+        reasoning: finite(cost.reasoning),
+        cache_read: finite(cost.cache_read),
+        cache_write: finite(cost.cache_write),
+    })
+}
+
 fn keep_local(model: &ModelInfo) -> bool {
     model.user_edited || model.source == ModelSource::Custom
 }
@@ -183,8 +211,6 @@ pub struct UpsertModelInput {
     pub context_window: Option<u64>,
     pub max_output_tokens: Option<u64>,
     #[serde(default)]
-    pub knowledge: Option<String>,
-    #[serde(default)]
     pub input: Vec<String>,
     #[serde(default)]
     pub output: Vec<String>,
@@ -200,6 +226,8 @@ pub struct UpsertModelInput {
     pub multimodal: bool,
     #[serde(default)]
     pub effort_levels: Vec<String>,
+    #[serde(default)]
+    pub cost: Option<ModelCost>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -959,30 +987,15 @@ pub async fn upsert_provider_model(
     next.source = ModelSource::Custom;
     next.user_edited = true;
     next.favorite = favorite;
-    if let Some(knowledge) = input
-        .knowledge
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        next.knowledge = Some(knowledge.to_string());
-    }
-    if !input.input.is_empty() {
-        next.input = input.input;
-    }
-    if !input.output.is_empty() {
-        next.output = input.output;
-    }
-    if !input.effort_levels.is_empty() {
-        next.effort_levels = input.effort_levels;
-    }
-    next.reasoning |= input.reasoning;
-    next.tool_call |= input.tool_call;
-    next.structured_output |= input.structured_output;
-    next.attachment |= input.attachment;
-    if next.attachment_types.is_empty() {
-        next.attachment_types = derive_attachment_types(&next.input, next.attachment);
-    }
+    next.input = clean_list(input.input);
+    next.output = clean_list(input.output);
+    next.effort_levels = clean_list(input.effort_levels);
+    next.reasoning = input.reasoning;
+    next.tool_call = input.tool_call;
+    next.structured_output = input.structured_output;
+    next.attachment = input.attachment;
+    next.cost = sanitize_cost(input.cost);
+    next.attachment_types = derive_attachment_types(&next.input, next.attachment);
     next.sync_multimodal();
 
     if let Some(existing) = provider

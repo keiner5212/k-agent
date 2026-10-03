@@ -168,7 +168,15 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
           family: draft.family ?? null,
           contextWindow: draft.contextWindow ?? null,
           maxOutputTokens: draft.maxOutputTokens ?? null,
+          input: draft.input,
+          output: draft.output,
+          reasoning: draft.reasoning,
+          toolCall: draft.toolCall,
+          structuredOutput: draft.structuredOutput,
+          attachment: draft.attachment,
           multimodal: draft.multimodal,
+          effortLevels: draft.effortLevels,
+          cost: draft.cost ?? null,
         },
       });
       set((state) => ({ providers: replaceProvider(state.providers, provider) }));

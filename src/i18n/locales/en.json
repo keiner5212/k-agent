@@ -449,11 +449,26 @@
       "family": "Family / variant group",
       "familyHint": "Group modes of the same model, e.g. MiniMax-M2.7.",
       "tokenHint": "Token counts. k and M suffixes work, e.g. 512k or 1M.",
+      "input": "Input modalities",
+      "output": "Output modalities",
+      "listHint": "Comma-separated. Example: text, image.",
+      "effortLevels": "Effort levels",
+      "effortHint": "Comma-separated. Example: low, medium, high.",
+      "reasoning": "Reasoning",
+      "toolCall": "Tool calls",
+      "structuredOutput": "Structured output",
+      "attachment": "Attachments",
+      "costInput": "Input cost",
+      "costOutput": "Output cost",
+      "costCacheRead": "Cache read cost",
+      "costCacheWrite": "Cache write cost",
+      "costHint": "USD per million tokens. Leave blank to omit.",
       "multimodalHint": "Model accepts image or other non-text input.",
       "saving": "Saving",
       "errors": {
         "required": "Model id is required.",
-        "tokens": "Invalid {{field}} value."
+        "tokens": "Invalid {{field}} value.",
+        "cost": "Input and output cost must both be numbers, or both blank."
       }
     },
     "form": {
@@ -1116,6 +1131,7 @@
       "effort": "Effort",
       "serviceTier": "Service tier",
       "temperature": "Temperature",
+      "temperatureDefault": "App default: {{value}}",
       "contractVerified": "Verified contract for this endpoint and model.",
       "contractUnknown": "No verified model contract. Unverified fields stay off the request.",
       "reasoningUnknown": "Reasoning controls for this model are not verified.",

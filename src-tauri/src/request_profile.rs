@@ -438,11 +438,17 @@ fn view_reasoning(reasoning: &ModelReasoningSpec) -> ReasoningView {
 
 fn view_sampling(sampling: Sampling) -> SamplingView {
     match sampling {
-        Sampling::Omit | Sampling::Fixed(_) => SamplingView {
+        Sampling::Omit => SamplingView {
             temperature: "hidden".into(),
             min: None,
             max: None,
             default_value: None,
+        },
+        Sampling::Fixed(value) => SamplingView {
+            temperature: "fixed".into(),
+            min: None,
+            max: None,
+            default_value: Some(value),
         },
         Sampling::Range {
             min,

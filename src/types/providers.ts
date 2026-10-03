@@ -71,7 +71,15 @@ export type ModelDraft = {
   family?: string;
   contextWindow?: number;
   maxOutputTokens?: number;
+  input: string[];
+  output: string[];
+  reasoning: boolean;
+  toolCall: boolean;
+  structuredOutput: boolean;
+  attachment: boolean;
   multimodal: boolean;
+  effortLevels: string[];
+  cost?: ModelCost;
 };
 
 export type Provider = {

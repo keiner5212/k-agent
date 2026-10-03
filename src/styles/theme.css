@@ -16,9 +16,19 @@
 }
 
 :root[data-translucent="true"] .dialog-surface {
-  background-color: var(--frost-dialog-fill);
+  background-color: transparent;
   border-color: var(--frost-border);
   box-shadow: var(--shadow-md), var(--frost-highlight);
+}
+
+:root[data-translucent="true"] .dialog-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-color: var(--frost-dialog-fill);
   -webkit-backdrop-filter: saturate(var(--frost-saturate)) blur(var(--frost-dialog-blur));
   backdrop-filter: saturate(var(--frost-saturate)) blur(var(--frost-dialog-blur));
 }
