@@ -5,6 +5,7 @@ mod attachments;
 mod catalog;
 mod chat;
 mod checkpoints;
+mod host_context;
 mod lsp;
 mod lsp_client;
 mod maintenance;
@@ -732,6 +733,7 @@ pub fn run() {
             clear_chat_background_image,
             get_chat_background_data_url,
             get_workspace_path,
+            host_context::host_context,
             set_workspace_path,
             repo::get_repo_info,
             list_providers,

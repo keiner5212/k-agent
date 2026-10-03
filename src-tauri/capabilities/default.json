@@ -54,6 +54,7 @@
     "allow-update-agent",
     "allow-delete-agent",
     "allow-get-workspace-path",
+    "allow-host-context",
     "allow-set-workspace-path",
     "allow-list-workspace-files",
     "allow-webview-log",

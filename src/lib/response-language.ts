@@ -29,9 +29,12 @@ export const composeSystemWithLanguage = (
   language: AppLanguage,
   rules = "",
   shape: PromptShape = "xml",
+  environment = "",
 ): string => {
   const parts: string[] = [];
   if (force) parts.push(wrapSection("language", DIRECTIVE[language], shape));
+  const trimmedEnvironment = environment.replace(/\n+$/, "");
+  if (trimmedEnvironment.length > 0) parts.push(trimmedEnvironment);
   const trimmedRules = rules.replace(/\n+$/, "");
   if (trimmedRules.length > 0) parts.push(trimmedRules);
   const trimmed = base.replace(/\n+$/, "");

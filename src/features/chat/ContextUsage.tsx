@@ -11,7 +11,7 @@ import {
 } from "@/lib/agent-system";
 import { useAgentsMdStore } from "@/lib/agents-md";
 import { useAgentsStore } from "@/lib/agents";
-import { appContextDirective } from "@/lib/app-context";
+import { appContextDirective, hostContextSection, loadHostContext } from "@/lib/app-context";
 import { resolveAgentMeta } from "@/lib/builtin-agents";
 import { useComposerStore } from "@/lib/composer";
 import {
@@ -56,8 +56,20 @@ export const ContextUsage = (): ReactNode => {
   const forceResponseLanguage = useSettingsStore((state) => state.forceResponseLanguage);
   const responseLanguage = useSettingsStore((state) => state.responseLanguage);
   const workspaceMemoryEnabled = useSettingsStore((state) => state.workspaceMemoryEnabled);
+  const readBeforeEdit = useSettingsStore((state) => state.readBeforeEdit);
   const workspacePath = useSkillsStore((state) => state.workspacePath);
   const [notes, setNotes] = useState("");
+  const [hostBody, setHostBody] = useState("");
+  useEffect(() => {
+    if (!isTauri()) return;
+    let alive = true;
+    void loadHostContext().then((text) => {
+      if (alive) setHostBody(text);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [workspacePath]);
   useEffect(() => {
     if (!workspaceMemoryEnabled || !isTauri()) return;
     let alive = true;
@@ -94,6 +106,7 @@ export const ContextUsage = (): ReactNode => {
         loadedSkills,
         agentRoster(agentContexts, agent.name),
         shape,
+        readBeforeEdit,
       ),
       buildMcpTools(mcpServers, shape),
       buildWorkspaceNotes(workspaceMemoryEnabled, notes, shape),
@@ -101,7 +114,9 @@ export const ContextUsage = (): ReactNode => {
       .filter((part) => part.length > 0)
       .join("\n\n");
     const appContext = appContextDirective(responseLanguage, shape);
+    const environment = hostContextSection(hostBody, shape);
     const systemParts: string[] = [];
+    if (environment.length > 0) systemParts.push(environment);
     if (agentSystem.length > 0) systemParts.push(agentSystem);
     if (appContext.length > 0) systemParts.push(appContext);
     const language = forceResponseLanguage ? responseLanguageDirective(responseLanguage) : "";
@@ -118,6 +133,8 @@ export const ContextUsage = (): ReactNode => {
     agentContexts,
     agentsMdFiles,
     notes,
+    hostBody,
+    readBeforeEdit,
     workspaceMemoryEnabled,
     forceResponseLanguage,
     loadedSkillKey,

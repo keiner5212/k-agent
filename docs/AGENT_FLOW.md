@@ -9,17 +9,22 @@ OpenCode personalities use markdown headings, `IMPORTANT` lines, and `<example>`
 Empty blocks are omitted.
 
 1. `<language>` - only when force-response-language is on. `src/lib/response-language.ts`.
-2. `<global-rules>` - text from `~/.k-agent/AGENTS.md`.
-3. `<workspace-rules>` - text from `{workspace}/AGENTS.md`.
-4. `<agent-flow>` - turn order. `composeAgentSystem()` in `src/lib/agent-system.ts`.
-5. `<agent-skills>` - global skills bound to the agent that are not already loaded.
-6. `<workspace-skills>` - skills under `{workspace}/.agents/skills/` that are not already loaded.
-7. `<clarify>` - call `ask_user` when the request is not fully clear. Omitted when the agent has no `ask_user` tool.
-8. `<todos>` - call `todowrite` with the full list when a multi-step task starts, finishes, or drops a step. No ids. Omitted when the agent has no `todowrite` tool.
-9. `<tools>` - use `list_directory`, `read`, `grep`, `write`, `edit`, `create_folder`, and `delete` instead of `bash`. Omitted when the agent has no `bash` tool. Lines for missing tools are omitted.
-10. `<personality>` - the agent persona body, unchanged.
-11. `<rendering>` - how chat markdown is shown.
-12. `<app-context>` - extra app notes. Omitted while that list is empty.
+2. `<environment>` - workspace, host OS, home, shell, and app config. `src-tauri/src/host_context.rs`. Omitted when the desktop shell does not answer.
+3. `<global-rules>` - text from `~/.k-agent/AGENTS.md`.
+4. `<workspace-rules>` - text from `{workspace}/AGENTS.md`.
+5. `<agent-flow>` - turn order. `composeAgentSystem()` in `src/lib/agent-system.ts`.
+6. `<agent-skills>` - global skills bound to the agent that are not already loaded.
+7. `<workspace-skills>` - skills under `{workspace}/.agents/skills/` that are not already loaded.
+8. `<clarify>` - call `ask_user` when the request is not fully clear. Omitted when the agent has no `ask_user` tool.
+9. `<todos>` - call `todowrite` with the full list when a multi-step task starts, finishes, or drops a step. No ids. Omitted when the agent has no `todowrite` tool.
+10. `<tools>` - dedicated tools instead of `bash`. Omitted when the agent has no `bash` tool. Lines for missing tools are omitted.
+11. `<agents>` - other agents `task` may call. Omitted when `task` is off or no other agent exists.
+12. `<personality>` - the agent persona body, unchanged.
+13. `<rendering>` - how chat markdown is shown.
+14. `<visual-check>` - `page_shot` rules. Omitted when the agent has no `page_shot` tool.
+15. `<mcp-tools>` - enabled MCP tools. Omitted when none are enabled.
+16. `<workspace-notes>` - `.k-agent/NOTES.md` rules. Omitted when workspace memory is off.
+17. `<app-context>` - extra app notes. Omitted while that list is empty.
 
 Tool JSON schemas go on the request `tools` field, not in this string. A skill body arrives later, as the result of a `skill` call.
 

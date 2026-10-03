@@ -68,7 +68,7 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         type: "action",
         titleKey: "settings.cache.label",
         descriptionKey: "settings.cache.description",
-        keywords: ["cache", "clear", "limpiar", "secrets", "orphans"],
+        keywords: ["cache", "clear", "limpiar", "secrets", "orphans", "empty", "chats"],
       },
     ],
   },

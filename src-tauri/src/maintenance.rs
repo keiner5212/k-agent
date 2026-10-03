@@ -35,6 +35,10 @@ const SWEEPS: &[Sweep] = &[
         id: "settings-orphans",
         run: sweep_settings_orphans,
     },
+    Sweep {
+        id: "blank-sessions",
+        run: sweep_blank_sessions,
+    },
 ];
 
 #[tauri::command]
@@ -50,6 +54,10 @@ pub fn clear_app_cache(app: AppHandle) -> Result<(), String> {
     } else {
         Err(errors.join("; "))
     }
+}
+
+fn sweep_blank_sessions(app: &AppHandle) -> Result<(), String> {
+    crate::sessions::drop_blank_sessions(app)
 }
 
 fn sweep_tool_cache(app: &AppHandle) -> Result<(), String> {

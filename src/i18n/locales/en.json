@@ -113,7 +113,7 @@
     },
     "cache": {
       "label": "Clear cache",
-      "description": "Clears tool and catalog caches. Also drops leftover secrets for providers, MCP servers, and model prefs that are no longer on disk.",
+      "description": "Clears tool and catalog caches. Also drops leftover secrets for providers, MCP servers, and model prefs that are no longer on disk, and deletes chats with no messages and no title. The open empty chat stays.",
       "action": "Clear",
       "running": "Clearing",
       "done": "Cleared"
@@ -881,6 +881,12 @@
       "duration_one": "Thought for {{count}} second",
       "duration_other": "Thought for {{count}} seconds",
       "durationMs": "Thought for {{count}} ms"
+    },
+    "turn": {
+      "seconds_one": "{{count}}s",
+      "seconds_other": "{{count}}s",
+      "minutes": "{{minutes}}m {{seconds}}s",
+      "hours": "{{hours}}h {{minutes}}m"
     },
     "waiting": {
       "phrases": [

@@ -113,7 +113,7 @@
     },
     "cache": {
       "label": "Limpiar cache",
-      "description": "Borra la cache de herramientas y del catalogo. Tambien elimina secretos huerfanos de proveedores, servidores MCP y preferencias de modelos que ya no estan en disco.",
+      "description": "Borra la cache de herramientas y del catalogo. Tambien elimina secretos huerfanos de proveedores, servidores MCP y preferencias de modelos que ya no estan en disco, y borra chats sin mensajes ni titulo. El chat vacio abierto se conserva.",
       "action": "Limpiar",
       "running": "Limpiando",
       "done": "Listo"
@@ -881,6 +881,12 @@
       "duration_one": "Pensó {{count}} segundo",
       "duration_other": "Pensó {{count}} segundos",
       "durationMs": "Pensó {{count}} ms"
+    },
+    "turn": {
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes": "{{minutes}} min {{seconds}} s",
+      "hours": "{{hours}} h {{minutes}} min"
     },
     "waiting": {
       "phrases": [

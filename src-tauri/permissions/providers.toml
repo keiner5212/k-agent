@@ -38,6 +38,7 @@ permissions = [
   "allow-update-agent",
   "allow-delete-agent",
   "allow-get-workspace-path",
+  "allow-host-context",
   "allow-set-workspace-path",
   "allow-list-workspace-files",
   "allow-webview-log",
@@ -264,6 +265,11 @@ commands.allow = ["delete_agent"]
 identifier = "allow-get-workspace-path"
 description = "Read the current workspace path."
 commands.allow = ["get_workspace_path"]
+
+[[permission]]
+identifier = "allow-host-context"
+description = "Read workspace path, host OS, home, and shell for the system prompt."
+commands.allow = ["host_context"]
 
 [[permission]]
 identifier = "allow-set-workspace-path"

@@ -12,6 +12,7 @@ import { useAgentsStore } from "@/lib/agents";
 import { resolveAgentMeta } from "@/lib/builtin-agents";
 import { listComposerAgentKeys } from "@/lib/composer-agents";
 import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
+import { useSessionsStore } from "@/lib/sessions";
 import { useSettingsStore } from "@/lib/settings";
 import { AGENT_TOOL_IDS } from "@/types/agents";
 import type { ToolPermission } from "@/types/settings";
@@ -430,6 +431,9 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
                   .catch((error: unknown) => {
                     console.warn("clear_app_cache failed", error);
                     setCacheState("idle");
+                  })
+                  .finally(() => {
+                    useSessionsStore.getState().forgetBlankSessions();
                   });
                 return;
               }
