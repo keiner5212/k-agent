@@ -413,6 +413,7 @@ const resolveSendRequest = () => {
     effort: request.effort ?? null,
     serviceTier: request.serviceTier ?? null,
     temperature: request.temperature ?? null,
+    extra: Object.entries(request.extra ?? {}).map(([name, value]) => ({ name, value })),
     limitProviderDataUse: useSettingsStore.getState().limitProviderDataUse,
   };
 };

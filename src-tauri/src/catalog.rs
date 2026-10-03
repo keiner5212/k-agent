@@ -274,13 +274,6 @@ impl Catalog {
     }
 
     pub fn apply(&self, model: &mut ModelInfo) {
-        if model.user_edited {
-            if model.attachment_types.is_empty() {
-                model.attachment_types = derive_attachment_types(&model.input, model.attachment);
-            }
-            model.sync_multimodal();
-            return;
-        }
         let Some(entry) = self.lookup(&model.id) else {
             if model.family.is_none() {
                 model.family = Some(id_family(&model.id));
@@ -335,34 +328,57 @@ impl Catalog {
 
 pub async fn load(app: &AppHandle) -> Catalog {
     let mut catalog = Catalog::default();
+    catalog.extend(bundled_entries().iter().cloned());
     if let Ok(entries) = load_remote_or_cache(app).await {
-        catalog.extend(entries);
+        catalog.overlay_fresh_metadata(&entries);
     }
-    catalog.overlay_bundled_requests();
     catalog
 }
 
 impl Catalog {
-    fn overlay_bundled_requests(&mut self) {
-        for bundled in bundled_entries() {
-            let mut keys = Vec::with_capacity(1 + bundled.aliases.len());
-            keys.push(normalize_id(&bundled.id));
-            for alias in &bundled.aliases {
-                keys.push(normalize_id(alias));
-            }
-            let mut found = false;
-            for key in &keys {
-                if let Some(existing) = self.by_id.get_mut(key) {
-                    if bundled.request.is_some() {
-                        existing.request.clone_from(&bundled.request);
-                    }
-                    found = true;
+    fn overlay_fresh_metadata(&mut self, remote: &[CatalogEntry]) {
+        for incoming in remote {
+            let Some(canonical) = self.lookup(&incoming.id).map(|entry| entry.id.clone()) else {
+                continue;
+            };
+            for existing in self.by_id.values_mut() {
+                if existing.id != canonical {
+                    continue;
                 }
-            }
-            if !found {
-                self.insert(bundled.clone());
+                copy_fresh(existing, incoming);
             }
         }
+    }
+}
+
+fn copy_fresh(existing: &mut CatalogEntry, incoming: &CatalogEntry) {
+    if incoming.context_window.is_some() {
+        existing.context_window = incoming.context_window;
+    }
+    if incoming.max_output_tokens.is_some() {
+        existing.max_output_tokens = incoming.max_output_tokens;
+    }
+    if incoming.knowledge.is_some() {
+        existing.knowledge.clone_from(&incoming.knowledge);
+    }
+    if incoming.cost.is_some() {
+        existing.cost.clone_from(&incoming.cost);
+    }
+    if !incoming.input.is_empty() {
+        existing.input.clone_from(&incoming.input);
+    }
+    if !incoming.output.is_empty() {
+        existing.output.clone_from(&incoming.output);
+    }
+    existing.reasoning |= incoming.reasoning;
+    existing.tool_call |= incoming.tool_call;
+    existing.structured_output |= incoming.structured_output;
+    existing.attachment |= incoming.attachment;
+    existing.multimodal |= incoming.multimodal;
+    if !incoming.attachment_types.is_empty() {
+        existing
+            .attachment_types
+            .clone_from(&incoming.attachment_types);
     }
 }
 

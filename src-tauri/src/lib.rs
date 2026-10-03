@@ -325,7 +325,10 @@ fn window_start_drag(window: tauri::Window) -> Result<(), String> {
 
 #[tauri::command]
 fn window_open_devtools(window: tauri::WebviewWindow) {
+    #[cfg(debug_assertions)]
     window.open_devtools();
+    #[cfg(not(debug_assertions))]
+    let _ = window;
 }
 
 static SYSTEM_FONTS: OnceLock<Vec<String>> = OnceLock::new();
@@ -780,6 +783,7 @@ pub fn run() {
             rollback_files,
             send_chat_message,
             request_profile::describe_model_request,
+            request_profile::catalog_request_params,
             generate_session_title,
             summarize_conversation,
             generate_app_content,

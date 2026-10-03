@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::catalog::{ModelReasoningSpec, ModelRequestSpec, ModelSamplingSpec};
-use crate::providers::ProviderKind;
+use crate::providers::{ProviderKind, UserParamKind, UserRequestParam, UserRequestSpec};
 
 const OUTPUT_TOKEN_MAX: u64 = 32_000;
 
@@ -11,6 +11,8 @@ pub struct DescribeModelRequest {
     pub kind: ProviderKind,
     pub base_url: String,
     pub model_id: String,
+    #[serde(default)]
+    pub user_request: Option<UserRequestSpec>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -28,6 +30,15 @@ pub struct ChatRequestOptions {
     pub max_output_tokens: Option<u64>,
     #[serde(default)]
     pub limit_provider_data_use: bool,
+    #[serde(default)]
+    pub extra: Vec<RequestExtra>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestExtra {
+    pub name: String,
+    pub value: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -42,6 +53,8 @@ pub struct ModelRequestView {
     pub privacy_detail_key: String,
     pub reasoning_split: bool,
     pub notes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub params: Vec<UserRequestParam>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -126,6 +139,7 @@ pub struct WirePlan {
     pub token_field: TokenField,
     pub privacy: Option<PrivacyWire>,
     pub max_output: u64,
+    pub extra: Vec<(String, String)>,
 }
 
 #[derive(Clone, Copy)]
@@ -164,11 +178,14 @@ struct Contract {
 
 #[tauri::command]
 pub fn describe_model_request(query: DescribeModelRequest) -> ModelRequestView {
-    describe(&Query {
-        kind: query.kind,
-        base_url: &query.base_url,
-        model_id: &query.model_id,
-    })
+    describe(
+        &Query {
+            kind: query.kind,
+            base_url: &query.base_url,
+            model_id: &query.model_id,
+        },
+        query.user_request.as_ref(),
+    )
 }
 
 pub fn prepare(
@@ -176,11 +193,14 @@ pub fn prepare(
     choices: &ChatRequestOptions,
     max_output: u64,
 ) -> WirePlan {
-    let contract = contract(&Query {
-        kind: query.kind,
-        base_url: &query.base_url,
-        model_id: &query.model_id,
-    });
+    let contract = contract(
+        &Query {
+            kind: query.kind,
+            base_url: &query.base_url,
+            model_id: &query.model_id,
+        },
+        query.user_request.as_ref(),
+    );
     plan_for(&contract, choices, max_output)
 }
 
@@ -189,11 +209,12 @@ pub fn quiet_query(kind: ProviderKind, base_url: &str, model_id: &str) -> Descri
         kind,
         base_url: base_url.to_string(),
         model_id: model_id.to_string(),
+        user_request: None,
     }
 }
 
-fn describe(query: &Query<'_>) -> ModelRequestView {
-    let contract = contract(query);
+fn describe(query: &Query<'_>, user: Option<&UserRequestSpec>) -> ModelRequestView {
+    let contract = contract(query, user);
     ModelRequestView {
         vendor: contract.vendor.to_string(),
         model_contract: if contract.model_known {
@@ -208,6 +229,10 @@ fn describe(query: &Query<'_>) -> ModelRequestView {
         privacy_detail_key: contract.privacy_detail_key.to_string(),
         reasoning_split: contract.reasoning_split,
         notes: contract.notes.into_iter().map(str::to_string).collect(),
+        params: user
+            .filter(|spec| spec.active())
+            .map(|spec| spec.params.clone())
+            .unwrap_or_default(),
     }
 }
 
@@ -236,6 +261,18 @@ fn plan_for(contract: &Contract, choices: &ChatRequestOptions, max_output: u64) 
             None
         },
         max_output,
+        extra: choices
+            .extra
+            .iter()
+            .filter_map(|item| {
+                let name = item.name.trim();
+                if name.is_empty() {
+                    None
+                } else {
+                    Some((name.to_string(), item.value.trim().to_string()))
+                }
+            })
+            .collect(),
     };
     apply_reasoning(contract, choices, &mut plan);
     plan
@@ -258,11 +295,18 @@ fn apply_reasoning(contract: &Contract, choices: &ChatRequestOptions, plan: &mut
             locked_on,
             ..
         } => {
-            let mode = if *locked_on {
-                "adaptive".to_string()
+            let forced = if default_mode.is_empty() {
+                modes
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| "adaptive".to_string())
             } else {
-                allowed(choices.reasoning_mode.as_deref(), modes)
-                    .unwrap_or_else(|| default_mode.clone())
+                default_mode.clone()
+            };
+            let mode = if *locked_on {
+                forced
+            } else {
+                allowed(choices.reasoning_mode.as_deref(), modes).unwrap_or(forced)
             };
             plan.enable_reasoning = mode != "disabled";
             plan.openai_thinking = Some(mode.clone());
@@ -334,11 +378,18 @@ fn apply_reasoning(contract: &Contract, choices: &ChatRequestOptions, plan: &mut
                     Some(default_level.clone())
                 }
             });
-            let mut mode = if *locked_on {
-                "adaptive".to_string()
+            let forced = if default_thinking.is_empty() {
+                thinking_modes
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| "adaptive".to_string())
             } else {
-                allowed(choices.reasoning_mode.as_deref(), thinking_modes)
-                    .unwrap_or_else(|| default_thinking.clone())
+                default_thinking.clone()
+            };
+            let mut mode = if *locked_on {
+                forced
+            } else {
+                allowed(choices.reasoning_mode.as_deref(), thinking_modes).unwrap_or(forced)
             };
             if contract.opus5_disable_limit
                 && mode == "disabled"
@@ -490,7 +541,148 @@ fn strings(values: &[&str]) -> Vec<String> {
     values.iter().map(|value| (*value).to_string()).collect()
 }
 
-fn contract(query: &Query<'_>) -> Contract {
+fn param_named<'a>(spec: &'a UserRequestSpec, name: &str) -> Option<&'a UserRequestParam> {
+    spec.params
+        .iter()
+        .find(|param| param.name.eq_ignore_ascii_case(name))
+}
+
+fn spec_from_user(spec: &UserRequestSpec) -> ModelRequestSpec {
+    let thinking = param_named(spec, "thinking")
+        .filter(|param| param.kind == UserParamKind::String)
+        .map(|param| param.values.clone())
+        .unwrap_or_default();
+    let effort = param_named(spec, "effort")
+        .filter(|param| param.kind == UserParamKind::String)
+        .map(|param| param.values.clone())
+        .unwrap_or_default();
+    let tiers = param_named(spec, "serviceTier")
+        .filter(|param| param.kind == UserParamKind::String)
+        .map(|param| param.values.clone())
+        .unwrap_or_default();
+    let reasoning = match (thinking.is_empty(), effort.is_empty()) {
+        (false, false) => Some(ModelReasoningSpec::Claude {
+            thinking_modes: thinking.clone(),
+            default_thinking: thinking[0].clone(),
+            locked_on: false,
+            levels: effort,
+            default_level: String::new(),
+        }),
+        (false, true) => Some(ModelReasoningSpec::Thinking {
+            modes: thinking.clone(),
+            default_mode: thinking[0].clone(),
+            locked_on: false,
+            anthropic_default_mode: None,
+        }),
+        (true, false) => Some(ModelReasoningSpec::Effort {
+            levels: effort,
+            default_level: String::new(),
+        }),
+        (true, true) => None,
+    };
+    let sampling = param_named(spec, "temperature")
+        .filter(|param| param.kind == UserParamKind::Number)
+        .and_then(|param| param.values.first())
+        .and_then(|value| value.parse::<f64>().ok())
+        .filter(|value| value.is_finite())
+        .map(|value| ModelSamplingSpec::Range {
+            min: 0.0,
+            max: 2.0,
+            default_value: value,
+        });
+    ModelRequestSpec {
+        known: true,
+        native: vec![
+            "minimax".into(),
+            "openai".into(),
+            "anthropic".into(),
+            "gemini".into(),
+        ],
+        reasoning,
+        sampling,
+        token_field: None,
+        tiers,
+        tier_may_reject: false,
+        reasoning_split_openai: param_named(spec, "reasoningSplit")
+            .is_some_and(|param| param.kind == UserParamKind::Bool),
+        opus5_disable_limit: false,
+        gemini_top_p: false,
+    }
+}
+
+pub fn params_from_spec(spec: &ModelRequestSpec) -> Vec<UserRequestParam> {
+    let mut params = Vec::new();
+    let string_param = |name: &str, values: Vec<String>| UserRequestParam {
+        name: name.into(),
+        kind: UserParamKind::String,
+        values,
+    };
+    match &spec.reasoning {
+        Some(ModelReasoningSpec::Thinking { modes, .. })
+        | Some(ModelReasoningSpec::GeminiBudget { modes, .. }) => {
+            if !modes.is_empty() {
+                params.push(string_param("thinking", modes.clone()));
+            }
+        }
+        Some(ModelReasoningSpec::Effort { levels, .. })
+        | Some(ModelReasoningSpec::GeminiLevel { levels, .. }) => {
+            if !levels.is_empty() {
+                params.push(string_param("effort", levels.clone()));
+            }
+        }
+        Some(ModelReasoningSpec::Claude {
+            thinking_modes,
+            levels,
+            ..
+        }) => {
+            if !thinking_modes.is_empty() {
+                params.push(string_param("thinking", thinking_modes.clone()));
+            }
+            if !levels.is_empty() {
+                params.push(string_param("effort", levels.clone()));
+            }
+        }
+        Some(ModelReasoningSpec::AnthropicExtended { .. }) => {
+            params.push(string_param(
+                "thinking",
+                vec!["disabled".into(), "enabled".into()],
+            ));
+        }
+        _ => {}
+    }
+    if let Some(sampling) = &spec.sampling {
+        let value = match sampling {
+            ModelSamplingSpec::Fixed { value } => *value,
+            ModelSamplingSpec::Range { default_value, .. } => *default_value,
+        };
+        params.push(UserRequestParam {
+            name: "temperature".into(),
+            kind: UserParamKind::Number,
+            values: vec![value.to_string()],
+        });
+    }
+    if !spec.tiers.is_empty() {
+        params.push(string_param("serviceTier", spec.tiers.clone()));
+    }
+    if spec.reasoning_split_openai {
+        params.push(UserRequestParam {
+            name: "reasoningSplit".into(),
+            kind: UserParamKind::Bool,
+            values: Vec::new(),
+        });
+    }
+    params
+}
+
+#[tauri::command]
+pub fn catalog_request_params(model_id: String) -> Vec<UserRequestParam> {
+    crate::catalog::bundled_lookup(&model_id)
+        .and_then(|entry| entry.request.as_ref())
+        .map(params_from_spec)
+        .unwrap_or_default()
+}
+
+fn contract(query: &Query<'_>, user: Option<&UserRequestSpec>) -> Contract {
     let mut contract = match vendor(query.base_url) {
         Vendor::MiniMax => minimax_shell(),
         Vendor::OpenAi => openai_shell(),
@@ -546,7 +738,9 @@ fn contract(query: &Query<'_>) -> Contract {
             &[],
         ),
     };
-    if let Some(spec) = active_spec(query) {
+    if let Some(spec) = user.filter(|item| item.active()) {
+        apply_spec(&mut contract, &spec_from_user(spec), query.kind);
+    } else if let Some(spec) = active_spec(query) {
         apply_spec(&mut contract, &spec, query.kind);
     }
     contract
@@ -834,6 +1028,7 @@ mod tests {
             kind,
             base_url: base.into(),
             model_id: model.into(),
+            user_request: None,
         }
     }
 

@@ -52,6 +52,17 @@ const focusMainPane = (event: MouseEvent<HTMLElement>): void => {
   event.currentTarget.focus();
 };
 
+const blockOfficialShell = (event: KeyboardEvent): void => {
+  const key = event.key.toLowerCase();
+  const mod = event.ctrlKey || event.metaKey;
+  const reload = key === "f5" || (mod && key === "r");
+  const inspect =
+    key === "f12" || (mod && event.shiftKey && (key === "i" || key === "j" || key === "c"));
+  if (!reload && !inspect) return;
+  event.preventDefault();
+  event.stopPropagation();
+};
+
 export const App = (): ReactNode => {
   const { t } = useTranslation();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -75,6 +86,19 @@ export const App = (): ReactNode => {
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    if (!import.meta.env.PROD) return;
+    const blockMenu = (event: Event): void => {
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", blockOfficialShell, true);
+    window.addEventListener("contextmenu", blockMenu);
+    return () => {
+      window.removeEventListener("keydown", blockOfficialShell, true);
+      window.removeEventListener("contextmenu", blockMenu);
+    };
+  }, []);
 
   useEffect(() => {
     if (!settingsHydrated || !isTauri()) return;

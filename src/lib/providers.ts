@@ -175,8 +175,8 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
           structuredOutput: draft.structuredOutput,
           attachment: draft.attachment,
           multimodal: draft.multimodal,
-          effortLevels: draft.effortLevels,
           cost: draft.cost ?? null,
+          request: draft.request ?? null,
         },
       });
       set((state) => ({ providers: replaceProvider(state.providers, provider) }));

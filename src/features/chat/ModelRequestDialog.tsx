@@ -5,12 +5,21 @@ import { SlidersHorizontal } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { IconButton } from "@/components/IconButton";
 import { Select } from "@/components/Select";
+import { Toggle } from "@/components/Toggle";
 import { resolveSelectedModel } from "@/lib/context-usage";
 import { isTauri } from "@/lib/platform";
 import { useProvidersStore } from "@/lib/providers";
 import { selectRequest, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
 import type { ModelRequestOverride, ModelRequestView } from "@/types/model-request";
+
+const KNOWN_REQUEST_PARAMS = new Set([
+  "thinking",
+  "effort",
+  "serviceTier",
+  "temperature",
+  "reasoningSplit",
+]);
 
 const optionList = (
   values: readonly string[],
@@ -42,6 +51,7 @@ export const ModelRequestButton = (): ReactNode => {
         kind: providers.find((item) => item.id === selection.providerId)?.kind,
         baseUrl: providers.find((item) => item.id === selection.providerId)?.baseUrl,
         modelId: model.id,
+        userRequest: model.request ?? null,
       },
     })
       .then((next) => {
@@ -196,6 +206,36 @@ const RequestForm = ({
       {profile.reasoningSplit ? (
         <p className="field__hint">{t("chat.request.note.reasoningSplit")}</p>
       ) : null}
+      {(profile.params ?? [])
+        .filter((param) => !KNOWN_REQUEST_PARAMS.has(param.name))
+        .map((param) =>
+          param.kind === "bool" ? (
+            <Toggle
+              key={param.name}
+              checked={stored.extra?.[param.name] !== "false"}
+              label={param.name}
+              onChange={(next) =>
+                onChange({
+                  extra: { ...stored.extra, [param.name]: next ? "true" : "false" },
+                })
+              }
+            />
+          ) : (
+            <Choice
+              key={param.name}
+              id={`request-extra-${param.name}`}
+              label={param.name}
+              value={stored.extra?.[param.name] ?? ""}
+              options={optionList(param.values, stored.extra?.[param.name] ?? "", defaultLabel)}
+              onChange={(value) => {
+                const extra = { ...stored.extra };
+                if (value) extra[param.name] = value;
+                else delete extra[param.name];
+                onChange({ extra });
+              }}
+            />
+          ),
+        )}
       {profile.notes.map((note) => (
         <p className="field__hint" key={note}>
           {t(note)}

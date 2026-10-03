@@ -1069,7 +1069,9 @@ fn request_plan(
     options: &crate::request_profile::ChatRequestOptions,
     max_output: u64,
 ) -> crate::request_profile::WirePlan {
-    let query = crate::request_profile::quiet_query(provider.kind, &provider.base_url, &model.id);
+    let mut query =
+        crate::request_profile::quiet_query(provider.kind, &provider.base_url, &model.id);
+    query.user_request.clone_from(&model.request);
     crate::request_profile::prepare(&query, options, max_output)
 }
 
@@ -1677,6 +1679,39 @@ async fn collect_stream(
     })
 }
 
+fn insert_extra_fields(body: &mut serde_json::Value, extra: &[(String, String)]) {
+    let Some(map) = body.as_object_mut() else {
+        return;
+    };
+    for (name, raw) in extra {
+        if map.contains_key(name) {
+            continue;
+        }
+        map.insert(name.clone(), extra_json(raw));
+    }
+}
+
+fn extra_json(raw: &str) -> serde_json::Value {
+    if raw.eq_ignore_ascii_case("true") {
+        return json!(true);
+    }
+    if raw.eq_ignore_ascii_case("false") {
+        return json!(false);
+    }
+    let numeric = !raw.is_empty()
+        && raw
+            .chars()
+            .all(|ch| ch.is_ascii_digit() || ch == '.' || ch == '-' || ch == '+');
+    if numeric {
+        if let Ok(number) = raw.parse::<f64>() {
+            if number.is_finite() {
+                return json!(number);
+            }
+        }
+    }
+    json!(raw)
+}
+
 fn apply_openai_like_reasoning(body: &mut serde_json::Value, call: &ChatCall<'_>) {
     let plan = call.plan;
     if let Some(mode) = &plan.openai_thinking {
@@ -1691,6 +1726,7 @@ fn apply_openai_like_reasoning(body: &mut serde_json::Value, call: &ChatCall<'_>
     if let Some(tier) = &plan.service_tier {
         body["service_tier"] = json!(tier);
     }
+    insert_extra_fields(body, &plan.extra);
     match plan.privacy {
         Some(crate::request_profile::PrivacyWire::OpenAiStoreFalse) => {
             body["store"] = json!(false);
@@ -1719,6 +1755,7 @@ fn apply_anthropic_like_reasoning(body: &mut serde_json::Value, call: &ChatCall<
     if let Some(tier) = &plan.service_tier {
         body["service_tier"] = json!(tier);
     }
+    insert_extra_fields(body, &plan.extra);
     body["max_tokens"] = json!(plan.max_output);
 }
 
@@ -2002,6 +2039,7 @@ async fn send_gemini_like(
     if let Some(tier) = &call.plan.service_tier {
         body["service_tier"] = json!(tier);
     }
+    insert_extra_fields(&mut body, &call.plan.extra);
     if let Some(system) = nonempty_text(call.system) {
         body["systemInstruction"] = json!({
             "parts": [{ "text": system }],
