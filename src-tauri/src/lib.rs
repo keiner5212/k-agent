@@ -22,6 +22,7 @@ mod shell;
 mod skills;
 pub mod tools;
 mod utils;
+mod walk_policy;
 mod workspace_files;
 
 pub use paths::APP_CONFIG_DIR;

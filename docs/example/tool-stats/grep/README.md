@@ -7,11 +7,11 @@ Search file contents with the ripgrep engine compiled into the app. The job coun
 - Search a pattern with no regex metacharacters as a literal byte scan. A pattern that contains `. * + ? ( ) | [ ] { } ^ $` or `\` stays on the regex engine. There is no system `rg` binary.
 - Walk files on a pool sized to the chat request parallelism.
 - Default `path` to the workspace root. Absolute and workspace-relative paths are accepted.
-- Treat `glob` as an include filter. `*.md` returns only markdown files. `*.{rs,toml}` is one glob. A leading `!` excludes (`!*.json`).
+- Treat `glob` as an argument of this tool, not a separate tool. `*.md` returns only markdown files. `*.{rs,toml}` is one glob. A leading `!` excludes (`!*.json`).
 - Honor `caseInsensitive`. Default is case-sensitive. `token` does not match `TOKEN` unless the flag is true.
 - Count each matching line once. A repeated pattern on one line is one hit. `count` is that total, not the sample length.
 - Return a sample in `matches`: at most 20 lines from each file and 100 lines overall. `truncated` is `true` when `count` is larger than the sample.
-- Skip `.git`, `node_modules`, `target`, and `dist`. Hidden files and gitignore rules still apply.
+- Skip the same directories as `list_directory` (`node_modules`, `.git`, `target`, `dist`, and other dependency, cache, and build directories). Still searches `.github` and `.agents`. Other hidden names are skipped. Gitignore rules still apply.
 - Clip each sample line at 400 characters. Sort the sample by path, then line.
 - Return `count: 0`, `truncated: false`, and an empty `matches` block when nothing matches.
 - Honor `filesOnly`. Matching paths only, no line text. `count` stays the number of matching lines. The sample cap is 100 paths.
@@ -33,7 +33,7 @@ Search file contents with the ripgrep engine compiled into the app. The job coun
 | ----------------- | ------- | -------- | -------------- | -------------------------------------------------- |
 | `pattern`         | string  | yes      | -              | Regex. Case-sensitive unless `caseInsensitive`.    |
 | `path`            | string  | no       | workspace root | File or directory. Absolute or workspace-relative. |
-| `glob`            | string  | no       | -              | Include filter. A leading `!` excludes.            |
+| `glob`            | string  | no       | -              | Argument of this tool. A leading `!` excludes.     |
 | `caseInsensitive` | boolean | no       | false          | Match letters regardless of case.                  |
 | `filesOnly`       | boolean | no       | false          | Paths only. Skips line text in `matches`.          |
 

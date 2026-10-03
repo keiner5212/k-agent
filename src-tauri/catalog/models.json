@@ -31105,7 +31105,11 @@
       "input": 0,
       "output": 0
     },
-    "aliases": ["llama3.3:70b", "meta.llama-3.3-70b-instruct", "us.meta.llama3-3-70b-instruct-v1:0"],
+    "aliases": [
+      "llama3.3:70b",
+      "meta.llama-3.3-70b-instruct",
+      "us.meta.llama3-3-70b-instruct-v1:0"
+    ],
     "request": {
       "known": false,
       "native": ["openai"]
@@ -57604,4 +57608,5 @@
       "known": false,
       "native": ["openai"]
     }
-  }]
+  }
+]

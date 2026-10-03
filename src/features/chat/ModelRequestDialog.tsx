@@ -263,11 +263,13 @@ const TemperatureField = ({
 }): ReactNode => {
   const { t } = useTranslation();
   const fallback = stored ?? appDefault;
-  const [text, setText] = useState(fallback === undefined ? "" : String(fallback));
-
-  useEffect(() => {
-    setText(fallback === undefined ? "" : String(fallback));
-  }, [fallback]);
+  const fallbackText = fallback === undefined ? "" : String(fallback);
+  const [text, setText] = useState(fallbackText);
+  const [seenFallback, setSeenFallback] = useState(fallbackText);
+  if (fallbackText !== seenFallback) {
+    setSeenFallback(fallbackText);
+    setText(fallbackText);
+  }
 
   return (
     <div className="field">

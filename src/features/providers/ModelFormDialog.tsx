@@ -175,29 +175,24 @@ const ModelFormBody = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadCatalogParams = useCallback((modelId: string): (() => void) => {
-    if (!isTauri() || paramsTouched.current) return () => undefined;
+  const loadCatalogParams = useCallback((modelId: string): void => {
+    if (!isTauri() || paramsTouched.current) return;
     const trimmed = modelId.trim();
-    if (!trimmed) {
-      setParams([]);
-      return () => undefined;
-    }
-    let cancelled = false;
+    if (!trimmed) return;
     void invoke<UserRequestParam[]>("catalog_request_params", { modelId: trimmed }).then(
       (catalog) => {
-        if (cancelled || paramsTouched.current) return;
+        if (paramsTouched.current) return;
         setParams(rowsFromParams(catalog, "catalog"));
       },
       () => {
-        if (!cancelled && !paramsTouched.current) setParams([]);
+        if (!paramsTouched.current) setParams([]);
       },
     );
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-  useEffect(() => loadCatalogParams(model?.id ?? ""), [loadCatalogParams, model?.id]);
+  useEffect(() => {
+    loadCatalogParams(model?.id ?? "");
+  }, [loadCatalogParams, model?.id]);
 
   const updateParam = (key: string, patch: Partial<ParamRow>): void => {
     paramsTouched.current = true;

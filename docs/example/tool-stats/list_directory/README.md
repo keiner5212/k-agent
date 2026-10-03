@@ -5,12 +5,12 @@ List directory entries. Optional recursive walk with bounded depth and parallel 
 ## Does
 
 - Reads a directory (default: workspace root) and returns entries sorted by name.
-- Skips a hardcoded list of noisy directories (`node_modules`, `.git`, `target`, `dist`, `build`, `venv`, `.venv`, ...). Also skips hidden entries (names starting with `.`).
+- Skips dependency, cache, and build directories (`node_modules`, `.git`, `target`, `dist`, `build`, `vendor`, virtualenvs, ...). Still lists `.github` and `.agents`. Other names starting with `.` are skipped.
 - Caps total output at 5000 rendered lines; emits a `(truncated at 5000 lines)` note when that happens.
 - Caps each individual directory read at 2000 entries.
 - Caches directory reads in process for `1 second` (`CACHE_TTL`). A second call within the TTL returns the cached snapshot without re-stat-ing.
 - With `recursive: true`, walks the tree in parallel using `min(configured_parallelism, host_logical_cpus, 16)` workers. Workers run in `thread::scope` chunks.
-- With `glob`, returns sorted file paths only. `*.rs` matches the file name at any depth. `src/**/*.ts` matches that prefix. `*.{ts,tsx}` matches either suffix. At most 200 paths. Default depth becomes 10.
+- With `glob`, returns sorted file paths only. `glob` is an argument of this tool, not a separate tool. `*.rs` matches the file name at any depth. `src/**/*.ts` matches that prefix. `*.{ts,tsx}` matches either suffix. At most 200 paths. Default depth becomes 10.
 - A `glob` walk uses the same 1-second directory cache and the same worker cap as the tree walk.
 - Clamps `maxDepth` to `1..=10`. The default is `3`. A `glob` with no `maxDepth` uses `10`.
 - Resolves symlinks for the `is_dir` flag without following the link during the recursive walk.
@@ -18,7 +18,7 @@ List directory entries. Optional recursive walk with bounded depth and parallel 
 
 ## Does not
 
-- Show hidden files or `noise/`-style directories. Both are filtered out by name.
+- Show hidden names other than `.github` and `.agents`. Dependency and build directories are filtered out by name.
 - Traverse further than `maxDepth` lets it. The walk stops at the depth bound.
 - Delete the recursive cache TTL. The 1-second cache is intentional; expect re-reads on every burst.
 - Walk a directory outside the workspace without an allow answer. The tool waits on that prompt.
@@ -33,7 +33,7 @@ List directory entries. Optional recursive walk with bounded depth and parallel 
 | `dirPath`   | string  | no       | workspace root | Absolute or workspace-relative directory.                                 |
 | `recursive` | boolean | no       | `false`        | When `true`, walks the sub-tree under `dirPath`.                          |
 | `maxDepth`  | integer | no       | `3`            | Recursion bound. Clamped to `1..=10`. Default is `10` when `glob` is set. |
-| `glob`      | string  | no       | -              | File-name or path glob. Returns paths only, capped at 200.                |
+| `glob`      | string  | no       | -              | Argument of this tool, not a separate tool. Paths only, capped at 200.    |
 
 ## Response
 

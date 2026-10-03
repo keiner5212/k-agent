@@ -156,7 +156,7 @@ fn tool_choice(tools: &[String], shape: Shape) -> String {
     let mut lines = vec!["Use the dedicated tool. Do not invent a shell command.".to_string()];
     if has(tools, "list_directory") {
         lines.push(
-            "List a directory with `list_directory`. Find files by name with its `glob` (`*.rs` matches any depth)."
+            "List a directory with `list_directory`. To find files by name, pass `glob` to `list_directory` (`*.rs` matches any depth). `glob` is an argument of `list_directory` and of `grep`. There is no `glob` tool."
                 .into(),
         );
     }
@@ -164,7 +164,16 @@ fn tool_choice(tools: &[String], shape: Shape) -> String {
         lines.push("Read a file with `read`.".into());
     }
     if has(tools, "grep") {
-        lines.push("Search file contents with `grep`.".into());
+        lines.push(
+            "Search file contents with `grep`. To limit which files are searched, pass `glob` to `grep` (`*.ts`, or `!*.json` to exclude)."
+                .into(),
+        );
+    }
+    if has(tools, "list_directory") || has(tools, "grep") {
+        lines.push(
+            "Readable hidden directories are `.github` and `.agents`. `node_modules`, `.git`, `target`, `dist`, `build`, `vendor`, virtualenvs, and other dependency, cache, and build directories are skipped. Other names that start with `.` are skipped."
+                .into(),
+        );
     }
     if has(tools, "lsp") {
         lines.push(

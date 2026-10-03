@@ -12,7 +12,7 @@ use super::{
 
 pub const NAME: &str = "edit";
 
-const DESCRIPTION: &str = "Exact string replace in one or more files. Pass filePath, oldString, and newString for one edit, or edits for several. All edits are checked before any file is written. Read first. oldString is the file text, not the line-number prefix from read. Match is exact, including whitespace. Fails if oldString is missing or not unique, unless replaceAll is true, and the error says which. Paths outside the workspace wait for the user to allow or deny.";
+const DESCRIPTION: &str = "Exact string replace. Two call shapes. Never mix them. One edit: send only filePath, oldString, and newString (optional replaceAll). Do not send edits. Several edits: send only edits. Each edits item has its own filePath, oldString, and newString. Do not also send top-level filePath, oldString, newString, or replaceAll. Top-level filePath is not a parent of edits. Both shapes in one call is an error and writes nothing. All edits are checked before any file is written. Read first. oldString is the file text, not the line-number prefix from read. Match is exact, including whitespace. Fails if oldString is missing or not unique, unless replaceAll is true, and the error says which. Paths outside the workspace wait for the user to allow or deny.";
 
 pub struct EditTool;
 
@@ -26,23 +26,23 @@ impl Tool for EditTool {
                 "properties": {
                     "filePath": {
                         "type": "string",
-                        "description": "Absolute or workspace-relative path"
+                        "description": "Single-edit shape only. Absolute or workspace-relative path. Omit this when edits is set. It is not a parent path for edits."
                     },
                     "oldString": {
                         "type": "string",
-                        "description": "Text to find"
+                        "description": "Single-edit shape only. Text to find. Omit this when edits is set."
                     },
                     "newString": {
                         "type": "string",
-                        "description": "Replacement text"
+                        "description": "Single-edit shape only. Replacement text. Omit this when edits is set."
                     },
                     "replaceAll": {
                         "type": "boolean",
-                        "description": "Replace every match (default false)"
+                        "description": "Single-edit shape only. Replace every match (default false). Omit this when edits is set."
                     },
                     "edits": {
                         "type": "array",
-                        "description": "Several edits applied together. Each item has filePath, oldString, newString, and optional replaceAll. Do not also set the top-level fields.",
+                        "description": "Multi-edit shape only. Each item has its own filePath, oldString, newString, and optional replaceAll. Omit top-level filePath, oldString, newString, and replaceAll.",
                         "items": {
                             "type": "object",
                             "properties": {

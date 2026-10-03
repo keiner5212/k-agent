@@ -5,6 +5,7 @@ Replace an exact string in an existing file. Whitespace and indentation must mat
 ## Does
 
 - Replaces the first (or every) match of `oldString` with `newString` in the target file.
+- One call uses one shape. Single edit: top-level `filePath`, `oldString`, `newString`. Several edits: only `edits`, and each item has its own `filePath`. Both shapes in one call is an error and writes nothing. Top-level `filePath` is not a parent of `edits`.
 - Applies several edits in one call through `edits`. Every edit is checked in memory first. A failed check writes nothing. A failed write rolls back files already written in that call.
 - Matches `oldString` as an exact substring. One pass. No fuzzy, trimmed, or similarity fallback. That keeps the call on a byte find instead of a similarity scan.
 - Detects whether the file uses `\n` or `\r\n` line endings and converts `oldString` / `newString` to match before applying the replacement.
@@ -19,16 +20,17 @@ Replace an exact string in an existing file. Whitespace and indentation must mat
 - Edit empty `oldString`. The tool errors out to avoid accidental whole-file rewrites; use `write` for that intent.
 - Forgive whitespace, indentation, or escape drift. Re-read with `read` and pass the exact file text.
 - Guess a nearby span. A miss returns `Could not find oldString`.
+- Accept top-level `filePath`, `oldString`, or `newString` together with `edits`. Pick one shape.
 
 ## Options
 
-| Name         | Type    | Required | Default | Notes                                                                                               |
-| ------------ | ------- | -------- | ------- | --------------------------------------------------------------------------------------------------- |
-| `filePath`   | string  | yes      | -       | Absolute or workspace-relative path to an existing file.                                            |
-| `oldString`  | string  | yes      | -       | Substring to find. Must be non-empty and different from `newString`.                                |
-| `newString`  | string  | yes      | -       | Replacement body.                                                                                   |
-| `replaceAll` | boolean | no       | `false` | When `true`, replace every match. Otherwise the tool errors on multiple matches.                    |
-| `edits`      | array   | no       | -       | Several `{filePath, oldString, newString, replaceAll}` edits. Do not also set the top-level fields. |
+| Name         | Type    | Required | Default | Notes                                                                               |
+| ------------ | ------- | -------- | ------- | ----------------------------------------------------------------------------------- |
+| `filePath`   | string  | no       | -       | Single-edit shape only. Not a parent path for `edits`.                              |
+| `oldString`  | string  | no       | -       | Single-edit shape only. Substring to find. Omit when `edits` is set.                |
+| `newString`  | string  | no       | -       | Single-edit shape only. Replacement body. Omit when `edits` is set.                 |
+| `replaceAll` | boolean | no       | `false` | Single-edit shape only. When `true`, replace every match. Omit when `edits` is set. |
+| `edits`      | array   | no       | -       | Multi-edit shape only. Each item has its own `filePath`. Omit the top-level fields. |
 
 ## Response
 
@@ -46,6 +48,7 @@ See `response.toon` for the concrete wire shape the LLM sees.
 
 ## Errors
 
+- `edit accepts either filePath/oldString/newString or edits, not both.`
 - `edit tool requires a string ...`: missing argument.
 - `No changes to apply: oldString and newString are identical.`
 - `oldString cannot be empty. Use write for an intentional full-file replacement.`
