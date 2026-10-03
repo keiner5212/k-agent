@@ -234,6 +234,7 @@ export type ChatMessage = {
   reasoning?: string;
   reasoningSignature?: string;
   thinkingMs?: number;
+  turnMs?: number;
   streaming?: boolean;
   kind?: "shell";
   shellAiSummary?: string;

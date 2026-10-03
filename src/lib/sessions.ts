@@ -17,6 +17,7 @@ import { ipcErrorMessage, isTauri } from "@/lib/platform";
 import { resolveOutgoingMentions } from "@/lib/resolve-outgoing-mentions";
 import { notifyResponseFinished } from "@/lib/notifications";
 import { promptShapeForModel } from "@/lib/prompt-shape";
+import { hostContextSection, loadHostContext } from "@/lib/app-context";
 import { composeSystemWithLanguage } from "@/lib/response-language";
 import { selectRequest, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
@@ -591,6 +592,7 @@ type SessionsStore = {
   canRetry: boolean;
   hydrate: () => Promise<void>;
   focusWorkspace: () => Promise<void>;
+  forgetBlankSessions: () => void;
   create: () => void;
   select: (id: string) => void;
   remove: (id: string) => Promise<void>;
@@ -690,6 +692,21 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       error: undefined,
     });
     void persistSnapshot(snapshotFromState(focused.sessions, focused.activeSessionId));
+  },
+
+  forgetBlankSessions: () => {
+    const { sessions, activeSessionId } = get();
+    const next = sessions.filter(
+      (session) => session.id === activeSessionId || !isBlankSession(session),
+    );
+    if (next.length === 0 || next.length === sessions.length) return;
+    const keptId = next.some((session) => session.id === activeSessionId)
+      ? activeSessionId
+      : (next[0]?.id ?? null);
+    set({ sessions: next, activeSessionId: keptId });
+    if (!get().sending && !get().shellRunning && keptId) {
+      void persistSnapshot(snapshotFromState(next, keptId));
+    }
   },
 
   create: () => {
@@ -862,6 +879,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
 
     const stickActive = get().activeSessionId === sessionId || get().activeSessionId === null;
     const epoch = ++sendEpoch;
+    const turnStartedAt = Date.now();
     set({
       sending: true,
       sendingSessionId: sessionId,
@@ -1214,12 +1232,14 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       let historyMessages = sessionMessages(withUser.find((session) => session.id === sessionId));
       const loadedSkills = loadedSkillNamesFromMessages(historyMessages);
       const shape = promptShapeForModel(selection.modelId);
+      const readBeforeEdit = useSettingsStore.getState().readBeforeEdit;
       const baseSystem = composeAgentSystem(
         agent,
         skillContexts,
         loadedSkills,
         agentRoster(agentContexts, agent?.name ?? ""),
         shape,
+        readBeforeEdit,
       );
       const rules = buildAgentsMdRules(useAgentsMdStore.getState().files, shape);
       const mcp = buildMcpTools(useMcpServersStore.getState().servers, shape);
@@ -1232,12 +1252,14 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         }
       }
       const notesBlock = buildWorkspaceNotes(workspaceMemoryEnabled, notes, shape);
+      const environment = hostContextSection(await loadHostContext(), shape);
       const system = composeSystemWithLanguage(
         [baseSystem, mcp, notesBlock].filter((part) => part.length > 0).join("\n\n"),
         forceResponseLanguage,
         responseLanguage,
         rules,
         shape,
+        environment,
       );
       const toolNames = agent?.tools ?? [];
       if (!replay) {
@@ -1288,6 +1310,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       if (activeRound) recordRoundThinkingMs(activeRound, replyAt);
       const measuredRounds = snapshotRounds();
       const duration = thinkingDurationMs(thinkingStartedAt, thinkingEndedAt ?? replyAt);
+      const turnMs = Math.max(0, replyAt - turnStartedAt);
       const withAssistant = get().sessions.map((session) => {
         if (session.id !== sessionId) return session;
         const index = session.messages.findIndex((message) => message.id === assistantId);
@@ -1306,6 +1329,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
                 reasoning: result.reasoning,
                 reasoningSignature: result.reasoningSignature,
                 thinkingMs: duration,
+                turnMs,
                 toolRounds: keepMeasuredThinking(result.toolRounds, measuredRounds),
               },
             ],
@@ -1320,6 +1344,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           reasoning: result.reasoning,
           reasoningSignature: result.reasoningSignature || current.reasoningSignature,
           thinkingMs: duration ?? current.thinkingMs,
+          turnMs,
           toolCalls: undefined,
           toolRounds: keepMeasuredThinking(result.toolRounds, measuredRounds),
           streaming: false,
@@ -1353,6 +1378,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       if (epoch !== sendEpoch) return true;
       if (get().sendingSessionId === sessionId) {
         const cancelled = ipcErrorMessage(error).toLowerCase().includes("interrupted by user");
+        const turnMs = Math.max(0, Date.now() - turnStartedAt);
         const nextSessions = get().sessions.map((session) => {
           if (session.id !== sessionId) return session;
           return {
@@ -1363,6 +1389,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
                     ...withoutAskFlags(message),
                     streaming: false,
                     interrupted: cancelled || message.interrupted,
+                    turnMs,
                   }
                 : message,
             ),

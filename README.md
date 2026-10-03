@@ -21,6 +21,8 @@ pnpm tauri dev        # desktop window (requires Rust >= 1.77.2)
 pnpm tauri build      # native bundle
 ```
 
+On Linux, if the app menu opens a build that asks for the frontend dev server, run `scripts/linux-prepare-install.sh` before installing the release. See [docs/linux-install.md](docs/linux-install.md).
+
 ## Tooling
 
 ```sh

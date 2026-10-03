@@ -15,11 +15,14 @@ This is documentation, not generated. It must be kept in sync with:
 
 ## Scenario
 
-- Force-response-language is on (`en`).
+- Force-response-language is on (`en`). XML tags.
+- Desktop host: workspace `/home/ada/src/k-agent`, Debian, shell `/bin/zsh`.
 - `~/.k-agent/AGENTS.md` and `<workspace>/AGENTS.md` both have text.
 - Agent `build` has global skills `code-review` and `tauri-v2`.
 - The workspace has a local skill `commit`.
 - None of those skills are loaded yet.
+- Other agents: `plan` and `designer`. One MCP tool: `mcp_github_search_code`.
+- Workspace memory is on. `page_shot` is on.
 
 ## Files
 

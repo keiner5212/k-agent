@@ -302,6 +302,13 @@ fn render_text(path: &Path, rel: &str, offset: usize, limit: usize) -> ToolOutco
     }
 }
 
+fn fit_image(image: image::DynamicImage) -> image::DynamicImage {
+    if image.width() <= MAX_IMAGE_DIMENSION && image.height() <= MAX_IMAGE_DIMENSION {
+        return image;
+    }
+    image.thumbnail(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION)
+}
+
 fn render_image(path: &Path, rel: &str, kind: ImageKind) -> ToolOutcome {
     let metadata = match fs::metadata(path) {
         Ok(value) => value,
@@ -354,7 +361,7 @@ fn render_image(path: &Path, rel: &str, kind: ImageKind) -> ToolOutcome {
         }
     };
     let original = (image.width(), image.height());
-    let thumb = image.thumbnail(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION);
+    let thumb = fit_image(image);
     let (scaled_w, scaled_h) = (thumb.width(), thumb.height());
     let mut encoded = Vec::with_capacity(bytes.len().min(64 * 1024));
     if let Err(error) = thumb.write_to(&mut Cursor::new(&mut encoded), ImageFormat::Png) {
@@ -734,6 +741,8 @@ mod tests {
         assert!(outcome.display.image_data.is_some());
         assert!(outcome.text.contains("mime: image/png"));
         assert!(outcome.text.contains("image: png attached"));
+        assert!(outcome.text.contains("width: 8"));
+        assert!(outcome.text.contains("height: 8"));
 
         let _ = fs::remove_dir_all(&dir);
     }

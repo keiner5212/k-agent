@@ -15,7 +15,8 @@ import { GlassButton } from "@/components/GlassButton";
 import { IconButton } from "@/components/IconButton";
 import { MagicGenerateButton } from "@/components/MagicGenerateButton";
 import {
-  clipboardLooksLikeAttachment,
+  clipboardLocalPaths,
+  clipboardMayHoldImage,
   collectClipboardFiles,
   dialogFiltersFor,
   MAX_CHAT_ATTACHMENTS,
@@ -151,17 +152,44 @@ export const ChatComposer = (): ReactNode => {
   const handlePaste = useCallback(
     (event: ClipboardEvent<HTMLElement>) => {
       if (event.defaultPrevented || shellMode || !canAttach) return;
-      const files = collectClipboardFiles(event.nativeEvent);
-      if (files.length > 0) {
+      const native = event.nativeEvent;
+      const files = collectClipboardFiles(native);
+      const paths = files.length > 0 ? [] : clipboardLocalPaths(native);
+      if (files.length > 0 || paths.length > 0) {
         event.preventDefault();
-        void ingestPrepared(() => prepareFileAttachments(files, allowedTypes));
+        void ingestPrepared(() =>
+          files.length > 0
+            ? prepareFileAttachments(files, allowedTypes)
+            : preparePathAttachments(paths, allowedTypes),
+        );
         return;
       }
-      if (!clipboardLooksLikeAttachment(event.nativeEvent)) return;
+      if (!clipboardMayHoldImage(native)) return;
+      const plain = native.clipboardData?.getData("text/plain") ?? "";
       event.preventDefault();
-      void ingestPrepared(() => prepareClipboardImageAttachments(allowedTypes));
+      void (async () => {
+        const prepared = await prepareClipboardImageAttachments(allowedTypes);
+        if (prepared.attachments.length > 0 || prepared.errors.length > 0) {
+          await ingestPrepared(() => Promise.resolve(prepared));
+          return;
+        }
+        if (!plain) return;
+        const current = useComposerStore.getState().value;
+        const node = textareaRef.current;
+        const start = node?.selectionStart ?? current.length;
+        const end = node?.selectionEnd ?? current.length;
+        pushChange(current.slice(0, start) + plain + current.slice(end));
+        requestAnimationFrame(() => {
+          const area = textareaRef.current;
+          if (!area) return;
+          const caret = start + plain.length;
+          area.selectionStart = caret;
+          area.selectionEnd = caret;
+          area.focus();
+        });
+      })();
     },
-    [allowedTypes, canAttach, ingestPrepared, shellMode],
+    [allowedTypes, canAttach, ingestPrepared, pushChange, shellMode],
   );
 
   const handleSend = useCallback((): void => {

@@ -196,15 +196,23 @@ const buildAgentRoster = (
   );
 };
 
-const buildToolChoice = (agent: AgentMeta, shape: PromptShape): string => {
+const buildToolChoice = (agent: AgentMeta, shape: PromptShape, readBeforeEdit: boolean): string => {
   const lines = ["Use the dedicated tool. Do not use `bash` for work another tool already does."];
   if (hasTool(agent, "list_directory")) {
     lines.push(
       "List a directory with `list_directory`. Find files by name with its `glob` (`*.rs` matches any depth). Do not use `ls`, `find`, or `tree`.",
     );
+    lines.push(
+      "The workspace path is in the environment section. Do not list the home directory or `/` to find the project.",
+    );
   }
   if (hasTool(agent, "read")) {
-    lines.push("Read a file with `read`. Do not use `cat`, `head`, `tail`, or `wc`.");
+    lines.push(
+      "Read a file with `read`. Do not use `cat`, `head`, `tail`, or `wc`. Images, PDFs, and docx come back from `read` when the model accepts that input. Do not convert or screenshot them with `bash`.",
+    );
+    lines.push(
+      "A user image is already on that user message. Do not grab the X display to see it again. An X11 grab of a GUI is often a black frame. That is a capture miss. Stop. Do not retry ffmpeg, xwd, or import.",
+    );
   }
   if (hasTool(agent, "grep")) {
     lines.push("Search file contents with `grep`. Do not run `grep` or `rg` in the shell.");
@@ -218,16 +226,28 @@ const buildToolChoice = (agent: AgentMeta, shape: PromptShape): string => {
     lines.push(
       "Use `task` for a multi-step read-only side job. The child keeps that agent's skills and personality, and only the read-only subagent tools. You ask the user, update the plan, and do the work. If the child asks a question, answer it and call `task` again.",
     );
+    lines.push(
+      "A `task` child cannot see chat attachments or images from `read`. Do not delegate matching a picture. Put the visible facts in the prompt, or do that work here.",
+    );
   }
   if (hasTool(agent, "write")) lines.push("Create or overwrite a file with `write`.");
-  if (hasTool(agent, "edit")) lines.push("Change one exact span with `edit`.");
+  if (hasTool(agent, "edit")) {
+    lines.push(
+      readBeforeEdit
+        ? "Change one exact span with `edit` only after `read` of that same path in this conversation. A file just written with `write` still needs `read` before `edit`."
+        : "Change one exact span with `edit`.",
+    );
+  }
   if (hasTool(agent, "apply_patch")) {
     lines.push("Change several files in one diff with `apply_patch`.");
   }
   if (hasTool(agent, "create_folder")) lines.push("Make a directory with `create_folder`.");
   if (hasTool(agent, "delete")) lines.push("Remove a file or empty directory with `delete`.");
   lines.push(
-    "`bash` is for a command that must run and finish, such as install, build, test, or git.",
+    "`bash` is for a command that must run and finish, such as install, build, test, or git. It starts in the workspace. Do not `cd` to the home directory or the app config directory to find the project.",
+  );
+  lines.push(
+    "Install project dependencies into the project environment. Do not install packages into the system or the user site.",
   );
   if (hasTool(agent, "http_request")) {
     lines.push(
@@ -332,6 +352,7 @@ export const composeAgentSystem = (
   loadedSkillNames: readonly string[] = [],
   roster: readonly AgentRosterEntry[] = [],
   shape: PromptShape = "xml",
+  readBeforeEdit = true,
 ): string => {
   if (!agent) return "";
   const loaded = new Set(loadedSkillNames.map((name) => name.trim()).filter(Boolean));
@@ -347,7 +368,7 @@ export const composeAgentSystem = (
   if (workspaceSkills.length > 0) parts.push(workspaceSkills);
   if (hasTool(agent, "ask_user")) parts.push(tagged("clarify", CLARIFY, shape));
   if (hasTool(agent, "todowrite")) parts.push(tagged("todos", TODOS, shape));
-  if (hasTool(agent, "bash")) parts.push(buildToolChoice(agent, shape));
+  if (hasTool(agent, "bash")) parts.push(buildToolChoice(agent, shape, readBeforeEdit));
   const agents = buildAgentRoster(agent, roster, shape);
   if (agents.length > 0) parts.push(agents);
   const personality = agent.personality.trim();

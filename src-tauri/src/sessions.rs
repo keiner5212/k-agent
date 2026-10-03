@@ -27,6 +27,8 @@ pub struct SessionMessage {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thinking_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub turn_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shell_ai_summary: Option<String>,
@@ -429,6 +431,7 @@ fn empty_message(id: String, role: &str, content: String) -> SessionMessage {
         reasoning: None,
         reasoning_signature: None,
         thinking_ms: None,
+        turn_ms: None,
         kind: None,
         shell_ai_summary: None,
         attachments: Vec::new(),
@@ -635,6 +638,41 @@ fn load_snapshot_sync(app: &AppHandle) -> Result<SessionsSnapshot, SessionError>
     }
     prefer_root(&mut snapshot);
     Ok(snapshot)
+}
+
+fn session_is_blank(session: &SessionRecord) -> bool {
+    session.messages.is_empty() && session.title.trim().is_empty()
+}
+
+pub(crate) fn drop_blank_sessions(app: &AppHandle) -> Result<(), String> {
+    let mut snapshot = load_snapshot_sync(app).map_err(|error| error.to_string())?;
+    let active = snapshot.active_session_id.clone();
+    let removed: Vec<String> = snapshot
+        .sessions
+        .iter()
+        .filter(|session| session.id != active && session_is_blank(session))
+        .map(|session| session.id.clone())
+        .collect();
+    if removed.is_empty() {
+        return Ok(());
+    }
+    snapshot
+        .sessions
+        .retain(|session| !removed.iter().any(|id| id == &session.id));
+    if snapshot.sessions.is_empty() || !snapshot.sessions.iter().any(|session| session.id == active)
+    {
+        return Ok(());
+    }
+    save_snapshot_sync(app, &mut snapshot).map_err(|error| error.to_string())?;
+    for id in removed {
+        if !is_safe_id(&id) {
+            continue;
+        }
+        if let Ok(path) = session_dir(app, &id) {
+            let _ = std::fs::remove_dir_all(path);
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]

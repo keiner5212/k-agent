@@ -121,15 +121,94 @@ export const collectClipboardFiles = (event: { clipboardData: DataTransfer | nul
   return files;
 };
 
-export const clipboardLooksLikeAttachment = (event: {
-  clipboardData: DataTransfer | null;
-}): boolean => {
+const ATTACHMENT_EXTENSIONS = new Set(
+  Object.values(KIND_EXTENSIONS).flatMap((items) => items.map((item) => item.toLowerCase())),
+);
+
+const extensionOf = (path: string): string => {
+  const base = path.split(/[/\\]/).pop() ?? "";
+  const dot = base.lastIndexOf(".");
+  if (dot <= 0) return "";
+  return base.slice(dot + 1).toLowerCase();
+};
+
+const isAttachmentPath = (path: string): boolean => ATTACHMENT_EXTENSIONS.has(extensionOf(path));
+
+const fileUriToPath = (uri: string): string => {
+  let rest = uri.trim().replace(/^file:\/\//i, "");
+  rest = rest.replace(/^localhost/i, "");
+  if (/^\/[A-Za-z]:[\\/]/.test(rest)) rest = rest.slice(1);
+  if (!rest.startsWith("/") && !/^[A-Za-z]:[\\/]/.test(rest)) rest = `/${rest}`;
+  try {
+    return decodeURIComponent(rest);
+  } catch {
+    return rest;
+  }
+};
+
+const pathFromLine = (line: string): string | null => {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith("#")) return null;
+  if (trimmed === "copy" || trimmed === "cut") return null;
+  if (/^file:/i.test(trimmed)) return fileUriToPath(trimmed);
+  if (trimmed.startsWith("/") || /^[A-Za-z]:[\\/]/.test(trimmed)) return trimmed;
+  return null;
+};
+
+const uniquePaths = (paths: string[]): string[] => {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const path of paths) {
+    if (seen.has(path)) continue;
+    seen.add(path);
+    out.push(path);
+  }
+  return out;
+};
+
+const pathsFromBlock = (raw: string): string[] => {
+  const out: string[] = [];
+  for (const line of raw.split(/\r?\n/)) {
+    const path = pathFromLine(line);
+    if (path && isAttachmentPath(path)) out.push(path);
+  }
+  return out;
+};
+
+export const clipboardLocalPaths = (event: { clipboardData: DataTransfer | null }): string[] => {
+  const data = event.clipboardData;
+  if (!data) return [];
+  const typed: string[] = [];
+  for (const type of ["text/uri-list", "x-special/gnome-copied-files"]) {
+    if (!Array.from(data.types ?? []).includes(type)) continue;
+    typed.push(...pathsFromBlock(data.getData(type)));
+  }
+  if (typed.length > 0) return uniquePaths(typed).slice(0, MAX_CHAT_ATTACHMENTS);
+  const plain = data.getData("text/plain") ?? "";
+  const lines = plain
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (lines.length === 0 || lines.length > MAX_CHAT_ATTACHMENTS) return [];
+  const paths: string[] = [];
+  for (const line of lines) {
+    const path = pathFromLine(line);
+    if (!path || !isAttachmentPath(path)) return [];
+    paths.push(path);
+  }
+  return uniquePaths(paths);
+};
+
+const singleUrl = (value: string): boolean => /^https?:\/\/\S+$/i.test(value);
+
+export const clipboardMayHoldImage = (event: { clipboardData: DataTransfer | null }): boolean => {
   const data = event.clipboardData;
   const types = Array.from(data?.types ?? []);
-  if (types.some((item) => item === "Files" || item.startsWith("image/"))) return true;
   if (types.length === 0) return true;
-  if (types.some((item) => item.startsWith("text/html"))) return false;
-  return (data?.getData("text/plain") ?? "").trim().length === 0;
+  if (types.some((item) => item === "Files" || item.startsWith("image/"))) return true;
+  const plain = (data?.getData("text/plain") ?? "").trim();
+  if (types.includes("text/html") && (plain.length === 0 || singleUrl(plain))) return true;
+  return false;
 };
 
 const rgbaToPngFile = (rgba: Uint8Array, width: number, height: number): Promise<File | null> =>
@@ -207,7 +286,7 @@ export const prepareFileAttachments = async (
 export const prepareClipboardImageAttachments = async (
   allowedTypes: AttachmentKind[],
 ): Promise<PrepareAttachmentsResult> => {
-  const file = (await readBrowserClipboardImage()) ?? (await readTauriClipboardImage());
+  const file = (await readTauriClipboardImage()) ?? (await readBrowserClipboardImage());
   if (!file) return { attachments: [], errors: [] };
   return prepareFileAttachments([file], allowedTypes);
 };

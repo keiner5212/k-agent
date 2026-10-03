@@ -1474,6 +1474,18 @@ button.change-bar__stat:focus-visible {
   color: var(--text-secondary);
 }
 
+.chat-turn-time {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: var(--space-2);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
 .chat-message__shell {
   max-height: 24rem;
   overflow: auto;
@@ -1484,6 +1496,7 @@ button.change-bar__stat:focus-visible {
 
 .chat-message__actions,
 .chat-thinking,
+.chat-turn-time,
 .chat-message__attachment-open {
   user-select: none;
   -webkit-user-select: none;

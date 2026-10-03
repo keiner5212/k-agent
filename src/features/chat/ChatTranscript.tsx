@@ -1,4 +1,5 @@
 import { memo, useState, type ReactNode } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, FileText, Film } from "lucide-react";
 import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
@@ -163,6 +164,26 @@ const MessageBody = memo(function MessageBody({
   );
 });
 
+const formatTurnDuration = (ms: number, t: TFunction): string => {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (hours > 0) {
+    return t("chat.turn.hours", {
+      hours,
+      minutes: String(minutes).padStart(2, "0"),
+    });
+  }
+  if (minutes > 0) {
+    return t("chat.turn.minutes", {
+      minutes,
+      seconds: String(seconds).padStart(2, "0"),
+    });
+  }
+  return t("chat.turn.seconds", { count: total });
+};
+
 const messageClass = (message: ChatMessage, fromParent: boolean): string => {
   const shell = message.kind === "shell" ? " chat-message--shell" : "";
   const streaming = message.streaming ? " chat-message--streaming" : "";
@@ -203,6 +224,12 @@ export const ChatTranscript = ({
                   <span className="chat-message__kicker">{t("chat.tools.taskParent")}</span>
                 ) : null}
                 <MessageBody message={message} sessionId={sessionId} />
+                {message.role === "assistant" &&
+                message.kind !== "shell" &&
+                !message.streaming &&
+                typeof message.turnMs === "number" ? (
+                  <span className="chat-turn-time">{formatTurnDuration(message.turnMs, t)}</span>
+                ) : null}
                 {actions ? <MessageActions message={message} /> : null}
               </article>
             );

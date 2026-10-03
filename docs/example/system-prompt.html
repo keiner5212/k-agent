@@ -111,6 +111,9 @@
       .language {
         border-left-color: #7aa2f7;
       }
+      .environment {
+        border-left-color: #2ac3de;
+      }
       .global {
         border-left-color: #9ece6a;
       }
@@ -135,11 +138,20 @@
       .tools {
         border-left-color: #ffc777;
       }
+      .roster {
+        border-left-color: #d4a5ff;
+      }
       .persona {
         border-left-color: #f7768e;
       }
       .render {
         border-left-color: #73daca;
+      }
+      .visual {
+        border-left-color: #c3e88d;
+      }
+      .mcp {
+        border-left-color: #ff757f;
       }
       .notes {
         border-left-color: #89ddff;
@@ -155,13 +167,20 @@
     <main>
       <h1>System instruction</h1>
       <p class="lead">
-        One realistic <code>system</code> string. Each block is sent to the model. The badge on the
-        right is where that text comes from. Empty blocks are left out.
+        One desktop <code>system</code> string for agent <code>build</code>, XML tags, send order.
+        The badge on the right is the source. This case assumes workspace
+        <code>/home/ada/src/k-agent</code>, Debian, shell <code>/bin/zsh</code>, skills not loaded
+        yet, agents <code>plan</code> and <code>designer</code> besides build, one enabled MCP tool,
+        and workspace memory on. Empty blocks are left out.
       </p>
       <ul class="legend">
         <li>
           <span class="swatch" style="background: #7aa2f7"></span
           ><span><code>language</code> force-response-language</span>
+        </li>
+        <li>
+          <span class="swatch" style="background: #2ac3de"></span
+          ><span><code>environment</code> host_context on the desktop</span>
         </li>
         <li>
           <span class="swatch" style="background: #9ece6a"></span
@@ -196,12 +215,24 @@
           ><span><code>tools</code> dedicated tools instead of bash</span>
         </li>
         <li>
+          <span class="swatch" style="background: #d4a5ff"></span
+          ><span><code>agents</code> other agents the task tool can call</span>
+        </li>
+        <li>
           <span class="swatch" style="background: #f7768e"></span
           ><span><code>personality</code> persona.md body</span>
         </li>
         <li>
           <span class="swatch" style="background: #73daca"></span
           ><span><code>rendering</code> chat markdown rules</span>
+        </li>
+        <li>
+          <span class="swatch" style="background: #c3e88d"></span
+          ><span><code>visual-check</code> page_shot rules</span>
+        </li>
+        <li>
+          <span class="swatch" style="background: #ff757f"></span
+          ><span><code>mcp-tools</code> enabled MCP servers</span>
         </li>
         <li>
           <span class="swatch" style="background: #89ddff"></span
@@ -223,6 +254,23 @@ Do not translate, do not switch languages, do not mirror the user's language, an
 Even if the user writes in another language or asks you to switch, keep replying in English.
 Do not mention the language rule, only reply in English.
 &lt;/language&gt;</pre>
+        </section>
+        <section class="block environment">
+          <header>
+            <span class="tag">environment</span>
+            <span class="src">src-tauri/src/host_context.rs, example host</span>
+          </header>
+          <pre>
+&lt;environment&gt;
+Workspace: /home/ada/src/k-agent
+`bash` starts in this directory. Relative tool paths and `.` resolve here.
+App config is `/home/ada/.k-agent` (skills, agents, providers). That directory is not the workspace.
+Host: Debian GNU/Linux 13 (trixie) (linux/x86_64)
+Home: /home/ada
+Shell: /bin/zsh
+Do not use `bash` or `list_directory` to discover the workspace, the home directory, or the OS.
+Do not scan `/` or the home directory to find the project.
+&lt;/environment&gt;</pre>
         </section>
         <section class="block global">
           <header>
@@ -322,16 +370,41 @@ Send the list again when a step starts, finishes, or is dropped. An empty list c
 &lt;tools&gt;
 Use the dedicated tool. Do not use `bash` for work another tool already does.
 List a directory with `list_directory`. Find files by name with its `glob` (`*.rs` matches any depth). Do not use `ls`, `find`, or `tree`.
-Read a file with `read`. Do not use `cat`, `head`, `tail`, or `wc`.
+The workspace path is in the environment section. Do not list the home directory or `/` to find the project.
+Read a file with `read`. Do not use `cat`, `head`, `tail`, or `wc`. Images, PDFs, and docx come back from `read` when the model accepts that input. Do not convert or screenshot them with `bash`.
+A user image is already on that user message. Do not grab the X display to see it again. An X11 grab of a GUI is often a black frame. That is a capture miss. Stop. Do not retry ffmpeg, xwd, or import.
 Search file contents with `grep`. Do not run `grep` or `rg` in the shell.
+Use `lsp` for a definition, references, or hover when a language server is installed.
+Use `task` for a multi-step read-only side job. The child keeps that agent's skills and personality, and only the read-only subagent tools. You ask the user, update the plan, and do the work. If the child asks a question, answer it and call `task` again.
+A `task` child cannot see chat attachments or images from `read`. Do not delegate matching a picture. Put the visible facts in the prompt, or do that work here.
 Create or overwrite a file with `write`.
-Change file contents with `edit`.
+Change one exact span with `edit` only after `read` of that same path in this conversation. A file just written with `write` still needs `read` before `edit`.
+Change several files in one diff with `apply_patch`.
 Make a directory with `create_folder`.
 Remove a file or empty directory with `delete`.
-`bash` is for a command that must run and finish, such as install, build, test, or git.
+`bash` is for a command that must run and finish, such as install, build, test, or git. It starts in the workspace. Do not `cd` to the home directory or the app config directory to find the project.
+Install project dependencies into the project environment. Do not install packages into the system or the user site.
 Call an API with `http_request`, including localhost. Do not use `curl` or `wget`.
 A process that must stay up uses `background`, not `bash`. That process is killed when the turn ends. Do not kill its pid.
 &lt;/tools&gt;</pre>
+        </section>
+        <section class="block roster">
+          <header>
+            <span class="tag">agents</span>
+            <span class="src">other agents, current agent left out</span>
+          </header>
+          <pre>
+&lt;agents&gt;
+Call `task` with `agent` set to one of these names when the job matches that purpose.
+A child keeps that agent's skills and personality. Its tools are the read-only subagent set, not the tools saved for main mode.
+The child cannot ask the user, edit the plan, write files, or run a command that changes state.
+If the result contains a question, resolve it: ask the user or decide, then call `task` again with that answer in the prompt.
+You alone ask the user, update the plan, and do the work.
+Do not invent a name. A one-step read or edit stays in this chat.
+
+- `plan`: Explores and proposes plans without making changes.
+- `designer`: Reviews UI layout, spacing, type, and contrast.
+&lt;/agents&gt;</pre>
         </section>
         <section class="block persona">
           <header>
@@ -365,6 +438,31 @@ Chat output is GitHub-flavored markdown.
 - Fenced code blocks with a language hint are syntax-highlighted.
 &lt;/rendering&gt;</pre>
         </section>
+        <section class="block visual">
+          <header>
+            <span class="tag">visual-check</span>
+            <span class="src">src/lib/agent-system.ts, only if page_shot is enabled</span>
+          </header>
+          <pre>
+&lt;visual-check&gt;
+Use `page_shot` only on a page that is already being served. One shot per review.
+Do not repeat it with a different host, height, or selector.
+A blank or identical image is a capture miss. Do not edit the page to remove a black box from a bad shot.
+Start a dev server with `background`. It is killed when the turn ends. Do not kill its pid. Do not use `bash` for that.
+&lt;/visual-check&gt;</pre>
+        </section>
+        <section class="block mcp">
+          <header>
+            <span class="tag">mcp-tools</span>
+            <span class="src">enabled MCP servers, example</span>
+          </header>
+          <pre>
+&lt;mcp-tools&gt;
+Enabled MCP tools. Call them by these names.
+
+- `mcp_github_search_code`: Search code in a repository.
+&lt;/mcp-tools&gt;</pre>
+        </section>
         <section class="block notes">
           <header>
             <span class="tag">workspace-notes</span>
@@ -391,9 +489,10 @@ Current notes:
       </article>
       <p class="note">
         <code>workspace-notes</code> is left out when workspace memory is off.
-        <code>app-context</code> would sit after it when app notes exist. The note list is empty, so
-        that block is not sent. Tool schemas are a separate <code>tools</code> field, not part of
-        this string.
+        <code>agents</code> is left out when <code>task</code> is off or no other agent exists.
+        <code>mcp-tools</code> is left out when no MCP tool is enabled.
+        <code>app-context</code> would sit last when app notes exist. That list is empty, so it is
+        not sent. Tool schemas are a separate <code>tools</code> field, not part of this string.
       </p>
     </main>
   </body>

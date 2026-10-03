@@ -62,6 +62,10 @@ fn wrap_outer(app: &AppHandle, base: &str, shape: Shape) -> String {
         };
         push(&mut parts, wrap("language", directive, shape));
     }
+    push(
+        &mut parts,
+        wrap("environment", &crate::host_context::body(app), shape),
+    );
     let global = agents_md_text(app, AgentsMdKind::Global);
     let local = agents_md_text(app, AgentsMdKind::Local);
     push(&mut parts, wrap("global-rules", global.trim(), shape));
