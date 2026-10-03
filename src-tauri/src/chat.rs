@@ -610,7 +610,73 @@ fn normalize_turns(input: &[ChatTurn], keep_trailing_tools: bool) -> Vec<Turn> {
     {
         turns.pop();
     }
+    // Providers reject the next user turn when a tool call has no result (HTTP 400 / 2013).
+    close_dangling_tool_calls(&mut turns, keep_trailing_tools);
     turns
+}
+
+const INTERRUPTED_TOOL_RESULT: &str = "Interrupted by user.";
+
+fn interrupted_tool_result(call_id: &str, name: &str) -> Turn {
+    Turn {
+        assistant: false,
+        content: String::new(),
+        reasoning: String::new(),
+        reasoning_signature: String::new(),
+        attachments: Vec::new(),
+        tool_calls: Vec::new(),
+        tool_result: Some(ToolResultTurn {
+            call_id: call_id.to_string(),
+            name: name.to_string(),
+            content: INTERRUPTED_TOOL_RESULT.to_string(),
+            image_png: None,
+            file_name: None,
+            file_mime: None,
+            file_bytes: None,
+        }),
+    }
+}
+
+fn close_dangling_tool_calls(turns: &mut Vec<Turn>, keep_trailing_tools: bool) {
+    let mut index = 0;
+    while index < turns.len() {
+        if turns[index].tool_result.is_some() {
+            turns.remove(index);
+            continue;
+        }
+        let open = turns[index].assistant && !turns[index].tool_calls.is_empty();
+        if !open {
+            index += 1;
+            continue;
+        }
+        let mut found = Vec::new();
+        let cursor = index + 1;
+        while cursor < turns.len() && turns[cursor].tool_result.is_some() {
+            found.push(turns.remove(cursor));
+        }
+        if keep_trailing_tools && cursor == turns.len() && found.is_empty() {
+            break;
+        }
+        let calls = turns[index].tool_calls.clone();
+        let mut paired = Vec::with_capacity(calls.len());
+        for call in &calls {
+            let pos = found.iter().position(|turn| {
+                turn.tool_result
+                    .as_ref()
+                    .is_some_and(|result| result.call_id == call.id)
+            });
+            if let Some(pos) = pos {
+                paired.push(found.remove(pos));
+            } else {
+                paired.push(interrupted_tool_result(&call.id, &call.name));
+            }
+        }
+        let count = paired.len();
+        for (offset, turn) in paired.into_iter().enumerate() {
+            turns.insert(index + 1 + offset, turn);
+        }
+        index += 1 + count;
+    }
 }
 
 fn turn_text(turn: &Turn) -> String {
@@ -1003,7 +1069,9 @@ fn request_plan(
     options: &crate::request_profile::ChatRequestOptions,
     max_output: u64,
 ) -> crate::request_profile::WirePlan {
-    let query = crate::request_profile::quiet_query(provider.kind, &provider.base_url, &model.id);
+    let mut query =
+        crate::request_profile::quiet_query(provider.kind, &provider.base_url, &model.id);
+    query.user_request.clone_from(&model.request);
     crate::request_profile::prepare(&query, options, max_output)
 }
 
@@ -1611,6 +1679,39 @@ async fn collect_stream(
     })
 }
 
+fn insert_extra_fields(body: &mut serde_json::Value, extra: &[(String, String)]) {
+    let Some(map) = body.as_object_mut() else {
+        return;
+    };
+    for (name, raw) in extra {
+        if map.contains_key(name) {
+            continue;
+        }
+        map.insert(name.clone(), extra_json(raw));
+    }
+}
+
+fn extra_json(raw: &str) -> serde_json::Value {
+    if raw.eq_ignore_ascii_case("true") {
+        return json!(true);
+    }
+    if raw.eq_ignore_ascii_case("false") {
+        return json!(false);
+    }
+    let numeric = !raw.is_empty()
+        && raw
+            .chars()
+            .all(|ch| ch.is_ascii_digit() || ch == '.' || ch == '-' || ch == '+');
+    if numeric {
+        if let Ok(number) = raw.parse::<f64>() {
+            if number.is_finite() {
+                return json!(number);
+            }
+        }
+    }
+    json!(raw)
+}
+
 fn apply_openai_like_reasoning(body: &mut serde_json::Value, call: &ChatCall<'_>) {
     let plan = call.plan;
     if let Some(mode) = &plan.openai_thinking {
@@ -1625,6 +1726,7 @@ fn apply_openai_like_reasoning(body: &mut serde_json::Value, call: &ChatCall<'_>
     if let Some(tier) = &plan.service_tier {
         body["service_tier"] = json!(tier);
     }
+    insert_extra_fields(body, &plan.extra);
     match plan.privacy {
         Some(crate::request_profile::PrivacyWire::OpenAiStoreFalse) => {
             body["store"] = json!(false);
@@ -1653,6 +1755,7 @@ fn apply_anthropic_like_reasoning(body: &mut serde_json::Value, call: &ChatCall<
     if let Some(tier) = &plan.service_tier {
         body["service_tier"] = json!(tier);
     }
+    insert_extra_fields(body, &plan.extra);
     body["max_tokens"] = json!(plan.max_output);
 }
 
@@ -1936,6 +2039,7 @@ async fn send_gemini_like(
     if let Some(tier) = &call.plan.service_tier {
         body["service_tier"] = json!(tier);
     }
+    insert_extra_fields(&mut body, &call.plan.extra);
     if let Some(system) = nonempty_text(call.system) {
         body["systemInstruction"] = json!({
             "parts": [{ "text": system }],
@@ -3367,14 +3471,11 @@ pub(crate) async fn run_task(
         agent.personality.clone_from(text);
     }
     let tool_names = tools::subagent_tool_names();
-    let (provider_id, model_id, same_parent) = task_model_choice(app, scope);
+    let (provider_id, model_id) = task_model_choice(app, scope);
     let (provider, model) = load_provider_model(app, &provider_id, &model_id)
         .await
         .map_err(|error| error.to_string())?;
-    let mut options = crate::request_profile::ChatRequestOptions::default();
-    if same_parent {
-        options.effort.clone_from(&scope.effort);
-    }
+    let options = scope.request.clone();
     let plan = request_plan(&provider, &model, &options, output_tokens(&model));
     let system = Some(crate::agent_prompt::compose_child_system(
         app,
@@ -3431,6 +3532,7 @@ pub(crate) async fn run_task(
             .clone()
             .or_else(|| plan.anthropic_effort.clone())
             .or_else(|| plan.gemini_level.clone()),
+        request: options,
     };
     let effort = plan
         .reasoning_effort
@@ -3511,13 +3613,13 @@ pub(crate) struct TaskRun {
     pub child_session_id: Option<String>,
 }
 
-fn task_model_choice(app: &AppHandle, scope: &tools::NestedScope) -> (String, String, bool) {
+fn task_model_choice(app: &AppHandle, scope: &tools::NestedScope) -> (String, String) {
     let parent = (scope.provider_id.clone(), scope.model_id.clone());
     let Some(settings) = crate::load_ui_settings(app) else {
-        return (parent.0, parent.1, true);
+        return parent;
     };
     let Some(model) = settings.get("taskModel") else {
-        return (parent.0, parent.1, true);
+        return parent;
     };
     let provider_id = model
         .get("providerId")
@@ -3530,10 +3632,9 @@ fn task_model_choice(app: &AppHandle, scope: &tools::NestedScope) -> (String, St
         .unwrap_or("")
         .trim();
     if provider_id.is_empty() || model_id.is_empty() {
-        return (parent.0, parent.1, true);
+        return parent;
     }
-    let same = provider_id == parent.0 && model_id == parent.1;
-    (provider_id.to_string(), model_id.to_string(), same)
+    (provider_id.to_string(), model_id.to_string())
 }
 
 #[tauri::command]
@@ -3604,6 +3705,7 @@ pub async fn send_chat_message(
             tool_names: tool_names.clone(),
             task_depth: 0,
             effort: effort_label.clone(),
+            request: options,
         }),
         question_chunk: None,
         agent_personalities: personality_map(input.agent_personalities.clone()),
@@ -3720,5 +3822,123 @@ mod tests {
         assert!(!turns[0].assistant);
         assert_eq!(turns[0].content, "hello");
         assert!(last_user_has_input(&turns));
+    }
+
+    fn chat_turn(
+        role: &str,
+        content: &str,
+        tool_calls: Vec<ChatToolCallTurn>,
+        tool_result: Option<ChatToolResultTurn>,
+    ) -> ChatTurn {
+        ChatTurn {
+            role: role.into(),
+            content: content.into(),
+            reasoning: None,
+            reasoning_signature: None,
+            attachments: Vec::new(),
+            tool_calls,
+            tool_result,
+        }
+    }
+
+    fn call_turn(id: &str, name: &str) -> ChatToolCallTurn {
+        ChatToolCallTurn {
+            id: id.into(),
+            name: name.into(),
+            argument: None,
+            arguments: None,
+            thought_signature: None,
+        }
+    }
+
+    fn result_turn(id: &str, name: &str, content: &str) -> ChatToolResultTurn {
+        ChatToolResultTurn {
+            call_id: id.into(),
+            name: name.into(),
+            content: content.into(),
+            image_data: None,
+        }
+    }
+
+    #[test]
+    fn normalize_turns_closes_tool_calls_left_open_by_interrupt() {
+        let turns = normalize_turns(
+            &[
+                chat_turn("user", "read it", Vec::new(), None),
+                chat_turn(
+                    "assistant",
+                    "",
+                    vec![call_turn("call_1", "read"), call_turn("call_2", "grep")],
+                    None,
+                ),
+                chat_turn(
+                    "user",
+                    "",
+                    Vec::new(),
+                    Some(result_turn("call_1", "read", "file body")),
+                ),
+                chat_turn("user", "keep going", Vec::new(), None),
+            ],
+            false,
+        );
+        assert_eq!(turns.len(), 5);
+        assert_eq!(turns[0].content, "read it");
+        assert_eq!(turns[1].tool_calls.len(), 2);
+        assert_eq!(
+            turns[2]
+                .tool_result
+                .as_ref()
+                .map(|item| item.content.as_str()),
+            Some("file body")
+        );
+        assert_eq!(
+            turns[3]
+                .tool_result
+                .as_ref()
+                .map(|item| item.call_id.as_str()),
+            Some("call_2")
+        );
+        assert_eq!(
+            turns[3]
+                .tool_result
+                .as_ref()
+                .map(|item| item.content.as_str()),
+            Some(INTERRUPTED_TOOL_RESULT)
+        );
+        assert_eq!(turns[4].content, "keep going");
+        assert!(last_user_has_input(&turns));
+    }
+
+    #[test]
+    fn normalize_turns_drops_orphan_tool_results() {
+        let turns = normalize_turns(
+            &[
+                chat_turn(
+                    "user",
+                    "",
+                    Vec::new(),
+                    Some(result_turn("call_x", "read", "stale")),
+                ),
+                chat_turn("user", "hello", Vec::new(), None),
+            ],
+            false,
+        );
+        assert_eq!(turns.len(), 1);
+        assert!(turns[0].tool_result.is_none());
+        assert_eq!(turns[0].content, "hello");
+    }
+
+    #[test]
+    fn normalize_turns_leaves_trailing_resume_tool_calls_open() {
+        let turns = normalize_turns(
+            &[
+                chat_turn("user", "go", Vec::new(), None),
+                chat_turn("assistant", "", vec![call_turn("call_1", "read")], None),
+            ],
+            true,
+        );
+        assert_eq!(turns.len(), 2);
+        assert!(turns[1].tool_calls.len() == 1);
+        assert!(turns[1].tool_result.is_none());
     }
 }

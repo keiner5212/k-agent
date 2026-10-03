@@ -101,8 +101,11 @@ export const SettingsDialog = ({ open, onOpenChange }: SettingsDialogProps): Rea
   const trimmed = query.trim().toLowerCase();
 
   const sections = useMemo(() => {
-    if (trimmed.length === 0) return SETTINGS_REGISTRY;
-    return SETTINGS_REGISTRY.flatMap((section) => {
+    const registry = import.meta.env.PROD
+      ? SETTINGS_REGISTRY.filter((section) => section.id !== "debug")
+      : SETTINGS_REGISTRY;
+    if (trimmed.length === 0) return registry;
+    return registry.flatMap((section) => {
       if (sectionMatchesQuery(section, trimmed, t)) return [section];
       const items = section.items.filter((item) => itemMatches(item, trimmed, t));
       return items.length > 0 ? [{ ...section, items }] : [];

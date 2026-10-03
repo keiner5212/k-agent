@@ -40,6 +40,13 @@ const sanitizeOverride = (value: unknown): ModelRequestOverride => {
   if (typeof raw.temperature === "number" && Number.isFinite(raw.temperature)) {
     next.temperature = raw.temperature;
   }
+  if (raw.extra && typeof raw.extra === "object") {
+    const extra: Record<string, string> = {};
+    for (const [name, value] of Object.entries(raw.extra as Record<string, unknown>)) {
+      if (typeof value === "string" && name.trim() && value.trim()) extra[name.trim()] = value;
+    }
+    if (Object.keys(extra).length > 0) next.extra = extra;
+  }
   return next;
 };
 

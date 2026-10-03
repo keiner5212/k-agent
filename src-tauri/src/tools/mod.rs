@@ -144,6 +144,7 @@ pub struct NestedScope {
     pub tool_names: Vec<String>,
     pub task_depth: u8,
     pub effort: Option<String>,
+    pub request: crate::request_profile::ChatRequestOptions,
 }
 
 #[derive(Debug, Clone)]

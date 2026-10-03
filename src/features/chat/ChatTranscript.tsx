@@ -164,7 +164,7 @@ const MessageBody = memo(function MessageBody({
   );
 });
 
-const formatTurnDuration = (ms: number, t: TFunction): string => {
+const formatTurnClock = (ms: number, t: TFunction): string => {
   const total = Math.max(0, Math.round(ms / 1000));
   const hours = Math.floor(total / 3600);
   const minutes = Math.floor((total % 3600) / 60);
@@ -183,6 +183,9 @@ const formatTurnDuration = (ms: number, t: TFunction): string => {
   }
   return t("chat.turn.seconds", { count: total });
 };
+
+const formatTurnDuration = (ms: number, t: TFunction): string =>
+  t("chat.turn.ended", { time: formatTurnClock(ms, t) });
 
 const messageClass = (message: ChatMessage, fromParent: boolean): string => {
   const shell = message.kind === "shell" ? " chat-message--shell" : "";

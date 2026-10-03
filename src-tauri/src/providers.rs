@@ -84,6 +84,8 @@ pub struct ModelInfo {
     pub user_edited: bool,
     #[serde(default, skip_serializing_if = "is_false")]
     pub favorite: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request: Option<UserRequestSpec>,
 }
 
 impl ModelInfo {
@@ -108,6 +110,7 @@ impl ModelInfo {
             source: ModelSource::Detected,
             user_edited: false,
             favorite: false,
+            request: None,
         }
     }
 
@@ -139,6 +142,146 @@ pub(crate) fn derive_attachment_types(input: &[String], attachment: bool) -> Vec
     if attachment {
         push("text");
         push("document");
+    }
+    out
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum UserParamKind {
+    String,
+    Number,
+    Bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct UserRequestParam {
+    pub name: String,
+    pub kind: UserParamKind,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub values: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "camelCase", from = "UserRequestWire")]
+pub struct UserRequestSpec {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub params: Vec<UserRequestParam>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct UserRequestWire {
+    #[serde(default)]
+    params: Vec<UserRequestParam>,
+    #[serde(default)]
+    thinking_modes: Vec<String>,
+    #[serde(default)]
+    effort_levels: Vec<String>,
+    #[serde(default)]
+    temperature: Option<f64>,
+    #[serde(default)]
+    service_tiers: Vec<String>,
+}
+
+impl From<UserRequestWire> for UserRequestSpec {
+    fn from(wire: UserRequestWire) -> Self {
+        if !wire.params.is_empty() {
+            return Self {
+                params: wire.params,
+            };
+        }
+        let mut params = Vec::new();
+        if !wire.thinking_modes.is_empty() {
+            params.push(UserRequestParam {
+                name: "thinking".into(),
+                kind: UserParamKind::String,
+                values: wire.thinking_modes,
+            });
+        }
+        if !wire.effort_levels.is_empty() {
+            params.push(UserRequestParam {
+                name: "effort".into(),
+                kind: UserParamKind::String,
+                values: wire.effort_levels,
+            });
+        }
+        if let Some(temperature) = wire.temperature {
+            params.push(UserRequestParam {
+                name: "temperature".into(),
+                kind: UserParamKind::Number,
+                values: vec![temperature.to_string()],
+            });
+        }
+        if !wire.service_tiers.is_empty() {
+            params.push(UserRequestParam {
+                name: "serviceTier".into(),
+                kind: UserParamKind::String,
+                values: wire.service_tiers,
+            });
+        }
+        Self { params }
+    }
+}
+
+impl UserRequestSpec {
+    pub fn active(&self) -> bool {
+        self.params
+            .iter()
+            .any(|param| !param.name.trim().is_empty())
+    }
+}
+
+fn normalize_request(spec: UserRequestSpec) -> Option<UserRequestSpec> {
+    let params = spec
+        .params
+        .into_iter()
+        .filter_map(|mut param| {
+            let name = param.name.trim().to_string();
+            if name.is_empty() {
+                return None;
+            }
+            param.name = name;
+            if param.kind == UserParamKind::Bool {
+                param.values.clear();
+            } else {
+                param.values = clean_list(param.values);
+            }
+            Some(param)
+        })
+        .collect::<Vec<_>>();
+    if params.is_empty() {
+        None
+    } else {
+        Some(UserRequestSpec { params })
+    }
+}
+
+fn sanitize_cost(cost: Option<ModelCost>) -> Option<ModelCost> {
+    let cost = cost?;
+    if !cost.input.is_finite() || !cost.output.is_finite() || cost.input < 0.0 || cost.output < 0.0
+    {
+        return None;
+    }
+    let finite = |value: Option<f64>| value.filter(|item| item.is_finite() && *item >= 0.0);
+    Some(ModelCost {
+        input: cost.input,
+        output: cost.output,
+        reasoning: finite(cost.reasoning),
+        cache_read: finite(cost.cache_read),
+        cache_write: finite(cost.cache_write),
+    })
+}
+
+fn clean_list(values: Vec<String>) -> Vec<String> {
+    let mut out = Vec::new();
+    for value in values {
+        let trimmed = value.trim();
+        if trimmed.is_empty() || out.iter().any(|item: &String| item == trimmed) {
+            continue;
+        }
+        out.push(trimmed.to_string());
     }
     out
 }
@@ -183,8 +326,6 @@ pub struct UpsertModelInput {
     pub context_window: Option<u64>,
     pub max_output_tokens: Option<u64>,
     #[serde(default)]
-    pub knowledge: Option<String>,
-    #[serde(default)]
     pub input: Vec<String>,
     #[serde(default)]
     pub output: Vec<String>,
@@ -199,7 +340,9 @@ pub struct UpsertModelInput {
     #[serde(default)]
     pub multimodal: bool,
     #[serde(default)]
-    pub effort_levels: Vec<String>,
+    pub cost: Option<ModelCost>,
+    #[serde(default)]
+    pub request: Option<UserRequestSpec>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -955,34 +1098,19 @@ pub async fn upsert_provider_model(
     next.max_output_tokens = input.max_output_tokens.filter(|value| *value > 0);
     next.display_name = display_name;
     next.family = family;
+    next.input = clean_list(input.input);
+    next.output = clean_list(input.output);
+    next.reasoning = input.reasoning;
+    next.tool_call = input.tool_call;
+    next.structured_output = input.structured_output;
+    next.attachment = input.attachment;
     next.multimodal = input.multimodal;
+    next.cost = sanitize_cost(input.cost);
     next.source = ModelSource::Custom;
     next.user_edited = true;
     next.favorite = favorite;
-    if let Some(knowledge) = input
-        .knowledge
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        next.knowledge = Some(knowledge.to_string());
-    }
-    if !input.input.is_empty() {
-        next.input = input.input;
-    }
-    if !input.output.is_empty() {
-        next.output = input.output;
-    }
-    if !input.effort_levels.is_empty() {
-        next.effort_levels = input.effort_levels;
-    }
-    next.reasoning |= input.reasoning;
-    next.tool_call |= input.tool_call;
-    next.structured_output |= input.structured_output;
-    next.attachment |= input.attachment;
-    if next.attachment_types.is_empty() {
-        next.attachment_types = derive_attachment_types(&next.input, next.attachment);
-    }
+    next.request = input.request.and_then(normalize_request);
+    next.attachment_types = derive_attachment_types(&next.input, next.attachment);
     next.sync_multimodal();
 
     if let Some(existing) = provider

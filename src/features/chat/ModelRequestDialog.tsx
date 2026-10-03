@@ -5,12 +5,21 @@ import { SlidersHorizontal } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { IconButton } from "@/components/IconButton";
 import { Select } from "@/components/Select";
+import { Toggle } from "@/components/Toggle";
 import { resolveSelectedModel } from "@/lib/context-usage";
 import { isTauri } from "@/lib/platform";
 import { useProvidersStore } from "@/lib/providers";
 import { selectRequest, useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
 import type { ModelRequestOverride, ModelRequestView } from "@/types/model-request";
+
+const KNOWN_REQUEST_PARAMS = new Set([
+  "thinking",
+  "effort",
+  "serviceTier",
+  "temperature",
+  "reasoningSplit",
+]);
 
 const optionList = (
   values: readonly string[],
@@ -42,6 +51,7 @@ export const ModelRequestButton = (): ReactNode => {
         kind: providers.find((item) => item.id === selection.providerId)?.kind,
         baseUrl: providers.find((item) => item.id === selection.providerId)?.baseUrl,
         modelId: model.id,
+        userRequest: model.request ?? null,
       },
     })
       .then((next) => {
@@ -110,6 +120,7 @@ const RequestForm = ({
   const { t } = useTranslation();
   const defaultLabel = t("chat.request.default");
   const reasoning = profile.reasoning;
+  const locked = "lockedOn" in reasoning && reasoning.lockedOn;
 
   return (
     <>
@@ -128,7 +139,7 @@ const RequestForm = ({
             stored.reasoningMode ?? "",
             `${defaultLabel} (${reasoning.defaultMode})`,
           )}
-          disabled={reasoning.lockedOn}
+          disabled={locked}
           onChange={(reasoningMode) => onChange({ reasoningMode: reasoningMode || undefined })}
         />
       ) : null}
@@ -143,7 +154,7 @@ const RequestForm = ({
               stored.reasoningMode ?? "",
               `${defaultLabel} (${reasoning.defaultThinking})`,
             )}
-            disabled={reasoning.lockedOn}
+            disabled={locked}
             onChange={(reasoningMode) => onChange({ reasoningMode: reasoningMode || undefined })}
           />
           <Choice
@@ -184,32 +195,47 @@ const RequestForm = ({
           onChange={(serviceTier) => onChange({ serviceTier: serviceTier || undefined })}
         />
       ) : null}
-      {profile.sampling.temperature === "range" ? (
-        <div className="field">
-          <label className="field__label" htmlFor="request-temperature">
-            {t("chat.request.temperature")}
-          </label>
-          <input
-            id="request-temperature"
-            className="input input--mono"
-            inputMode="decimal"
-            value={stored.temperature ?? ""}
-            placeholder={String(profile.sampling.defaultValue ?? "")}
-            onChange={(event) => {
-              const raw = event.target.value.trim();
-              if (!raw) {
-                onChange({ temperature: undefined });
-                return;
-              }
-              const temperature = Number(raw);
-              if (Number.isFinite(temperature)) onChange({ temperature });
-            }}
-          />
-        </div>
+      {profile.sampling.temperature === "range" || profile.sampling.temperature === "fixed" ? (
+        <TemperatureField
+          stored={stored.temperature}
+          appDefault={profile.sampling.defaultValue}
+          locked={profile.sampling.temperature === "fixed"}
+          onChange={(temperature) => onChange({ temperature })}
+        />
       ) : null}
       {profile.reasoningSplit ? (
         <p className="field__hint">{t("chat.request.note.reasoningSplit")}</p>
       ) : null}
+      {(profile.params ?? [])
+        .filter((param) => !KNOWN_REQUEST_PARAMS.has(param.name))
+        .map((param) =>
+          param.kind === "bool" ? (
+            <Toggle
+              key={param.name}
+              checked={stored.extra?.[param.name] !== "false"}
+              label={param.name}
+              onChange={(next) =>
+                onChange({
+                  extra: { ...stored.extra, [param.name]: next ? "true" : "false" },
+                })
+              }
+            />
+          ) : (
+            <Choice
+              key={param.name}
+              id={`request-extra-${param.name}`}
+              label={param.name}
+              value={stored.extra?.[param.name] ?? ""}
+              options={optionList(param.values, stored.extra?.[param.name] ?? "", defaultLabel)}
+              onChange={(value) => {
+                const extra = { ...stored.extra };
+                if (value) extra[param.name] = value;
+                else delete extra[param.name];
+                onChange({ extra });
+              }}
+            />
+          ),
+        )}
       {profile.notes.map((note) => (
         <p className="field__hint" key={note}>
           {t(note)}
@@ -221,6 +247,63 @@ const RequestForm = ({
           : t("chat.request.privacyOff")}
       </p>
     </>
+  );
+};
+
+const TemperatureField = ({
+  stored,
+  appDefault,
+  locked,
+  onChange,
+}: {
+  stored: number | undefined;
+  appDefault: number | undefined;
+  locked: boolean;
+  onChange: (temperature: number | undefined) => void;
+}): ReactNode => {
+  const { t } = useTranslation();
+  const fallback = stored ?? appDefault;
+  const [text, setText] = useState(fallback === undefined ? "" : String(fallback));
+
+  useEffect(() => {
+    setText(fallback === undefined ? "" : String(fallback));
+  }, [fallback]);
+
+  return (
+    <div className="field">
+      <label className="field__label" htmlFor="request-temperature">
+        {t("chat.request.temperature")}
+      </label>
+      <input
+        id="request-temperature"
+        className="input input--mono"
+        inputMode="decimal"
+        value={text}
+        disabled={locked}
+        onChange={(event) => {
+          const raw = event.target.value;
+          setText(raw);
+          const trimmed = raw.trim();
+          if (!trimmed) {
+            onChange(undefined);
+            return;
+          }
+          const temperature = Number(trimmed);
+          if (!Number.isFinite(temperature)) return;
+          onChange(
+            appDefault !== undefined && temperature === appDefault ? undefined : temperature,
+          );
+        }}
+        onBlur={() => {
+          if (stored === undefined && appDefault !== undefined) setText(String(appDefault));
+        }}
+      />
+      {appDefault !== undefined ? (
+        <span className="field__hint">
+          {t("chat.request.temperatureDefault", { value: appDefault })}
+        </span>
+      ) : null}
+    </div>
   );
 };
 

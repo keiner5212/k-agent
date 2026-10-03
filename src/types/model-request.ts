@@ -31,6 +31,11 @@ export type ModelRequestView = {
   privacyDetailKey: string;
   reasoningSplit: boolean;
   notes: string[];
+  params?: {
+    name: string;
+    kind: "string" | "number" | "bool";
+    values: string[];
+  }[];
 };
 
 export type ModelRequestOverride = {
@@ -38,4 +43,5 @@ export type ModelRequestOverride = {
   effort?: string;
   serviceTier?: string;
   temperature?: number;
+  extra?: Record<string, string>;
 };

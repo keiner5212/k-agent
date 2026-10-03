@@ -62,6 +62,19 @@ export type ModelInfo = {
   source?: ModelSource;
   userEdited?: boolean;
   favorite?: boolean;
+  request?: UserModelRequest;
+};
+
+export type UserParamKind = "string" | "number" | "bool";
+
+export type UserRequestParam = {
+  name: string;
+  kind: UserParamKind;
+  values: string[];
+};
+
+export type UserModelRequest = {
+  params: UserRequestParam[];
 };
 
 export type ModelDraft = {
@@ -71,7 +84,15 @@ export type ModelDraft = {
   family?: string;
   contextWindow?: number;
   maxOutputTokens?: number;
+  input: string[];
+  output: string[];
+  reasoning: boolean;
+  toolCall: boolean;
+  structuredOutput: boolean;
+  attachment: boolean;
   multimodal: boolean;
+  cost?: ModelCost;
+  request?: UserModelRequest;
 };
 
 export type Provider = {
