@@ -33,7 +33,7 @@ flowchart TD
 
 ## Catalog snapshot
 
-Refreshed on 2026-10-03
+Refreshed on 2026-10-21
 
 ## Refresh
 

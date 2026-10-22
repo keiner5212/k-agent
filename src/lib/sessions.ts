@@ -391,13 +391,19 @@ const invokeWithTimeout = async <T>(command: string, ms: number): Promise<T> => 
   }
 };
 
-const persistSnapshot = async (snapshot: SessionsSnapshot): Promise<void> => {
+let persistQueue: Promise<void> = Promise.resolve();
+
+const persistSnapshot = (snapshot: SessionsSnapshot): void => {
   if (!isTauri()) return;
-  try {
-    await invoke("save_sessions", { snapshot: persistableSnapshot(snapshot) });
-  } catch (error) {
-    console.warn("sessions persist failed", error);
-  }
+  const payload = persistableSnapshot(snapshot);
+  // Overlapping saves must finish in call order. A slower older save used to land last.
+  persistQueue = persistQueue.then(async () => {
+    try {
+      await invoke("save_sessions", { snapshot: payload });
+    } catch (error) {
+      console.warn("sessions persist failed", error);
+    }
+  });
 };
 
 const resolveTitleModel = (): SelectedModel | null => {
@@ -451,6 +457,7 @@ const compactHistory = async (
         providerId: selection.providerId,
         modelId: selection.modelId,
         transcript,
+        sessionId,
         limitProviderDataUse,
       },
     });
@@ -478,7 +485,7 @@ const compactHistory = async (
   }
 };
 
-const generateSessionTitle = async (firstMessage: string): Promise<string> => {
+const generateSessionTitle = async (sessionId: string, firstMessage: string): Promise<string> => {
   const { titleUseFirstMessage } = useSettingsStore.getState();
   if (titleUseFirstMessage) return titleFromFirstMessage(firstMessage);
 
@@ -491,6 +498,7 @@ const generateSessionTitle = async (firstMessage: string): Promise<string> => {
         providerId: model.providerId,
         modelId: model.modelId,
         message: firstMessage,
+        sessionId,
         limitProviderDataUse: useSettingsStore.getState().limitProviderDataUse,
       },
     });
@@ -944,7 +952,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
 
     if (isFirstMessage && !activeSession.title) {
       if (trimmed) {
-        void generateSessionTitle(trimmed).then(applyTitle);
+        void generateSessionTitle(sessionId, trimmed).then(applyTitle);
       } else if (pending[0]?.name) {
         applyTitle(pending[0].name);
       }
@@ -1168,7 +1176,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
             const nextSessions = get().sessions.map((session) => {
               if (session.id !== sessionId) return session;
               const index = session.messages.findIndex((message) => message.id === assistantId);
-              if (index < 0) return session;
+              if (index < 0) return { ...session, todos };
               const messages = session.messages.slice();
               const current = messages[index];
               if (!current) return session;
@@ -1704,7 +1712,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     void persistSnapshot(snapshotFromState(withUser, get().activeSessionId ?? sessionId));
 
     if (isFirstMessage && !latest.title) {
-      void generateSessionTitle(trimmed).then((title) => {
+      void generateSessionTitle(sessionId, trimmed).then((title) => {
         const nextSessions = sortSessions(
           patchActiveSession(get().sessions, sessionId, (session) => ({
             ...session,

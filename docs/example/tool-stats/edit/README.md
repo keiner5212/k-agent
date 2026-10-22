@@ -19,6 +19,7 @@ Replace an exact span in an existing file. Two shapes. Never both in one call.
 - Emits `added` and `removed` as the changed lines in this call. Several edits in one file count each change.
 - `count` is present only when the call writes more than one file.
 - Paths outside the workspace wait for the user.
+- `format` defaults on. Set `format` false only when this call must not reformat. Diagnostics still run.
 
 ## Does not
 
@@ -37,6 +38,7 @@ Replace an exact span in an existing file. Two shapes. Never both in one call.
 | `newString`  | string  | no       | -       | One replacement only. Full replacement of that span. Not a patch line with `+` or `-`.                         |
 | `replaceAll` | boolean | no       | `false` | One replacement only. When `true`, replace every match. Omit when `edits` is set.                              |
 | `edits`      | array   | no       | -       | Many replacements only. Each item has its own `filePath`, `oldString`, `newString`, and optional `replaceAll`. |
+| `format`     | boolean | no       | `true`  | Default on. Set `format` false only when this call must not reformat.                                          |
 
 ### `edits` item
 

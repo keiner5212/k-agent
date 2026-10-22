@@ -247,11 +247,17 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
       setTaskSessionId(display.childSessionId);
       return;
     }
-    const fileEdit = call.name === "write" || call.name === "edit";
+    const fileEdit = call.name === "write" || call.name === "edit" || call.name === "apply_patch";
     if (fileEdit && display?.kind === "action" && call.id && sessionId) {
+      const titleKey =
+        call.name === "write"
+          ? "chat.tools.writeTitle"
+          : call.name === "apply_patch"
+            ? "chat.tools.patchTitle"
+            : "chat.tools.editTitle";
       if (display.status !== "ok") {
         setPreview({
-          titleKey: call.name === "edit" ? "chat.tools.editTitle" : "chat.tools.writeTitle",
+          titleKey,
           value: toonFieldValue(call.output ?? "", "error") || t("chat.tools.error"),
           path: display.path,
         });
@@ -269,9 +275,17 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
           return;
         }
         const before = await readSessionFileRevision(sessionId, call.id, "before");
+        if (call.name === "apply_patch" && !before.content && !after.content) {
+          setPreview({
+            titleKey,
+            value: previewFromOutput(call),
+            path: display.path,
+          });
+          return;
+        }
         const packed = (await runDiffLinesJob(before.content, after.content)).value;
         setPreview({
-          titleKey: "chat.tools.editTitle",
+          titleKey,
           value: packed.value,
           path: display.path,
           lineNumbers: packed.lineNumbers,

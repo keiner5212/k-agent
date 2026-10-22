@@ -9,7 +9,10 @@ use tauri::AppHandle;
 use thiserror::Error;
 
 use crate::attachments::ChatAttachment;
-use crate::providers::{attach_auth, load_all, ModelInfo, Provider, ProviderError, ProviderKind};
+use crate::providers::{
+    apply_provider_headers, attach_auth, bind_session_headers, load_all, ModelInfo, Provider,
+    ProviderError, ProviderKind,
+};
 use crate::tools::{self, ModelToolCall, ToolContext, ToolDisplay};
 
 const CHAT_HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
@@ -1921,6 +1924,7 @@ async fn send_anthropic_like(
     if call.plan.anthropic_interleaved {
         req = req.header("anthropic-beta", "interleaved-thinking-2025-05-14");
     }
+    req = apply_provider_headers(req, provider);
     let resp = req
         .send()
         .await
@@ -2050,6 +2054,7 @@ async fn send_gemini_like(
     if stream {
         req = req.header(reqwest::header::ACCEPT, "text/event-stream");
     }
+    req = attach_auth(req, provider);
     let resp = req
         .send()
         .await
@@ -2459,9 +2464,11 @@ async fn send_message(
     if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
     }
+    let mut provider = provider.clone();
+    bind_session_headers(Some(app), session_id, &mut provider)?;
     if !tools_enabled(call) {
         child_feed_begin(call, &[]);
-        let mut output = dispatch_with_retry(provider, call, on_chunk).await?;
+        let mut output = dispatch_with_retry(&provider, call, on_chunk).await?;
         child_feed_seal(call);
         output.content = tools::truncate_assistant(&output.content);
         return Ok(SentMessage {
@@ -2538,7 +2545,7 @@ async fn send_message(
         };
         child_feed_begin(call, &tool_rounds);
         let round_started = std::time::Instant::now();
-        let output = dispatch_with_retry(provider, &round_call, on_chunk).await?;
+        let output = dispatch_with_retry(&provider, &round_call, on_chunk).await?;
         child_feed_seal(call);
         let thinking_ms =
             child_feed_measured(call).unwrap_or_else(|| round_started.elapsed().as_millis() as u64);
@@ -2658,6 +2665,8 @@ pub struct GenerateSessionTitleInput {
     pub model_id: String,
     pub message: String,
     #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
     pub limit_provider_data_use: bool,
 }
 
@@ -2761,9 +2770,18 @@ pub async fn generate_session_title(
         child_session_id: None,
     };
     let title = normalize_generated_title(
-        &send_message(&app, &provider, &call, None, None, false, false, false)
-            .await?
-            .content,
+        &send_message(
+            &app,
+            &provider,
+            &call,
+            None,
+            input.session_id.as_deref(),
+            false,
+            false,
+            false,
+        )
+        .await?
+        .content,
     );
     if title.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -2777,6 +2795,8 @@ pub struct SummarizeConversationInput {
     pub provider_id: String,
     pub model_id: String,
     pub transcript: String,
+    #[serde(default)]
+    pub session_id: Option<String>,
     #[serde(default)]
     pub limit_provider_data_use: bool,
 }
@@ -2841,9 +2861,18 @@ pub async fn summarize_conversation(
         child_session_id: None,
     };
     let summary = normalize_generated_text(
-        &send_message(&app, &provider, &call, None, None, false, false, false)
-            .await?
-            .content,
+        &send_message(
+            &app,
+            &provider,
+            &call,
+            None,
+            input.session_id.as_deref(),
+            false,
+            false,
+            false,
+        )
+        .await?
+        .content,
     );
     if summary.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -2983,6 +3012,7 @@ pub(crate) async fn complete_quiet(
     user: &str,
     max_output: u64,
     limit_provider_data_use: bool,
+    session_id: Option<&str>,
 ) -> Result<String, ChatError> {
     let (provider, model) = load_provider_model(app, provider_id, model_id).await?;
     let turns = vec![user_turn(user.to_string())];
@@ -3009,7 +3039,7 @@ pub(crate) async fn complete_quiet(
         child_session_id: None,
     };
     let text = normalize_generated_text(
-        &send_message(app, &provider, &call, None, None, false, false, false)
+        &send_message(app, &provider, &call, None, session_id, false, false, false)
             .await?
             .content,
     );

@@ -26,6 +26,7 @@ import {
   preparePathAttachments,
 } from "@/lib/attachments";
 import { generateAppContent } from "@/lib/app-generation";
+import { openExternalUrl } from "@/lib/external-links";
 import { useChatStore } from "@/lib/chat";
 import { useComposerStore } from "@/lib/composer";
 import { resolveSelectedModel } from "@/lib/context-usage";
@@ -38,6 +39,8 @@ import { useSettingsStore } from "@/lib/settings";
 import { useSessionsStore } from "@/lib/sessions";
 import { useUndoRedoKeydown } from "@/lib/use-undo-redo-keydown";
 import { useUndoableText } from "@/lib/undoable-text";
+
+const HELP_ISSUES_URL = "https://github.com/keiner5212/k-agent/issues";
 import { AgentSelector } from "./AgentSelector";
 import { ComposerAttachments } from "./ComposerAttachments";
 import { ComposerShellChip } from "./ComposerModeChip";
@@ -100,6 +103,12 @@ export const ChatComposer = (): ReactNode => {
       }
       if (commandId === "stop") {
         void useSessionsStore.getState().interruptActiveTask();
+        return;
+      }
+      if (commandId === "help") {
+        void openExternalUrl(HELP_ISSUES_URL).catch((error: unknown) => {
+          console.warn("openExternalUrl failed", error);
+        });
       }
     },
     [requestRewind],
@@ -213,6 +222,7 @@ export const ChatComposer = (): ReactNode => {
       if (!canQueue) return;
       if (action) {
         consume();
+        if (action.id === "help") runSlashAction(action.id);
         return;
       }
       enqueue(text, mode, shellMode ? undefined : pending);

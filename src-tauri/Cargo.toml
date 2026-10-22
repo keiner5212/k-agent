@@ -39,6 +39,8 @@ tauri-plugin-clipboard-manager = "2.3.2"
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-opener = "2.5"
 toon-format = { version = "0.5", default-features = false }
+rand = "0.8"
+rand_regex = "0.17"
 regex = "1"
 scraper = "0.27.0"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
@@ -59,6 +61,7 @@ gdk = "0.18"
 gio = "0.18"
 cairo-rs = { version = "0.18", features = ["png"] }
 webkit2gtk = { version = "2.0", features = ["v2_40"] }
+soup3 = "0.5"
 
 # Disable deprecated libayatana-appindicator (transitively pulled by tray-icon via libappindicator).
 # libayatana-appindicator-glib is the GLib-based replacement and is what's actually needed.

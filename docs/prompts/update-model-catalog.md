@@ -17,7 +17,7 @@ Start from these official lists. Add a provider only when this repo already has 
 - Mistral: https://docs.mistral.ai/getting-started/models/models_overview
 - xAI: https://docs.x.ai/docs/models
 - Groq: https://console.groq.com/docs/models
-- MiniMax: official platform model docs (the page that lists model ids, context, and price)
+- MiniMax: https://platform.minimax.io/docs/guides/models-intro
 
 ## What to change
 

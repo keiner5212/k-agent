@@ -41,6 +41,7 @@ export const formatProviderError = (
     case "notFound":
     case "duplicate":
     case "crypto":
+    case "invalid":
       return t("providers.errors.generic", { message: payload.message });
   }
 };

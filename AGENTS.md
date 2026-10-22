@@ -116,6 +116,7 @@ App data dir:
 - `cache/fetch-url/` and `cache/internet-search/` (tool HTTP cache, 1 hour TTL)
 - `sessions.json` (thin index: `activeSessionId` plus `{id,title,preview,updatedAt}`)
 - `sessions/{id}/session.json` (messages; no attachment blobs; `toolRounds` only)
+- `sessions/{id}/generated-headers.json` (generated header values for that chat)
 - `sessions/{id}/attachments/{attachmentId}{ext}` (raw attachment bytes)
 - `sessions/{id}/files/{callId}.before` and `{callId}.after` (write/edit snapshots)
 

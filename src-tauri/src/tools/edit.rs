@@ -12,7 +12,7 @@ use super::{
 
 pub const NAME: &str = "edit";
 
-const DESCRIPTION: &str = "Exact string replace.\nTwo shapes. Never both in one call. Both shapes write nothing.\nOne replacement: only filePath, oldString, newString, and optional replaceAll. Do not send edits.\nMany replacements: only edits. Each item has its own filePath, oldString, newString, and optional replaceAll. Do not also send top-level filePath, oldString, newString, or replaceAll. Top-level filePath is not a directory for the array.\noldString and newString are exact file text. Not a line-number prefix from read. Not a diff hunk. Include the indentation that is in the file.\nThe call fails if oldString is missing or appears more than once, unless replaceAll is true. The error says which.\nCopy oldString from a read of that file in this turn, large enough to be unique, small enough to be exact.\nnewString is the full replacement of that span, not a patch line with + or -.\nAll edits are checked before any file is written. A bad item leaves every file unchanged.\nPaths outside the workspace wait for the user.";
+const DESCRIPTION: &str = "Exact string replace.\nTwo shapes. Never both in one call. Both shapes write nothing.\nOne replacement: only filePath, oldString, newString, and optional replaceAll. Do not send edits.\nMany replacements: only edits. Each item has its own filePath, oldString, newString, and optional replaceAll. Do not also send top-level filePath, oldString, newString, or replaceAll. Top-level filePath is not a directory for the array.\noldString and newString are exact file text. Not a line-number prefix from read. Not a diff hunk. Include the indentation that is in the file.\nThe call fails if oldString is missing or appears more than once, unless replaceAll is true. The error says which.\nCopy oldString from a read of that file in this turn, large enough to be unique, small enough to be exact.\nnewString is the full replacement of that span, not a patch line with + or -.\nAll edits are checked before any file is written. A bad item leaves every file unchanged.\nPaths outside the workspace wait for the user.\nformat defaults on. Set format false only when this call must not reformat.";
 
 fn with_rules(lead: &str) -> String {
     format!("{lead}\n{DESCRIPTION}")
@@ -43,6 +43,10 @@ impl Tool for EditTool {
                     "replaceAll": {
                         "type": "boolean",
                         "description": with_rules("One replacement only. Optional. True replaces every match. Default false. Omit this when edits is set.")
+                    },
+                    "format": {
+                        "type": "boolean",
+                        "description": "format defaults on. Set format false only when this call must not reformat."
                     },
                     "edits": {
                         "type": "array",
@@ -104,7 +108,8 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
                 paths.push(resolved);
             }
         }
-        super::attach_lsp_diagnostics(ctx, &mut outcome, &paths).await;
+        super::attach_lsp_diagnostics(ctx, &mut outcome, &paths, super::format_requested(&args))
+            .await;
     }
     outcome
 }

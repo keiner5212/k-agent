@@ -169,24 +169,53 @@ pub(crate) async fn notify_lsp(ctx: &ToolContext<'_>, path: &std::path::Path, de
     crate::lsp_client::sync_disk_change(app, path, deleted).await;
 }
 
+pub(crate) fn format_requested(args: &Value) -> bool {
+    match args.get("format") {
+        Some(Value::Bool(flag)) => *flag,
+        _ => true,
+    }
+}
+
+fn gate_format<T>(format: bool, format_files: impl FnOnce() -> T, skipped: T) -> T {
+    if format {
+        format_files()
+    } else {
+        skipped
+    }
+}
+
+fn format_note(names: &[String]) -> String {
+    if names.is_empty() {
+        String::new()
+    } else {
+        format!("\nformatted: {}", names.join(", "))
+    }
+}
+
 pub(crate) async fn attach_lsp_diagnostics(
     ctx: &ToolContext<'_>,
     outcome: &mut ToolOutcome,
     paths: &[std::path::PathBuf],
+    format: bool,
 ) {
     let Some(app) = ctx.app else {
         return;
     };
-    let formatted = crate::lsp_client::format_files(app, paths).await;
+    let pending = gate_format(
+        format,
+        || Some(crate::lsp_client::format_files(app, paths)),
+        None,
+    );
+    let formatted = match pending {
+        Some(future) => future.await,
+        None => Vec::new(),
+    };
     // Snapshot stays the edit so added/removed match the diff. Format stays on disk.
-    if !formatted.is_empty() {
-        let names = formatted
-            .iter()
-            .map(|path| ctx.relative_path(path))
-            .collect::<Vec<_>>()
-            .join(", ");
-        outcome.text.push_str(&format!("\nformatted: {names}"));
-    }
+    let names = formatted
+        .iter()
+        .map(|path| ctx.relative_path(path))
+        .collect::<Vec<_>>();
+    outcome.text.push_str(&format_note(&names));
     let Some(found) = crate::lsp_client::diagnostics_after_write(app, paths).await else {
         return;
     };
@@ -828,6 +857,43 @@ mod tests {
         let before = "a\nb\nc\n";
         let after = "a\nB\nc\n";
         assert_eq!(line_add_remove(before, after), (1, 1));
+    }
+
+    #[test]
+    fn format_false_does_not_call_formatter() {
+        let mut calls = 0;
+        let skipped = gate_format(
+            format_requested(&json!({"format": false})),
+            || {
+                calls += 1;
+                vec!["src/a.rs".to_string()]
+            },
+            Vec::new(),
+        );
+        assert_eq!(calls, 0);
+        assert!(format_note(&skipped).is_empty());
+
+        let ran = gate_format(
+            format_requested(&json!({})),
+            || {
+                calls += 1;
+                vec!["src/a.rs".to_string()]
+            },
+            Vec::new(),
+        );
+        assert_eq!(calls, 1);
+        assert_eq!(format_note(&ran), "\nformatted: src/a.rs");
+
+        let again = gate_format(
+            format_requested(&json!({"format": true})),
+            || {
+                calls += 1;
+                vec!["src/a.rs".to_string()]
+            },
+            Vec::new(),
+        );
+        assert_eq!(calls, 2);
+        assert_eq!(format_note(&again), "\nformatted: src/a.rs");
     }
 
     #[test]

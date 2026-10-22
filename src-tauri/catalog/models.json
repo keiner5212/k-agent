@@ -7295,6 +7295,30 @@
     }
   },
   {
+    "id": "claude-haiku-5-5",
+    "displayName": "Claude Haiku 5.5",
+    "family": "claude-haiku",
+    "knowledge": "2026-06",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.1,
+      "output": 0.5,
+      "cacheRead": 0.01,
+      "cacheWrite": 0.125
+    },
+    "request": {
+      "known": false,
+      "native": ["anthropic"]
+    }
+  },
+  {
     "id": "claude-mythos-5",
     "displayName": "Claude Mythos 5",
     "family": "claude-mythos",
@@ -8413,7 +8437,7 @@
     "cost": {
       "input": 2,
       "output": 10,
-      "cacheRead": 0.2,
+      "cacheRead": 0.1,
       "cacheWrite": 2.5
     },
     "attachmentTypes": ["image", "pdf", "text", "document"],
@@ -17416,6 +17440,26 @@
     }
   },
   {
+    "id": "gemini-4-argon",
+    "displayName": "Gemini 4 Argon",
+    "family": "gemini",
+    "contextWindow": 1048576,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "video", "audio", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high"],
+    "attachmentTypes": ["image", "video", "audio", "pdf"],
+    "request": {
+      "known": false,
+      "native": ["gemini"]
+    }
+  },
+  {
     "id": "gemini-embedding",
     "displayName": "Gemini Embedding 001",
     "family": "gemini",
@@ -25356,7 +25400,7 @@
     "knowledge": "2026-05",
     "contextWindow": 500000,
     "maxOutputTokens": 500000,
-    "input": ["text", "image", "pdf"],
+    "input": ["text", "image"],
     "output": ["text"],
     "reasoning": true,
     "toolCall": true,
@@ -25376,14 +25420,14 @@
       "output": 6,
       "cacheRead": 0.5
     },
-    "attachmentTypes": ["image", "pdf", "text", "document"],
+    "attachmentTypes": ["image", "text"],
     "request": {
       "known": true,
       "native": ["openai"],
       "reasoning": {
         "kind": "effort",
         "levels": ["low", "medium", "high", "xhigh"],
-        "defaultLevel": ""
+        "defaultLevel": "high"
       },
       "sampling": {
         "kind": "range",
@@ -29339,7 +29383,7 @@
     "id": "llama-3.3-70b-versatile",
     "displayName": "Llama 3.3 70B Versatile",
     "family": "llama",
-    "contextWindow": 128000,
+    "contextWindow": 131072,
     "maxOutputTokens": 32768,
     "input": ["text"],
     "output": ["text"],
@@ -30729,6 +30773,17 @@
       "input": 3.5,
       "output": 3.5
     },
+    "request": {
+      "known": false,
+      "native": ["openai"]
+    }
+  },
+  {
+    "id": "meta-models/muse-spark-open",
+    "displayName": "Muse Spark Open",
+    "family": "muse",
+    "contextWindow": 131072,
+    "maxOutputTokens": 131072,
     "request": {
       "known": false,
       "native": ["openai"]
@@ -32263,12 +32318,45 @@
         "anthropicDefaultMode": "disabled"
       },
       "sampling": {
-        "kind": "range",
-        "min": 0.0,
-        "max": 2.0,
-        "defaultValue": 1.0
+        "kind": "fixed",
+        "value": 1.0
       },
       "tiers": ["standard", "priority"],
+      "reasoningSplitOpenai": true
+    }
+  },
+  {
+    "id": "MiniMax-M3.1-Flash",
+    "displayName": "MiniMax-M3.1-Flash",
+    "family": "minimax",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 524288,
+    "input": ["text", "image", "video"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "effortLevels": ["low", "medium", "high", "xhigh", "max"],
+    "cost": {
+      "input": 0.15,
+      "output": 0.6,
+      "cacheRead": 0.015
+    },
+    "attachmentTypes": ["image", "video", "text"],
+    "request": {
+      "known": true,
+      "native": ["minimax", "openai"],
+      "reasoning": {
+        "kind": "effort",
+        "levels": ["low", "medium", "high", "xhigh", "max"],
+        "defaultLevel": "max"
+      },
+      "sampling": {
+        "kind": "fixed",
+        "value": 1.0
+      },
+      "tokenField": "maxCompletionTokens",
       "reasoningSplitOpenai": true
     }
   },
@@ -32574,6 +32662,17 @@
     "request": {
       "known": false,
       "native": ["minimax", "openai", "anthropic"]
+    }
+  },
+  {
+    "id": "minimaxai/minimax-m2.7",
+    "displayName": "MiniMax M2.7",
+    "family": "minimax",
+    "contextWindow": 196608,
+    "maxOutputTokens": 131072,
+    "request": {
+      "known": false,
+      "native": ["openai"]
     }
   },
   {

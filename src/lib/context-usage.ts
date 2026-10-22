@@ -55,6 +55,10 @@ const WRITE_TOOL_PARAMETERS = {
       type: "string",
       description: "Absolute or workspace-relative path",
     },
+    format: {
+      type: "boolean",
+      description: "format defaults on. Set format false only when this call must not reformat.",
+    },
   },
   required: ["content", "filePath"],
 } as const;
@@ -77,6 +81,10 @@ const EDIT_TOOL_PARAMETERS = {
     replaceAll: {
       type: "boolean",
       description: `One replacement only. Optional. True replaces every match. Default false. Omit this when edits is set.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
+    },
+    format: {
+      type: "boolean",
+      description: "format defaults on. Set format false only when this call must not reformat.",
     },
     edits: {
       type: "array",
@@ -229,7 +237,49 @@ const PAGE_SHOT_TOOL_PARAMETERS = {
     },
     waitMs: {
       type: "number",
-      description: "Extra wait after load before capture. Default 300. Max 5000.",
+      description: "Extra delay after the view has painted. Default 300. Max 5000.",
+    },
+    localStorage: {
+      type: "array",
+      description:
+        "Optional. Up to 50 {key, value} strings. Applied on the page origin before the app script runs. Each value max 8 KB.",
+      items: {
+        type: "object",
+        properties: {
+          key: { type: "string" },
+          value: { type: "string" },
+        },
+        required: ["key", "value"],
+      },
+    },
+    sessionStorage: {
+      type: "array",
+      description: "Optional. Same shape and timing as localStorage, for sessionStorage.",
+      items: {
+        type: "object",
+        properties: {
+          key: { type: "string" },
+          value: { type: "string" },
+        },
+        required: ["key", "value"],
+      },
+    },
+    cookies: {
+      type: "array",
+      description:
+        "Optional. Up to 50 cookies, set before the first request. name and value are required. domain defaults to the URL host and must match it. path defaults to /. secure and httpOnly default false. Each value max 8 KB.",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          value: { type: "string" },
+          domain: { type: "string" },
+          path: { type: "string" },
+          secure: { type: "boolean" },
+          httpOnly: { type: "boolean" },
+        },
+        required: ["name", "value"],
+      },
     },
   },
   required: ["url"],
@@ -320,6 +370,10 @@ const APPLY_PATCH_TOOL_PARAMETERS = {
     patchText: {
       type: "string",
       description: "Full patch, from *** Begin Patch through *** End Patch.",
+    },
+    format: {
+      type: "boolean",
+      description: "format defaults on. Set format false only when this call must not reformat.",
     },
   },
   required: ["patchText"],

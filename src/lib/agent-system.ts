@@ -117,6 +117,7 @@ const TODOS = [
 
 const VISUAL = [
   "Use `page_shot` only on a page that is already being served. One shot per review.",
+  "Optional `localStorage`, `sessionStorage`, and `cookies` are applied before the page script runs.",
   "Do not repeat it with a different host, height, or selector.",
   "A blank or identical image is a capture miss. Do not edit the page to remove a black box from a bad shot.",
   "Start a dev server with `background`. It is killed when the turn ends. Do not kill its pid. Do not use `bash` for that.",
