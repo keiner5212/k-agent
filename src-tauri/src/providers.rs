@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
+
+use rand::Rng;
+use regex_syntax::hir::{Hir, HirKind};
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -24,6 +28,12 @@ pub struct ModelCost {
 const PROVIDERS_FILE: &str = "providers.json";
 const PROVIDER_KEYS_FILE: &str = "provider-keys.json";
 const HTTP_TIMEOUT: Duration = Duration::from_secs(20);
+const MAX_HEADERS: usize = 32;
+const MAX_HEADER_NAME: usize = 128;
+const MAX_HEADER_VALUE: usize = 8192;
+const GENERATED_HEADERS_FILE: &str = "generated-headers.json";
+const HEADER_PATTERN_REPEAT: u32 = 64;
+const HEADER_SAMPLE_TRIES: usize = 16;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ProviderKind {
@@ -345,6 +355,32 @@ pub struct UpsertModelInput {
     pub request: Option<UserRequestSpec>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ProviderHeaderKind {
+    #[default]
+    Defined,
+    Generated,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderHeader {
+    pub name: String,
+    #[serde(default)]
+    pub kind: ProviderHeaderKind,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GeneratedHeaderEntry {
+    provider_id: String,
+    name: String,
+    pattern: String,
+    value: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Provider {
@@ -356,6 +392,8 @@ pub struct Provider {
     pub api_key: Option<String>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub has_api_key: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub headers: Vec<ProviderHeader>,
     #[serde(default, deserialize_with = "deserialize_models")]
     pub models: Vec<ModelInfo>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -374,6 +412,8 @@ pub struct SaveProviderInput {
     pub api_key: Option<String>,
     #[serde(default)]
     pub clear_api_key: bool,
+    #[serde(default)]
+    pub headers: Vec<ProviderHeader>,
     #[serde(default)]
     pub worker_cores: Option<u32>,
 }
@@ -402,6 +442,8 @@ pub enum ProviderError {
     ApiStatus { status: u16, body: String },
     #[error("{0}")]
     Crypto(String),
+    #[error("{0}")]
+    Invalid(String),
 }
 
 impl Serialize for ProviderError {
@@ -419,6 +461,7 @@ impl Serialize for ProviderError {
             NotFound { message: &'a str },
             Duplicate { message: &'a str },
             Crypto { message: &'a str },
+            Invalid { message: &'a str },
             Api { status: u16, message: &'a str },
         }
         let payload = match self {
@@ -432,6 +475,7 @@ impl Serialize for ProviderError {
             Self::NotFound(m) => Payload::NotFound { message: m },
             Self::Duplicate(m) => Payload::Duplicate { message: m },
             Self::Crypto(m) => Payload::Crypto { message: m },
+            Self::Invalid(m) => Payload::Invalid { message: m },
             Self::ApiStatus { status, body } => Payload::Api {
                 status: *status,
                 message: body,
@@ -658,7 +702,7 @@ pub(crate) fn attach_auth(
     req: reqwest::RequestBuilder,
     provider: &Provider,
 ) -> reqwest::RequestBuilder {
-    match provider.kind {
+    let req = match provider.kind {
         ProviderKind::OpenAiLike => {
             if let Some(key) = provider.api_key.as_deref() {
                 req.bearer_auth(key)
@@ -675,7 +719,265 @@ pub(crate) fn attach_auth(
             }
         }
         ProviderKind::GeminiLike => req,
+    };
+    apply_provider_headers(req, provider)
+}
+
+pub(crate) fn apply_provider_headers(
+    mut req: reqwest::RequestBuilder,
+    provider: &Provider,
+) -> reqwest::RequestBuilder {
+    for header in &provider.headers {
+        let value = match header.kind {
+            ProviderHeaderKind::Defined => header.value.clone(),
+            ProviderHeaderKind::Generated => match sample_header_pattern(&header.value) {
+                Ok(value) => value,
+                Err(_) => continue,
+            },
+        };
+        req = req.header(header.name.as_str(), value);
     }
+    req
+}
+
+pub(crate) fn bind_session_headers(
+    app: Option<&AppHandle>,
+    session_id: Option<&str>,
+    provider: &mut Provider,
+) -> Result<(), ProviderError> {
+    if !provider
+        .headers
+        .iter()
+        .any(|header| header.kind == ProviderHeaderKind::Generated)
+    {
+        return Ok(());
+    }
+    let path = match (app, session_id.map(str::trim).filter(|id| !id.is_empty())) {
+        (Some(app), Some(session_id)) => Some(generated_store_path(app, session_id)?),
+        _ => None,
+    };
+    provider.headers = resolve_generated_headers(path.as_deref(), &provider.id, &provider.headers)?;
+    Ok(())
+}
+
+fn generated_store_path(app: &AppHandle, session_id: &str) -> Result<PathBuf, ProviderError> {
+    let dir = crate::sessions::session_dir(app, session_id)
+        .map_err(|err| ProviderError::Path(err.to_string()))?;
+    Ok(dir.join(GENERATED_HEADERS_FILE))
+}
+
+fn generated_header_gate() -> std::sync::MutexGuard<'static, ()> {
+    static GATE: OnceLock<Mutex<()>> = OnceLock::new();
+    GATE.get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|err| err.into_inner())
+}
+
+fn resolve_generated_headers(
+    path: Option<&Path>,
+    provider_id: &str,
+    headers: &[ProviderHeader],
+) -> Result<Vec<ProviderHeader>, ProviderError> {
+    let _gate = path.map(|_| generated_header_gate());
+    let mut entries = path.map(load_generated_entries).unwrap_or_default();
+    let mut changed = false;
+    let mut out = Vec::with_capacity(headers.len());
+    for header in headers {
+        if header.kind != ProviderHeaderKind::Generated {
+            out.push(header.clone());
+            continue;
+        }
+        let pattern = header.value.as_str();
+        if let Some(found) = entries.iter().find(|entry| {
+            entry.provider_id == provider_id
+                && entry.name.eq_ignore_ascii_case(&header.name)
+                && entry.pattern == pattern
+        }) {
+            out.push(ProviderHeader {
+                name: header.name.clone(),
+                kind: ProviderHeaderKind::Defined,
+                value: found.value.clone(),
+            });
+            continue;
+        }
+        let value = sample_header_pattern(pattern)
+            .map_err(|error| named_pattern_error(&header.name, error))?;
+        if path.is_some() {
+            entries.retain(|entry| {
+                !(entry.provider_id == provider_id && entry.name.eq_ignore_ascii_case(&header.name))
+            });
+            entries.push(GeneratedHeaderEntry {
+                provider_id: provider_id.to_string(),
+                name: header.name.clone(),
+                pattern: pattern.to_string(),
+                value: value.clone(),
+            });
+            changed = true;
+        }
+        out.push(ProviderHeader {
+            name: header.name.clone(),
+            kind: ProviderHeaderKind::Defined,
+            value,
+        });
+    }
+    if changed {
+        if let Some(path) = path {
+            write_generated_entries(path, &entries)?;
+        }
+    }
+    Ok(out)
+}
+
+fn load_generated_entries(path: &Path) -> Vec<GeneratedHeaderEntry> {
+    let Ok(raw) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    if raw.trim().is_empty() {
+        return Vec::new();
+    }
+    serde_json::from_str(&raw).unwrap_or_default()
+}
+
+fn write_generated_entries(
+    path: &Path,
+    entries: &[GeneratedHeaderEntry],
+) -> Result<(), ProviderError> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|err| ProviderError::Io(err.to_string()))?;
+    }
+    let json = serde_json::to_string_pretty(entries)
+        .map_err(|err| ProviderError::Parse(err.to_string()))?;
+    std::fs::write(path, json).map_err(|err| ProviderError::Io(err.to_string()))
+}
+
+fn sample_header_pattern(pattern: &str) -> Result<String, ProviderError> {
+    let matcher = regex::Regex::new(pattern)
+        .map_err(|err| ProviderError::Invalid(format!("invalid header pattern: {err}")))?;
+    // rand_regex rejects look-around. A sample is the whole value, so drop those and keep samples the real pattern accepts.
+    let hir = regex_syntax::Parser::new()
+        .parse(pattern)
+        .map_err(|err| ProviderError::Invalid(format!("invalid header pattern: {err}")))?;
+    let generator = rand_regex::Regex::with_hir(strip_header_looks(hir), HEADER_PATTERN_REPEAT)
+        .map_err(|err| ProviderError::Invalid(format!("invalid header pattern: {err}")))?;
+    let mut rng = rand::thread_rng();
+    for _ in 0..HEADER_SAMPLE_TRIES {
+        let value: String = rng.sample(&generator);
+        if header_wire_ok(&value) && matcher.is_match(&value) {
+            return Ok(value);
+        }
+    }
+    Err(ProviderError::Invalid(
+        "header pattern cannot produce a header value".into(),
+    ))
+}
+
+fn strip_header_looks(hir: Hir) -> Hir {
+    match hir.into_kind() {
+        HirKind::Look(_) | HirKind::Empty => Hir::empty(),
+        HirKind::Literal(lit) => Hir::literal(lit.0),
+        HirKind::Class(class) => Hir::class(class),
+        HirKind::Repetition(mut rep) => {
+            rep.sub = Box::new(strip_header_looks(*rep.sub));
+            Hir::repetition(rep)
+        }
+        HirKind::Capture(mut cap) => {
+            cap.sub = Box::new(strip_header_looks(*cap.sub));
+            Hir::capture(cap)
+        }
+        HirKind::Concat(subs) => Hir::concat(subs.into_iter().map(strip_header_looks).collect()),
+        HirKind::Alternation(subs) => {
+            Hir::alternation(subs.into_iter().map(strip_header_looks).collect())
+        }
+    }
+}
+
+fn named_pattern_error(name: &str, error: ProviderError) -> ProviderError {
+    match error {
+        ProviderError::Invalid(message) => ProviderError::Invalid(format!("{message}: {name}")),
+        other => other,
+    }
+}
+
+fn header_wire_ok(value: &str) -> bool {
+    value.len() <= MAX_HEADER_VALUE
+        && value
+            .bytes()
+            .all(|byte| byte == b'\t' || (0x20..=0x7e).contains(&byte))
+}
+
+fn normalize_headers(headers: Vec<ProviderHeader>) -> Result<Vec<ProviderHeader>, ProviderError> {
+    if headers.len() > MAX_HEADERS {
+        return Err(ProviderError::Invalid(format!(
+            "at most {MAX_HEADERS} headers"
+        )));
+    }
+    let mut seen = HashMap::new();
+    let mut out = Vec::with_capacity(headers.len());
+    for header in headers {
+        let name = header.name.trim();
+        let value = header.value.trim();
+        if name.is_empty() && value.is_empty() {
+            continue;
+        }
+        if !valid_header_name(name) {
+            return Err(ProviderError::Invalid(format!(
+                "invalid header name: {name}"
+            )));
+        }
+        if value.len() > MAX_HEADER_VALUE
+            || value.bytes().any(|byte| byte == b'\r' || byte == b'\n')
+        {
+            return Err(ProviderError::Invalid(format!(
+                "invalid header value: {name}"
+            )));
+        }
+        if header.kind == ProviderHeaderKind::Generated {
+            if value.is_empty() {
+                return Err(ProviderError::Invalid(format!(
+                    "header pattern is empty: {name}"
+                )));
+            }
+            sample_header_pattern(value).map_err(|error| named_pattern_error(name, error))?;
+        }
+        let key = name.to_ascii_lowercase();
+        if seen.insert(key, ()).is_some() {
+            return Err(ProviderError::Invalid(format!("duplicate header: {name}")));
+        }
+        out.push(ProviderHeader {
+            name: name.to_string(),
+            kind: header.kind,
+            value: value.to_string(),
+        });
+    }
+    Ok(out)
+}
+
+fn valid_header_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= MAX_HEADER_NAME
+        && name.bytes().all(|byte| {
+            matches!(
+                byte,
+                b'!'
+                    | b'#'
+                    | b'$'
+                    | b'%'
+                    | b'&'
+                    | b'\''
+                    | b'*'
+                    | b'+'
+                    | b'-'
+                    | b'.'
+                    | b'^'
+                    | b'_'
+                    | b'`'
+                    | b'|'
+                    | b'~'
+                    | b'0'..=b'9'
+                    | b'A'..=b'Z'
+                    | b'a'..=b'z'
+            )
+        })
 }
 
 async fn fetch_models(provider: &Provider) -> Result<Vec<String>, ProviderError> {
@@ -730,7 +1032,10 @@ async fn fetch_models(provider: &Provider) -> Result<Vec<String>, ProviderError>
                 Some(key) => format!("{base}/v1beta/models?key={key}"),
                 None => format!("{base}/v1beta/models"),
             };
-            let resp = client.get(&url).send().await.map_err(classify_send_error)?;
+            let resp = attach_auth(client.get(&url), provider)
+                .send()
+                .await
+                .map_err(classify_send_error)?;
             let status = resp.status();
             if !status.is_success() {
                 let body = resp.text().await.unwrap_or_default();
@@ -810,7 +1115,7 @@ async fn fetch_model_details(provider: &Provider, model_id: &str) -> ModelInfo {
                 Some(key) => format!("{base}/v1beta/models/{model_id}?key={key}"),
                 None => format!("{base}/v1beta/models/{model_id}"),
             };
-            let resp = client.get(&url).send().await;
+            let resp = attach_auth(client.get(&url), provider).send().await;
             if let Ok(resp) = resp {
                 if resp.status().is_success() {
                     if let Ok(detail) = resp.json::<GeminiModel>().await {
@@ -970,14 +1275,17 @@ pub async fn save_provider(
         base_url: input.base_url.trim().to_string(),
         api_key,
         has_api_key: false,
+        headers: normalize_headers(input.headers)?,
         models: previous_models.clone(),
         last_synced_at: None,
     };
 
-    let models_ids = fetch_models(&stored).await?;
+    let mut wire = stored.clone();
+    bind_session_headers(None, None, &mut wire)?;
+    let models_ids = fetch_models(&wire).await?;
     stored.models = enrich_models(
         &app,
-        &stored,
+        &wire,
         &models_ids,
         previous_models,
         detail_concurrency(input.worker_cores),
@@ -1017,12 +1325,13 @@ pub async fn refresh_provider_models(
         .find(|p| p.id == id)
         .ok_or_else(|| ProviderError::NotFound(id.clone()))?;
 
-    let snapshot = provider.clone();
-    let previous = snapshot.models.clone();
-    let model_ids = fetch_models(&snapshot).await?;
+    let mut wire = provider.clone();
+    bind_session_headers(None, None, &mut wire)?;
+    let previous = wire.models.clone();
+    let model_ids = fetch_models(&wire).await?;
     let models = enrich_models(
         &app,
-        &snapshot,
+        &wire,
         &model_ids,
         previous,
         detail_concurrency(worker_cores),
@@ -1228,4 +1537,113 @@ pub async fn set_model_favorite(
     let updated = provider.clone();
     save_all(&app, &providers).await?;
     Ok(redact(updated))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn scratch(name: &str) -> PathBuf {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../.tmp/header-gen")
+            .join(name);
+        let _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    fn generated(name: &str, pattern: &str) -> ProviderHeader {
+        ProviderHeader {
+            name: name.to_string(),
+            kind: ProviderHeaderKind::Generated,
+            value: pattern.to_string(),
+        }
+    }
+
+    #[test]
+    fn missing_kind_deserializes_as_defined() {
+        let header: ProviderHeader =
+            serde_json::from_str(r#"{"name":"X-Test","value":"abc"}"#).unwrap();
+        assert_eq!(header.kind, ProviderHeaderKind::Defined);
+        assert_eq!(header.value, "abc");
+    }
+
+    #[test]
+    fn generated_value_sticks_to_one_store() {
+        let dir = scratch("reuse");
+        let path = dir.join("generated-headers.json");
+        let headers = vec![generated("X-Client", "[0-9a-f]{16}")];
+        let first = resolve_generated_headers(Some(&path), "prov", &headers).unwrap();
+        let second = resolve_generated_headers(Some(&path), "prov", &headers).unwrap();
+        assert_eq!(first[0].kind, ProviderHeaderKind::Defined);
+        assert_eq!(first[0].value, second[0].value);
+        let matcher = regex::Regex::new("^[0-9a-f]{16}$").unwrap();
+        assert!(matcher.is_match(&first[0].value));
+        let other = dir.join("other.json");
+        let third = resolve_generated_headers(Some(&other), "prov", &headers).unwrap();
+        assert_ne!(first[0].value, third[0].value);
+    }
+
+    #[test]
+    fn pattern_change_stores_a_new_value() {
+        let dir = scratch("pattern");
+        let path = dir.join("generated-headers.json");
+        let first =
+            resolve_generated_headers(Some(&path), "prov", &[generated("X-Client", "[0-9]{8}")])
+                .unwrap();
+        let second =
+            resolve_generated_headers(Some(&path), "prov", &[generated("X-Client", "[a-f]{8}")])
+                .unwrap();
+        assert!(regex::Regex::new("^[0-9]{8}$")
+            .unwrap()
+            .is_match(&first[0].value));
+        assert!(regex::Regex::new("^[a-f]{8}$")
+            .unwrap()
+            .is_match(&second[0].value));
+        assert_ne!(first[0].value, second[0].value);
+    }
+
+    #[test]
+    fn defined_header_is_copied_and_does_not_write_a_store() {
+        let dir = scratch("defined");
+        let path = dir.join("generated-headers.json");
+        let headers = vec![ProviderHeader {
+            name: "X-Trace".into(),
+            kind: ProviderHeaderKind::Defined,
+            value: "keep-me".into(),
+        }];
+        let resolved = resolve_generated_headers(Some(&path), "prov", &headers).unwrap();
+        assert_eq!(resolved, headers);
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn invalid_pattern_is_rejected() {
+        let error = normalize_headers(vec![generated("X-Client", "(")]).unwrap_err();
+        assert!(matches!(error, ProviderError::Invalid(_)));
+    }
+
+    #[test]
+    fn anchored_session_pattern_generates_a_match() {
+        let resolved = resolve_generated_headers(
+            None,
+            "prov",
+            &[generated("x-opencode-session", r"^ses_[0-9a-f]{64}$")],
+        )
+        .unwrap();
+        let matcher = regex::Regex::new(r"^ses_[0-9a-f]{64}$").unwrap();
+        assert!(matcher.is_match(&resolved[0].value), "{}", resolved[0].value);
+    }
+
+    #[test]
+    fn word_boundary_pattern_generates_a_match() {
+        let resolved = resolve_generated_headers(
+            None,
+            "prov",
+            &[generated("x-opencode-session", r"^\bses_[0-9a-f]{8}\b$")],
+        )
+        .unwrap();
+        let matcher = regex::Regex::new(r"^\bses_[0-9a-f]{8}\b$").unwrap();
+        assert!(matcher.is_match(&resolved[0].value), "{}", resolved[0].value);
+    }
 }

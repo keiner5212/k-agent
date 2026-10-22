@@ -55,6 +55,10 @@ const WRITE_TOOL_PARAMETERS = {
       type: "string",
       description: "Absolute or workspace-relative path",
     },
+    format: {
+      type: "boolean",
+      description: "format defaults on. Set format false only when this call must not reformat.",
+    },
   },
   required: ["content", "filePath"],
 } as const;
@@ -64,26 +68,27 @@ const EDIT_TOOL_PARAMETERS = {
   properties: {
     filePath: {
       type: "string",
-      description:
-        "Single-edit shape only. Absolute or workspace-relative path. Omit this when edits is set. It is not a parent path for edits.",
+      description: `One replacement only. File path. Omit this when edits is set. Not a directory for the array.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
     },
     oldString: {
       type: "string",
-      description: "Single-edit shape only. Text to find. Omit this when edits is set.",
+      description: `One replacement only. Exact file text to find. Omit this when edits is set. Not a line-number prefix from read. Not a diff hunk. Include the indentation that is in the file.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
     },
     newString: {
       type: "string",
-      description: "Single-edit shape only. Replacement text. Omit this when edits is set.",
+      description: `One replacement only. Full replacement of that span, not a patch line with + or -. Omit this when edits is set.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
     },
     replaceAll: {
       type: "boolean",
-      description:
-        "Single-edit shape only. Replace every match (default false). Omit this when edits is set.",
+      description: `One replacement only. Optional. True replaces every match. Default false. Omit this when edits is set.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
+    },
+    format: {
+      type: "boolean",
+      description: "format defaults on. Set format false only when this call must not reformat.",
     },
     edits: {
       type: "array",
-      description:
-        "Multi-edit shape only. Each item has its own filePath, oldString, newString, and optional replaceAll. Omit top-level filePath, oldString, newString, and replaceAll.",
+      description: `Many replacements only. Each item has its own filePath, oldString, newString, and optional replaceAll. Do not send top-level filePath, oldString, newString, or replaceAll. Top-level filePath is not a directory for this array.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
       items: {
         type: "object",
         properties: {
@@ -99,7 +104,7 @@ const EDIT_TOOL_PARAMETERS = {
   anyOf: [{ required: ["filePath", "oldString", "newString"] }, { required: ["edits"] }],
 } as const;
 
-const LIST_DIRECTORY_TOOL_PARAMETERS = {
+const GLOB_TOOL_PARAMETERS = {
   type: "object",
   properties: {
     dirPath: {
@@ -113,12 +118,12 @@ const LIST_DIRECTORY_TOOL_PARAMETERS = {
     maxDepth: {
       type: "integer",
       minimum: 1,
-      description: "Max depth when recursive (default 3, or 10 when glob is set, max 10)",
+      description: "Max depth when recursive (default 3, or 10 when pattern is set, max 10)",
     },
-    glob: {
+    pattern: {
       type: "string",
       description:
-        "Argument of list_directory, not a separate tool. Return only matching file paths. *.rs matches any depth. *.{ts,tsx} matches either suffix.",
+        "Return only matching file paths. *.rs matches any depth. *.{ts,tsx} matches either suffix.",
     },
   },
 } as const;
@@ -214,45 +219,6 @@ const INTERNET_SEARCH_TOOL_PARAMETERS = {
   required: ["query"],
 } as const;
 
-const HTTP_REQUEST_TOOL_PARAMETERS = {
-  type: "object",
-  properties: {
-    url: { type: "string", description: "Absolute http or https URL, including localhost." },
-    method: {
-      type: "string",
-      description: "GET, HEAD, POST, PUT, PATCH, DELETE, or OPTIONS. Default GET.",
-    },
-    headers: { type: "object", description: "Optional header map. Values are strings." },
-    query: { type: "object", description: "Optional query parameter map appended to the URL." },
-    body: { type: "string", description: "Optional raw body. Ignored for GET and HEAD." },
-    timeoutMs: {
-      type: "number",
-      description: "Timeout in milliseconds. Default 20000, max 60000.",
-    },
-  },
-  required: ["url"],
-} as const;
-
-const GRAPHQL_TOOL_PARAMETERS = {
-  type: "object",
-  properties: {
-    url: { type: "string", description: "GraphQL endpoint. http or https, including localhost." },
-    query: { type: "string", description: "GraphQL query or mutation document." },
-    variables: { type: "object", description: "Optional variables object." },
-    operationName: { type: "string", description: "Optional operation name." },
-    headers: { type: "object", description: "Optional header map." },
-    method: {
-      type: "string",
-      description: "POST (default) or GET. Non-GET waits for confirmation.",
-    },
-    timeoutMs: {
-      type: "number",
-      description: "Timeout in milliseconds. Default 20000, max 60000.",
-    },
-  },
-  required: ["url", "query"],
-} as const;
-
 const PAGE_SHOT_TOOL_PARAMETERS = {
   type: "object",
   properties: {
@@ -271,7 +237,49 @@ const PAGE_SHOT_TOOL_PARAMETERS = {
     },
     waitMs: {
       type: "number",
-      description: "Extra wait after load before capture. Default 300. Max 5000.",
+      description: "Extra delay after the view has painted. Default 300. Max 5000.",
+    },
+    localStorage: {
+      type: "array",
+      description:
+        "Optional. Up to 50 {key, value} strings. Applied on the page origin before the app script runs. Each value max 8 KB.",
+      items: {
+        type: "object",
+        properties: {
+          key: { type: "string" },
+          value: { type: "string" },
+        },
+        required: ["key", "value"],
+      },
+    },
+    sessionStorage: {
+      type: "array",
+      description: "Optional. Same shape and timing as localStorage, for sessionStorage.",
+      items: {
+        type: "object",
+        properties: {
+          key: { type: "string" },
+          value: { type: "string" },
+        },
+        required: ["key", "value"],
+      },
+    },
+    cookies: {
+      type: "array",
+      description:
+        "Optional. Up to 50 cookies, set before the first request. name and value are required. domain defaults to the URL host and must match it. path defaults to /. secure and httpOnly default false. Each value max 8 KB.",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          value: { type: "string" },
+          domain: { type: "string" },
+          path: { type: "string" },
+          secure: { type: "boolean" },
+          httpOnly: { type: "boolean" },
+        },
+        required: ["name", "value"],
+      },
     },
   },
   required: ["url"],
@@ -325,8 +333,13 @@ const BASH_TOOL_PARAMETERS = {
   type: "object",
   properties: {
     command: { type: "string", description: "One shell command." },
+    description: {
+      type: "string",
+      description:
+        "One short sentence: what this command does and why. Required on every call, including safe, allowed, and blocked commands.",
+    },
   },
-  required: ["command"],
+  required: ["command", "description"],
 } as const;
 
 const GREP_TOOL_PARAMETERS = {
@@ -357,6 +370,10 @@ const APPLY_PATCH_TOOL_PARAMETERS = {
     patchText: {
       type: "string",
       description: "Full patch, from *** Begin Patch through *** End Patch.",
+    },
+    format: {
+      type: "boolean",
+      description: "format defaults on. Set format false only when this call must not reformat.",
     },
   },
   required: ["patchText"],
@@ -400,14 +417,12 @@ const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   read: READ_TOOL_PARAMETERS,
   write: WRITE_TOOL_PARAMETERS,
   edit: EDIT_TOOL_PARAMETERS,
-  list_directory: LIST_DIRECTORY_TOOL_PARAMETERS,
+  glob: GLOB_TOOL_PARAMETERS,
   ask_user: ASK_USER_TOOL_PARAMETERS,
   create_folder: CREATE_FOLDER_TOOL_PARAMETERS,
   delete: DELETE_TOOL_PARAMETERS,
   fetch_url: FETCH_URL_TOOL_PARAMETERS,
   internet_search: INTERNET_SEARCH_TOOL_PARAMETERS,
-  http_request: HTTP_REQUEST_TOOL_PARAMETERS,
-  graphql: GRAPHQL_TOOL_PARAMETERS,
   page_shot: PAGE_SHOT_TOOL_PARAMETERS,
   todowrite: TODO_TOOL_PARAMETERS,
   bash: BASH_TOOL_PARAMETERS,

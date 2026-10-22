@@ -36,7 +36,6 @@ type LooseSession = {
   todos?: unknown;
   todosHistory?: unknown;
   outsideWorkspaceAllowed?: boolean;
-  httpWriteAllowed?: boolean;
   workspacePath?: unknown;
   parentSessionId?: unknown;
   fileCheckpoints?: unknown;
@@ -202,7 +201,6 @@ export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => {
     todos: sanitizeTodoItems(session.todos),
     todosHistory: sanitizeTodoHistory(session.todosHistory),
     outsideWorkspaceAllowed: session.outsideWorkspaceAllowed === true,
-    httpWriteAllowed: session.httpWriteAllowed === true,
     ...(typeof session.workspacePath === "string" && session.workspacePath.trim().length > 0
       ? { workspacePath: session.workspacePath }
       : {}),

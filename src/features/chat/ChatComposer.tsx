@@ -26,6 +26,7 @@ import {
   preparePathAttachments,
 } from "@/lib/attachments";
 import { generateAppContent } from "@/lib/app-generation";
+import { openExternalUrl } from "@/lib/external-links";
 import { useChatStore } from "@/lib/chat";
 import { useComposerStore } from "@/lib/composer";
 import { resolveSelectedModel } from "@/lib/context-usage";
@@ -48,6 +49,8 @@ import { StreamRate } from "./StreamRate";
 import { ModelRequestButton } from "./ModelRequestDialog";
 import { ModelSelector } from "./ModelSelector";
 import { useComposerFocusKeys } from "./use-composer-focus";
+
+const HELP_ISSUES_URL = "https://github.com/keiner5212/k-agent/issues";
 
 export const ChatComposer = (): ReactNode => {
   const { t } = useTranslation();
@@ -100,6 +103,13 @@ export const ChatComposer = (): ReactNode => {
       }
       if (commandId === "stop") {
         void useSessionsStore.getState().interruptActiveTask();
+        return;
+      }
+      if (commandId === "help") {
+        void openExternalUrl(HELP_ISSUES_URL).catch((error: unknown) => {
+          console.warn("openExternalUrl failed", error);
+        });
+        return;
       }
     },
     [requestRewind],
@@ -213,6 +223,7 @@ export const ChatComposer = (): ReactNode => {
       if (!canQueue) return;
       if (action) {
         consume();
+        runSlashAction(action.id);
         return;
       }
       enqueue(text, mode, shellMode ? undefined : pending);

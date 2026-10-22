@@ -2,10 +2,8 @@ mod apply_patch;
 mod diagram;
 mod edit;
 mod fetch_url;
-mod graphql;
-mod http_request;
+mod glob;
 mod internet_search;
-mod list_directory;
 mod page_shot;
 mod read;
 mod skill;
@@ -43,14 +41,12 @@ pub const SKILL_TOOL_NAME: &str = skill::NAME;
 pub const READ_TOOL_NAME: &str = read::NAME;
 pub const WRITE_TOOL_NAME: &str = write::NAME;
 pub const EDIT_TOOL_NAME: &str = edit::NAME;
-pub const LIST_DIRECTORY_TOOL_NAME: &str = list_directory::NAME;
+pub const GLOB_TOOL_NAME: &str = glob::NAME;
 pub const ASK_USER_TOOL_NAME: &str = ask_user::NAME;
 pub const CREATE_FOLDER_TOOL_NAME: &str = create_folder::NAME;
 pub const DELETE_TOOL_NAME: &str = delete::NAME;
 pub const FETCH_URL_TOOL_NAME: &str = fetch_url::NAME;
 pub const INTERNET_SEARCH_TOOL_NAME: &str = internet_search::NAME;
-pub const HTTP_REQUEST_TOOL_NAME: &str = http_request::NAME;
-pub const GRAPHQL_TOOL_NAME: &str = graphql::NAME;
 pub const PAGE_SHOT_TOOL_NAME: &str = page_shot::NAME;
 pub const TODO_TOOL_NAME: &str = todo::NAME;
 pub const BASH_TOOL_NAME: &str = bash::NAME;
@@ -61,13 +57,13 @@ pub const APPLY_PATCH_TOOL_NAME: &str = apply_patch::NAME;
 pub const LSP_TOOL_NAME: &str = lsp::NAME;
 pub const TASK_TOOL_NAME: &str = task::NAME;
 pub const DIAGRAM_TOOL_NAME: &str = diagram::NAME;
-pub const LIST_DIRECTORY_MAX_PARALLELISM: usize = list_directory::MAX_PARALLELISM;
+pub const GLOB_MAX_PARALLELISM: usize = glob::MAX_PARALLELISM;
 
 /// Tools a child may call. The agent's saved tool list applies only in main mode.
 pub const SUBAGENT_TOOL_NAMES: &[&str] = &[
     SKILL_TOOL_NAME,
     READ_TOOL_NAME,
-    LIST_DIRECTORY_TOOL_NAME,
+    GLOB_TOOL_NAME,
     GREP_TOOL_NAME,
     LSP_TOOL_NAME,
     INTERNET_SEARCH_TOOL_NAME,
@@ -121,7 +117,6 @@ pub struct ToolContext<'a> {
     pub session_id: Option<String>,
     pub thought_signature: String,
     pub outside_workspace_allowed: bool,
-    pub http_write_allowed: bool,
     pub on_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
     pub question_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
     pub workspace: Option<std::path::PathBuf>,
@@ -174,24 +169,53 @@ pub(crate) async fn notify_lsp(ctx: &ToolContext<'_>, path: &std::path::Path, de
     crate::lsp_client::sync_disk_change(app, path, deleted).await;
 }
 
+pub(crate) fn format_requested(args: &Value) -> bool {
+    match args.get("format") {
+        Some(Value::Bool(flag)) => *flag,
+        _ => true,
+    }
+}
+
+fn gate_format<T>(format: bool, format_files: impl FnOnce() -> T, skipped: T) -> T {
+    if format {
+        format_files()
+    } else {
+        skipped
+    }
+}
+
+fn format_note(names: &[String]) -> String {
+    if names.is_empty() {
+        String::new()
+    } else {
+        format!("\nformatted: {}", names.join(", "))
+    }
+}
+
 pub(crate) async fn attach_lsp_diagnostics(
     ctx: &ToolContext<'_>,
     outcome: &mut ToolOutcome,
     paths: &[std::path::PathBuf],
+    format: bool,
 ) {
     let Some(app) = ctx.app else {
         return;
     };
-    let formatted = crate::lsp_client::format_files(app, paths).await;
+    let pending = gate_format(
+        format,
+        || Some(crate::lsp_client::format_files(app, paths)),
+        None,
+    );
+    let formatted = match pending {
+        Some(future) => future.await,
+        None => Vec::new(),
+    };
     // Snapshot stays the edit so added/removed match the diff. Format stays on disk.
-    if !formatted.is_empty() {
-        let names = formatted
-            .iter()
-            .map(|path| ctx.relative_path(path))
-            .collect::<Vec<_>>()
-            .join(", ");
-        outcome.text.push_str(&format!("\nformatted: {names}"));
-    }
+    let names = formatted
+        .iter()
+        .map(|path| ctx.relative_path(path))
+        .collect::<Vec<_>>();
+    outcome.text.push_str(&format_note(&names));
     let Some(found) = crate::lsp_client::diagnostics_after_write(app, paths).await else {
         return;
     };
@@ -360,7 +384,6 @@ impl ToolContext<'static> {
             session_id: None,
             thought_signature: String::new(),
             outside_workspace_allowed: false,
-            http_write_allowed: false,
             on_chunk: None,
             question_chunk: None,
             workspace: Some(workspace),
@@ -533,14 +556,12 @@ fn all_tools() -> Vec<Box<dyn Tool>> {
         Box::new(read::ReadTool),
         Box::new(write::WriteTool),
         Box::new(edit::EditTool),
-        Box::new(list_directory::ListDirectoryTool),
+        Box::new(glob::GlobTool),
         Box::new(ask_user::AskUserTool),
         Box::new(create_folder::CreateFolderTool),
         Box::new(delete::DeleteTool),
         Box::new(fetch_url::FetchUrlTool),
         Box::new(internet_search::InternetSearchTool),
-        Box::new(http_request::HttpRequestTool),
-        Box::new(graphql::GraphqlTool),
         Box::new(page_shot::PageShotTool),
         Box::new(todo::TodoTool),
         Box::new(bash::BashTool),
@@ -576,8 +597,8 @@ pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> Tool
     if name == edit::NAME {
         return edit::execute_async(arguments, ctx).await;
     }
-    if name == list_directory::NAME {
-        return list_directory::execute_async(arguments, ctx).await;
+    if name == glob::NAME {
+        return glob::execute_async(arguments, ctx).await;
     }
     if name == create_folder::NAME {
         return create_folder::execute_async(arguments, ctx).await;
@@ -590,12 +611,6 @@ pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> Tool
     }
     if name == internet_search::NAME {
         return internet_search::execute_async(arguments, ctx).await;
-    }
-    if name == http_request::NAME {
-        return http_request::execute_async(arguments, ctx).await;
-    }
-    if name == graphql::NAME {
-        return graphql::execute_async(arguments, ctx).await;
     }
     if name == page_shot::NAME {
         return page_shot::execute_async(arguments, ctx).await;
@@ -842,6 +857,43 @@ mod tests {
         let before = "a\nb\nc\n";
         let after = "a\nB\nc\n";
         assert_eq!(line_add_remove(before, after), (1, 1));
+    }
+
+    #[test]
+    fn format_false_does_not_call_formatter() {
+        let mut calls = 0;
+        let skipped = gate_format(
+            format_requested(&json!({"format": false})),
+            || {
+                calls += 1;
+                vec!["src/a.rs".to_string()]
+            },
+            Vec::new(),
+        );
+        assert_eq!(calls, 0);
+        assert!(format_note(&skipped).is_empty());
+
+        let ran = gate_format(
+            format_requested(&json!({})),
+            || {
+                calls += 1;
+                vec!["src/a.rs".to_string()]
+            },
+            Vec::new(),
+        );
+        assert_eq!(calls, 1);
+        assert_eq!(format_note(&ran), "\nformatted: src/a.rs");
+
+        let again = gate_format(
+            format_requested(&json!({"format": true})),
+            || {
+                calls += 1;
+                vec!["src/a.rs".to_string()]
+            },
+            Vec::new(),
+        );
+        assert_eq!(calls, 2);
+        assert_eq!(format_note(&again), "\nformatted: src/a.rs");
     }
 
     #[test]

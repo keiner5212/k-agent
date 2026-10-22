@@ -16,7 +16,8 @@ Use this when several files change together. One exact span in one file still us
 Envelope: *** Begin Patch, then *** Add File, *** Update File, or *** Delete File, then *** End Patch. \
 Update hunks use @@ then lines prefixed with space (context), - (remove), or + (add). \
 The context must match the file once. An optional *** Move to renames an update. \
-Paths outside the workspace wait for the user.\
+Paths outside the workspace wait for the user. \
+format defaults on. Set format false only when this call must not reformat.\
 ";
 
 const MAX_PATCH_CHARS: usize = 200_000;
@@ -34,6 +35,10 @@ impl Tool for ApplyPatchTool {
                     "patchText": {
                         "type": "string",
                         "description": "Full patch, from *** Begin Patch through *** End Patch."
+                    },
+                    "format": {
+                        "type": "boolean",
+                        "description": "format defaults on. Set format false only when this call must not reformat."
                     }
                 },
                 "required": ["patchText"]
@@ -96,7 +101,13 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
                     resolved.push(path);
                 }
             }
-            super::attach_lsp_diagnostics(ctx, &mut outcome, &resolved).await;
+            super::attach_lsp_diagnostics(
+                ctx,
+                &mut outcome,
+                &resolved,
+                super::format_requested(&args),
+            )
+            .await;
         }
     }
     outcome

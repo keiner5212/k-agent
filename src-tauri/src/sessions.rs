@@ -53,8 +53,6 @@ pub struct SessionRecord {
     pub messages: Vec<SessionMessage>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub outside_workspace_allowed: bool,
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-    pub http_write_allowed: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub todos: Vec<crate::tools::todo::TodoItem>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -213,7 +211,6 @@ fn empty_snapshot() -> SessionsSnapshot {
             updated_at: chrono::Utc::now().timestamp(),
             messages: Vec::new(),
             outside_workspace_allowed: false,
-            http_write_allowed: false,
             todos: Vec::new(),
             todos_history: Vec::new(),
             workspace_path: None,
@@ -385,7 +382,6 @@ pub fn write_child_session(
         updated_at: chrono::Utc::now().timestamp(),
         messages: vec![user, assistant],
         outside_workspace_allowed: false,
-        http_write_allowed: false,
         todos: Vec::new(),
         todos_history: Vec::new(),
         workspace_path,
@@ -454,7 +450,6 @@ pub(crate) fn read_session_record(
             updated_at: chrono::Utc::now().timestamp(),
             messages: Vec::new(),
             outside_workspace_allowed: false,
-            http_write_allowed: false,
             todos: Vec::new(),
             todos_history: Vec::new(),
             workspace_path: None,

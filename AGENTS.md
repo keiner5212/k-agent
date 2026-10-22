@@ -116,19 +116,21 @@ App data dir:
 - `cache/fetch-url/` and `cache/internet-search/` (tool HTTP cache, 1 hour TTL)
 - `sessions.json` (thin index: `activeSessionId` plus `{id,title,preview,updatedAt}`)
 - `sessions/{id}/session.json` (messages; no attachment blobs; `toolRounds` only)
+- `sessions/{id}/generated-headers.json` (generated header values for that chat)
 - `sessions/{id}/attachments/{attachmentId}{ext}` (raw attachment bytes)
 - `sessions/{id}/files/{callId}.before` and `{callId}.after` (write/edit snapshots)
 
 `~/.k-agent/`:
 
 - `providers.json` (no API keys)
-- `mcp-servers.json` (no env vars or headers)
+- `<name>/mcp.json` global MCP servers. One directory per server. No env vars or headers. `skills`, `agents`, and `cache` are reserved names. A legacy `mcp-servers.json` list is migrated on load.
 - `models-dev-cache.json` (24h TTL)
 - `skills/` global skills. Created on first global skill create.
 - `agents/` session agents (OpenCode-style personas: `{name}/persona.md`). Not AGENTS.md. Created on first global agent create.
 - `AGENTS.md` optional global instruction file. List never creates it. Create/edit/delete from Settings.
 
 Workspace `{workspace}/.agents/skills/`: local skills. Created on first local skill create.
+Workspace `{workspace}/.k-agent/<name>/mcp.json`: workspace MCP servers. Created on first workspace server save. Same file shape as global MCP. Secrets stay in app data `mcp-secrets.json`, keyed by `global/<name>` or `local/<name>`. If the workspace is the home directory, that path is the global root, so workspace scope stays off.
 Session agents live in `~/.k-agent/agents/` only. Builtin agents are app-defined.
 Workspace instruction file: first existing file at the workspace root wins, in order `AGENTS.md`, `agents.md`, `CLAUDE.md`, `CONTEXT.md`. Only that one file is loaded. List never creates it. Create and edit from Settings write `AGENTS.md` or an existing `agents.md`, and do not modify `CLAUDE.md` or `CONTEXT.md`. Delete removes only the owned file. Session agents are not stored as AGENTS.md.
 
@@ -146,7 +148,7 @@ Session files under `app_data_dir/sessions/<id>/session.json` and the thin index
 
 For `sessions.json` (the thin index): same rules, but the index is regenerated from the per-session files on load (`load_from_session_dirs`), so a corrupt index is recoverable by deleting it.
 
-For `~/.k-agent/providers.json` and `mcp-servers.json`: same rules. User-edited, no canonical schema version yet. A change must handle both old and new shapes in one pass.
+For `~/.k-agent/providers.json` and MCP `mcp.json` files: same rules. User-edited, no canonical schema version yet. A change must handle both old and new shapes in one pass. The legacy `mcp-servers.json` array is read once and rewritten into per-server files.
 
 When in doubt, prefer additive changes (`#[serde(default)]` + new optional fields) over migrations. Less code, less risk.
 
@@ -186,11 +188,11 @@ Hard constraints:
 
 Three flavors. Pick by what the tool does, not by what feels easy.
 
-| Flavor                   | When                                                                       | Body                                                                        | Output                                  |
-| ------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------- |
-| Sync                     | Pure CPU or memory work, finishes in ms                                    | `Tool::execute` returns `ToolOutcome`                                       | TOON in `text`                          |
-| Sync with workspace gate | Reads or writes files anywhere on disk                                     | `Tool::execute` returns `ToolOutcome` after `tool-context!` workspace check | TOON in `text`, may block on `ask_user` |
-| Async                    | Waits on user (`ask_user`) or external network (`http_request`, `graphql`) | `Tool::execute_async` future                                                | TOON in `text`, returned via chunk      |
+| Flavor                   | When                                                         | Body                                                                        | Output                                  |
+| ------------------------ | ------------------------------------------------------------ | --------------------------------------------------------------------------- | --------------------------------------- |
+| Sync                     | Pure CPU or memory work, finishes in ms                      | `Tool::execute` returns `ToolOutcome`                                       | TOON in `text`                          |
+| Sync with workspace gate | Reads or writes files anywhere on disk                       | `Tool::execute` returns `ToolOutcome` after `tool-context!` workspace check | TOON in `text`, may block on `ask_user` |
+| Async                    | Waits on user (`ask_user`) or external network (`fetch_url`) | `Tool::execute_async` future                                                | TOON in `text`, returned via chunk      |
 
 Atomicity rule: every tool is atomic. If the call contains multiple operations (add/update/remove, multi-file write, batched HTTP), build the result in memory first, validate the whole result, then commit. A failed validation in the middle of a call must leave zero side effects. Reference: `TodoTool::stage` in `src-tauri/src/tools/todo.rs` stages all changes in a `Staged` struct before any mutation or persistence.
 

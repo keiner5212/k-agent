@@ -39,7 +39,7 @@ const fileName = (path: string): string => {
 const TOOL_TITLE: Record<string, string> = {
   skill: "chat.tools.skillTitle",
   read: "chat.tools.readTitle",
-  list_directory: "chat.tools.listTitle",
+  glob: "chat.tools.globTitle",
   write: "chat.tools.writeTitle",
   edit: "chat.tools.editTitle",
   create_folder: "chat.tools.createFolderTitle",
@@ -50,8 +50,6 @@ const TOOL_TITLE: Record<string, string> = {
   grep: "chat.tools.grepTitle",
   fetch_url: "chat.tools.fetchTitle",
   internet_search: "chat.tools.searchTitle",
-  http_request: "chat.tools.httpTitle",
-  graphql: "chat.tools.graphqlTitle",
   page_shot: "chat.tools.shotTitle",
   ask_user: "chat.tools.askTitle",
   apply_patch: "chat.tools.patchTitle",
@@ -65,7 +63,7 @@ const TOOL_SYMBOL: Record<string, string> = {
   read: "\u25CB ",
   write: "\u270E ",
   edit: "\u2710 ",
-  list_directory: "\u229E ",
+  glob: "\u229E ",
   ask_user: "\u25CC ",
   create_folder: "\u25A4 ",
   delete: "\u2715 ",
@@ -126,37 +124,38 @@ const fieldOr = (raw: string, key: string, fallback: string): string => {
 const previewFromOutput = (call: ChatToolCall): string => {
   const raw = call.output ?? "";
   const error = toonFieldValue(raw, "error");
-  if (call.name === "skill") return fieldOr(raw, "body", error || raw);
-  if (call.name === "list_directory") return fieldOr(raw, "entries", error || raw);
-  if (call.name === "grep") return fieldOr(raw, "matches", error || raw);
-  if (call.name === "internet_search") return fieldOr(raw, "items", error || raw);
-  if (call.name === "http_request" || call.name === "graphql") {
-    return fieldOr(raw, "body", error || raw);
-  }
-  if (call.name === "fetch_url") {
+  const name = call.name;
+  if (name === "skill") return fieldOr(raw, "body", error || raw);
+  if (name === "glob") return fieldOr(raw, "entries", error || raw);
+  if (name === "grep") return fieldOr(raw, "matches", error || raw);
+  if (name === "internet_search") return fieldOr(raw, "items", error || raw);
+  if (name === "fetch_url") {
     if (error) return error;
     const title = toonFieldValue(raw, "title");
     const content = toonFieldValue(raw, "content");
     if (title && content) return `${title}\n\n${content}`;
     return content || raw;
   }
-  if (call.name === "ask_user")
-    return fieldOr(raw, "answers", toonFieldValue(raw, "status") || raw);
-  if (call.name === "page_shot") return error || toonFieldValue(raw, "url") || raw;
-  if (call.name === "todowrite") {
+  if (name === "ask_user") return fieldOr(raw, "answers", toonFieldValue(raw, "status") || raw);
+  if (name === "page_shot") return error || toonFieldValue(raw, "url") || raw;
+  if (name === "todowrite") {
     const todos = call.display?.todos;
     if (todos && todos.length > 0) {
       return todos.map((item) => `${item.status}  ${item.content}`).join("\n");
     }
     return fieldOr(raw, "summary", error || raw);
   }
-  if (call.name === "bash" || call.name === "background") {
+  if (name === "bash" || name === "background") {
     const command = argString(call, "command") || call.argument?.trim() || "";
     const output = toonFieldValue(raw, "output");
     const exitCode = toonFieldValue(raw, "exitCode");
     const pid = toonFieldValue(raw, "pid");
     const lines: string[] = [];
     if (command) lines.push(`$ ${command}`);
+    if (name === "bash") {
+      const description = argString(call, "description");
+      if (description) lines.push(description);
+    }
     if (pid) lines.push(`pid ${pid}`);
     if (exitCode) lines.push(`exit ${exitCode}`);
     const body = output || error;
@@ -207,11 +206,12 @@ const toolCallLabel = (call: ChatToolCall, lineRange = ""): string => {
     if (!path) return name;
     return lineRange ? `${name} "${path}" ${lineRange}` : `${name} "${path}"`;
   }
-  if (name === "list_directory") return path ? `${name} "${path}"` : name;
+  if (name === "glob") return path ? `${name} "${path}"` : name;
   if (name === "bash" || name === "background") {
     const command = argString(call, "command");
     if (!command) return name;
     const shown = command.length > 80 ? `${command.slice(0, 77)}...` : command;
+    if (name === "bash") return `$ ${shown}`;
     return `${name} "${shown}"`;
   }
   if (name === "grep") {
@@ -247,11 +247,17 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
       setTaskSessionId(display.childSessionId);
       return;
     }
-    const fileEdit = call.name === "write" || call.name === "edit";
+    const fileEdit = call.name === "write" || call.name === "edit" || call.name === "apply_patch";
     if (fileEdit && display?.kind === "action" && call.id && sessionId) {
+      const titleKey =
+        call.name === "write"
+          ? "chat.tools.writeTitle"
+          : call.name === "apply_patch"
+            ? "chat.tools.patchTitle"
+            : "chat.tools.editTitle";
       if (display.status !== "ok") {
         setPreview({
-          titleKey: call.name === "edit" ? "chat.tools.editTitle" : "chat.tools.writeTitle",
+          titleKey,
           value: toonFieldValue(call.output ?? "", "error") || t("chat.tools.error"),
           path: display.path,
         });
@@ -269,9 +275,17 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
           return;
         }
         const before = await readSessionFileRevision(sessionId, call.id, "before");
+        if (call.name === "apply_patch" && !before.content && !after.content) {
+          setPreview({
+            titleKey,
+            value: previewFromOutput(call),
+            path: display.path,
+          });
+          return;
+        }
         const packed = (await runDiffLinesJob(before.content, after.content)).value;
         setPreview({
-          titleKey: "chat.tools.editTitle",
+          titleKey,
           value: packed.value,
           path: display.path,
           lineNumbers: packed.lineNumbers,
@@ -316,6 +330,7 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
               ? t("chat.tools.lines", { start: display.startLine, end: display.endLine })
               : "";
           const label = toolCallLabel(call, lineRange);
+          const bashDescription = call.name === "bash" ? argString(call, "description") : "";
           const runningCall = callIsRunning(call, pending);
           const canOpen =
             Boolean(call.output) ||
@@ -368,6 +383,9 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
                   </span>
                 ) : null}
               </span>
+              {bashDescription ? (
+                <span className="chat-tools__detail">{bashDescription}</span>
+              ) : null}
               <LspNotes display={display} cleanLabel={t("chat.tools.lspClean")} />
             </li>
           );

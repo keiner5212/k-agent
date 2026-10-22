@@ -117,9 +117,6 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
     if (state.sessionId && grantForChat("outside_confirm")) {
       useSessionsStore.getState().allowOutsideWorkspace(state.sessionId);
     }
-    if (state.sessionId && grantForChat("http_write_confirm")) {
-      useSessionsStore.getState().allowHttpWrite(state.sessionId);
-    }
     const summary = answerSummary(state.questions, state.answers);
     const choice = confirmChoiceFrom(state.questions, state.answers);
     const sessions = useSessionsStore.getState();

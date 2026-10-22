@@ -9,7 +9,7 @@ OpenCode personalities use markdown headings, `IMPORTANT` lines, and `<example>`
 Empty blocks are omitted.
 
 1. `<language>` - only when force-response-language is on. `src/lib/response-language.ts`.
-2. `<environment>` - workspace, host OS, home, shell, and app config. `src-tauri/src/host_context.rs`. Omitted when the desktop shell does not answer.
+2. `<environment>` - workspace, host OS, home, and shell. `src-tauri/src/host_context.rs`. Omitted when the desktop shell does not answer.
 3. `<global-rules>` - text from `~/.k-agent/AGENTS.md`.
 4. `<workspace-rules>` - text from `{workspace}/AGENTS.md`.
 5. `<agent-flow>` - turn order. `composeAgentSystem()` in `src/lib/agent-system.ts`.

@@ -71,6 +71,8 @@ export const useSkillsStore = create<SkillsStore>((set, get) => ({
       await hydrateWorkspaceConfig(true);
       const { useSessionsStore } = await import("@/lib/sessions");
       await useSessionsStore.getState().focusWorkspace();
+      const { useMcpServersStore } = await import("@/lib/mcp-servers");
+      await useMcpServersStore.getState().load();
       const error = get().error;
       return error ? { error } : {};
     } catch (error) {

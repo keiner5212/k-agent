@@ -1,4 +1,4 @@
-import { memo, useState, type ReactNode } from "react";
+import { memo, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, FileText, Film } from "lucide-react";
@@ -187,6 +187,14 @@ const formatTurnClock = (ms: number, t: TFunction): string => {
 const formatTurnDuration = (ms: number, t: TFunction): string =>
   t("chat.turn.ended", { time: formatTurnClock(ms, t) });
 
+const newestUserMessageId = (messages: ChatMessage[]): string | null => {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === "user") return message.id;
+  }
+  return null;
+};
+
 const messageClass = (message: ChatMessage, fromParent: boolean): string => {
   const shell = message.kind === "shell" ? " chat-message--shell" : "";
   const streaming = message.streaming ? " chat-message--streaming" : "";
@@ -210,6 +218,22 @@ export const ChatTranscript = ({
 }): ReactNode => {
   const { t } = useTranslation();
   const { scrollRef, contentRef, isAtBottom, scrollToBottom } = useChatStick();
+  const newestUserId = newestUserMessageId(messages);
+  const pinKey = `${sessionId ?? ""}:${newestUserId ?? ""}`;
+  const pinnedKey = useRef<string | null>(null);
+  const stickReady = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!stickReady.current) {
+      stickReady.current = true;
+      pinnedKey.current = pinKey;
+      return;
+    }
+    if (pinKey === pinnedKey.current) return;
+    pinnedKey.current = pinKey;
+    if (!newestUserId) return;
+    void scrollToBottom({ animation: "instant" });
+  }, [pinKey, newestUserId, scrollToBottom]);
 
   return (
     <>

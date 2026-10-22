@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { diffEditorValue, toonFieldValue } from "./session-files";
+import { collectSessionChanges, diffEditorValue, toonFieldValue } from "./session-files";
+import type { ChatMessage } from "@/types/chat";
 
 describe("toonFieldValue", () => {
   it("extracts a quoted multi-line string with \\n escapes", () => {
@@ -31,6 +32,28 @@ describe("toonFieldValue", () => {
     expect(removed).toHaveLength(3);
     expect(added).toHaveLength(3);
     expect(packed.value.split("\n").filter((line) => line === "keep")).toHaveLength(0);
+  });
+
+  it("keeps a file whose added and removed counts match", () => {
+    const message: ChatMessage = {
+      id: "m1",
+      role: "assistant",
+      content: "",
+      toolRounds: [
+        {
+          reasoning: "",
+          calls: [
+            {
+              id: "c1",
+              name: "edit",
+              output: "ok",
+              display: { kind: "action", status: "ok", path: "src/a.ts", added: 2, removed: 2 },
+            },
+          ],
+        },
+      ],
+    };
+    expect(collectSessionChanges([message]).map((file) => file.path)).toEqual(["src/a.ts"]);
   });
 
   it("does not match a key that is a prefix of another key", () => {

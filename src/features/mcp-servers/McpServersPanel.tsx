@@ -7,7 +7,7 @@ import { Table, type TableColumn } from "@/components/Table";
 import { Toggle } from "@/components/Toggle";
 import { highlightMatch } from "@/lib/highlight";
 import { useMcpServersStore } from "@/lib/mcp-servers";
-import type { McpServer } from "@/types/mcp-servers";
+import type { McpScope, McpServer } from "@/types/mcp-servers";
 import { DeleteMcpServerDialog } from "./DeleteMcpServerDialog";
 import { McpServerFormDialog } from "./McpServerFormDialog";
 import { McpServerToolsDialog } from "./McpServerToolsDialog";
@@ -15,6 +15,8 @@ import { McpServerToolsDialog } from "./McpServerToolsDialog";
 type McpServersPanelProps = {
   query: string;
 };
+
+type Tab = McpScope;
 
 const targetLabel = (server: McpServer): string => {
   if (server.transport === "stdio") {
@@ -63,12 +65,14 @@ const ToolsCell = ({
 export const McpServersPanel = ({ query }: McpServersPanelProps): ReactNode => {
   const { t } = useTranslation();
   const servers = useMcpServersStore((state) => state.servers);
+  const workspaceReady = useMcpServersStore((state) => state.workspaceReady);
   const loading = useMcpServersStore((state) => state.loading);
   const error = useMcpServersStore((state) => state.error);
   const load = useMcpServersStore((state) => state.load);
   const refreshTools = useMcpServersStore((state) => state.refreshTools);
   const setEnabled = useMcpServersStore((state) => state.setEnabled);
   const remove = useMcpServersStore((state) => state.remove);
+  const [tab, setTab] = useState<Tab>("global");
   const [editTarget, setEditTarget] = useState<McpServer | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<McpServer | null>(null);
@@ -80,10 +84,17 @@ export const McpServersPanel = ({ query }: McpServersPanelProps): ReactNode => {
     void load();
   }, [load]);
 
+  const showLocal = workspaceReady;
+  const activeScope: Tab = tab === "local" && showLocal ? "local" : "global";
+  const scoped = useMemo(
+    () => servers.filter((server) => (server.scope ?? "global") === activeScope),
+    [activeScope, servers],
+  );
+
   const visible = useMemo(() => {
-    if (query.length === 0) return servers;
+    if (query.length === 0) return scoped;
     const needle = query.toLowerCase();
-    return servers.filter((server) => {
+    return scoped.filter((server) => {
       const haystack = [
         server.name,
         server.transport,
@@ -96,7 +107,7 @@ export const McpServersPanel = ({ query }: McpServersPanelProps): ReactNode => {
         .toLowerCase();
       return haystack.includes(needle);
     });
-  }, [query, servers]);
+  }, [query, scoped]);
 
   const columns = useMemo(
     (): TableColumn<McpServer>[] => [
@@ -203,37 +214,79 @@ export const McpServersPanel = ({ query }: McpServersPanelProps): ReactNode => {
 
       {error ? <p className="form-error">{error}</p> : null}
 
-      <div className="skill-context">
-        <div className="skill-context__header">
-          <GlassButton
-            variant="primary"
-            className="skill-context__new"
-            onClick={() => setCreateOpen(true)}
-          >
-            <Plus strokeWidth={1.5} />
-            {t("mcpServers.actions.add")}
-          </GlassButton>
-        </div>
-        {visible.length === 0 && !loading ? (
-          <p className="skill-context__empty">{t("mcpServers.empty")}</p>
-        ) : (
-          <Table
-            columns={columns}
-            rows={visible}
-            rowKey={(server) => server.id}
-            layout="fixed"
-            stickyHeader
-            scrollable
-            cellAlign="top"
-          />
-        )}
+      <div className="skills-panel__tabs" role="tablist">
+        {[
+          {
+            id: "global" as const,
+            count: servers.filter((server) => server.scope !== "local").length,
+            available: true,
+          },
+          {
+            id: "local" as const,
+            count: servers.filter((server) => server.scope === "local").length,
+            available: showLocal,
+          },
+        ].map((entry) => {
+          const isActive = entry.id === activeScope;
+          return (
+            <button
+              key={entry.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-controls="mcp-servers-tab-panel"
+              disabled={!entry.available}
+              title={entry.available ? undefined : t("mcpServers.scope.needsWorkspace")}
+              className="skills-panel__tab"
+              data-active={isActive ? "true" : "false"}
+              onClick={() => setTab(entry.id)}
+            >
+              <span className="skills-panel__tab-label">{t(`mcpServers.scope.${entry.id}`)}</span>
+              <span className="skills-panel__tab-count">{entry.count}</span>
+            </button>
+          );
+        })}
       </div>
 
-      <McpServerFormDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <div id="mcp-servers-tab-panel" role="tabpanel" className="skills-panel__panel">
+        <div className="skill-context">
+          <div className="skill-context__header">
+            <GlassButton
+              variant="primary"
+              className="skill-context__new"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus strokeWidth={1.5} />
+              {t("mcpServers.actions.add")}
+            </GlassButton>
+          </div>
+          {visible.length === 0 && !loading ? (
+            <p className="skill-context__empty">{t("mcpServers.empty")}</p>
+          ) : (
+            <Table
+              columns={columns}
+              rows={visible}
+              rowKey={(server) => server.id}
+              layout="fixed"
+              stickyHeader
+              scrollable
+              cellAlign="top"
+            />
+          )}
+        </div>
+      </div>
+
+      <McpServerFormDialog
+        open={createOpen}
+        scope={activeScope}
+        workspaceReady={showLocal}
+        onOpenChange={setCreateOpen}
+      />
 
       <McpServerFormDialog
         open={editTarget !== null}
         draft={editTarget ?? undefined}
+        workspaceReady={showLocal}
         onOpenChange={(open) => {
           if (!open) setEditTarget(null);
         }}

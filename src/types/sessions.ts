@@ -32,7 +32,6 @@ export type SessionRecord = {
   todos?: TodoItem[];
   todosHistory?: TodoHistoryEvent[];
   outsideWorkspaceAllowed?: boolean;
-  httpWriteAllowed?: boolean;
   workspacePath?: string;
   parentSessionId?: string;
   fileCheckpoints?: TurnCheckpoint[];

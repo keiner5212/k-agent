@@ -1,12 +1,17 @@
+use std::path::Path;
+
 use tauri::AppHandle;
 
-/// Facts the model otherwise discovers with `bash` and `list_directory`.
+/// Facts the model otherwise discovers with `bash` and `glob`.
 pub(crate) fn body(app: &AppHandle) -> String {
     let workspace = crate::pathutil::workspace_from_app(app);
-    let config = crate::paths::config_dir(app).ok();
     let home = crate::paths::home_dir(app).ok();
+    render(workspace.as_deref(), home.as_deref(), &shell_label(app))
+}
+
+fn render(workspace: Option<&Path>, home: Option<&Path>, shell: &str) -> String {
     let mut lines = Vec::new();
-    match workspace.as_ref() {
+    match workspace {
         Some(path) => {
             lines.push(format!("Workspace: {}", path.display()));
             lines.push(
@@ -20,19 +25,13 @@ pub(crate) fn body(app: &AppHandle) -> String {
             );
         }
     }
-    if let Some(path) = config.as_ref() {
-        lines.push(format!(
-            "App config is `{}` (skills, agents, providers). That directory is not the workspace.",
-            path.display()
-        ));
-    }
     lines.push(format!("Host: {}", os_pretty()));
-    if let Some(path) = home.as_ref() {
+    if let Some(path) = home {
         lines.push(format!("Home: {}", path.display()));
     }
-    lines.push(format!("Shell: {}", shell_label(app)));
+    lines.push(format!("Shell: {shell}"));
     lines.push(
-        "Do not use `bash` or `list_directory` to discover the workspace, the home directory, or the OS."
+        "Do not use `bash` or `glob` to discover the workspace, the home directory, or the OS."
             .into(),
     );
     lines.push("Do not scan `/` or the home directory to find the project.".into());
@@ -90,4 +89,33 @@ fn linux_pretty_name() -> Option<String> {
 #[tauri::command]
 pub(crate) fn host_context(app: AppHandle) -> String {
     body(&app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn omits_app_config_location() {
+        let text = render(
+            Some(Path::new("/home/ada/src/k-agent")),
+            Some(Path::new("/home/ada")),
+            "/bin/zsh",
+        );
+        assert!(!text.contains("App config"));
+        assert!(!text.contains(".k-agent"));
+        assert!(text.contains("Workspace: /home/ada/src/k-agent"));
+        assert!(text.contains("Host: "));
+        assert!(text.contains("Home: /home/ada"));
+        assert!(text.contains("Shell: /bin/zsh"));
+    }
+
+    #[test]
+    fn workspace_missing_keeps_the_rest() {
+        let text = render(None, Some(Path::new("/home/ada")), "/bin/zsh");
+        assert!(text.contains("Workspace: not set"));
+        assert!(text.contains("Home: /home/ada"));
+        assert!(text.contains("Shell: /bin/zsh"));
+        assert!(!text.contains("App config"));
+    }
 }

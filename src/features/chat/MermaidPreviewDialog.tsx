@@ -69,6 +69,10 @@ const paint = (svg: string, palette: Palette): string => {
       fill: ${palette.line} !important;
       stroke: ${palette.line} !important;
     }
+    ${scope} rect.rect {
+      fill: ${palette.node} !important;
+      stroke: ${palette.line} !important;
+    }
     ${scope} .cluster rect { fill: transparent !important; stroke: ${palette.line} !important; }
     ${scope} .edgeLabel, ${scope} .edgeLabel p, ${scope} .edgeLabel div, ${scope} .labelBkg,
     ${scope} .edgeLabel rect, ${scope} .edgeLabel .label rect {
@@ -97,7 +101,60 @@ const paint = (svg: string, palette: Palette): string => {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XLINK_NS = "http://www.w3.org/1999/xlink";
+const MAX_CANVAS = 8192;
 const shotOptions = { scale: 2, backgroundColor: null, font: false } as const;
+
+type Frame = { x: number; y: number; width: number; height: number };
+
+const readFrame = (svg: SVGSVGElement): Frame => {
+  const view = svg.viewBox.baseVal;
+  if (view.width > 1 && view.height > 1) {
+    return { x: view.x, y: view.y, width: view.width, height: view.height };
+  }
+  const box = svg.getBBox();
+  return { x: box.x, y: box.y, width: Math.max(box.width, 1), height: Math.max(box.height, 1) };
+};
+
+const unionFrame = (frame: Frame, box: DOMRect): Frame => {
+  const x = Math.min(frame.x, box.x);
+  const y = Math.min(frame.y, box.y);
+  const right = Math.max(frame.x + frame.width, box.x + box.width);
+  const bottom = Math.max(frame.y + frame.height, box.y + box.height);
+  return { x, y, width: Math.max(right - x, 1), height: Math.max(bottom - y, 1) };
+};
+
+const applyFrame = (svg: SVGSVGElement, frame: Frame, pxWidth: number, pxHeight: number): void => {
+  svg.setAttribute("viewBox", `${frame.x} ${frame.y} ${frame.width} ${frame.height}`);
+  svg.setAttribute("width", String(pxWidth));
+  svg.setAttribute("height", String(pxHeight));
+  svg.style.maxWidth = "none";
+  svg.style.width = `${pxWidth}px`;
+  svg.style.height = `${pxHeight}px`;
+};
+
+const growLabels = (svg: SVGSVGElement, userPerPx: number): void => {
+  for (const foreign of svg.querySelectorAll("foreignObject")) {
+    const label = foreign.firstElementChild;
+    if (!(label instanceof HTMLElement)) continue;
+    label.style.overflow = "visible";
+    label.style.maxHeight = "none";
+    const extraW = Math.max(0, label.scrollWidth - label.clientWidth);
+    const extraH = Math.max(0, label.scrollHeight - label.clientHeight);
+    const boxW = Number(foreign.getAttribute("width")) || 0;
+    const boxH = Number(foreign.getAttribute("height")) || 0;
+    const nextW = Math.ceil(boxW + extraW * userPerPx);
+    const nextH = Math.ceil(boxH + extraH * userPerPx);
+    if (nextW > boxW) foreign.setAttribute("width", String(nextW));
+    if (nextH > boxH) foreign.setAttribute("height", String(nextH));
+    const shape = foreign.closest("g.node, g.cluster")?.querySelector("rect");
+    if (shape instanceof SVGGraphicsElement && shape !== foreign) {
+      const sw = Number(shape.getAttribute("width"));
+      const sh = Number(shape.getAttribute("height"));
+      if (Number.isFinite(sw) && nextW > sw) shape.setAttribute("width", String(nextW));
+      if (Number.isFinite(sh) && nextH > sh) shape.setAttribute("height", String(nextH));
+    }
+  }
+};
 
 const readDataUrl = (blob: Blob): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -118,7 +175,11 @@ const embedLabels = async (live: SVGSVGElement, clone: SVGSVGElement): Promise<v
       const target = targets[index];
       const label = source.firstElementChild;
       if (!target || !(label instanceof HTMLElement)) return;
-      const shot = await domToBlob(label, shotOptions);
+      const shot = await domToBlob(label, {
+        ...shotOptions,
+        width: Math.max(label.scrollWidth, label.offsetWidth, 1),
+        height: Math.max(label.scrollHeight, label.offsetHeight, 1),
+      });
       const href = await readDataUrl(shot);
       const image = document.createElementNS(SVG_NS, "image");
       image.setAttribute("x", source.getAttribute("x") ?? "0");
@@ -135,18 +196,44 @@ const embedLabels = async (live: SVGSVGElement, clone: SVGSVGElement): Promise<v
 const capturePng = async (host: HTMLElement): Promise<Blob | null> => {
   const live = host.querySelector("svg");
   if (!live) return null;
-  const box = live.getBoundingClientRect();
-  if (box.width < 1 || box.height < 1) return null;
   const clone = live.cloneNode(true) as SVGSVGElement;
-  await embedLabels(live, clone);
-  clone.setAttribute("width", String(Math.ceil(box.width)));
-  clone.setAttribute("height", String(Math.ceil(box.height)));
   const holder = document.createElement("div");
-  holder.style.cssText = `position:fixed;left:-10000px;top:0;width:${box.width}px;height:${box.height}px`;
+  holder.style.cssText = "position:fixed;left:-10000px;top:0;overflow:visible";
   holder.append(clone);
   document.body.append(holder);
   try {
-    return await domToBlob(clone, shotOptions);
+    let frame = readFrame(clone);
+    const layout = Math.min(1, 2048 / Math.max(frame.width, frame.height, 1));
+    const layoutW = Math.max(1, Math.ceil(frame.width * layout));
+    const layoutH = Math.max(1, Math.ceil(frame.height * layout));
+    applyFrame(clone, frame, layoutW, layoutH);
+    holder.style.width = `${layoutW}px`;
+    holder.style.height = `${layoutH}px`;
+    growLabels(clone, frame.width / layoutW);
+    const pad = 12;
+    frame = unionFrame(frame, clone.getBBox());
+    frame = {
+      x: frame.x - pad,
+      y: frame.y - pad,
+      width: frame.width + pad * 2,
+      height: frame.height + pad * 2,
+    };
+    const fit = Math.min(
+      1,
+      MAX_CANVAS / (Math.max(frame.width, frame.height, 1) * shotOptions.scale),
+    );
+    const width = Math.max(1, Math.ceil(frame.width * fit));
+    const height = Math.max(1, Math.ceil(frame.height * fit));
+    const shot = clone.cloneNode(true) as SVGSVGElement;
+    holder.append(shot);
+    await embedLabels(clone, shot);
+    applyFrame(shot, frame, width, height);
+    return await domToBlob(shot, {
+      ...shotOptions,
+      width,
+      height,
+      maximumCanvasSize: MAX_CANVAS,
+    });
   } catch {
     return null;
   } finally {

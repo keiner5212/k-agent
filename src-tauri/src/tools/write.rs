@@ -10,7 +10,7 @@ use super::{
 
 pub const NAME: &str = "write";
 
-const DESCRIPTION: &str = "Create a new file or replace an entire file. Path is absolute or workspace-relative. To change part of an existing file, use edit. Paths outside the workspace wait for the user to allow or deny. Parent dirs are created.";
+const DESCRIPTION: &str = "Create a new file or replace an entire file. Path is absolute or workspace-relative. To change part of an existing file, use edit. Paths outside the workspace wait for the user to allow or deny. Parent dirs are created. format defaults on. Set format false only when this call must not reformat.";
 
 pub struct WriteTool;
 
@@ -29,6 +29,10 @@ impl Tool for WriteTool {
                     "filePath": {
                         "type": "string",
                         "description": "Absolute or workspace-relative path"
+                    },
+                    "format": {
+                        "type": "boolean",
+                        "description": "format defaults on. Set format false only when this call must not reformat."
                     }
                 },
                 "required": ["content", "filePath"]
@@ -121,7 +125,13 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     .await;
     if outcome.display.status.as_deref() == Some("ok") {
         if let Ok(path) = resolve_path(ctx, raw) {
-            super::attach_lsp_diagnostics(ctx, &mut outcome, &[path]).await;
+            super::attach_lsp_diagnostics(
+                ctx,
+                &mut outcome,
+                &[path],
+                super::format_requested(&args),
+            )
+            .await;
         }
     }
     outcome

@@ -94,6 +94,6 @@ export const collectSessionChanges = (messages: ChatMessage[]): SessionChangedFi
     }
   }
   return [...byPath.entries()]
-    .filter(([, state]) => state.added !== state.removed)
+    .filter(([, state]) => state.deleted || state.added > 0 || state.removed > 0)
     .map(([path, { added, removed, callId }]) => ({ path, added, removed, callId }));
 };

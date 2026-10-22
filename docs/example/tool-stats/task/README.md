@@ -7,7 +7,7 @@ Run one saved agent on a read-only side task and return its final text.
 - Takes `agent`, `prompt`, and a 3 to 5 word `description`.
 - `build` and `plan` are builtin. Any other name is a saved agent under `~/.k-agent/agents`.
 - The child keeps that agent's skills and personality.
-- The child's tools are the read-only subagent set: `skill`, `read`, `list_directory`, `grep`, `lsp`, `internet_search`, `fetch_url`.
+- The child's tools are the read-only subagent set: `skill`, `read`, `glob`, `grep`, `lsp`, `internet_search`, `fetch_url`.
 - Tools saved on the agent apply only when that agent is the main agent.
 - The child starts with a fresh prompt. It does not see the parent transcript.
 - It does not inherit the parent system prompt.

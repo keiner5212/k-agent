@@ -240,6 +240,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
             &user,
             MAX_OUTPUT,
             limit,
+            ctx.session_id.as_deref(),
         )
         .await
         {
