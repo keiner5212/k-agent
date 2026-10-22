@@ -85,7 +85,9 @@ fn sweep_provider_key_orphans(app: &AppHandle) -> Result<(), String> {
 }
 
 fn sweep_mcp_secret_orphans(app: &AppHandle) -> Result<(), String> {
-    let ids = json_ids(&crate::paths::config_file(app, "mcp-servers.json")?)?;
+    let mut ids = crate::mcp_servers::stored_ids(app);
+    let legacy = crate::paths::config_file(app, "mcp-servers.json")?;
+    ids.extend(json_ids(&legacy)?);
     retain_secret_map(&crate::paths::app_data_file(app, "mcp-secrets.json")?, &ids)
 }
 

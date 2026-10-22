@@ -154,6 +154,24 @@
   padding: 0;
 }
 
+.provider-form__headers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.provider-form__header-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) 9rem minmax(0, 1.4fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.provider-form__header-row .select-root,
+.provider-form__header-row .select {
+  width: 100%;
+}
+
 .provider-actions {
   display: flex;
   justify-content: flex-start;

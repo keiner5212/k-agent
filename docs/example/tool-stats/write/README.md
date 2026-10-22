@@ -8,6 +8,7 @@ Create or fully overwrite a file. Path is absolute or workspace-relative.
 - Overwrites without diffing; the prior contents (if any) are captured as a session revision.
 - Emits `added` and `removed` line counts from a hunk-style diff between the prior content and the new content, so the chat UI can show a summary.
 - Captures a before/after snapshot pair to `sessions/{id}/files/{callId}.before` and `{callId}.after`. The frontend reads those for the diff modal.
+- `format` defaults on. Set `format` false only when this call must not reformat. Diagnostics still run.
 
 ## Does not
 
@@ -18,10 +19,11 @@ Create or fully overwrite a file. Path is absolute or workspace-relative.
 
 ## Options
 
-| Name       | Type   | Required | Default | Notes                                                                |
-| ---------- | ------ | -------- | ------- | -------------------------------------------------------------------- |
-| `filePath` | string | yes      | -       | Absolute or workspace-relative path. Parent directories are created. |
-| `content`  | string | yes      | -       | Full new file body. May be empty.                                    |
+| Name       | Type    | Required | Default | Notes                                                                 |
+| ---------- | ------- | -------- | ------- | --------------------------------------------------------------------- |
+| `filePath` | string  | yes      | -       | Absolute or workspace-relative path. Parent directories are created.  |
+| `content`  | string  | yes      | -       | Full new file body. May be empty.                                     |
+| `format`   | boolean | no       | `true`  | Default on. Set `format` false only when this call must not reformat. |
 
 ## Response
 

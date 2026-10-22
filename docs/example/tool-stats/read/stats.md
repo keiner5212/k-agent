@@ -20,7 +20,7 @@ memory the host process held while it ran.
 
 | Wall time | CPU time (user + sys) | Host process RSS (during call) |
 |---|---|---|
-| **1317 ms** (1317008 us) | 1272 ms user + 23 ms sys | before: 63868 KiB, after: 71264 KiB, delta: +7396 KiB, lifetime peak: 135300 KiB |
+| **723 ms** (723076 us) | 697 ms user + 17 ms sys | before: 61476 KiB, after: 66916 KiB, delta: +5440 KiB, lifetime peak: 133284 KiB |
 
 RSS is sampled via `/proc/self/status` on Linux or `ps -o rss=` on
 macOS, immediately before and after the call. The delta reflects
@@ -35,14 +35,14 @@ process, so it is not a per-tool attribution.
 | 12 | 12 |
 
 Each tool execution is single-threaded inside this test. Recursive
-`list_directory` may spawn up to `min(configured, host_cpus, 16)` workers
-at runtime; see `src-tauri/src/tools/list_directory.rs`.
+`glob` may spawn up to `min(configured, host_cpus, 16)` workers
+at runtime; see `src-tauri/src/tools/glob.rs`.
 
 ## Response size
 
 | Bytes | Chars | Lines | Tokens (chars/4) |
 |---|---|---|---|
-| 138 | 138 | 8 | 35 |
+| 137 | 137 | 8 | 35 |
 
 ## Target
 

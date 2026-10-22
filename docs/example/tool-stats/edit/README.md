@@ -1,36 +1,53 @@
 # edit
 
-Replace an exact string in an existing file. Whitespace and indentation must match.
+Replace an exact span in an existing file. Two shapes. Never both in one call.
 
 ## Does
 
-- Replaces the first (or every) match of `oldString` with `newString` in the target file.
-- One call uses one shape. Single edit: top-level `filePath`, `oldString`, `newString`. Several edits: only `edits`, and each item has its own `filePath`. Both shapes in one call is an error and writes nothing. Top-level `filePath` is not a parent of `edits`.
-- Applies several edits in one call through `edits`. Every edit is checked in memory first. A failed check writes nothing. A failed write rolls back files already written in that call.
-- Matches `oldString` as an exact substring. One pass. No fuzzy, trimmed, or similarity fallback. That keeps the call on a byte find instead of a similarity scan.
-- Detects whether the file uses `\n` or `\r\n` line endings and converts `oldString` / `newString` to match before applying the replacement.
-- Locks the target file with a per-path mutex for the duration of the replacement so concurrent edit/write calls cannot interleave.
+- One replacement: only `filePath`, `oldString`, `newString`, and optional `replaceAll`. Do not send `edits`.
+- Many replacements: only `edits`. Each item has its own `filePath`, `oldString`, `newString`, and optional `replaceAll`. Do not also send top-level `filePath`, `oldString`, `newString`, or `replaceAll`. Top-level `filePath` is not a directory for the array.
+- Both shapes in one call write nothing.
+- `oldString` and `newString` are exact file text. Not a line-number prefix from `read`. Not a diff hunk. Include the indentation that is in the file.
+- Copy `oldString` from a `read` of that file in this turn, large enough to be unique, small enough to be exact.
+- `newString` is the full replacement of that span, not a patch line with `+` or `-`.
+- Fails if `oldString` is missing or appears more than once, unless `replaceAll` is true. The error says which.
+- Checks every edit before any file is written. A bad item leaves every file unchanged. A failed write rolls back files already written in that call.
+- Matches `oldString` as an exact substring. One pass. No fuzzy, trimmed, or similarity fallback.
+- Converts `oldString` and `newString` to the file line ending (`\n` or `\r\n`) before the match.
+- Locks the target file with a per-path mutex so concurrent edit/write calls cannot interleave.
 - Captures before/after snapshots to `sessions/{id}/files/{callId}.before` and `{callId}.after`.
-- Emits `added` and `removed` as the changed lines in this call. Several edits in one file count each change, not the span from the first change to the last.
-- Groups edits by resolved path. `count` is that file count, and only when more than one file is written.
+- Emits `added` and `removed` as the changed lines in this call. Several edits in one file count each change.
+- `count` is present only when the call writes more than one file.
+- Paths outside the workspace wait for the user.
+- `format` defaults on. Set `format` false only when this call must not reformat. Diagnostics still run.
 
 ## Does not
 
 - Create a new file. Use `write` if the file is missing.
-- Edit empty `oldString`. The tool errors out to avoid accidental whole-file rewrites; use `write` for that intent.
-- Forgive whitespace, indentation, or escape drift. Re-read with `read` and pass the exact file text.
+- Accept empty `oldString`. Use `write` for a full-file replacement.
+- Forgive whitespace or indentation drift.
 - Guess a nearby span. A miss returns `Could not find oldString`.
-- Accept top-level `filePath`, `oldString`, or `newString` together with `edits`. Pick one shape.
+- Accept both shapes in one call.
 
 ## Options
 
-| Name         | Type    | Required | Default | Notes                                                                               |
-| ------------ | ------- | -------- | ------- | ----------------------------------------------------------------------------------- |
-| `filePath`   | string  | no       | -       | Single-edit shape only. Not a parent path for `edits`.                              |
-| `oldString`  | string  | no       | -       | Single-edit shape only. Substring to find. Omit when `edits` is set.                |
-| `newString`  | string  | no       | -       | Single-edit shape only. Replacement body. Omit when `edits` is set.                 |
-| `replaceAll` | boolean | no       | `false` | Single-edit shape only. When `true`, replace every match. Omit when `edits` is set. |
-| `edits`      | array   | no       | -       | Multi-edit shape only. Each item has its own `filePath`. Omit the top-level fields. |
+| Name         | Type    | Required | Default | Notes                                                                                                          |
+| ------------ | ------- | -------- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| `filePath`   | string  | no       | -       | One replacement only. Omit when `edits` is set. Not a directory for the array.                                 |
+| `oldString`  | string  | no       | -       | One replacement only. Exact file text. Not a line-number prefix. Not a diff hunk. Include indentation.         |
+| `newString`  | string  | no       | -       | One replacement only. Full replacement of that span. Not a patch line with `+` or `-`.                         |
+| `replaceAll` | boolean | no       | `false` | One replacement only. When `true`, replace every match. Omit when `edits` is set.                              |
+| `edits`      | array   | no       | -       | Many replacements only. Each item has its own `filePath`, `oldString`, `newString`, and optional `replaceAll`. |
+| `format`     | boolean | no       | `true`  | Default on. Set `format` false only when this call must not reformat.                                          |
+
+### `edits` item
+
+| Name         | Type    | Required | Default | Notes                                                 |
+| ------------ | ------- | -------- | ------- | ----------------------------------------------------- |
+| `filePath`   | string  | yes      | -       | File for this item. Not inherited from the top level. |
+| `oldString`  | string  | yes      | -       | Exact file text for this item.                        |
+| `newString`  | string  | yes      | -       | Full replacement of that span.                        |
+| `replaceAll` | boolean | no       | `false` | When `true`, replace every match of this item.        |
 
 ## Response
 

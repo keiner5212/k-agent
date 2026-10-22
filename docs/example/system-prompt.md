@@ -3,7 +3,7 @@
 The string below is what the frontend sends as `system` when all of these exist:
 
 - Force-response-language is on, language `en`. XML tags (not a gpt/gemini-style model).
-- Desktop host: workspace `/home/ada/src/k-agent`, app config `/home/ada/.k-agent`, Debian GNU/Linux 13, home `/home/ada`, shell `/bin/zsh`.
+- Desktop host: workspace `/home/ada/src/k-agent`, Debian GNU/Linux 13, home `/home/ada`, shell `/bin/zsh`.
 - `~/.k-agent/AGENTS.md` and `{workspace}/AGENTS.md` both have text.
 - Agent `build` has global skills `code-review` and `tauri-v2`, neither loaded yet.
 - The workspace has a local skill `commit`, not loaded yet.
@@ -32,11 +32,10 @@ Do not mention the language rule, only reply in English.
 <environment>
 Workspace: /home/ada/src/k-agent
 `bash` starts in this directory. Relative tool paths and `.` resolve here.
-App config is `/home/ada/.k-agent` (skills, agents, providers). That directory is not the workspace.
 Host: Debian GNU/Linux 13 (trixie) (linux/x86_64)
 Home: /home/ada
 Shell: /bin/zsh
-Do not use `bash` or `list_directory` to discover the workspace, the home directory, or the OS.
+Do not use `bash` or `glob` to discover the workspace, the home directory, or the OS.
 Do not scan `/` or the home directory to find the project.
 </environment>
 
@@ -89,7 +88,7 @@ Send the list again when a step starts, finishes, or is dropped. An empty list c
 
 <tools>
 Use the dedicated tool. Do not use `bash` for work another tool already does.
-List a directory with `list_directory`. To find files by name, pass `glob` to `list_directory` (`*.rs` matches any depth). `glob` is an argument of `list_directory` and of `grep`. There is no `glob` tool. Do not use `ls`, `find`, or `tree`.
+List and filter files with `glob`. `pattern` is optional: `*.rs` matches any depth, `src/**/*.ts` matches that prefix. Without `pattern`, `glob` lists the directory and each line is `[dir]` or `[file]`. Do not use `ls`, `find`, or `tree`.
 The workspace path is in the environment section. Do not list the home directory or `/` to find the project.
 Read a file with `read`. Do not use `cat`, `head`, `tail`, or `wc`. Images, PDFs, and docx come back from `read` when the model accepts that input. Do not convert or screenshot them with `bash`.
 A user image is already on that user message. Do not grab the X display to see it again. An X11 grab of a GUI is often a black frame. That is a capture miss. Stop. Do not retry ffmpeg, xwd, or import.
@@ -105,7 +104,6 @@ Make a directory with `create_folder`.
 Remove a file or empty directory with `delete`.
 `bash` is for a command that must run and finish, such as install, build, test, or git. It starts in the workspace. Do not `cd` to the home directory or the app config directory to find the project.
 Install project dependencies into the project environment. Do not install packages into the system or the user site.
-Call an API with `http_request`, including localhost. Do not use `curl` or `wget`.
 A process that must stay up uses `background`, not `bash`. That process is killed when the turn ends. Do not kill its pid.
 </tools>
 

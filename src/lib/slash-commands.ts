@@ -29,7 +29,7 @@ Find:
 - Design system: spacing, type, color, and components to reuse
 - Conventions the next session must follow
 
-Use list_directory, read, and grep. Write AGENTS.md with the write tool.
+Use glob, read, and grep. Write AGENTS.md with the write tool.
 Keep it short and specific to this repo.
 
 $ARGUMENTS`;
@@ -84,6 +84,7 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
   buildActionCommand("undo", "undo", "chat.slashCommands.undo.description"),
   buildActionCommand("redo", "redo", "chat.slashCommands.redo.description"),
   buildActionCommand("stop", "stop", "chat.slashCommands.stop.description"),
+  buildActionCommand("help", "help", "chat.slashCommands.help.description"),
 ];
 
 export const ACTION_SLASH_NAMES: readonly string[] = SLASH_COMMANDS.filter(

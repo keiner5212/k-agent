@@ -15,7 +15,7 @@ use super::{
 
 pub const NAME: &str = "grep";
 
-const DESCRIPTION: &str = "Search file contents with the ripgrep engine compiled into the app. pattern is a regex. path defaults to the workspace. There is no glob tool: pass glob on this call to include only matching paths (*.rs, *.{ts,tsx}); a leading ! excludes. caseInsensitive matches either letter case. filesOnly returns matching paths and skips line text. count is the number of matching lines. matches is a sample: at most 20 lines per file and 100 lines overall, or 100 paths when filesOnly. Skips the same directories as list_directory (node_modules, .git, target, dist, and other dependency, cache, and build directories). Still searches .github and .agents. Other hidden names are skipped. Gitignore rules still apply. No system rg binary. Uses configured worker cores. Use this instead of grep or rg in bash.";
+const DESCRIPTION: &str = "Search file contents with the ripgrep engine compiled into the app. pattern is a regex. path defaults to the workspace. Pass glob on this call to include only matching paths (*.rs, *.{ts,tsx}); a leading ! excludes. caseInsensitive matches either letter case. filesOnly returns matching paths and skips line text. count is the number of matching lines. matches is a sample: at most 20 lines per file and 100 lines overall, or 100 paths when filesOnly. Skips the same directories as glob (node_modules, .git, target, dist, and other dependency, cache, and build directories). Still searches .github and .agents. Other hidden names are skipped. Gitignore rules still apply. No system rg binary. Uses configured worker cores. Use this instead of grep or rg in bash.";
 
 const MAX_MATCHES: usize = 100;
 const MAX_PER_FILE: usize = 20;
@@ -43,7 +43,7 @@ impl Tool for GrepTool {
                     },
                     "glob": {
                         "type": "string",
-                        "description": "Argument of grep, not a separate tool. Include only paths matching this glob, for example *.ts or *.{rs,toml}. A leading ! excludes instead."
+                        "description": "Include only paths matching this glob, for example *.ts or *.{rs,toml}. A leading ! excludes instead."
                     },
                     "caseInsensitive": {
                         "type": "boolean",

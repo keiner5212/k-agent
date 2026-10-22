@@ -11,9 +11,9 @@ use super::{
     toon_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, ToonValue, TOOL_KIND_CONTEXT,
 };
 
-pub const NAME: &str = "list_directory";
+pub const NAME: &str = "glob";
 
-const DESCRIPTION: &str = "List a directory, or find files by name. There is no glob tool: pass glob on this call. *.rs matches any depth, src/**/*.ts matches that prefix, *.{ts,tsx} is either suffix. At most 200 glob hits. Without glob, each line is [dir] or [file], indented when recursive. With glob, returns sorted file paths only. Path is absolute or workspace-relative (default: workspace root). Paths outside the workspace wait for the user. recursive walks the tree; maxDepth default 3, or 10 when glob is set, max 10. Skips dependency, cache, and build directories (node_modules, .git, target, dist, build, vendor, virtualenvs). Still lists .github and .agents. Other names starting with . are skipped. Capped at 5000 lines. Walks subtrees in parallel using configured worker cores. Use this instead of ls, find, or tree.";
+const DESCRIPTION: &str = "List a directory, or find files by name. pattern is optional. *.rs matches any depth, src/**/*.ts matches that prefix, *.{ts,tsx} is either suffix. At most 200 pattern hits. Without pattern, each line is [dir] or [file], indented when recursive. With pattern, returns sorted file paths only. Path is absolute or workspace-relative (default: workspace root). Paths outside the workspace wait for the user. recursive walks the tree; maxDepth default 3, or 10 when pattern is set, max 10. Skips dependency, cache, and build directories (node_modules, .git, target, dist, build, vendor, virtualenvs). Still lists .github and .agents. Other names starting with . are skipped. Capped at 5000 lines. Walks subtrees in parallel using configured worker cores. Use this instead of ls, find, or tree.";
 
 const MAX_ENTRIES_PER_DIR: usize = 2_000;
 const MAX_OUTPUT_LINES: usize = 5_000;
@@ -23,9 +23,9 @@ const GLOB_DEPTH_DEFAULT: usize = 10;
 const CACHE_TTL: Duration = Duration::from_millis(1000);
 pub const MAX_PARALLELISM: usize = 16;
 
-pub struct ListDirectoryTool;
+pub struct GlobTool;
 
-impl Tool for ListDirectoryTool {
+impl Tool for GlobTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: NAME,
@@ -44,11 +44,11 @@ impl Tool for ListDirectoryTool {
                     "maxDepth": {
                         "type": "integer",
                         "minimum": 1,
-                        "description": "Max depth when recursive (default 3, or 10 when glob is set, max 10)"
+                        "description": "Max depth when recursive (default 3, or 10 when pattern is set, max 10)"
                     },
-                    "glob": {
+                    "pattern": {
                         "type": "string",
-                        "description": "Argument of list_directory, not a separate tool. Return only matching file paths. *.rs matches any depth. src/**/*.ts matches that prefix. *.{ts,tsx} matches either suffix."
+                        "description": "Return only matching file paths. *.rs matches any depth. src/**/*.ts matches that prefix. *.{ts,tsx} matches either suffix."
                     }
                 }
             }),
@@ -61,16 +61,16 @@ impl Tool for ListDirectoryTool {
             .and_then(Value::as_str)
             .map(str::trim)
             .unwrap_or("");
-        let glob = match parse_glob(args) {
+        let pattern = match parse_pattern(args) {
             Ok(value) => value,
             Err(message) => return super::context_error(None, &message),
         };
-        let recursive = glob.is_some()
+        let recursive = pattern.is_some()
             || args
                 .get("recursive")
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
-        let max_depth = match parse_depth(args, glob.is_some()) {
+        let max_depth = match parse_depth(args, pattern.is_some()) {
             Ok(value) => value,
             Err(message) => return super::context_error(None, &message),
         };
@@ -85,7 +85,7 @@ impl Tool for ListDirectoryTool {
         ) {
             return super::context_error(
                 Some(raw_path),
-                "list_directory outside the workspace must run on the async dispatch path.",
+                "glob outside the workspace must run on the async dispatch path.",
             );
         }
         let rel = ctx.relative_path(&resolved);
@@ -111,8 +111,8 @@ impl Tool for ListDirectoryTool {
             );
         }
 
-        if let Some(pattern) = glob.as_deref() {
-            render_glob(&resolved, &rel, pattern, max_depth, ctx.parallelism)
+        if let Some(pattern) = pattern.as_deref() {
+            render_pattern(&resolved, &rel, pattern, max_depth, ctx.parallelism)
         } else {
             render_tree(&resolved, &rel, recursive, max_depth, ctx.parallelism)
         }
@@ -126,42 +126,40 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
         .and_then(Value::as_str)
         .unwrap_or("")
         .trim();
-    super::tool_utils::workspace::guard(ctx, raw, "List", false, || {
-        ListDirectoryTool.execute(&args, ctx)
-    })
-    .await
+    super::tool_utils::workspace::guard(ctx, raw, "List", false, || GlobTool.execute(&args, ctx))
+        .await
 }
 
-fn parse_glob(args: &Value) -> Result<Option<String>, String> {
-    let Some(value) = args.get("glob") else {
+fn parse_pattern(args: &Value) -> Result<Option<String>, String> {
+    let Some(value) = args.get("pattern") else {
         return Ok(None);
     };
     let Some(text) = value.as_str() else {
-        return Err("list_directory `glob` must be a string.".into());
+        return Err("glob `pattern` must be a string.".into());
     };
     let text = text.trim();
     if text.is_empty() {
         return Ok(None);
     }
     if text.len() > 200 {
-        return Err("list_directory `glob` exceeds 200 chars.".into());
+        return Err("glob `pattern` exceeds 200 chars.".into());
     }
     Ok(Some(text.to_string()))
 }
 
-fn parse_depth(args: &Value, glob: bool) -> Result<usize, String> {
+fn parse_depth(args: &Value, has_pattern: bool) -> Result<usize, String> {
     let Some(value) = args.get("maxDepth") else {
-        return Ok(if glob {
+        return Ok(if has_pattern {
             GLOB_DEPTH_DEFAULT
         } else {
             MAX_DEPTH_DEFAULT
         });
     };
     let Some(number) = value.as_u64() else {
-        return Err("list_directory `maxDepth` must be a non-negative integer.".into());
+        return Err("glob `maxDepth` must be a non-negative integer.".into());
     };
-    let parsed = usize::try_from(number)
-        .map_err(|_| "list_directory `maxDepth` is out of range.".to_string())?;
+    let parsed =
+        usize::try_from(number).map_err(|_| "glob `maxDepth` is out of range.".to_string())?;
     Ok(parsed.clamp(1, 10))
 }
 
@@ -296,7 +294,7 @@ fn render_tree(
     }
 }
 
-fn render_glob(
+fn render_pattern(
     root: &Path,
     rel: &str,
     pattern: &str,
@@ -305,7 +303,7 @@ fn render_glob(
 ) -> ToolOutcome {
     let mut hits = Vec::new();
     let budget = Arc::new(Mutex::new(MAX_GLOB_HITS + 1));
-    collect_glob(
+    collect_pattern(
         root,
         "",
         0,
@@ -330,7 +328,7 @@ fn render_glob(
     ToolOutcome {
         text: toon_doc(&[
             ("path", ToonValue::Str(rel)),
-            ("glob", ToonValue::Str(pattern)),
+            ("pattern", ToonValue::Str(pattern)),
             ("summary", ToonValue::Str(&summary)),
             ("entries", ToonValue::Block(&entries)),
         ]),
@@ -346,7 +344,45 @@ fn render_glob(
     }
 }
 
-fn collect_glob(
+fn map_waves<T, R>(
+    parallelism: usize,
+    items: Vec<T>,
+    stop: impl Fn() -> bool,
+    work: impl Fn(T) -> R + Sync,
+) -> Vec<R>
+where
+    T: Clone + Send,
+    R: Send + Default,
+{
+    if items.is_empty() {
+        return Vec::new();
+    }
+    let width = parallelism.clamp(1, MAX_PARALLELISM);
+    let work = &work;
+    let mut out = Vec::with_capacity(items.len());
+    let mut offset = 0usize;
+    while offset < items.len() {
+        if stop() {
+            break;
+        }
+        let end = (offset + width).min(items.len());
+        let part: Vec<R> = thread::scope(|scope| {
+            let mut handles = Vec::with_capacity(end - offset);
+            for item in items[offset..end].iter().cloned() {
+                handles.push(scope.spawn(move || work(item)));
+            }
+            handles
+                .into_iter()
+                .map(|handle| handle.join().unwrap_or_default())
+                .collect()
+        });
+        out.extend(part);
+        offset = end;
+    }
+    out
+}
+
+fn collect_pattern(
     dir: &Path,
     prefix: &str,
     depth: usize,
@@ -373,38 +409,27 @@ fn collect_glob(
                 (child.clone(), dir.join(&entry.name))
             })
             .collect();
-        if subdirs.is_empty() {
-            Vec::new()
-        } else {
-            thread::scope(|scope| {
-                let mut handles = Vec::with_capacity(subdirs.len());
-                for (child, subdir) in subdirs {
-                    if budget.lock().map(|guard| *guard).unwrap_or(0) == 0 {
-                        break;
-                    }
-                    let budget = Arc::clone(budget);
-                    let pattern = pattern.to_string();
-                    handles.push(scope.spawn(move || {
-                        let mut local = Vec::new();
-                        collect_glob(
-                            &subdir,
-                            &child,
-                            depth + 1,
-                            max_depth,
-                            1,
-                            &pattern,
-                            &budget,
-                            &mut local,
-                        );
-                        local
-                    }));
-                }
-                handles
-                    .into_iter()
-                    .map(|handle| handle.join().unwrap_or_default())
-                    .collect()
-            })
-        }
+        map_waves(
+            parallelism,
+            subdirs,
+            || budget_empty(budget),
+            |(child, subdir)| {
+                let budget = Arc::clone(budget);
+                let pattern = pattern.to_string();
+                let mut local = Vec::new();
+                collect_pattern(
+                    &subdir,
+                    &child,
+                    depth + 1,
+                    max_depth,
+                    1,
+                    &pattern,
+                    &budget,
+                    &mut local,
+                );
+                local
+            },
+        )
     } else {
         Vec::new()
     };
@@ -422,7 +447,7 @@ fn collect_glob(
                         sub_idx += 1;
                     }
                 } else {
-                    collect_glob(
+                    collect_pattern(
                         &dir.join(&entry.name),
                         &child,
                         depth + 1,
@@ -434,13 +459,17 @@ fn collect_glob(
                     );
                 }
             }
-        } else if glob_hit(pattern, &child) {
+        } else if pattern_hit(pattern, &child) {
             hits.push(child);
             if let Ok(mut guard) = budget.lock() {
                 *guard = guard.saturating_sub(1);
             }
         }
     }
+}
+
+fn budget_empty(budget: &Arc<Mutex<usize>>) -> bool {
+    budget.lock().map(|guard| *guard).unwrap_or(0) == 0
 }
 
 fn join_rel(prefix: &str, name: &str) -> String {
@@ -451,7 +480,7 @@ fn join_rel(prefix: &str, name: &str) -> String {
     }
 }
 
-fn glob_hit(pattern: &str, rel_path: &str) -> bool {
+fn pattern_hit(pattern: &str, rel_path: &str) -> bool {
     let path = rel_path.trim_start_matches("./");
     expand_braces(pattern).iter().any(|alternative| {
         let alternative = alternative.trim().trim_start_matches("./");
@@ -562,29 +591,17 @@ fn walk_inner(
             .filter(|entry| entry.is_dir)
             .map(|entry| dir.join(&entry.name))
             .collect();
-        if subdirs.is_empty() {
-            Vec::new()
-        } else {
-            thread::scope(|scope| {
-                let mut handles = Vec::with_capacity(subdirs.len());
-                for subdir in subdirs {
-                    if budget.lock().map(|g| *g).unwrap_or(0) == 0 {
-                        break;
-                    }
-                    let subdir = subdir.clone();
-                    let budget = Arc::clone(budget);
-                    handles.push(scope.spawn(move || {
-                        let mut local: Vec<String> = Vec::new();
-                        walk_inner(&subdir, depth + 1, max_depth, 1, &budget, &mut local);
-                        local
-                    }));
-                }
-                handles
-                    .into_iter()
-                    .map(|handle| handle.join().unwrap_or_default())
-                    .collect()
-            })
-        }
+        map_waves(
+            parallelism,
+            subdirs,
+            || budget_empty(budget),
+            |subdir| {
+                let budget = Arc::clone(budget);
+                let mut local = Vec::new();
+                walk_inner(&subdir, depth + 1, max_depth, 1, &budget, &mut local);
+                local
+            },
+        )
     } else {
         Vec::new()
     };
@@ -662,7 +679,7 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("alpha.txt"), "a").unwrap();
         let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
-        let outcome = ListDirectoryTool.execute(&json!({"dirPath": "."}), &ctx);
+        let outcome = GlobTool.execute(&json!({"dirPath": "."}), &ctx);
         assert!(outcome.text.contains("alpha.txt"));
         let _ = fs::remove_dir_all(&dir);
     }
@@ -681,7 +698,7 @@ mod tests {
         fs::write(dir.join("root.txt"), "r").unwrap();
         fs::write(dir.join("child/nested.txt"), "n").unwrap();
         let ctx = crate::tools::ToolContext::for_test(dir.clone(), 1);
-        let outcome = ListDirectoryTool.execute(
+        let outcome = GlobTool.execute(
             &json!({"dirPath": ".", "recursive": true, "maxDepth": 3}),
             &ctx,
         );
@@ -718,7 +735,7 @@ mod tests {
         fs::write(dir.join("beta/b.txt"), "b").unwrap();
         fs::write(dir.join("gamma/c.txt"), "c").unwrap();
         let ctx = crate::tools::ToolContext::for_test(dir.clone(), 4);
-        let outcome = ListDirectoryTool.execute(
+        let outcome = GlobTool.execute(
             &json!({"dirPath": ".", "recursive": true, "maxDepth": 3}),
             &ctx,
         );
@@ -746,20 +763,20 @@ mod tests {
     }
 
     #[test]
-    fn glob_matches_name_or_path() {
-        assert!(glob_hit("*.txt", "alpha.txt"));
-        assert!(glob_hit("*.txt", "child/nested.txt"));
-        assert!(!glob_hit("*.txt", "child/nested.rs"));
-        assert!(glob_hit("child/*.txt", "child/nested.txt"));
-        assert!(!glob_hit("child/*.txt", "alpha.txt"));
-        assert!(glob_hit("**/*.{txt,md}", "child/nested.txt"));
-        assert!(glob_hit("src/**/*.ts", "src/features/app.ts"));
+    fn pattern_matches_name_or_path() {
+        assert!(pattern_hit("*.txt", "alpha.txt"));
+        assert!(pattern_hit("*.txt", "child/nested.txt"));
+        assert!(!pattern_hit("*.txt", "child/nested.rs"));
+        assert!(pattern_hit("child/*.txt", "child/nested.txt"));
+        assert!(!pattern_hit("child/*.txt", "alpha.txt"));
+        assert!(pattern_hit("**/*.{txt,md}", "child/nested.txt"));
+        assert!(pattern_hit("src/**/*.ts", "src/features/app.ts"));
     }
 
     #[test]
-    fn glob_returns_sorted_paths_only() {
+    fn pattern_returns_sorted_paths_only() {
         let dir = std::env::temp_dir().join(format!(
-            "k-agent-list-glob-{}-{}",
+            "k-agent-glob-pattern-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -771,7 +788,7 @@ mod tests {
         fs::write(dir.join("skip.rs"), "s").unwrap();
         fs::write(dir.join("child/nested.txt"), "n").unwrap();
         let ctx = crate::tools::ToolContext::for_test(dir.clone(), 2);
-        let outcome = ListDirectoryTool.execute(&json!({"dirPath": ".", "glob": "*.txt"}), &ctx);
+        let outcome = GlobTool.execute(&json!({"dirPath": ".", "pattern": "*.txt"}), &ctx);
         assert!(outcome.text.contains("root.txt"));
         assert!(outcome.text.contains("child/nested.txt"));
         assert!(!outcome.text.contains("skip.rs"));
@@ -798,11 +815,11 @@ mod tests {
         fs::write(dir.join("node_modules/leftpad/index.js"), "module\n").unwrap();
         fs::write(dir.join(".env"), "SECRET\n").unwrap();
         let ctx = crate::tools::ToolContext::for_test(dir.clone(), 2);
-        let listed = ListDirectoryTool.execute(&json!({"dirPath": "."}), &ctx);
+        let listed = GlobTool.execute(&json!({"dirPath": "."}), &ctx);
         assert!(listed.text.contains("[dir] .github"));
         assert!(!listed.text.contains("node_modules"));
         assert!(!listed.text.contains(".env"));
-        let found = ListDirectoryTool.execute(&json!({"dirPath": ".", "glob": "*.yml"}), &ctx);
+        let found = GlobTool.execute(&json!({"dirPath": ".", "pattern": "*.yml"}), &ctx);
         assert!(found.text.contains(".github/workflows/release.yml"));
         assert!(!found.text.contains("node_modules"));
         let _ = fs::remove_dir_all(&dir);

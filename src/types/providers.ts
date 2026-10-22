@@ -11,6 +11,7 @@ export type ProviderErrorKind =
   | "notFound"
   | "duplicate"
   | "crypto"
+  | "invalid"
   | "api";
 
 export type ProviderErrorPayload =
@@ -24,7 +25,16 @@ export type ProviderErrorPayload =
   | { kind: "notFound"; message: string }
   | { kind: "duplicate"; message: string }
   | { kind: "crypto"; message: string }
+  | { kind: "invalid"; message: string }
   | { kind: "api"; status: number; message: string };
+
+export type ProviderHeaderKind = "defined" | "generated";
+
+export type ProviderHeader = {
+  name: string;
+  kind?: ProviderHeaderKind;
+  value: string;
+};
 
 export const PROVIDER_KINDS: readonly ProviderKind[] = [
   "openai-like",
@@ -101,6 +111,7 @@ export type Provider = {
   kind: ProviderKind;
   baseUrl: string;
   hasApiKey?: boolean;
+  headers?: ProviderHeader[];
   models: ModelInfo[];
   lastSyncedAt?: number;
 };
@@ -112,6 +123,7 @@ export type ProviderDraft = {
   baseUrl: string;
   apiKey?: string;
   clearApiKey?: boolean;
+  headers?: ProviderHeader[];
 };
 
 export const DEFAULT_BASE_URLS: Record<ProviderKind, string> = {

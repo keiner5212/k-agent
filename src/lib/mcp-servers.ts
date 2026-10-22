@@ -30,6 +30,7 @@ const runMutation = async (
 
 type McpServersStore = {
   servers: McpServer[];
+  workspaceReady: boolean;
   loading: boolean;
   error?: string;
   load: () => Promise<void>;
@@ -41,17 +42,24 @@ type McpServersStore = {
 
 export const useMcpServersStore = create<McpServersStore>((set) => ({
   servers: [],
+  workspaceReady: false,
   loading: false,
 
   load: async () => {
     set({ loading: true, error: undefined });
     if (!isTauri()) {
-      set({ servers: [], loading: false });
+      set({ servers: [], workspaceReady: false, loading: false });
       return;
     }
     try {
-      const servers = await invoke<McpServer[]>("list_mcp_servers");
-      set({ servers, loading: false });
+      const payload = await invoke<{ servers: McpServer[]; workspaceReady: boolean }>(
+        "list_mcp_servers",
+      );
+      set({
+        servers: payload.servers,
+        workspaceReady: payload.workspaceReady,
+        loading: false,
+      });
     } catch (error) {
       set({ loading: false, error: ipcErrorMessage(error) });
     }
@@ -62,6 +70,7 @@ export const useMcpServersStore = create<McpServersStore>((set) => ({
       const server = await invoke<McpServer>("save_mcp_server", {
         input: {
           id: draft.id ?? null,
+          scope: draft.scope,
           name: draft.name,
           enabled: draft.enabled,
           transport: draft.transport,
@@ -74,7 +83,12 @@ export const useMcpServersStore = create<McpServersStore>((set) => ({
           clearSecrets: Boolean(draft.clearSecrets),
         },
       });
-      set((state) => ({ servers: replaceServer(state.servers, server), error: undefined }));
+      set((state) => {
+        const base = draft.id
+          ? state.servers.filter((item) => item.id !== draft.id)
+          : state.servers;
+        return { servers: replaceServer(base, server), error: undefined };
+      });
       return server;
     });
     if (result.error) set({ error: result.error });

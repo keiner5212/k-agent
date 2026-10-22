@@ -144,44 +144,6 @@ async fn confirm_outside(
     .await
 }
 
-pub fn http_write_allowed(ctx: &ToolContext<'_>) -> bool {
-    ctx.http_write_allowed || session_id_granted_in(&http_grants(), ctx.session_id.as_deref())
-}
-
-pub async fn ensure_http_write(ctx: &ToolContext<'_>, method: &str) -> Result<(), String> {
-    if method.eq_ignore_ascii_case("GET") || method.eq_ignore_ascii_case("HEAD") {
-        return Ok(());
-    }
-    if child_blocked(ctx) {
-        return Err(
-            "HTTP writes are not available to a subagent. Report this to the parent.".into(),
-        );
-    }
-    if http_write_allowed(ctx) {
-        return Ok(());
-    }
-    match ask_choice(
-        ctx,
-        "http_write_confirm",
-        "HTTP write",
-        &format!("Send {method}? This request is not a GET."),
-    )
-    .await
-    {
-        OutsideChoice::Deny => Err("User denied the HTTP write.".into()),
-        OutsideChoice::Once => Ok(()),
-        OutsideChoice::Session => {
-            grant_in(&http_grants(), ctx.session_id.as_deref());
-            Ok(())
-        }
-    }
-}
-
-fn http_grants() -> &'static Mutex<HashSet<String>> {
-    static GRANTS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
-    GRANTS.get_or_init(|| Mutex::new(HashSet::new()))
-}
-
 async fn ask_choice(
     ctx: &ToolContext<'_>,
     id: &str,

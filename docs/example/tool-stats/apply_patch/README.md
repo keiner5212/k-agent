@@ -11,7 +11,7 @@ Apply one patch that adds, updates, or deletes files. Every file is checked befo
 - Deletes a file with `*** Delete File: path`.
 - Plans every file in memory. A bad hunk writes nothing.
 - A failed write restores files already written in that call.
-- After a successful write, asks the language server to format the file, then refreshes diagnostics. A delete only notifies the server.
+- After a successful write, formats the file unless `format` is false, then refreshes diagnostics. Default on. Set `format` false only when this call must not reformat. A delete only notifies the server.
 - Paths outside the workspace wait for the user.
 - Keeps a trailing newline on updated files.
 - A move writes the new path, then removes the old path.
@@ -27,9 +27,10 @@ Apply one patch that adds, updates, or deletes files. Every file is checked befo
 
 ## Options
 
-| Name        | Type   | Required | Default | Notes                                      |
-| ----------- | ------ | -------- | ------- | ------------------------------------------ |
-| `patchText` | string | yes      | -       | Full patch, including the begin/end lines. |
+| Name        | Type    | Required | Default | Notes                                                                 |
+| ----------- | ------- | -------- | ------- | --------------------------------------------------------------------- |
+| `patchText` | string  | yes      | -       | Full patch, including the begin/end lines.                            |
+| `format`    | boolean | no       | `true`  | Default on. Set `format` false only when this call must not reformat. |
 
 ## Response
 

@@ -9,7 +9,9 @@ use tauri::AppHandle;
 use thiserror::Error;
 
 use crate::attachments::ChatAttachment;
-use crate::providers::{attach_auth, load_all, ModelInfo, Provider, ProviderError, ProviderKind};
+use crate::providers::{
+    attach_auth, bind_session_headers, load_all, ModelInfo, Provider, ProviderError, ProviderKind,
+};
 use crate::tools::{self, ModelToolCall, ToolContext, ToolDisplay};
 
 const CHAT_HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
@@ -91,8 +93,6 @@ pub struct SendChatInput {
     pub shell_program: String,
     #[serde(default)]
     pub outside_workspace_allowed: bool,
-    #[serde(default)]
-    pub http_write_allowed: bool,
     #[serde(default)]
     pub resume_confirmed: bool,
     #[serde(default)]
@@ -249,7 +249,7 @@ fn no_personalities() -> Arc<HashMap<String, String>> {
 fn tool_parallelism(worker_cores: Option<u32>) -> usize {
     worker_cores
         .unwrap_or(1)
-        .clamp(1, tools::LIST_DIRECTORY_MAX_PARALLELISM as u32) as usize
+        .clamp(1, tools::GLOB_MAX_PARALLELISM as u32) as usize
 }
 
 fn tools_enabled(call: &ChatCall<'_>) -> bool {
@@ -441,7 +441,7 @@ fn tool_arguments_json(name: &str, argument: Option<&str>, arguments: Option<&st
         return json!({ "name": raw }).to_string();
     }
     if name == tools::READ_TOOL_NAME
-        || name == tools::LIST_DIRECTORY_TOOL_NAME
+        || name == tools::GLOB_TOOL_NAME
         || name == tools::CREATE_FOLDER_TOOL_NAME
         || name == tools::DELETE_TOOL_NAME
     {
@@ -471,7 +471,7 @@ fn tool_call_argument(name: &str, arguments: &str) -> String {
     if name == tools::READ_TOOL_NAME
         || name == tools::WRITE_TOOL_NAME
         || name == tools::EDIT_TOOL_NAME
-        || name == tools::LIST_DIRECTORY_TOOL_NAME
+        || name == tools::GLOB_TOOL_NAME
         || name == tools::CREATE_FOLDER_TOOL_NAME
         || name == tools::DELETE_TOOL_NAME
     {
@@ -498,7 +498,7 @@ fn tool_call_argument(name: &str, arguments: &str) -> String {
 }
 
 fn name_for_path_field(name: &str) -> &'static str {
-    if name == tools::LIST_DIRECTORY_TOOL_NAME || name == tools::CREATE_FOLDER_TOOL_NAME {
+    if name == tools::GLOB_TOOL_NAME || name == tools::CREATE_FOLDER_TOOL_NAME {
         "dirPath"
     } else if name == tools::DELETE_TOOL_NAME {
         "path"
@@ -2052,6 +2052,7 @@ async fn send_gemini_like(
     if stream {
         req = req.header(reqwest::header::ACCEPT, "text/event-stream");
     }
+    req = attach_auth(req, provider);
     let resp = req
         .send()
         .await
@@ -2238,7 +2239,6 @@ async fn commit_tool_calls(
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
     session_id: Option<&str>,
     outside_workspace_allowed: bool,
-    http_write_allowed: bool,
     turns: &mut Vec<Turn>,
     model_calls: &[ModelToolCall],
     emit: bool,
@@ -2273,7 +2273,6 @@ async fn commit_tool_calls(
                 session_id: session_id.map(str::to_string),
                 thought_signature: tc.thought_signature.clone(),
                 outside_workspace_allowed,
-                http_write_allowed,
                 on_chunk,
                 workspace: None,
                 parallelism: call.parallelism,
@@ -2457,16 +2456,17 @@ async fn send_message(
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
     session_id: Option<&str>,
     outside_workspace_allowed: bool,
-    http_write_allowed: bool,
     resume_confirmed: bool,
     record_checkpoints: bool,
 ) -> Result<SentMessage, ChatError> {
     if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
     }
+    let mut provider = provider.clone();
+    bind_session_headers(Some(app), session_id, &mut provider)?;
     if !tools_enabled(call) {
         child_feed_begin(call, &[]);
-        let mut output = dispatch_with_retry(provider, call, on_chunk).await?;
+        let mut output = dispatch_with_retry(&provider, call, on_chunk).await?;
         child_feed_seal(call);
         output.content = tools::truncate_assistant(&output.content);
         return Ok(SentMessage {
@@ -2504,7 +2504,6 @@ async fn send_message(
                     call,
                     on_chunk,
                     session_id,
-                    true,
                     true,
                     &mut turns,
                     &model_calls,
@@ -2544,7 +2543,7 @@ async fn send_message(
         };
         child_feed_begin(call, &tool_rounds);
         let round_started = std::time::Instant::now();
-        let output = dispatch_with_retry(provider, &round_call, on_chunk).await?;
+        let output = dispatch_with_retry(&provider, &round_call, on_chunk).await?;
         child_feed_seal(call);
         let thinking_ms =
             child_feed_measured(call).unwrap_or_else(|| round_started.elapsed().as_millis() as u64);
@@ -2632,7 +2631,6 @@ async fn send_message(
             on_chunk,
             session_id,
             outside_workspace_allowed,
-            http_write_allowed,
             &mut turns,
             &model_calls,
             true,
@@ -2664,6 +2662,8 @@ pub struct GenerateSessionTitleInput {
     pub provider_id: String,
     pub model_id: String,
     pub message: String,
+    #[serde(default)]
+    pub session_id: Option<String>,
     #[serde(default)]
     pub limit_provider_data_use: bool,
 }
@@ -2769,7 +2769,14 @@ pub async fn generate_session_title(
     };
     let title = normalize_generated_title(
         &send_message(
-            &app, &provider, &call, None, None, false, false, false, false,
+            &app,
+            &provider,
+            &call,
+            None,
+            input.session_id.as_deref(),
+            false,
+            false,
+            false,
         )
         .await?
         .content,
@@ -2786,6 +2793,8 @@ pub struct SummarizeConversationInput {
     pub provider_id: String,
     pub model_id: String,
     pub transcript: String,
+    #[serde(default)]
+    pub session_id: Option<String>,
     #[serde(default)]
     pub limit_provider_data_use: bool,
 }
@@ -2851,7 +2860,14 @@ pub async fn summarize_conversation(
     };
     let summary = normalize_generated_text(
         &send_message(
-            &app, &provider, &call, None, None, false, false, false, false,
+            &app,
+            &provider,
+            &call,
+            None,
+            input.session_id.as_deref(),
+            false,
+            false,
+            false,
         )
         .await?
         .content,
@@ -2994,6 +3010,7 @@ pub(crate) async fn complete_quiet(
     user: &str,
     max_output: u64,
     limit_provider_data_use: bool,
+    session_id: Option<&str>,
 ) -> Result<String, ChatError> {
     let (provider, model) = load_provider_model(app, provider_id, model_id).await?;
     let turns = vec![user_turn(user.to_string())];
@@ -3020,11 +3037,9 @@ pub(crate) async fn complete_quiet(
         child_session_id: None,
     };
     let text = normalize_generated_text(
-        &send_message(
-            app, &provider, &call, None, None, false, false, false, false,
-        )
-        .await?
-        .content,
+        &send_message(app, &provider, &call, None, session_id, false, false, false)
+            .await?
+            .content,
     );
     if text.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -3063,11 +3078,9 @@ pub async fn generate_app_content(
         child_session_id: None,
     };
     let text = normalize_generated_text(
-        &send_message(
-            &app, &provider, &call, None, None, false, false, false, false,
-        )
-        .await?
-        .content,
+        &send_message(&app, &provider, &call, None, None, false, false, false)
+            .await?
+            .content,
     );
     if text.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -3569,7 +3582,6 @@ pub(crate) async fn run_task(
         None,
         child_session_id.as_deref().or(ctx.session_id.as_deref()),
         ctx.outside_workspace_allowed,
-        ctx.http_write_allowed,
         false,
         false,
     );
@@ -3719,7 +3731,6 @@ pub async fn send_chat_message(
         Some(&on_chunk),
         input.session_id.as_deref(),
         input.outside_workspace_allowed,
-        input.http_write_allowed,
         input.resume_confirmed,
         true,
     );
@@ -3756,10 +3767,7 @@ mod tests {
         assert_eq!(tool_parallelism(None), 1);
         assert_eq!(tool_parallelism(Some(0)), 1);
         assert_eq!(tool_parallelism(Some(4)), 4);
-        assert_eq!(
-            tool_parallelism(Some(10_000)),
-            tools::LIST_DIRECTORY_MAX_PARALLELISM
-        );
+        assert_eq!(tool_parallelism(Some(10_000)), tools::GLOB_MAX_PARALLELISM);
     }
 
     #[test]

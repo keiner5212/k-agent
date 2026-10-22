@@ -170,7 +170,8 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
         return error_outcome("background needs a workspace.");
     };
     let (shell, flag) = shell_invocation(ctx);
-    let launch = match launch(&shell, flag, command, &workspace, STARTUP_WAIT) {
+    let prep = bash::prepare_auto_run(command);
+    let launch = match launch(&shell, flag, &prep, &workspace, STARTUP_WAIT) {
         Ok(launch) => launch,
         Err(message) => return error_outcome(&message),
     };
@@ -200,9 +201,6 @@ async fn authorize(command: &str, ctx: &ToolContext<'_>) -> Result<(), ToolOutco
         )),
         bash::Decision::Background => Err(error_outcome(
             "background keeps the process until the turn ends. Do not use &, nohup, or disown.",
-        )),
-        bash::Decision::Http => Err(error_outcome(
-            "background refused: use http_request for HTTP. Do not use curl or wget.",
         )),
         bash::Decision::Run | bash::Decision::Allowed => Ok(()),
         bash::Decision::Confirm => {
@@ -253,17 +251,18 @@ fn shell_invocation(ctx: &ToolContext<'_>) -> (String, &'static str) {
 fn launch(
     shell: &str,
     flag: &str,
-    command: &str,
+    prep: &bash::RunPrep,
     workspace: &std::path::Path,
     startup: Duration,
 ) -> Result<Launch, String> {
     let mut cmd = Command::new(shell);
     cmd.arg(flag)
-        .arg(command)
+        .arg(&prep.command)
         .current_dir(workspace)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    bash::install_command_env(&mut cmd, shell, prep.clear_proxy);
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
@@ -438,14 +437,12 @@ mod tests {
     #[test]
     fn drop_kills_the_process_group() {
         let dir = std::env::temp_dir();
-        let launch = launch(
-            "/bin/sh",
-            "-c",
-            "exec sleep 30",
-            &dir,
-            Duration::from_millis(200),
-        )
-        .expect("spawn");
+        let prep = bash::RunPrep {
+            command: "exec sleep 30".to_string(),
+            clear_proxy: false,
+        };
+        let launch =
+            launch("/bin/sh", "-c", &prep, &dir, Duration::from_millis(200)).expect("spawn");
         let Launch::Running(proc) = launch else {
             panic!("sleep should still be running");
         };

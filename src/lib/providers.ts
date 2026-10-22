@@ -128,6 +128,7 @@ export const useProvidersStore = create<ProvidersStore>((set) => ({
             baseUrl: draft.baseUrl,
             apiKey: draft.apiKey ?? null,
             clearApiKey: Boolean(draft.clearApiKey),
+            headers: draft.headers ?? [],
             workerCores,
           },
         });

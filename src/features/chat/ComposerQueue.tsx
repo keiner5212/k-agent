@@ -31,37 +31,41 @@ export const ComposerQueue = (): ReactNode => {
             >
               {item.text || item.attachments?.map((file) => file.name).join(", ")}
             </span>
-            <GlassButton
-              variant="secondary"
-              className="composer-queue__now"
-              onClick={() => {
-                void sendQueuedNow(item.id);
-              }}
-            >
-              <ChevronsRight size={14} strokeWidth={2} />
-              {t("chat.queue.sendNow")}
-            </GlassButton>
-            <IconButton
-              label={t("chat.queue.edit")}
-              className="composer-queue__edit"
-              onClick={() => {
-                editQueued(item.id);
-                queueMicrotask(() => {
-                  document
-                    .querySelector<HTMLTextAreaElement>(".chat-composer__field textarea")
-                    ?.focus();
-                });
-              }}
-            >
-              <Pencil size={14} strokeWidth={1.5} />
-            </IconButton>
-            <IconButton
-              label={t("chat.queue.remove")}
-              className="composer-queue__remove"
-              onClick={() => removeQueued(item.id)}
-            >
-              <X size={14} strokeWidth={1.5} />
-            </IconButton>
+            <div className="composer-queue__actions">
+              <GlassButton
+                variant="secondary"
+                className="composer-queue__now"
+                aria-label={t("chat.queue.sendNow")}
+                title={t("chat.queue.sendNow")}
+                onClick={() => {
+                  void sendQueuedNow(item.id);
+                }}
+              >
+                <ChevronsRight size={14} strokeWidth={2} />
+                <span className="composer-queue__now-label">{t("chat.queue.sendNow")}</span>
+              </GlassButton>
+              <IconButton
+                label={t("chat.queue.edit")}
+                className="composer-queue__edit"
+                onClick={() => {
+                  editQueued(item.id);
+                  queueMicrotask(() => {
+                    document
+                      .querySelector<HTMLTextAreaElement>(".chat-composer__field textarea")
+                      ?.focus();
+                  });
+                }}
+              >
+                <Pencil size={14} strokeWidth={1.5} />
+              </IconButton>
+              <IconButton
+                label={t("chat.queue.remove")}
+                className="composer-queue__remove"
+                onClick={() => removeQueued(item.id)}
+              >
+                <X size={14} strokeWidth={1.5} />
+              </IconButton>
+            </div>
           </li>
         ))}
       </ul>

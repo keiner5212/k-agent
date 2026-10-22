@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
+import { IconButton } from "@/components/IconButton";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { Select } from "@/components/Select";
@@ -11,8 +12,54 @@ import {
   DEFAULT_BASE_URLS,
   PROVIDER_KINDS,
   type Provider,
+  type ProviderHeader,
+  type ProviderHeaderKind,
   type ProviderKind,
 } from "@/types/providers";
+
+const MAX_HEADERS = 32;
+const HEADER_NAME = /^[!#$%&'*+\-.0-9A-Za-z^_`|~]+$/;
+const HEADER_KINDS: readonly ProviderHeaderKind[] = ["defined", "generated"];
+
+type HeaderRow = {
+  key: string;
+  name: string;
+  kind: ProviderHeaderKind;
+  value: string;
+};
+
+const nextHeaderKey = (): string =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `header-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const rowsFromHeaders = (headers: ProviderHeader[] | undefined): HeaderRow[] =>
+  (headers ?? []).map((header) => ({
+    key: nextHeaderKey(),
+    name: header.name,
+    kind: header.kind ?? "defined",
+    value: header.value,
+  }));
+
+const parseHeaderRows = (
+  rows: HeaderRow[],
+): { headers: ProviderHeader[] } | { error: "name" | "empty" | "duplicate" | "limit" } => {
+  const headers: ProviderHeader[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const name = row.name.trim();
+    const value = row.value.trim();
+    if (!name && !value) continue;
+    if (!name || !value) return { error: "empty" };
+    if (!HEADER_NAME.test(name) || name.length > 128) return { error: "name" };
+    const key = name.toLowerCase();
+    if (seen.has(key)) return { error: "duplicate" };
+    seen.add(key);
+    if (headers.length >= MAX_HEADERS) return { error: "limit" };
+    headers.push({ name, kind: row.kind, value });
+  }
+  return { headers };
+};
 
 type ProviderFormDialogProps = {
   open: boolean;
@@ -52,12 +99,17 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
   const [baseUrl, setBaseUrl] = useState(draft?.baseUrl ?? DEFAULT_BASE_URLS["openai-like"]);
   const [apiKey, setApiKey] = useState(storedSecretDisplay(draft?.hasApiKey));
   const [clearApiKey, setClearApiKey] = useState(false);
+  const [headerRows, setHeaderRows] = useState<HeaderRow[]>(() => rowsFromHeaders(draft?.headers));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [detectedCount, setDetectedCount] = useState<number | null>(null);
 
   const isEditing = Boolean(draft?.id);
+
+  const patchHeader = (key: string, patch: Partial<HeaderRow>): void => {
+    setHeaderRows((rows) => rows.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+  };
 
   const handleKindChange = (next: ProviderKind): void => {
     setKind(next);
@@ -70,6 +122,17 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
     event.preventDefault();
     if (!name.trim() || !baseUrl.trim()) {
       setError(t("providers.form.errors.required"));
+      return;
+    }
+    const parsedHeaders = parseHeaderRows(headerRows);
+    if ("error" in parsedHeaders) {
+      const key = {
+        name: "providers.form.errors.headerName",
+        empty: "providers.form.errors.headerEmpty",
+        duplicate: "providers.form.errors.headerDuplicate",
+        limit: "providers.form.errors.headerLimit",
+      }[parsedHeaders.error];
+      setError(t(key));
       return;
     }
     setSubmitting(true);
@@ -86,6 +149,7 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
           ? undefined
           : apiKey.trim() || undefined,
       clearApiKey,
+      headers: parsedHeaders.headers,
     });
     setSubmitting(false);
     if (result.error) {
@@ -227,6 +291,81 @@ const ProviderFormBody = ({ draft, onOpenChange, onSaved }: ProviderFormBodyProp
               {t("providers.form.apiKeyRemove")}
             </button>
           ) : null}
+        </div>
+
+        <div className="field">
+          <span className="field__label" id="provider-headers-label">
+            {t("providers.form.headers")}
+          </span>
+          <div
+            className="provider-form__headers"
+            role="group"
+            aria-labelledby="provider-headers-label"
+          >
+            {headerRows.map((row) => (
+              <div className="provider-form__header-row" key={row.key}>
+                <input
+                  className="input"
+                  type="text"
+                  value={row.name}
+                  aria-label={t("providers.form.headerName")}
+                  placeholder={t("providers.form.headerName")}
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(event) => patchHeader(row.key, { name: event.target.value })}
+                />
+                <Select
+                  value={row.kind}
+                  ariaLabel={t("providers.form.headerKind")}
+                  onChange={(next) => patchHeader(row.key, { kind: next as ProviderHeaderKind })}
+                  options={HEADER_KINDS.map((value) => ({
+                    value,
+                    label: t(`providers.form.headerKinds.${value}`),
+                  }))}
+                />
+                <input
+                  className="input input--mono"
+                  type="text"
+                  value={row.value}
+                  aria-label={
+                    row.kind === "generated"
+                      ? t("providers.form.headerPattern")
+                      : t("providers.form.headerValue")
+                  }
+                  placeholder={
+                    row.kind === "generated"
+                      ? t("providers.form.headerPatternPlaceholder")
+                      : t("providers.form.headerValuePlaceholder")
+                  }
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(event) => patchHeader(row.key, { value: event.target.value })}
+                />
+                <IconButton
+                  label={t("providers.form.removeHeader")}
+                  onClick={() =>
+                    setHeaderRows((rows) => rows.filter((item) => item.key !== row.key))
+                  }
+                >
+                  <X size={14} strokeWidth={1.5} />
+                </IconButton>
+              </div>
+            ))}
+          </div>
+          <GlassButton
+            variant="secondary"
+            type="button"
+            disabled={headerRows.length >= MAX_HEADERS}
+            onClick={() =>
+              setHeaderRows((rows) => [
+                ...rows,
+                { key: nextHeaderKey(), name: "", kind: "defined", value: "" },
+              ])
+            }
+          >
+            {t("providers.form.addHeader")}
+          </GlassButton>
+          <span className="field__hint">{t("providers.form.headersHint")}</span>
         </div>
 
         {error ? (
