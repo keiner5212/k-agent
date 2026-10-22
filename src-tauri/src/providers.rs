@@ -4,6 +4,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use rand::Rng;
+use regex_syntax::hir::{Hir, HirKind};
 
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -850,18 +851,44 @@ fn write_generated_entries(
 }
 
 fn sample_header_pattern(pattern: &str) -> Result<String, ProviderError> {
-    let generator = rand_regex::Regex::compile(pattern, HEADER_PATTERN_REPEAT)
+    let matcher = regex::Regex::new(pattern)
+        .map_err(|err| ProviderError::Invalid(format!("invalid header pattern: {err}")))?;
+    // rand_regex rejects look-around. A sample is the whole value, so drop those and keep samples the real pattern accepts.
+    let hir = regex_syntax::Parser::new()
+        .parse(pattern)
+        .map_err(|err| ProviderError::Invalid(format!("invalid header pattern: {err}")))?;
+    let generator = rand_regex::Regex::with_hir(strip_header_looks(hir), HEADER_PATTERN_REPEAT)
         .map_err(|err| ProviderError::Invalid(format!("invalid header pattern: {err}")))?;
     let mut rng = rand::thread_rng();
     for _ in 0..HEADER_SAMPLE_TRIES {
         let value: String = rng.sample(&generator);
-        if header_wire_ok(&value) {
+        if header_wire_ok(&value) && matcher.is_match(&value) {
             return Ok(value);
         }
     }
     Err(ProviderError::Invalid(
         "header pattern cannot produce a header value".into(),
     ))
+}
+
+fn strip_header_looks(hir: Hir) -> Hir {
+    match hir.into_kind() {
+        HirKind::Look(_) | HirKind::Empty => Hir::empty(),
+        HirKind::Literal(lit) => Hir::literal(lit.0),
+        HirKind::Class(class) => Hir::class(class),
+        HirKind::Repetition(mut rep) => {
+            rep.sub = Box::new(strip_header_looks(*rep.sub));
+            Hir::repetition(rep)
+        }
+        HirKind::Capture(mut cap) => {
+            cap.sub = Box::new(strip_header_looks(*cap.sub));
+            Hir::capture(cap)
+        }
+        HirKind::Concat(subs) => Hir::concat(subs.into_iter().map(strip_header_looks).collect()),
+        HirKind::Alternation(subs) => {
+            Hir::alternation(subs.into_iter().map(strip_header_looks).collect())
+        }
+    }
 }
 
 fn named_pattern_error(name: &str, error: ProviderError) -> ProviderError {
@@ -1594,5 +1621,29 @@ mod tests {
     fn invalid_pattern_is_rejected() {
         let error = normalize_headers(vec![generated("X-Client", "(")]).unwrap_err();
         assert!(matches!(error, ProviderError::Invalid(_)));
+    }
+
+    #[test]
+    fn anchored_session_pattern_generates_a_match() {
+        let resolved = resolve_generated_headers(
+            None,
+            "prov",
+            &[generated("x-opencode-session", r"^ses_[0-9a-f]{64}$")],
+        )
+        .unwrap();
+        let matcher = regex::Regex::new(r"^ses_[0-9a-f]{64}$").unwrap();
+        assert!(matcher.is_match(&resolved[0].value), "{}", resolved[0].value);
+    }
+
+    #[test]
+    fn word_boundary_pattern_generates_a_match() {
+        let resolved = resolve_generated_headers(
+            None,
+            "prov",
+            &[generated("x-opencode-session", r"^\bses_[0-9a-f]{8}\b$")],
+        )
+        .unwrap();
+        let matcher = regex::Regex::new(r"^\bses_[0-9a-f]{8}\b$").unwrap();
+        assert!(matcher.is_match(&resolved[0].value), "{}", resolved[0].value);
     }
 }

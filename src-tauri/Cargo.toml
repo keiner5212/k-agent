@@ -42,6 +42,7 @@ toon-format = { version = "0.5", default-features = false }
 rand = "0.8"
 rand_regex = "0.17"
 regex = "1"
+regex-syntax = { version = "0.8", default-features = false, features = ["std", "unicode"] }
 scraper = "0.27.0"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
 grep = "0.3"
