@@ -850,9 +850,8 @@ fn write_generated_entries(
 }
 
 fn sample_header_pattern(pattern: &str) -> Result<String, ProviderError> {
-    let generator = rand_regex::Regex::compile(pattern, HEADER_PATTERN_REPEAT).map_err(|err| {
-        ProviderError::Invalid(format!("invalid header pattern: {err}"))
-    })?;
+    let generator = rand_regex::Regex::compile(pattern, HEADER_PATTERN_REPEAT)
+        .map_err(|err| ProviderError::Invalid(format!("invalid header pattern: {err}")))?;
     let mut rng = rand::thread_rng();
     for _ in 0..HEADER_SAMPLE_TRIES {
         let value: String = rng.sample(&generator);
@@ -867,9 +866,7 @@ fn sample_header_pattern(pattern: &str) -> Result<String, ProviderError> {
 
 fn named_pattern_error(name: &str, error: ProviderError) -> ProviderError {
     match error {
-        ProviderError::Invalid(message) => {
-            ProviderError::Invalid(format!("{message}: {name}"))
-        }
+        ProviderError::Invalid(message) => ProviderError::Invalid(format!("{message}: {name}")),
         other => other,
     }
 }

@@ -537,8 +537,13 @@
   },
   "mcpServers": {
     "title": "MCP servers",
-    "description": "Configure Model Context Protocol servers. Env vars and headers are stored encrypted on disk.",
-    "empty": "No MCP servers configured yet.",
+    "description": "Configure Model Context Protocol servers. Global servers live in ~/.k-agent/<name>/mcp.json. Workspace servers live in .k-agent/<name>/mcp.json under the workspace. Env vars and headers stay encrypted outside those files.",
+    "empty": "No MCP servers in this location yet.",
+    "scope": {
+      "global": "Global",
+      "local": "Workspace",
+      "needsWorkspace": "Open a project folder. Workspace servers are not stored in the home directory."
+    },
     "transports": {
       "stdio": "Stdio",
       "http": "HTTP"
@@ -572,6 +577,8 @@
       "createTitle": "New MCP server",
       "editTitle": "Edit MCP server",
       "name": "Name",
+      "scope": "Location",
+      "scopeHint": "Workspace servers load only while this project is open.",
       "enabled": "Enabled",
       "transport": "Transport",
       "command": "Command",
@@ -594,6 +601,7 @@
       "toolsProbeFailed": "Saved, but tool probe failed: {{error}}",
       "errors": {
         "nameRequired": "Name is required.",
+        "noWorkspace": "Open a workspace before saving a workspace server.",
         "commandRequired": "Command is required for stdio transport.",
         "urlRequired": "URL is required for remote transport."
       }

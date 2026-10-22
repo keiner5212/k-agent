@@ -1,6 +1,8 @@
 export const MCP_TRANSPORTS = ["stdio", "http"] as const;
+export const MCP_SCOPES = ["global", "local"] as const;
 
 export type McpTransport = (typeof MCP_TRANSPORTS)[number];
+export type McpScope = (typeof MCP_SCOPES)[number];
 
 export type McpToolSummary = {
   name: string;
@@ -10,6 +12,7 @@ export type McpToolSummary = {
 
 export type McpServer = {
   id: string;
+  scope: McpScope;
   name: string;
   enabled: boolean;
   transport: McpTransport;
@@ -26,6 +29,7 @@ export type McpServer = {
 
 export type McpServerDraft = {
   id?: string;
+  scope: McpScope;
   name: string;
   enabled: boolean;
   transport: McpTransport;

@@ -123,13 +123,14 @@ App data dir:
 `~/.k-agent/`:
 
 - `providers.json` (no API keys)
-- `mcp-servers.json` (no env vars or headers)
+- `<name>/mcp.json` global MCP servers. One directory per server. No env vars or headers. `skills`, `agents`, and `cache` are reserved names. A legacy `mcp-servers.json` list is migrated on load.
 - `models-dev-cache.json` (24h TTL)
 - `skills/` global skills. Created on first global skill create.
 - `agents/` session agents (OpenCode-style personas: `{name}/persona.md`). Not AGENTS.md. Created on first global agent create.
 - `AGENTS.md` optional global instruction file. List never creates it. Create/edit/delete from Settings.
 
 Workspace `{workspace}/.agents/skills/`: local skills. Created on first local skill create.
+Workspace `{workspace}/.k-agent/<name>/mcp.json`: workspace MCP servers. Created on first workspace server save. Same file shape as global MCP. Secrets stay in app data `mcp-secrets.json`, keyed by `global/<name>` or `local/<name>`. If the workspace is the home directory, that path is the global root, so workspace scope stays off.
 Session agents live in `~/.k-agent/agents/` only. Builtin agents are app-defined.
 Workspace instruction file: first existing file at the workspace root wins, in order `AGENTS.md`, `agents.md`, `CLAUDE.md`, `CONTEXT.md`. Only that one file is loaded. List never creates it. Create and edit from Settings write `AGENTS.md` or an existing `agents.md`, and do not modify `CLAUDE.md` or `CONTEXT.md`. Delete removes only the owned file. Session agents are not stored as AGENTS.md.
 
@@ -147,7 +148,7 @@ Session files under `app_data_dir/sessions/<id>/session.json` and the thin index
 
 For `sessions.json` (the thin index): same rules, but the index is regenerated from the per-session files on load (`load_from_session_dirs`), so a corrupt index is recoverable by deleting it.
 
-For `~/.k-agent/providers.json` and `mcp-servers.json`: same rules. User-edited, no canonical schema version yet. A change must handle both old and new shapes in one pass.
+For `~/.k-agent/providers.json` and MCP `mcp.json` files: same rules. User-edited, no canonical schema version yet. A change must handle both old and new shapes in one pass. The legacy `mcp-servers.json` array is read once and rewritten into per-server files.
 
 When in doubt, prefer additive changes (`#[serde(default)]` + new optional fields) over migrations. Less code, less risk.
 

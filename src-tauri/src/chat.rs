@@ -10,8 +10,7 @@ use thiserror::Error;
 
 use crate::attachments::ChatAttachment;
 use crate::providers::{
-    apply_provider_headers, attach_auth, bind_session_headers, load_all, ModelInfo, Provider,
-    ProviderError, ProviderKind,
+    attach_auth, bind_session_headers, load_all, ModelInfo, Provider, ProviderError, ProviderKind,
 };
 use crate::tools::{self, ModelToolCall, ToolContext, ToolDisplay};
 
@@ -1924,7 +1923,6 @@ async fn send_anthropic_like(
     if call.plan.anthropic_interleaved {
         req = req.header("anthropic-beta", "interleaved-thinking-2025-05-14");
     }
-    req = apply_provider_headers(req, provider);
     let resp = req
         .send()
         .await

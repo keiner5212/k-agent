@@ -7,11 +7,19 @@ import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import { useMcpServersStore } from "@/lib/mcp-servers";
 import { clearStoredSecretMask, isStoredSecretMask, storedSecretDisplay } from "@/lib/secret-field";
-import { MCP_TRANSPORTS, type McpServer, type McpTransport } from "@/types/mcp-servers";
+import {
+  MCP_SCOPES,
+  MCP_TRANSPORTS,
+  type McpScope,
+  type McpServer,
+  type McpTransport,
+} from "@/types/mcp-servers";
 
 type McpServerFormDialogProps = {
   open: boolean;
   draft?: McpServer;
+  scope?: McpScope;
+  workspaceReady: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
@@ -52,22 +60,39 @@ const resolveKvSecrets = (
 export const McpServerFormDialog = ({
   open,
   draft,
+  scope,
+  workspaceReady,
   onOpenChange,
 }: McpServerFormDialogProps): ReactNode => {
   if (!open) return null;
   return (
-    <McpServerFormBody key={draft?.id ?? "create"} draft={draft} onOpenChange={onOpenChange} />
+    <McpServerFormBody
+      key={`${draft?.id ?? "create"}:${draft?.scope ?? scope ?? "global"}`}
+      draft={draft}
+      scope={scope}
+      workspaceReady={workspaceReady}
+      onOpenChange={onOpenChange}
+    />
   );
 };
 
 type McpServerFormBodyProps = {
   draft?: McpServer;
+  scope?: McpScope;
+  workspaceReady: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-const McpServerFormBody = ({ draft, onOpenChange }: McpServerFormBodyProps): ReactNode => {
+const McpServerFormBody = ({
+  draft,
+  scope: initialScope,
+  workspaceReady,
+  onOpenChange,
+}: McpServerFormBodyProps): ReactNode => {
   const { t } = useTranslation();
   const save = useMcpServersStore((state) => state.save);
+  const [savedId, setSavedId] = useState(draft?.id);
+  const [scope, setScope] = useState<McpScope>(draft?.scope ?? initialScope ?? "global");
   const [name, setName] = useState(draft?.name ?? "");
   const [enabled, setEnabled] = useState(draft?.enabled ?? true);
   const [transport, setTransport] = useState<McpTransport>(draft?.transport ?? "stdio");
@@ -80,7 +105,7 @@ const McpServerFormBody = ({ draft, onOpenChange }: McpServerFormBodyProps): Rea
   const [clearSecrets, setClearSecrets] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isEditing = Boolean(draft?.id);
+  const isEditing = Boolean(savedId);
   const isStdio = transport === "stdio";
   const probesTools = true;
   const hasEnvSecrets = Boolean(draft?.hasEnvSecrets);
@@ -91,6 +116,10 @@ const McpServerFormBody = ({ draft, onOpenChange }: McpServerFormBodyProps): Rea
     event.preventDefault();
     if (!name.trim()) {
       setError(t("mcpServers.form.errors.nameRequired"));
+      return;
+    }
+    if (scope === "local" && !workspaceReady) {
+      setError(t("mcpServers.form.errors.noWorkspace"));
       return;
     }
     if (isStdio && !command.trim()) {
@@ -106,7 +135,8 @@ const McpServerFormBody = ({ draft, onOpenChange }: McpServerFormBodyProps): Rea
     const env = resolveKvSecrets(envLines, hasEnvSecrets, clearSecrets);
     const headers = resolveKvSecrets(headerLines, hasHeaderSecrets, clearSecrets);
     const result = await save({
-      id: draft?.id,
+      id: savedId,
+      scope,
       name: name.trim(),
       enabled,
       transport,
@@ -119,6 +149,7 @@ const McpServerFormBody = ({ draft, onOpenChange }: McpServerFormBodyProps): Rea
       clearSecrets,
     });
     setSubmitting(false);
+    if (result.server?.id) setSavedId(result.server.id);
     if (result.error) {
       setError(result.error);
       return;
@@ -171,6 +202,24 @@ const McpServerFormBody = ({ draft, onOpenChange }: McpServerFormBodyProps): Rea
         className="skill-form provider-form"
         onSubmit={(event) => void handleSubmit(event)}
       >
+        <div className="field">
+          <label className="field__label" htmlFor="mcp-server-scope">
+            {t("mcpServers.form.scope")}
+          </label>
+          <Select
+            id="mcp-server-scope"
+            value={scope}
+            onChange={(next) => setScope(next as McpScope)}
+            options={MCP_SCOPES.filter(
+              (value) => value === "global" || workspaceReady || draft?.scope === "local",
+            ).map((value) => ({
+              value,
+              label: t(`mcpServers.scope.${value}`),
+            }))}
+          />
+          <span className="field__hint">{t("mcpServers.form.scopeHint")}</span>
+        </div>
+
         <div className="field">
           <label className="field__label" htmlFor="mcp-server-name">
             {t("mcpServers.form.name")}

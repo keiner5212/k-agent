@@ -537,8 +537,13 @@
   },
   "mcpServers": {
     "title": "Servidores MCP",
-    "description": "Configura servidores Model Context Protocol. Variables de entorno y cabeceras se guardan cifradas en disco.",
-    "empty": "Aún no hay servidores MCP configurados.",
+    "description": "Configura servidores Model Context Protocol. Los globales viven en ~/.k-agent/<nombre>/mcp.json. Los del workspace viven en .k-agent/<nombre>/mcp.json dentro del proyecto. Variables de entorno y cabeceras se guardan cifradas fuera de esos archivos.",
+    "empty": "Aún no hay servidores MCP en esta ubicación.",
+    "scope": {
+      "global": "Global",
+      "local": "Workspace",
+      "needsWorkspace": "Abre una carpeta de proyecto. Los servidores del workspace no se guardan en el directorio home."
+    },
     "transports": {
       "stdio": "Stdio",
       "http": "HTTP"
@@ -572,6 +577,8 @@
       "createTitle": "Nuevo servidor MCP",
       "editTitle": "Editar servidor MCP",
       "name": "Nombre",
+      "scope": "Ubicación",
+      "scopeHint": "Los servidores del workspace solo cargan mientras este proyecto está abierto.",
       "enabled": "Activo",
       "transport": "Transporte",
       "command": "Comando",
@@ -594,6 +601,7 @@
       "toolsProbeFailed": "Guardado, pero falló la detección: {{error}}",
       "errors": {
         "nameRequired": "El nombre es obligatorio.",
+        "noWorkspace": "Abre un workspace antes de guardar un servidor del workspace.",
         "commandRequired": "El comando es obligatorio para transporte stdio.",
         "urlRequired": "La URL es obligatoria para transporte remoto."
       }

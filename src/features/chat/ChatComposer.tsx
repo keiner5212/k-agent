@@ -39,8 +39,6 @@ import { useSettingsStore } from "@/lib/settings";
 import { useSessionsStore } from "@/lib/sessions";
 import { useUndoRedoKeydown } from "@/lib/use-undo-redo-keydown";
 import { useUndoableText } from "@/lib/undoable-text";
-
-const HELP_ISSUES_URL = "https://github.com/keiner5212/k-agent/issues";
 import { AgentSelector } from "./AgentSelector";
 import { ComposerAttachments } from "./ComposerAttachments";
 import { ComposerShellChip } from "./ComposerModeChip";
@@ -51,6 +49,8 @@ import { StreamRate } from "./StreamRate";
 import { ModelRequestButton } from "./ModelRequestDialog";
 import { ModelSelector } from "./ModelSelector";
 import { useComposerFocusKeys } from "./use-composer-focus";
+
+const HELP_ISSUES_URL = "https://github.com/keiner5212/k-agent/issues";
 
 export const ChatComposer = (): ReactNode => {
   const { t } = useTranslation();
@@ -109,6 +109,7 @@ export const ChatComposer = (): ReactNode => {
         void openExternalUrl(HELP_ISSUES_URL).catch((error: unknown) => {
           console.warn("openExternalUrl failed", error);
         });
+        return;
       }
     },
     [requestRewind],
@@ -222,7 +223,7 @@ export const ChatComposer = (): ReactNode => {
       if (!canQueue) return;
       if (action) {
         consume();
-        if (action.id === "help") runSlashAction(action.id);
+        runSlashAction(action.id);
         return;
       }
       enqueue(text, mode, shellMode ? undefined : pending);

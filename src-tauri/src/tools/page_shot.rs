@@ -359,6 +359,9 @@ fn cookie_domain_matches(domain: &str, host: &str) -> bool {
     if host.parse::<std::net::IpAddr>().is_ok() {
         return host == domain;
     }
+    if domain != host && !domain.contains('.') {
+        return false;
+    }
     host == domain
         || (host.len() > domain.len()
             && host.as_bytes().get(host.len() - domain.len() - 1) == Some(&b'.')
@@ -929,6 +932,7 @@ mod tests {
         assert!(cookie_domain_matches("example.com", "example.com"));
         assert!(cookie_domain_matches(".example.com", "app.example.com"));
         assert!(!cookie_domain_matches("evil.com", "app.example.com"));
+        assert!(!cookie_domain_matches("com", "app.example.com"));
         assert!(!cookie_domain_matches("example.com", "127.0.0.1"));
         assert!(cookie_domain_matches("127.0.0.1", "127.0.0.1"));
 
