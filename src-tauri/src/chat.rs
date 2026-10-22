@@ -92,8 +92,6 @@ pub struct SendChatInput {
     #[serde(default)]
     pub outside_workspace_allowed: bool,
     #[serde(default)]
-    pub http_write_allowed: bool,
-    #[serde(default)]
     pub resume_confirmed: bool,
     #[serde(default)]
     pub agent_personalities: HashMap<String, String>,
@@ -2238,7 +2236,6 @@ async fn commit_tool_calls(
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
     session_id: Option<&str>,
     outside_workspace_allowed: bool,
-    http_write_allowed: bool,
     turns: &mut Vec<Turn>,
     model_calls: &[ModelToolCall],
     emit: bool,
@@ -2273,7 +2270,6 @@ async fn commit_tool_calls(
                 session_id: session_id.map(str::to_string),
                 thought_signature: tc.thought_signature.clone(),
                 outside_workspace_allowed,
-                http_write_allowed,
                 on_chunk,
                 workspace: None,
                 parallelism: call.parallelism,
@@ -2457,7 +2453,6 @@ async fn send_message(
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
     session_id: Option<&str>,
     outside_workspace_allowed: bool,
-    http_write_allowed: bool,
     resume_confirmed: bool,
     record_checkpoints: bool,
 ) -> Result<SentMessage, ChatError> {
@@ -2504,7 +2499,6 @@ async fn send_message(
                     call,
                     on_chunk,
                     session_id,
-                    true,
                     true,
                     &mut turns,
                     &model_calls,
@@ -2632,7 +2626,6 @@ async fn send_message(
             on_chunk,
             session_id,
             outside_workspace_allowed,
-            http_write_allowed,
             &mut turns,
             &model_calls,
             true,
@@ -2769,7 +2762,7 @@ pub async fn generate_session_title(
     };
     let title = normalize_generated_title(
         &send_message(
-            &app, &provider, &call, None, None, false, false, false, false,
+            &app, &provider, &call, None, None, false, false, false,
         )
         .await?
         .content,
@@ -2851,7 +2844,7 @@ pub async fn summarize_conversation(
     };
     let summary = normalize_generated_text(
         &send_message(
-            &app, &provider, &call, None, None, false, false, false, false,
+            &app, &provider, &call, None, None, false, false, false,
         )
         .await?
         .content,
@@ -3021,7 +3014,7 @@ pub(crate) async fn complete_quiet(
     };
     let text = normalize_generated_text(
         &send_message(
-            app, &provider, &call, None, None, false, false, false, false,
+            app, &provider, &call, None, None, false, false, false,
         )
         .await?
         .content,
@@ -3064,7 +3057,7 @@ pub async fn generate_app_content(
     };
     let text = normalize_generated_text(
         &send_message(
-            &app, &provider, &call, None, None, false, false, false, false,
+            &app, &provider, &call, None, None, false, false, false,
         )
         .await?
         .content,
@@ -3569,7 +3562,6 @@ pub(crate) async fn run_task(
         None,
         child_session_id.as_deref().or(ctx.session_id.as_deref()),
         ctx.outside_workspace_allowed,
-        ctx.http_write_allowed,
         false,
         false,
     );
@@ -3719,7 +3711,6 @@ pub async fn send_chat_message(
         Some(&on_chunk),
         input.session_id.as_deref(),
         input.outside_workspace_allowed,
-        input.http_write_allowed,
         input.resume_confirmed,
         true,
     );

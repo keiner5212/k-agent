@@ -256,11 +256,6 @@ const buildToolChoice = (agent: AgentMeta, shape: PromptShape, readBeforeEdit: b
   lines.push(
     "Install project dependencies into the project environment. Do not install packages into the system or the user site.",
   );
-  if (hasTool(agent, "http_request")) {
-    lines.push(
-      "Call an API with `http_request`, including localhost. Do not use `curl` or `wget`.",
-    );
-  }
   if (hasTool(agent, "background")) {
     lines.push(
       "A process that must stay up uses `background`, not `bash`. That process is killed when the turn ends. Do not kill its pid.",

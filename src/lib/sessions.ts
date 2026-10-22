@@ -540,9 +540,7 @@ export const confirmChoiceFrom = (
   questions: AskUserQuestion[],
   answers: AskUserAnswerEntry[],
 ): ConfirmChoice => {
-  const confirm = questions.find(
-    (question) => question.id === "outside_confirm" || question.id === "http_write_confirm",
-  );
+  const confirm = questions.find((question) => question.id === "outside_confirm");
   if (!confirm) return "answer";
   const entry = answers.find((item) => item.questionId === confirm.id);
   if (!entry || entry.skipped) return "deny";
@@ -604,7 +602,6 @@ type SessionsStore = {
     replay?: ReplayAsk,
   ) => Promise<boolean>;
   allowOutsideWorkspace: (sessionId: string) => void;
-  allowHttpWrite: (sessionId: string) => void;
   clearPendingAsk: (callId: string) => void;
   resumeAsk: (callId: string, text: string, choice: ConfirmChoice) => Promise<boolean>;
   runShell: (text: string, sessionId?: string) => Promise<boolean>;
@@ -793,14 +790,6 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     void persistSnapshot(snapshotFromState(nextSessions, get().activeSessionId ?? sessionId));
   },
 
-  allowHttpWrite: (sessionId) => {
-    const nextSessions = get().sessions.map((session) =>
-      session.id === sessionId ? { ...session, httpWriteAllowed: true } : session,
-    );
-    set({ sessions: nextSessions });
-    void persistSnapshot(snapshotFromState(nextSessions, get().activeSessionId ?? sessionId));
-  },
-
   clearPendingAsk: (callId) => {
     let sessionId: string | null = null;
     const nextSessions = get().sessions.map((session) => ({
@@ -820,9 +809,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   resumeAsk: async (callId, text, choice) => {
     let sessionId: string | null = null;
     let assistantId: string | null = null;
-    const denyText = callId.startsWith("http_write_confirm::")
-      ? "User denied the HTTP write."
-      : "User denied access outside the workspace.";
+    const denyText = "User denied access outside the workspace.";
     const nextSessions = get().sessions.map((session) => ({
       ...session,
       messages: session.messages.map((message) => {
@@ -1287,9 +1274,6 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           sessionId: sessionId,
           outsideWorkspaceAllowed: Boolean(
             get().sessions.find((session) => session.id === sessionId)?.outsideWorkspaceAllowed,
-          ),
-          httpWriteAllowed: Boolean(
-            get().sessions.find((session) => session.id === sessionId)?.httpWriteAllowed,
           ),
           resumeConfirmed: Boolean(replay?.resumeConfirmed),
           toolNames,

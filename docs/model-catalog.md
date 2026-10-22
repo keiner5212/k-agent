@@ -34,3 +34,7 @@ flowchart TD
 ## Catalog snapshot
 
 Refreshed on 2026-10-03
+
+## Refresh
+
+Re-run `docs/prompts/update-model-catalog.md` when this snapshot is stale. Official provider docs only.

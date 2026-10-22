@@ -4,12 +4,14 @@ Run one shell command in the workspace. The command string is checked against th
 
 ## Does
 
-- Run the command with the configured shell program, or `/bin/sh -c` when that setting is empty (`cmd.exe /c` on Windows). Login startup files are not loaded.
+- Run the command with the configured shell program, or `/bin/sh -c` when that setting is empty (`cmd.exe /c` on Windows).
+- Take `PATH` and the rest of the environment from that shell's login interactive startup (`-lic`), once per process. `sh` and `dash` probe `bash` when `/bin/bash` or `/usr/bin/bash` exists. Directories already on the desktop process `PATH` are kept. A failed probe is cached and the desktop environment is used. `background` uses the same environment. The user command then runs with `-c`. It is not placed inside `.bashrc` or `.zshrc`.
 - Match `blockedCommands` and `allowedCommands` against the full trimmed command string, exactly.
 - Refuse a blocked command even when the same string is also allowed.
 - Run an allowed command with no prompt, including commands that would otherwise look dangerous.
 - Run a command that is not listed and does not look dangerous.
 - Ask the user to deny, allow once, or allow for this chat when the command looks destructive, hits a non-local network, or writes a file. `2>&1` and a redirect to `/dev/null` do not ask.
+- Run one or more `curl` commands against `localhost`, `127.0.0.1`, or `::1` with no prompt when every flag is a local read flag (silent, head, fail, timeout, header, literal body, output to `/dev/null`). The process is started as `curl -q -g` with proxy variables cleared. Any other flag, a config file, a proxy, an upload, a redirect, or a mix with another command asks first.
 - Treat `Accept for this chat` as a session grant for later dangerous commands. The block list still wins.
 - Cap combined stdout and stderr at `50000` chars and stop the process after `30` seconds.
 - Return `status`, `exitCode`, and `output`.
@@ -20,12 +22,12 @@ Run one shell command in the workspace. The command string is checked against th
 
 - Run a command outside the workspace directory. The working directory is the workspace.
 - Start a second shell around the configured program. The command is one argument to `-c` or `/c`.
+- Run the user command inside the login shell. Startup only prints the environment, once per process.
 - Match the allow or block list by prefix or regex. The settings copy says the full string.
 - Persist output. The result is the tool response only.
 - Bypass a block list entry because the session already allowed dangerous commands.
 - Start a background job. A single `&`, `nohup`, or `disown` returns an error. `&&` and `2>&1` still follow the normal rules. A process that must stay up uses `background`.
 - Kill a pid that `background` still owns. That process stops when the turn ends.
-- Call HTTP with `curl` or `wget`. Use `http_request`. An exact allow-list match still runs.
 - List, read, or search files. Use `list_directory`, `read`, and `grep`.
 - Create, change, or delete files. Use `write`, `edit`, `create_folder`, and `delete`.
 
@@ -37,12 +39,12 @@ Run one shell command in the workspace. The command string is checked against th
 
 ## Response
 
-| Field      | Type    | Notes                                                             |
-| ---------- | ------- | ----------------------------------------------------------------- |
-| `status`   | string  | `ok` when the process exits 0. `error` otherwise.                 |
-| `exitCode` | integer | Process exit code. Present when the process actually ran.         |
-| `output`   | string  | Stdout, then stderr. Clipped at 50000 chars.                      |
-| `error`    | string  | Refusal or startup message. Present when the process did not run. |
+| Field      | Type    | Notes                                                                                    |
+| ---------- | ------- | ---------------------------------------------------------------------------------------- |
+| `status`   | string  | `ok` when the process exits 0. `error` otherwise.                                        |
+| `exitCode` | integer | Process exit code. Present when the process actually ran.                                |
+| `output`   | string  | Stdout, then stderr. Clipped at 50000 chars.                                             |
+| `error`    | string  | Refusal or startup message. Also set when the command fails after a login probe failure. |
 
 See `response.toon` for the concrete wire shape the LLM sees.
 
@@ -55,11 +57,11 @@ See `response.toon` for the concrete wire shape the LLM sees.
 - `bash confirmation needs the desktop shell.`: a dangerous command ran without a UI.
 - `bash needs a workspace.`: no workspace path was available.
 - `bash could not start <shell>`: the shell program failed to spawn.
+- `bash: login shell startup failed`: the profile probe failed or timed out. A later failed command includes this note. A successful command does not.
 - `bash timed out after 30s.`: the process was killed at the time limit.
 - `bash: a dangerous command must run on the async dispatch path.`: the sync path refused to prompt.
 - `bash does not start background jobs.`: the command backgrounds with `&`, `nohup`, or `disown`.
 - `bash refused: pid`: the command tried to kill a pid `background` still owns.
-- `bash refused: use http_request`: the command used `curl` or `wget`.
 
 ## Source
 

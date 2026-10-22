@@ -62,6 +62,5 @@ rust-project.json
 
 # custom
 .tmp
-scripts
 .agents
 skills-lock.json

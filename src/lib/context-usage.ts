@@ -214,45 +214,6 @@ const INTERNET_SEARCH_TOOL_PARAMETERS = {
   required: ["query"],
 } as const;
 
-const HTTP_REQUEST_TOOL_PARAMETERS = {
-  type: "object",
-  properties: {
-    url: { type: "string", description: "Absolute http or https URL, including localhost." },
-    method: {
-      type: "string",
-      description: "GET, HEAD, POST, PUT, PATCH, DELETE, or OPTIONS. Default GET.",
-    },
-    headers: { type: "object", description: "Optional header map. Values are strings." },
-    query: { type: "object", description: "Optional query parameter map appended to the URL." },
-    body: { type: "string", description: "Optional raw body. Ignored for GET and HEAD." },
-    timeoutMs: {
-      type: "number",
-      description: "Timeout in milliseconds. Default 20000, max 60000.",
-    },
-  },
-  required: ["url"],
-} as const;
-
-const GRAPHQL_TOOL_PARAMETERS = {
-  type: "object",
-  properties: {
-    url: { type: "string", description: "GraphQL endpoint. http or https, including localhost." },
-    query: { type: "string", description: "GraphQL query or mutation document." },
-    variables: { type: "object", description: "Optional variables object." },
-    operationName: { type: "string", description: "Optional operation name." },
-    headers: { type: "object", description: "Optional header map." },
-    method: {
-      type: "string",
-      description: "POST (default) or GET. Non-GET waits for confirmation.",
-    },
-    timeoutMs: {
-      type: "number",
-      description: "Timeout in milliseconds. Default 20000, max 60000.",
-    },
-  },
-  required: ["url", "query"],
-} as const;
-
 const PAGE_SHOT_TOOL_PARAMETERS = {
   type: "object",
   properties: {
@@ -406,8 +367,6 @@ const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   delete: DELETE_TOOL_PARAMETERS,
   fetch_url: FETCH_URL_TOOL_PARAMETERS,
   internet_search: INTERNET_SEARCH_TOOL_PARAMETERS,
-  http_request: HTTP_REQUEST_TOOL_PARAMETERS,
-  graphql: GRAPHQL_TOOL_PARAMETERS,
   page_shot: PAGE_SHOT_TOOL_PARAMETERS,
   todowrite: TODO_TOOL_PARAMETERS,
   bash: BASH_TOOL_PARAMETERS,

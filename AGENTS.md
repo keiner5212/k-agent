@@ -186,11 +186,11 @@ Hard constraints:
 
 Three flavors. Pick by what the tool does, not by what feels easy.
 
-| Flavor                   | When                                                                       | Body                                                                        | Output                                  |
-| ------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------- |
-| Sync                     | Pure CPU or memory work, finishes in ms                                    | `Tool::execute` returns `ToolOutcome`                                       | TOON in `text`                          |
-| Sync with workspace gate | Reads or writes files anywhere on disk                                     | `Tool::execute` returns `ToolOutcome` after `tool-context!` workspace check | TOON in `text`, may block on `ask_user` |
-| Async                    | Waits on user (`ask_user`) or external network (`http_request`, `graphql`) | `Tool::execute_async` future                                                | TOON in `text`, returned via chunk      |
+| Flavor                   | When                                                         | Body                                                                        | Output                                  |
+| ------------------------ | ------------------------------------------------------------ | --------------------------------------------------------------------------- | --------------------------------------- |
+| Sync                     | Pure CPU or memory work, finishes in ms                      | `Tool::execute` returns `ToolOutcome`                                       | TOON in `text`                          |
+| Sync with workspace gate | Reads or writes files anywhere on disk                       | `Tool::execute` returns `ToolOutcome` after `tool-context!` workspace check | TOON in `text`, may block on `ask_user` |
+| Async                    | Waits on user (`ask_user`) or external network (`fetch_url`) | `Tool::execute_async` future                                                | TOON in `text`, returned via chunk      |
 
 Atomicity rule: every tool is atomic. If the call contains multiple operations (add/update/remove, multi-file write, batched HTTP), build the result in memory first, validate the whole result, then commit. A failed validation in the middle of a call must leave zero side effects. Reference: `TodoTool::stage` in `src-tauri/src/tools/todo.rs` stages all changes in a `Staged` struct before any mutation or persistence.
 

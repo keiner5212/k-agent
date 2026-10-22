@@ -23,9 +23,9 @@ use k_agent_lib::tools::ask_user::{execute_async as ask_user_execute_async, AskU
 use k_agent_lib::tools::{
     execute, ToolContext, APPLY_PATCH_TOOL_NAME, ASK_USER_TOOL_NAME, BACKGROUND_TOOL_NAME,
     BASH_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, DIAGRAM_TOOL_NAME, EDIT_TOOL_NAME,
-    FETCH_URL_TOOL_NAME, GRAPHQL_TOOL_NAME, GREP_TOOL_NAME, HTTP_REQUEST_TOOL_NAME,
-    INTERNET_SEARCH_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME, LSP_TOOL_NAME, PAGE_SHOT_TOOL_NAME,
-    READ_TOOL_NAME, SKILL_TOOL_NAME, TASK_TOOL_NAME, TODO_TOOL_NAME, WRITE_TOOL_NAME,
+    FETCH_URL_TOOL_NAME, GREP_TOOL_NAME, INTERNET_SEARCH_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME,
+    LSP_TOOL_NAME, PAGE_SHOT_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME, TASK_TOOL_NAME,
+    TODO_TOOL_NAME, WRITE_TOOL_NAME,
 };
 
 const REALISTIC_FILE_BODY: &str = "# Draft: sample skill body\n\
@@ -577,25 +577,6 @@ async fn dumps_tool_examples() {
         write_stats(INTERNET_SEARCH_TOOL_NAME, &stats, &outcome, &ctx_docs);
     }
 
-    // http_request: GET skips confirm. Closed port captures the network error.
-    {
-        let args = r#"{"url":"http://127.0.0.1:9/","method":"GET"}"#;
-        let (stats, outcome) =
-            measure(async { execute(HTTP_REQUEST_TOOL_NAME, args, &ctx_docs).await }).await;
-        write_input(HTTP_REQUEST_TOOL_NAME, args);
-        write_stats(HTTP_REQUEST_TOOL_NAME, &stats, &outcome, &ctx_docs);
-    }
-
-    // graphql: GET skips confirm. Same closed port.
-    {
-        let args =
-            r#"{"url":"http://127.0.0.1:9/graphql","query":"{ __typename }","method":"GET"}"#;
-        let (stats, outcome) =
-            measure(async { execute(GRAPHQL_TOOL_NAME, args, &ctx_docs).await }).await;
-        write_input(GRAPHQL_TOOL_NAME, args);
-        write_stats(GRAPHQL_TOOL_NAME, &stats, &outcome, &ctx_docs);
-    }
-
     // page_shot: no desktop shell in this harness, so the error path is captured.
     {
         let args = r#"{"url":"http://127.0.0.1:9/","width":800,"height":600}"#;
@@ -674,7 +655,7 @@ async fn dumps_tool_examples() {
     cleanup_scratch(&scratch);
 
     eprintln!(
-        "[tool-examples] dumped all 20 tools at {}",
+        "[tool-examples] dumped all 19 tools at {}",
         output_dir().display()
     );
 }

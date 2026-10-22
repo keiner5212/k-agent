@@ -50,8 +50,6 @@ const TOOL_TITLE: Record<string, string> = {
   grep: "chat.tools.grepTitle",
   fetch_url: "chat.tools.fetchTitle",
   internet_search: "chat.tools.searchTitle",
-  http_request: "chat.tools.httpTitle",
-  graphql: "chat.tools.graphqlTitle",
   page_shot: "chat.tools.shotTitle",
   ask_user: "chat.tools.askTitle",
   apply_patch: "chat.tools.patchTitle",
@@ -130,9 +128,6 @@ const previewFromOutput = (call: ChatToolCall): string => {
   if (call.name === "list_directory") return fieldOr(raw, "entries", error || raw);
   if (call.name === "grep") return fieldOr(raw, "matches", error || raw);
   if (call.name === "internet_search") return fieldOr(raw, "items", error || raw);
-  if (call.name === "http_request" || call.name === "graphql") {
-    return fieldOr(raw, "body", error || raw);
-  }
   if (call.name === "fetch_url") {
     if (error) return error;
     const title = toonFieldValue(raw, "title");

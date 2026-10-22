@@ -2,8 +2,6 @@ mod apply_patch;
 mod diagram;
 mod edit;
 mod fetch_url;
-mod graphql;
-mod http_request;
 mod internet_search;
 mod list_directory;
 mod page_shot;
@@ -49,8 +47,6 @@ pub const CREATE_FOLDER_TOOL_NAME: &str = create_folder::NAME;
 pub const DELETE_TOOL_NAME: &str = delete::NAME;
 pub const FETCH_URL_TOOL_NAME: &str = fetch_url::NAME;
 pub const INTERNET_SEARCH_TOOL_NAME: &str = internet_search::NAME;
-pub const HTTP_REQUEST_TOOL_NAME: &str = http_request::NAME;
-pub const GRAPHQL_TOOL_NAME: &str = graphql::NAME;
 pub const PAGE_SHOT_TOOL_NAME: &str = page_shot::NAME;
 pub const TODO_TOOL_NAME: &str = todo::NAME;
 pub const BASH_TOOL_NAME: &str = bash::NAME;
@@ -121,7 +117,6 @@ pub struct ToolContext<'a> {
     pub session_id: Option<String>,
     pub thought_signature: String,
     pub outside_workspace_allowed: bool,
-    pub http_write_allowed: bool,
     pub on_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
     pub question_chunk: Option<&'a Channel<crate::chat::ChatChunk>>,
     pub workspace: Option<std::path::PathBuf>,
@@ -360,7 +355,6 @@ impl ToolContext<'static> {
             session_id: None,
             thought_signature: String::new(),
             outside_workspace_allowed: false,
-            http_write_allowed: false,
             on_chunk: None,
             question_chunk: None,
             workspace: Some(workspace),
@@ -539,8 +533,6 @@ fn all_tools() -> Vec<Box<dyn Tool>> {
         Box::new(delete::DeleteTool),
         Box::new(fetch_url::FetchUrlTool),
         Box::new(internet_search::InternetSearchTool),
-        Box::new(http_request::HttpRequestTool),
-        Box::new(graphql::GraphqlTool),
         Box::new(page_shot::PageShotTool),
         Box::new(todo::TodoTool),
         Box::new(bash::BashTool),
@@ -590,12 +582,6 @@ pub async fn execute(name: &str, arguments: &str, ctx: &ToolContext<'_>) -> Tool
     }
     if name == internet_search::NAME {
         return internet_search::execute_async(arguments, ctx).await;
-    }
-    if name == http_request::NAME {
-        return http_request::execute_async(arguments, ctx).await;
-    }
-    if name == graphql::NAME {
-        return graphql::execute_async(arguments, ctx).await;
     }
     if name == page_shot::NAME {
         return page_shot::execute_async(arguments, ctx).await;
