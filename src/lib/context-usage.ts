@@ -99,7 +99,7 @@ const EDIT_TOOL_PARAMETERS = {
   anyOf: [{ required: ["filePath", "oldString", "newString"] }, { required: ["edits"] }],
 } as const;
 
-const LIST_DIRECTORY_TOOL_PARAMETERS = {
+const GLOB_TOOL_PARAMETERS = {
   type: "object",
   properties: {
     dirPath: {
@@ -113,12 +113,12 @@ const LIST_DIRECTORY_TOOL_PARAMETERS = {
     maxDepth: {
       type: "integer",
       minimum: 1,
-      description: "Max depth when recursive (default 3, or 10 when glob is set, max 10)",
+      description: "Max depth when recursive (default 3, or 10 when pattern is set, max 10)",
     },
-    glob: {
+    pattern: {
       type: "string",
       description:
-        "Argument of list_directory, not a separate tool. Return only matching file paths. *.rs matches any depth. *.{ts,tsx} matches either suffix.",
+        "Return only matching file paths. *.rs matches any depth. *.{ts,tsx} matches either suffix.",
     },
   },
 } as const;
@@ -361,7 +361,7 @@ const TOOL_PARAMETERS: Record<AgentToolId, object> = {
   read: READ_TOOL_PARAMETERS,
   write: WRITE_TOOL_PARAMETERS,
   edit: EDIT_TOOL_PARAMETERS,
-  list_directory: LIST_DIRECTORY_TOOL_PARAMETERS,
+  glob: GLOB_TOOL_PARAMETERS,
   ask_user: ASK_USER_TOOL_PARAMETERS,
   create_folder: CREATE_FOLDER_TOOL_PARAMETERS,
   delete: DELETE_TOOL_PARAMETERS,

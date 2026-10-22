@@ -20,7 +20,7 @@ Read a file. Text files come back as line-numbered text. Supported images (PNG, 
 - Accept PDF. PDF bytes fail the magic-byte check and the extension list, then surface as `Cannot read binary file`. Use a dedicated PDF tool.
 - Accept SVG, HEIC, AVIF, BMP, TIFF. Only PNG / JPEG / GIF / WebP. SVG is XML; HEIC / AVIF / TIFF need separate decoders and are out of scope.
 - Accept disguised binary files. Known binary extensions (`.zip`, `.exe`, `.so`, `.wasm`, ...) error out before any byte is read, even if the file also happens to start with PNG magic.
-- Read directories. Use `list_directory` instead.
+- Read directories. Use `glob` instead.
 - Follow symlinks that resolve outside the workspace without an allow answer. Outside paths wait for the user.
 - Cache file contents. Every call re-reads.
 - Downscale below the original size when the source is already smaller than 1440 px (no upscaling).
@@ -49,7 +49,7 @@ See `response.toon` for the concrete wire shape the LLM sees.
 - `read tool \`filePath\` is empty.`: argument is whitespace.
 - `read tool \`offset\` must be a non-negative integer.`/`at least 1.`/`out of range.`: invalid offset.
 - `File not found: <resolved path>` (optionally followed by `Did you mean one of these? ...`).
-- `Path is a directory. Use list_directory.`
+- `Path is a directory. Use glob.`
 - `Cannot read binary file: <resolved path>` (extension-based rejection or invalid UTF-8 bytes).
 - `Image exceeds 20 MB ingestion limit (<bytes> bytes): <path>`.
 - `Image could not be decoded as <PNG|JPEG|GIF|WebP> (<error>): <path>`.

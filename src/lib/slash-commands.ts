@@ -29,7 +29,7 @@ Find:
 - Design system: spacing, type, color, and components to reuse
 - Conventions the next session must follow
 
-Use list_directory, read, and grep. Write AGENTS.md with the write tool.
+Use glob, read, and grep. Write AGENTS.md with the write tool.
 Keep it short and specific to this repo.
 
 $ARGUMENTS`;

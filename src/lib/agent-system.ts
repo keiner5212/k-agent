@@ -198,9 +198,9 @@ const buildAgentRoster = (
 
 const buildToolChoice = (agent: AgentMeta, shape: PromptShape, readBeforeEdit: boolean): string => {
   const lines = ["Use the dedicated tool. Do not use `bash` for work another tool already does."];
-  if (hasTool(agent, "list_directory")) {
+  if (hasTool(agent, "glob")) {
     lines.push(
-      "List a directory with `list_directory`. To find files by name, pass `glob` to `list_directory` (`*.rs` matches any depth). `glob` is an argument of `list_directory` and of `grep`. There is no `glob` tool. Do not use `ls`, `find`, or `tree`.",
+      "List and filter files with `glob`. `pattern` is optional: `*.rs` matches any depth, `src/**/*.ts` matches that prefix. Without `pattern`, `glob` lists the directory and each line is `[dir]` or `[file]`. Do not use `ls`, `find`, or `tree`.",
     );
     lines.push(
       "The workspace path is in the environment section. Do not list the home directory or `/` to find the project.",
@@ -219,7 +219,7 @@ const buildToolChoice = (agent: AgentMeta, shape: PromptShape, readBeforeEdit: b
       "Search file contents with `grep`. To limit which files are searched, pass `glob` to `grep` (`*.ts`, or `!*.json` to exclude). Do not run `grep` or `rg` in the shell.",
     );
   }
-  if (hasTool(agent, "list_directory") || hasTool(agent, "grep")) {
+  if (hasTool(agent, "glob") || hasTool(agent, "grep")) {
     lines.push(
       "Readable hidden directories are `.github` and `.agents`. Do not read or search `node_modules`, `.git`, `target`, `dist`, `build`, `vendor`, virtualenvs, or other dependency, cache, and build directories. Those are skipped. Other names that start with `.` are skipped.",
     );

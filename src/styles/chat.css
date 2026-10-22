@@ -1015,8 +1015,13 @@ button.change-bar__stat:focus-visible {
 }
 
 .chat-message--user {
+  position: relative;
   align-self: flex-end;
   border-color: color-mix(in oklch, var(--accent) 28%, var(--border));
+}
+
+.chat-message--user:has(.chat-message__actions:not(:empty)) {
+  margin-bottom: calc(1.6rem + var(--space-1));
 }
 
 .chat-message--parent {
@@ -1513,6 +1518,10 @@ button.change-bar__stat:focus-visible {
 }
 
 .chat-message--user .chat-message__actions {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  margin-top: 0;
   justify-content: flex-end;
   opacity: 1;
 }
@@ -1936,7 +1945,7 @@ button.change-bar__stat:focus-visible {
 }
 
 .composer-queue__text {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1945,15 +1954,39 @@ button.change-bar__stat:focus-visible {
   color: var(--text-secondary);
 }
 
+.composer-queue__actions {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
 .composer-queue__now {
   flex: 0 1 auto;
-  min-width: 0;
+  min-width: calc(1em + var(--space-4));
   max-width: 11rem;
-  height: var(--control-height);
+  height: 1.6rem;
   padding: 0 var(--space-2);
-  gap: var(--space-1);
   overflow: hidden;
   font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.composer-queue__now .btn__label {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  gap: var(--space-1);
+}
+
+.composer-queue__now-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .composer-queue__remove {

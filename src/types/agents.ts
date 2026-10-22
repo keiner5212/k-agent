@@ -7,7 +7,7 @@ export const AGENT_TOOL_IDS = [
   "read",
   "write",
   "edit",
-  "list_directory",
+  "glob",
   "ask_user",
   "create_folder",
   "delete",
@@ -29,7 +29,7 @@ export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];
 export const PLAN_AGENT_TOOL_IDS: readonly AgentToolId[] = [
   "skill",
   "read",
-  "list_directory",
+  "glob",
   "ask_user",
   "todowrite",
   "internet_search",
@@ -45,8 +45,7 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
   write:
     "Create a new file or replace an entire file. To change part of an existing file, use edit. Outside the workspace, waits for the user to allow or deny.",
   edit: "Exact string replace. Two call shapes. Never mix them. One edit: only filePath, oldString, and newString. Several edits: only edits, and each item has its own filePath. Top-level filePath is not a parent of edits. Both shapes in one call errors and writes nothing. Read first. oldString is the file text, not the line-number prefix from read. Match includes whitespace. Fails if oldString is missing or not unique, and the error says which. Outside the workspace, waits for the user to allow or deny.",
-  list_directory:
-    "List a directory, or find files by name. glob is an argument of this tool, not a separate tool. *.rs matches any depth. At most 200 glob hits. Skips node_modules, .git, target, dist, and other dependency, cache, and build directories. Still lists .github and .agents. Other names starting with . are skipped. Outside the workspace, waits for the user to allow or deny. Use this instead of ls, find, or tree.",
+  glob: "List a directory, or find files by name. pattern is optional: *.rs matches any depth. At most 200 pattern hits. Skips node_modules, .git, target, dist, and other dependency, cache, and build directories. Still lists .github and .agents. Other names starting with . are skipped. Outside the workspace, waits for the user to allow or deny. Use this instead of ls, find, or tree.",
   ask_user:
     "Ask the user when any part of the request is unclear or you would otherwise assume it. Do not guess. 1 to 4 questions. Blocks until they answer. Put the option you would have assumed first. Free text is on unless allowFreeText is false.",
   create_folder:
@@ -61,10 +60,10 @@ export const CHAT_TOOL_DESCRIPTIONS: Record<AgentToolId, string> = {
     "Capture one viewport of a page that is already being served. http or https, including localhost. One shot per review. Do not retry with another host, a taller window, or a new selector when the image is blank or unchanged. A blank image is a capture miss, not the page design. Height is the window (max 1200), not the document. A URL hash scrolls that section into the window. Start a server with background. It is killed when the turn ends. Do not use bash for that.",
   todowrite:
     "Replace the session todo list. Send the full list every call. No ids. Each item is content, status (pending, in_progress, completed, cancelled), and priority (high, medium, low). At most one in_progress. An empty array clears the list. A bad field returns an error that names the item index and the allowed values. Use for multi-step work. Skip it for one straightforward step.",
-  bash: "Run one shell command in the workspace and wait for it to finish. Exact blocked commands never run. Exact allowed commands skip the prompt. Destructive commands, real file redirects, and non-local network commands wait for the user. 2>&1 and redirects to /dev/null do not ask. curl to localhost, 127.0.0.1, or ::1 does not ask for a local read (silent, head, fail, timeout, header, literal body, or output to /dev/null). Any other curl flag, a config file, a proxy, an upload, a redirect, or a second command waits for the user. Do not start a dev server here. Use background for a process that must stay up until the turn ends. Do not kill a pid returned by background. That process is stopped when the turn ends. Do not use &, nohup, or disown. Do not list, read, search, write, edit, or delete files here. Use list_directory, read, grep, write, edit, create_folder, and delete. bash is for install, build, test, and git.",
+  bash: "Run one shell command in the workspace and wait for it to finish. Exact blocked commands never run. Exact allowed commands skip the prompt. Destructive commands, real file redirects, and non-local network commands wait for the user. 2>&1 and redirects to /dev/null do not ask. curl to localhost, 127.0.0.1, or ::1 does not ask for a local read (silent, head, fail, timeout, header, literal body, or output to /dev/null). Any other curl flag, a config file, a proxy, an upload, a redirect, or a second command waits for the user. Do not start a dev server here. Use background for a process that must stay up until the turn ends. Do not kill a pid returned by background. That process is stopped when the turn ends. Do not use &, nohup, or disown. Do not list, read, search, write, edit, or delete files here. Use glob, read, grep, write, edit, create_folder, and delete. bash is for install, build, test, and git.",
   background:
     "Start one command and keep it until this turn ends, then kill it. Use this for a dev server or preview. Do not append &, nohup, or disown. The command is the process itself, for example npm run dev. Returns the pid and the first 1200ms of output. The process is killed when the turn ends. Do not kill that pid. Do not use bash to stop it.",
-  grep: "Search file contents with ripgrep. pattern is a regex. path defaults to the workspace. glob is an argument of this tool, not a separate tool: it includes only matching paths (a leading ! excludes). filesOnly returns paths and skips line text. count is matching lines. matches is a sample of at most 100 lines, or 100 paths when filesOnly. Skips the same directories as list_directory, including node_modules. Still searches .github and .agents. Uses the configured worker cores. Use this instead of grep or rg in bash.",
+  grep: "Search file contents with ripgrep. pattern is a regex. path defaults to the workspace. The glob argument on this call includes only matching paths (a leading ! excludes). filesOnly returns paths and skips line text. count is matching lines. matches is a sample of at most 100 lines, or 100 paths when filesOnly. Skips the same directories as glob, including node_modules. Still searches .github and .agents. Uses the configured worker cores. Use this instead of grep or rg in bash.",
   apply_patch:
     "Apply one patch that adds, updates, or deletes several files. All files are checked before any write. Update hunks need context lines. One exact span in one file still uses edit.",
   lsp: "Ask the installed language server for a definition, references, hover, or symbols. line and character are 1-based. If no server is installed for the file, the error says so.",

@@ -154,9 +154,9 @@ fn workspace_skills(local: &[SkillInfo], shape: Shape) -> String {
 
 fn tool_choice(tools: &[String], shape: Shape) -> String {
     let mut lines = vec!["Use the dedicated tool. Do not invent a shell command.".to_string()];
-    if has(tools, "list_directory") {
+    if has(tools, "glob") {
         lines.push(
-            "List a directory with `list_directory`. To find files by name, pass `glob` to `list_directory` (`*.rs` matches any depth). `glob` is an argument of `list_directory` and of `grep`. There is no `glob` tool."
+            "List and filter files with `glob`. `pattern` is optional: `*.rs` matches any depth, `src/**/*.ts` matches that prefix."
                 .into(),
         );
     }
@@ -169,7 +169,7 @@ fn tool_choice(tools: &[String], shape: Shape) -> String {
                 .into(),
         );
     }
-    if has(tools, "list_directory") || has(tools, "grep") {
+    if has(tools, "glob") || has(tools, "grep") {
         lines.push(
             "Readable hidden directories are `.github` and `.agents`. `node_modules`, `.git`, `target`, `dist`, `build`, `vendor`, virtualenvs, and other dependency, cache, and build directories are skipped. Other names that start with `.` are skipped."
                 .into(),

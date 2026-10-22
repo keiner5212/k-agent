@@ -6,7 +6,7 @@
 //! - `stats.md`          auto-generated performance metrics
 //! - `response.toon`     auto-generated tool response in the same TOON the LLM sees
 //!
-//! Read-only tools (skill, read, list_directory) run against the real
+//! Read-only tools (skill, read, glob) run against the real
 //! `docs/` workspace so they exercise actual project content. Tools that
 //! create state (write, edit, create_folder, delete) run against a
 //! per-process scratch directory under `docs/.tmp/tool-examples-<id>/`
@@ -23,9 +23,9 @@ use k_agent_lib::tools::ask_user::{execute_async as ask_user_execute_async, AskU
 use k_agent_lib::tools::{
     execute, ToolContext, APPLY_PATCH_TOOL_NAME, ASK_USER_TOOL_NAME, BACKGROUND_TOOL_NAME,
     BASH_TOOL_NAME, CREATE_FOLDER_TOOL_NAME, DELETE_TOOL_NAME, DIAGRAM_TOOL_NAME, EDIT_TOOL_NAME,
-    FETCH_URL_TOOL_NAME, GREP_TOOL_NAME, INTERNET_SEARCH_TOOL_NAME, LIST_DIRECTORY_TOOL_NAME,
-    LSP_TOOL_NAME, PAGE_SHOT_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME, TASK_TOOL_NAME,
-    TODO_TOOL_NAME, WRITE_TOOL_NAME,
+    FETCH_URL_TOOL_NAME, GLOB_TOOL_NAME, GREP_TOOL_NAME, INTERNET_SEARCH_TOOL_NAME, LSP_TOOL_NAME,
+    PAGE_SHOT_TOOL_NAME, READ_TOOL_NAME, SKILL_TOOL_NAME, TASK_TOOL_NAME, TODO_TOOL_NAME,
+    WRITE_TOOL_NAME,
 };
 
 const REALISTIC_FILE_BODY: &str = "# Draft: sample skill body\n\
@@ -332,8 +332,8 @@ fn write_stats(
          | {configured} | {cpus} |\n\
          \n\
          Each tool execution is single-threaded inside this test. Recursive\n\
-         `list_directory` may spawn up to `min(configured, host_cpus, 16)` workers\n\
-         at runtime; see `src-tauri/src/tools/list_directory.rs`.\n\
+         `glob` may spawn up to `min(configured, host_cpus, 16)` workers\n\
+         at runtime; see `src-tauri/src/tools/glob.rs`.\n\
          \n\
          ## Response size\n\
          \n\
@@ -488,14 +488,14 @@ async fn dumps_tool_examples() {
         write_stats(READ_TOOL_NAME, &stats, &outcome, &ctx_scratch);
     }
 
-    // list_directory: recursive walk of `example/` so the model sees the
+    // glob: recursive walk of `example/` so the model sees the
     // nested `tool-stats/<tool>/` structure that lives there now.
     {
         let args = r#"{"dirPath":"example","recursive":true,"maxDepth":3}"#;
         let (stats, outcome) =
-            measure(async { execute(LIST_DIRECTORY_TOOL_NAME, args, &ctx_docs).await }).await;
-        write_input(LIST_DIRECTORY_TOOL_NAME, args);
-        write_stats(LIST_DIRECTORY_TOOL_NAME, &stats, &outcome, &ctx_docs);
+            measure(async { execute(GLOB_TOOL_NAME, args, &ctx_docs).await }).await;
+        write_input(GLOB_TOOL_NAME, args);
+        write_stats(GLOB_TOOL_NAME, &stats, &outcome, &ctx_docs);
     }
 
     // delete: removes the ~3 KB draft file. `linesRemoved` should reflect the

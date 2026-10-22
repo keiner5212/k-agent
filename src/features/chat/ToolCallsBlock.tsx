@@ -39,7 +39,7 @@ const fileName = (path: string): string => {
 const TOOL_TITLE: Record<string, string> = {
   skill: "chat.tools.skillTitle",
   read: "chat.tools.readTitle",
-  list_directory: "chat.tools.listTitle",
+  glob: "chat.tools.globTitle",
   write: "chat.tools.writeTitle",
   edit: "chat.tools.editTitle",
   create_folder: "chat.tools.createFolderTitle",
@@ -63,7 +63,7 @@ const TOOL_SYMBOL: Record<string, string> = {
   read: "\u25CB ",
   write: "\u270E ",
   edit: "\u2710 ",
-  list_directory: "\u229E ",
+  glob: "\u229E ",
   ask_user: "\u25CC ",
   create_folder: "\u25A4 ",
   delete: "\u2715 ",
@@ -124,28 +124,28 @@ const fieldOr = (raw: string, key: string, fallback: string): string => {
 const previewFromOutput = (call: ChatToolCall): string => {
   const raw = call.output ?? "";
   const error = toonFieldValue(raw, "error");
-  if (call.name === "skill") return fieldOr(raw, "body", error || raw);
-  if (call.name === "list_directory") return fieldOr(raw, "entries", error || raw);
-  if (call.name === "grep") return fieldOr(raw, "matches", error || raw);
-  if (call.name === "internet_search") return fieldOr(raw, "items", error || raw);
-  if (call.name === "fetch_url") {
+  const name = call.name;
+  if (name === "skill") return fieldOr(raw, "body", error || raw);
+  if (name === "glob") return fieldOr(raw, "entries", error || raw);
+  if (name === "grep") return fieldOr(raw, "matches", error || raw);
+  if (name === "internet_search") return fieldOr(raw, "items", error || raw);
+  if (name === "fetch_url") {
     if (error) return error;
     const title = toonFieldValue(raw, "title");
     const content = toonFieldValue(raw, "content");
     if (title && content) return `${title}\n\n${content}`;
     return content || raw;
   }
-  if (call.name === "ask_user")
-    return fieldOr(raw, "answers", toonFieldValue(raw, "status") || raw);
-  if (call.name === "page_shot") return error || toonFieldValue(raw, "url") || raw;
-  if (call.name === "todowrite") {
+  if (name === "ask_user") return fieldOr(raw, "answers", toonFieldValue(raw, "status") || raw);
+  if (name === "page_shot") return error || toonFieldValue(raw, "url") || raw;
+  if (name === "todowrite") {
     const todos = call.display?.todos;
     if (todos && todos.length > 0) {
       return todos.map((item) => `${item.status}  ${item.content}`).join("\n");
     }
     return fieldOr(raw, "summary", error || raw);
   }
-  if (call.name === "bash" || call.name === "background") {
+  if (name === "bash" || name === "background") {
     const command = argString(call, "command") || call.argument?.trim() || "";
     const output = toonFieldValue(raw, "output");
     const exitCode = toonFieldValue(raw, "exitCode");
@@ -202,7 +202,7 @@ const toolCallLabel = (call: ChatToolCall, lineRange = ""): string => {
     if (!path) return name;
     return lineRange ? `${name} "${path}" ${lineRange}` : `${name} "${path}"`;
   }
-  if (name === "list_directory") return path ? `${name} "${path}"` : name;
+  if (name === "glob") return path ? `${name} "${path}"` : name;
   if (name === "bash" || name === "background") {
     const command = argString(call, "command");
     if (!command) return name;

@@ -247,7 +247,7 @@ fn no_personalities() -> Arc<HashMap<String, String>> {
 fn tool_parallelism(worker_cores: Option<u32>) -> usize {
     worker_cores
         .unwrap_or(1)
-        .clamp(1, tools::LIST_DIRECTORY_MAX_PARALLELISM as u32) as usize
+        .clamp(1, tools::GLOB_MAX_PARALLELISM as u32) as usize
 }
 
 fn tools_enabled(call: &ChatCall<'_>) -> bool {
@@ -439,7 +439,7 @@ fn tool_arguments_json(name: &str, argument: Option<&str>, arguments: Option<&st
         return json!({ "name": raw }).to_string();
     }
     if name == tools::READ_TOOL_NAME
-        || name == tools::LIST_DIRECTORY_TOOL_NAME
+        || name == tools::GLOB_TOOL_NAME
         || name == tools::CREATE_FOLDER_TOOL_NAME
         || name == tools::DELETE_TOOL_NAME
     {
@@ -469,7 +469,7 @@ fn tool_call_argument(name: &str, arguments: &str) -> String {
     if name == tools::READ_TOOL_NAME
         || name == tools::WRITE_TOOL_NAME
         || name == tools::EDIT_TOOL_NAME
-        || name == tools::LIST_DIRECTORY_TOOL_NAME
+        || name == tools::GLOB_TOOL_NAME
         || name == tools::CREATE_FOLDER_TOOL_NAME
         || name == tools::DELETE_TOOL_NAME
     {
@@ -496,7 +496,7 @@ fn tool_call_argument(name: &str, arguments: &str) -> String {
 }
 
 fn name_for_path_field(name: &str) -> &'static str {
-    if name == tools::LIST_DIRECTORY_TOOL_NAME || name == tools::CREATE_FOLDER_TOOL_NAME {
+    if name == tools::GLOB_TOOL_NAME || name == tools::CREATE_FOLDER_TOOL_NAME {
         "dirPath"
     } else if name == tools::DELETE_TOOL_NAME {
         "path"
@@ -2761,11 +2761,9 @@ pub async fn generate_session_title(
         child_session_id: None,
     };
     let title = normalize_generated_title(
-        &send_message(
-            &app, &provider, &call, None, None, false, false, false,
-        )
-        .await?
-        .content,
+        &send_message(&app, &provider, &call, None, None, false, false, false)
+            .await?
+            .content,
     );
     if title.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -2843,11 +2841,9 @@ pub async fn summarize_conversation(
         child_session_id: None,
     };
     let summary = normalize_generated_text(
-        &send_message(
-            &app, &provider, &call, None, None, false, false, false,
-        )
-        .await?
-        .content,
+        &send_message(&app, &provider, &call, None, None, false, false, false)
+            .await?
+            .content,
     );
     if summary.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -3013,11 +3009,9 @@ pub(crate) async fn complete_quiet(
         child_session_id: None,
     };
     let text = normalize_generated_text(
-        &send_message(
-            app, &provider, &call, None, None, false, false, false,
-        )
-        .await?
-        .content,
+        &send_message(app, &provider, &call, None, None, false, false, false)
+            .await?
+            .content,
     );
     if text.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -3056,11 +3050,9 @@ pub async fn generate_app_content(
         child_session_id: None,
     };
     let text = normalize_generated_text(
-        &send_message(
-            &app, &provider, &call, None, None, false, false, false,
-        )
-        .await?
-        .content,
+        &send_message(&app, &provider, &call, None, None, false, false, false)
+            .await?
+            .content,
     );
     if text.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -3747,10 +3739,7 @@ mod tests {
         assert_eq!(tool_parallelism(None), 1);
         assert_eq!(tool_parallelism(Some(0)), 1);
         assert_eq!(tool_parallelism(Some(4)), 4);
-        assert_eq!(
-            tool_parallelism(Some(10_000)),
-            tools::LIST_DIRECTORY_MAX_PARALLELISM
-        );
+        assert_eq!(tool_parallelism(Some(10_000)), tools::GLOB_MAX_PARALLELISM);
     }
 
     #[test]

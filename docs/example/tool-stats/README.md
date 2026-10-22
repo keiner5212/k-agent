@@ -25,7 +25,7 @@ What the test does, in order:
    (gitignored via the `.tmp` rule). Mutating tools - `create_folder`,
    `write`, `edit`, `delete` - run with that scratch directory as their
    workspace.
-2. Runs `skill`, `read`, and `list_directory` against the real
+2. Runs `skill`, `read`, and `glob` against the real
    `docs/` workspace so the response surfaces actual project content.
 3. Writes the four artifacts below into each tool folder.
 4. Removes the scratch directory so the repo tree stays clean.
