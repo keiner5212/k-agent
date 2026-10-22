@@ -1632,7 +1632,11 @@ mod tests {
         )
         .unwrap();
         let matcher = regex::Regex::new(r"^ses_[0-9a-f]{64}$").unwrap();
-        assert!(matcher.is_match(&resolved[0].value), "{}", resolved[0].value);
+        assert!(
+            matcher.is_match(&resolved[0].value),
+            "{}",
+            resolved[0].value
+        );
     }
 
     #[test]
@@ -1644,6 +1648,10 @@ mod tests {
         )
         .unwrap();
         let matcher = regex::Regex::new(r"^\bses_[0-9a-f]{8}\b$").unwrap();
-        assert!(matcher.is_match(&resolved[0].value), "{}", resolved[0].value);
+        assert!(
+            matcher.is_match(&resolved[0].value),
+            "{}",
+            resolved[0].value
+        );
     }
 }
