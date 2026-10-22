@@ -152,6 +152,10 @@ const previewFromOutput = (call: ChatToolCall): string => {
     const pid = toonFieldValue(raw, "pid");
     const lines: string[] = [];
     if (command) lines.push(`$ ${command}`);
+    if (name === "bash") {
+      const description = argString(call, "description");
+      if (description) lines.push(description);
+    }
     if (pid) lines.push(`pid ${pid}`);
     if (exitCode) lines.push(`exit ${exitCode}`);
     const body = output || error;
@@ -207,6 +211,7 @@ const toolCallLabel = (call: ChatToolCall, lineRange = ""): string => {
     const command = argString(call, "command");
     if (!command) return name;
     const shown = command.length > 80 ? `${command.slice(0, 77)}...` : command;
+    if (name === "bash") return `$ ${shown}`;
     return `${name} "${shown}"`;
   }
   if (name === "grep") {
@@ -311,6 +316,7 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
               ? t("chat.tools.lines", { start: display.startLine, end: display.endLine })
               : "";
           const label = toolCallLabel(call, lineRange);
+          const bashDescription = call.name === "bash" ? argString(call, "description") : "";
           const runningCall = callIsRunning(call, pending);
           const canOpen =
             Boolean(call.output) ||
@@ -363,6 +369,9 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
                   </span>
                 ) : null}
               </span>
+              {bashDescription ? (
+                <span className="chat-tools__detail">{bashDescription}</span>
+              ) : null}
               <LspNotes display={display} cleanLabel={t("chat.tools.lspClean")} />
             </li>
           );

@@ -1180,6 +1180,19 @@ button.change-bar__stat:focus-visible {
   opacity: 0.72;
 }
 
+.chat-tools__detail {
+  display: block;
+  margin: 0;
+  padding-left: calc(1em + var(--space-2));
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .chat-tools__tokens {
   margin-left: auto;
   flex-shrink: 0;
@@ -2986,6 +2999,7 @@ button.change-bar__stat:focus-visible {
   font-size: 1em;
   color: var(--text-primary);
   line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 .question-dialog__options {

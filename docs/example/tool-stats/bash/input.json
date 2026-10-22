@@ -1,3 +1,4 @@
 {
-  "command": "printf ok"
+  "command": "printf ok",
+  "description": "Print ok to check the shell."
 }

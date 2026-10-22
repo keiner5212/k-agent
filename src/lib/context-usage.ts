@@ -64,26 +64,23 @@ const EDIT_TOOL_PARAMETERS = {
   properties: {
     filePath: {
       type: "string",
-      description:
-        "Single-edit shape only. Absolute or workspace-relative path. Omit this when edits is set. It is not a parent path for edits.",
+      description: `One replacement only. File path. Omit this when edits is set. Not a directory for the array.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
     },
     oldString: {
       type: "string",
-      description: "Single-edit shape only. Text to find. Omit this when edits is set.",
+      description: `One replacement only. Exact file text to find. Omit this when edits is set. Not a line-number prefix from read. Not a diff hunk. Include the indentation that is in the file.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
     },
     newString: {
       type: "string",
-      description: "Single-edit shape only. Replacement text. Omit this when edits is set.",
+      description: `One replacement only. Full replacement of that span, not a patch line with + or -. Omit this when edits is set.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
     },
     replaceAll: {
       type: "boolean",
-      description:
-        "Single-edit shape only. Replace every match (default false). Omit this when edits is set.",
+      description: `One replacement only. Optional. True replaces every match. Default false. Omit this when edits is set.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
     },
     edits: {
       type: "array",
-      description:
-        "Multi-edit shape only. Each item has its own filePath, oldString, newString, and optional replaceAll. Omit top-level filePath, oldString, newString, and replaceAll.",
+      description: `Many replacements only. Each item has its own filePath, oldString, newString, and optional replaceAll. Do not send top-level filePath, oldString, newString, or replaceAll. Top-level filePath is not a directory for this array.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
       items: {
         type: "object",
         properties: {
@@ -286,8 +283,13 @@ const BASH_TOOL_PARAMETERS = {
   type: "object",
   properties: {
     command: { type: "string", description: "One shell command." },
+    description: {
+      type: "string",
+      description:
+        "One short sentence: what this command does and why. Required on every call, including safe, allowed, and blocked commands.",
+    },
   },
-  required: ["command"],
+  required: ["command", "description"],
 } as const;
 
 const GREP_TOOL_PARAMETERS = {

@@ -588,7 +588,7 @@ async fn dumps_tool_examples() {
 
     // bash: a read-only command. Allow and block lists are empty in this harness.
     {
-        let args = r#"{"command":"printf ok"}"#;
+        let args = r#"{"command":"printf ok","description":"Print ok to check the shell."}"#;
         let (stats, outcome) =
             measure(async { execute(BASH_TOOL_NAME, args, &ctx_docs).await }).await;
         write_input(BASH_TOOL_NAME, args);

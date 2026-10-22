@@ -15,7 +15,7 @@ use super::{
 
 pub const NAME: &str = "bash";
 
-const DESCRIPTION: &str = "Run one shell command in the workspace and wait for it to finish. Exact blockedCommands never run. Exact allowedCommands run without a prompt. Destructive commands, real file redirects, and non-local network commands wait for the user. `2>&1` and redirects to `/dev/null` do not ask. curl to localhost, 127.0.0.1, or ::1 does not ask for a local read (silent, head, fail, timeout, header, literal body, or output to /dev/null). Any other curl flag, a config file, a proxy, an upload, a redirect, or a second command waits for the user. Do not start a dev server here. Use background for a process that must stay up until the turn ends. Do not kill a pid returned by background. That process is stopped when the turn ends. Do not use &, nohup, or disown. Do not list, read, search, write, edit, or delete files here. Use glob, read, grep, write, edit, create_folder, and delete. bash is for install, build, test, and git. Output is capped.";
+const DESCRIPTION: &str = "Run one shell command in the workspace and wait for it to finish. `description` is required on every call, including safe, allowed, and blocked commands: one short sentence, what this command does and why. Exact blockedCommands never run. Exact allowedCommands run without a prompt. Destructive commands, real file redirects, and non-local network commands wait for the user. `2>&1` and redirects to `/dev/null` do not ask. curl to localhost, 127.0.0.1, or ::1 does not ask for a local read (silent, head, fail, timeout, header, literal body, or output to /dev/null). Any other curl flag, a config file, a proxy, an upload, a redirect, or a second command waits for the user. Do not start a dev server here. Use background for a process that must stay up until the turn ends. Do not kill a pid returned by background. That process is stopped when the turn ends. Do not use &, nohup, or disown. Do not list, read, search, write, edit, or delete files here. Use glob, read, grep, write, edit, create_folder, and delete. bash is for install, build, test, and git. Output is capped.";
 
 const MAX_OUTPUT_CHARS: usize = 50_000;
 const TIMEOUT: Duration = Duration::from_secs(30);
@@ -59,17 +59,23 @@ impl Tool for BashTool {
                     "command": {
                         "type": "string",
                         "minLength": 1,
-                        "description": "One shell command. The full string is matched against the allow and block lists."
+                        "description": "One shell command."
+                    },
+                    "description": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "One short sentence: what this command does and why. Required on every call, including safe, allowed, and blocked commands."
                     }
                 },
-                "required": ["command"]
+                "required": ["command", "description"]
             }),
         }
     }
 
     fn execute(&self, args: &Value, ctx: &ToolContext<'_>) -> ToolOutcome {
-        let Some(command) = args.get("command").and_then(Value::as_str) else {
-            return error_outcome("bash requires a string `command`.");
+        let (command, _description) = match bash_args(args) {
+            Ok(pair) => pair,
+            Err(outcome) => return outcome,
         };
         match classify(command, &ctx.allowed_commands, &ctx.blocked_commands) {
             Decision::Empty => error_outcome("bash `command` is empty."),
@@ -87,8 +93,9 @@ impl Tool for BashTool {
 
 pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcome {
     let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
-    let Some(command) = args.get("command").and_then(Value::as_str) else {
-        return error_outcome("bash requires a string `command`.");
+    let (command, description) = match bash_args(&args) {
+        Ok(pair) => pair,
+        Err(outcome) => return outcome,
     };
     let command = command.trim();
     if let Some(message) = background_kill_refusal(command, ctx) {
@@ -108,7 +115,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
                 ctx,
                 "bash_confirm",
                 "Shell",
-                &format!("Run this command?\n{command}"),
+                &confirm_question(description, command),
             )
             .await
             {
@@ -127,10 +134,28 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     }
 }
 
+fn bash_args(args: &Value) -> Result<(&str, &str), ToolOutcome> {
+    let Some(command) = args.get("command").and_then(Value::as_str) else {
+        return Err(error_outcome("bash requires a string `command`."));
+    };
+    let Some(description) = args.get("description").and_then(Value::as_str) else {
+        return Err(error_outcome("bash: `description` is required."));
+    };
+    if description.trim().is_empty() {
+        return Err(error_outcome("bash: `description` is empty."));
+    }
+    Ok((command, description.trim()))
+}
+
+fn confirm_question(description: &str, command: &str) -> String {
+    let summary = description.split_whitespace().collect::<Vec<_>>().join(" ");
+    format!("{summary}\n{command}")
+}
+
 fn background_kill_refusal(command: &str, ctx: &ToolContext<'_>) -> Option<String> {
     let turn = ctx.turn.as_ref()?;
     for segment in split_segments(command) {
-        let tokens = tokenize(segment);
+        let tokens = tokenize(&segment);
         let Some(name) = command_name(&tokens) else {
             continue;
         };
@@ -154,12 +179,21 @@ fn background_kill_refusal(command: &str, ctx: &ToolContext<'_>) -> Option<Strin
     None
 }
 
+const CLASSIFY_DEPTH: u32 = 32;
+
 pub(crate) fn classify(command: &str, allowed: &[String], blocked: &[String]) -> Decision {
+    classify_at(command, allowed, blocked, 0)
+}
+
+fn classify_at(command: &str, allowed: &[String], blocked: &[String], depth: u32) -> Decision {
+    if depth > CLASSIFY_DEPTH {
+        return Decision::Confirm;
+    }
     let trimmed = command.trim();
     if trimmed.is_empty() {
         return Decision::Empty;
     }
-    if blocked.iter().any(|item| item == trimmed) {
+    if command_blocked(trimmed, blocked, depth) {
         return Decision::Blocked;
     }
     if allowed.iter().any(|item| item == trimmed) {
@@ -168,11 +202,96 @@ pub(crate) fn classify(command: &str, allowed: &[String], blocked: &[String]) ->
     if is_background_job(trimmed) {
         return Decision::Background;
     }
-    if is_dangerous(trimmed) {
-        Decision::Confirm
-    } else {
-        Decision::Run
+    let (segments, nested) = compound_segments(trimmed);
+    if !segments.is_empty()
+        && segments
+            .iter()
+            .all(|segment| allowed.iter().any(|item| item == segment))
+    {
+        return Decision::Allowed;
     }
+    if pipes_to_shell(trimmed)
+        || segments
+            .iter()
+            .any(|segment| segment_outer_dangerous(segment, trimmed))
+    {
+        return Decision::Confirm;
+    }
+    for body in nested_bodies(&segments, &nested) {
+        if body.trim().is_empty() || body.trim() == trimmed {
+            continue;
+        }
+        match classify_at(&body, allowed, blocked, depth + 1) {
+            Decision::Blocked => return Decision::Blocked,
+            Decision::Background => return Decision::Background,
+            Decision::Confirm => return Decision::Confirm,
+            Decision::Empty | Decision::Run | Decision::Allowed => {}
+        }
+    }
+    Decision::Run
+}
+
+fn command_blocked(command: &str, blocked: &[String], depth: u32) -> bool {
+    if depth > CLASSIFY_DEPTH || blocked.is_empty() {
+        return false;
+    }
+    let trimmed = command.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    if blocked.iter().any(|item| item == trimmed) {
+        return true;
+    }
+    let (segments, nested) = compound_segments(trimmed);
+    if segments
+        .iter()
+        .any(|segment| blocked.iter().any(|item| item == segment))
+    {
+        return true;
+    }
+    for body in nested_bodies(&segments, &nested) {
+        if body.trim().is_empty() || body.trim() == trimmed {
+            continue;
+        }
+        if command_blocked(&body, blocked, depth + 1) {
+            return true;
+        }
+    }
+    false
+}
+
+fn nested_bodies(segments: &[String], nested: &[String]) -> Vec<String> {
+    let mut out = nested.to_vec();
+    for segment in segments {
+        if let Some(script) = shell_c_script(&tokenize(segment)) {
+            out.push(script);
+        }
+    }
+    out
+}
+
+fn segment_outer_dangerous(segment: &str, full: &str) -> bool {
+    if has_file_redirect(segment) {
+        return true;
+    }
+    let tokens = tokenize(segment);
+    let Some(name) = command_name(&tokens) else {
+        return false;
+    };
+    if name.eq_ignore_ascii_case("curl") {
+        return !safe_curl_command(full);
+    }
+    if DANGEROUS.iter().any(|item| name.eq_ignore_ascii_case(item)) {
+        return true;
+    }
+    if name.eq_ignore_ascii_case("git") {
+        let sub = tokens.get(1).map(|item| item.as_str()).unwrap_or("");
+        return !GIT_SAFE.iter().any(|item| sub.eq_ignore_ascii_case(item));
+    }
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "node" | "python" | "python3" | "perl" | "ruby" | "php"
+    ) && tokens.iter().any(|token| token == "-e" || token == "-c")
 }
 
 fn is_background_job(command: &str) -> bool {
@@ -180,7 +299,7 @@ fn is_background_job(command: &str) -> bool {
         return true;
     }
     for segment in split_segments(command) {
-        let tokens = tokenize(segment);
+        let tokens = tokenize(&segment);
         let Some(name) = command_name(&tokens) else {
             continue;
         };
@@ -221,80 +340,274 @@ fn has_single_ampersand(command: &str) -> bool {
     false
 }
 
-fn is_dangerous(command: &str) -> bool {
-    if has_unquoted(command, "$(") || command.contains('`') {
-        return true;
-    }
-    if has_file_redirect(command) {
-        return true;
-    }
-    if pipes_to_shell(command) {
-        return true;
-    }
-    for segment in split_segments(command) {
-        let tokens = tokenize(segment);
-        let Some(name) = command_name(&tokens) else {
-            continue;
-        };
-        if name.eq_ignore_ascii_case("curl") {
-            if !safe_curl_command(command) {
-                return true;
-            }
-            continue;
-        }
-        if DANGEROUS.iter().any(|item| name.eq_ignore_ascii_case(item)) {
-            return true;
-        }
-        if name.eq_ignore_ascii_case("git") {
-            let sub = tokens.get(1).map(|item| item.as_str()).unwrap_or("");
-            if !GIT_SAFE.iter().any(|item| sub.eq_ignore_ascii_case(item)) {
-                return true;
-            }
-        }
-        if matches!(
-            name.to_ascii_lowercase().as_str(),
-            "node" | "python" | "python3" | "perl" | "ruby" | "php"
-        ) && tokens.iter().any(|token| token == "-e" || token == "-c")
-        {
-            return true;
-        }
-    }
-    false
+enum ShellPart {
+    Segment(String),
+    Sep(String),
 }
 
-fn split_segments(command: &str) -> Vec<&str> {
-    let mut out = Vec::new();
-    let mut start = 0usize;
-    let bytes = command.as_bytes();
-    let mut index = 0usize;
-    let mut quote: Option<u8> = None;
-    while index < bytes.len() {
-        let byte = bytes[index];
-        if let Some(mark) = quote {
-            if byte == mark {
-                quote = None;
+fn split_segments(command: &str) -> Vec<String> {
+    compound_segments(command).0
+}
+
+fn compound_segments(command: &str) -> (Vec<String>, Vec<String>) {
+    let (parts, nested) = scan_compound(command);
+    let segments = parts
+        .into_iter()
+        .filter_map(|part| match part {
+            ShellPart::Segment(text) => {
+                let trimmed = text.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_string())
+                }
             }
-            index += 1;
+            ShellPart::Sep(_) => None,
+        })
+        .collect();
+    (segments, nested)
+}
+
+fn scan_compound(command: &str) -> (Vec<ShellPart>, Vec<String>) {
+    let chars: Vec<char> = command.chars().collect();
+    let mut parts = Vec::new();
+    let mut nested = Vec::new();
+    let mut start = 0usize;
+    let mut index = 0usize;
+    let mut quote: Option<char> = None;
+    while index < chars.len() {
+        if consume_meta(&chars, &mut index, &mut quote, Some(&mut nested)) {
             continue;
         }
-        if byte == b'\'' || byte == b'"' {
-            quote = Some(byte);
-            index += 1;
-            continue;
-        }
-        if byte == b';' || byte == b'\n' || byte == b'|' || byte == b'&' {
-            out.push(command[start..index].trim());
-            index += 1;
+        if let Some(len) = separator_len(&chars, index) {
+            parts.push(ShellPart::Segment(slice_chars(&chars, start, index)));
+            parts.push(ShellPart::Sep(slice_chars(&chars, index, index + len)));
+            index += len;
             start = index;
             continue;
         }
         index += 1;
     }
-    let tail = command[start..].trim();
-    if !tail.is_empty() {
-        out.push(tail);
+    parts.push(ShellPart::Segment(slice_chars(&chars, start, chars.len())));
+    (parts, nested)
+}
+
+fn slice_chars(chars: &[char], start: usize, end: usize) -> String {
+    chars[start..end].iter().collect()
+}
+
+fn separator_len(chars: &[char], index: usize) -> Option<usize> {
+    match chars.get(index).copied()? {
+        ';' | '\n' => Some(1),
+        '|' => {
+            if chars.get(index + 1) == Some(&'|') || chars.get(index + 1) == Some(&'&') {
+                Some(2)
+            } else {
+                Some(1)
+            }
+        }
+        '&' => {
+            if chars.get(index + 1) == Some(&'&') {
+                return Some(2);
+            }
+            let prev = if index > 0 { chars[index - 1] } else { '\0' };
+            let next = chars.get(index + 1).copied().unwrap_or('\0');
+            if prev == '>' || next == '>' {
+                None
+            } else {
+                Some(1)
+            }
+        }
+        _ => None,
     }
-    out.into_iter().filter(|item| !item.is_empty()).collect()
+}
+
+fn consume_meta(
+    chars: &[char],
+    index: &mut usize,
+    quote: &mut Option<char>,
+    nested: Option<&mut Vec<String>>,
+) -> bool {
+    let at = *index;
+    if at >= chars.len() {
+        return false;
+    }
+    let ch = chars[at];
+    if let Some(mark) = *quote {
+        if mark == '\'' {
+            if ch == '\'' {
+                *quote = None;
+            }
+            *index += 1;
+            return true;
+        }
+        if ch == '\\' && at + 1 < chars.len() {
+            *index += 2;
+            return true;
+        }
+        if ch == '"' {
+            *quote = None;
+            *index += 1;
+            return true;
+        }
+        if ch == '`' {
+            push_subst(chars, at, index, nested, true);
+            return true;
+        }
+        if ch == '$' && chars.get(at + 1) == Some(&'(') {
+            push_subst(chars, at, index, nested, false);
+            return true;
+        }
+        *index += 1;
+        return true;
+    }
+    if ch == '\\' && at + 1 < chars.len() {
+        *index += 2;
+        return true;
+    }
+    if ch == '\'' || ch == '"' {
+        *quote = Some(ch);
+        *index += 1;
+        return true;
+    }
+    if ch == '`' {
+        push_subst(chars, at, index, nested, true);
+        return true;
+    }
+    if ch == '$' && chars.get(at + 1) == Some(&'(') {
+        push_subst(chars, at, index, nested, false);
+        return true;
+    }
+    false
+}
+
+fn push_subst(
+    chars: &[char],
+    at: usize,
+    index: &mut usize,
+    nested: Option<&mut Vec<String>>,
+    backtick: bool,
+) {
+    let (body, next) = if backtick {
+        take_backtick(chars, at)
+    } else {
+        take_dollar(chars, at)
+    };
+    if let Some(nested) = nested {
+        let trimmed = body.trim();
+        if !trimmed.is_empty() {
+            nested.push(trimmed.to_string());
+        }
+    }
+    *index = next;
+}
+
+fn take_dollar(chars: &[char], at: usize) -> (String, usize) {
+    let mut index = at + 2;
+    let start = index.min(chars.len());
+    let mut depth = 1i32;
+    let mut quote: Option<char> = None;
+    while index < chars.len() {
+        let ch = chars[index];
+        if let Some(mark) = quote {
+            if mark == '"' && ch == '\\' && index + 1 < chars.len() {
+                index += 2;
+                continue;
+            }
+            if ch == mark {
+                quote = None;
+            }
+            index += 1;
+            continue;
+        }
+        if ch == '\\' && index + 1 < chars.len() {
+            index += 2;
+            continue;
+        }
+        if ch == '\'' || ch == '"' {
+            quote = Some(ch);
+            index += 1;
+            continue;
+        }
+        if ch == '(' {
+            depth += 1;
+            index += 1;
+            continue;
+        }
+        if ch == ')' {
+            depth -= 1;
+            if depth == 0 {
+                return (slice_chars(chars, start, index), index + 1);
+            }
+            index += 1;
+            continue;
+        }
+        index += 1;
+    }
+    (slice_chars(chars, start, chars.len()), chars.len())
+}
+
+fn take_backtick(chars: &[char], at: usize) -> (String, usize) {
+    let mut index = at + 1;
+    let start = index.min(chars.len());
+    while index < chars.len() {
+        if chars[index] == '\\' && index + 1 < chars.len() {
+            index += 2;
+            continue;
+        }
+        if chars[index] == '`' {
+            return (slice_chars(chars, start, index), index + 1);
+        }
+        index += 1;
+    }
+    (slice_chars(chars, start, chars.len()), chars.len())
+}
+
+fn shell_c_script(tokens: &[String]) -> Option<String> {
+    let mut index = 0usize;
+    while index < tokens.len() && is_env_assignment(&tokens[index]) {
+        index += 1;
+    }
+    let name = tokens.get(index)?;
+    let base = name.rsplit(['/', '\\']).next().unwrap_or(name);
+    if !matches!(base.to_ascii_lowercase().as_str(), "sh" | "bash" | "zsh") {
+        return None;
+    }
+    index += 1;
+    while index < tokens.len() {
+        let token = &tokens[index];
+        if is_shell_c_flag(token) {
+            let script = tokens.get(index + 1)?.trim();
+            if script.is_empty() {
+                return None;
+            }
+            return Some(script.to_string());
+        }
+        if token.starts_with('-') {
+            index += 1;
+            continue;
+        }
+        return None;
+    }
+    None
+}
+
+fn is_shell_c_flag(token: &str) -> bool {
+    let Some(flags) = token.strip_prefix('-') else {
+        return false;
+    };
+    if flags.is_empty() || flags.starts_with('-') {
+        return false;
+    }
+    let mut saw_c = false;
+    for ch in flags.chars() {
+        match ch {
+            'c' => saw_c = true,
+            'l' | 'i' => {}
+            _ => return false,
+        }
+    }
+    saw_c
 }
 
 fn tokenize(segment: &str) -> Vec<String> {
@@ -311,6 +624,9 @@ fn tokenize(segment: &str) -> Vec<String> {
             continue;
         }
         if ch == '\'' || ch == '"' {
+            if !current.is_empty() {
+                out.push(std::mem::take(&mut current));
+            }
             quote = Some(ch);
             continue;
         }
@@ -352,51 +668,15 @@ fn is_env_assignment(token: &str) -> bool {
             .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }
 
-fn has_unquoted(command: &str, needle: &str) -> bool {
-    let mut quote: Option<char> = None;
-    let chars: Vec<char> = command.chars().collect();
-    let needle: Vec<char> = needle.chars().collect();
-    let mut index = 0usize;
-    while index < chars.len() {
-        let ch = chars[index];
-        if let Some(mark) = quote {
-            if ch == mark {
-                quote = None;
-            }
-            index += 1;
-            continue;
-        }
-        if ch == '\'' || ch == '"' {
-            quote = Some(ch);
-            index += 1;
-            continue;
-        }
-        if chars[index..].starts_with(&needle) {
-            return true;
-        }
-        index += 1;
-    }
-    false
-}
-
 fn has_file_redirect(command: &str) -> bool {
     let chars: Vec<char> = command.chars().collect();
     let mut quote: Option<char> = None;
     let mut index = 0usize;
     while index < chars.len() {
+        if consume_meta(&chars, &mut index, &mut quote, None) {
+            continue;
+        }
         let ch = chars[index];
-        if let Some(mark) = quote {
-            if ch == mark {
-                quote = None;
-            }
-            index += 1;
-            continue;
-        }
-        if ch == '\'' || ch == '"' {
-            quote = Some(ch);
-            index += 1;
-            continue;
-        }
         if ch == '>' && !harmless_redirect(&chars[index..]) {
             return true;
         }
@@ -700,35 +980,14 @@ fn is_http_method(value: &str) -> bool {
 }
 
 fn inject_curl_guards(command: &str) -> String {
-    let bytes = command.as_bytes();
+    let (parts, _) = scan_compound(command);
     let mut out = String::new();
-    let mut start = 0usize;
-    let mut index = 0usize;
-    let mut quote: Option<u8> = None;
-    while index < bytes.len() {
-        let byte = bytes[index];
-        if let Some(mark) = quote {
-            if byte == mark {
-                quote = None;
-            }
-            index += 1;
-            continue;
+    for part in parts {
+        match part {
+            ShellPart::Segment(text) => out.push_str(&inject_curl_segment(&text)),
+            ShellPart::Sep(text) => out.push_str(&text),
         }
-        if byte == b'\'' || byte == b'"' {
-            quote = Some(byte);
-            index += 1;
-            continue;
-        }
-        if byte == b';' || byte == b'\n' || byte == b'|' || byte == b'&' {
-            out.push_str(&inject_curl_segment(&command[start..index]));
-            out.push(byte as char);
-            index += 1;
-            start = index;
-            continue;
-        }
-        index += 1;
     }
-    out.push_str(&inject_curl_segment(&command[start..]));
     out
 }
 
@@ -767,7 +1026,7 @@ fn curl_word_end(body: &str) -> Option<usize> {
 
 fn pipes_to_shell(command: &str) -> bool {
     for segment in split_segments(command).into_iter().skip(1) {
-        let tokens = tokenize(segment);
+        let tokens = tokenize(&segment);
         if let Some(name) = command_name(&tokens) {
             if matches!(
                 name.to_ascii_lowercase().as_str(),
@@ -1413,6 +1672,100 @@ mod tests {
     fn git_status_runs() {
         assert_eq!(classify("git status", &[], &[]), Decision::Run);
         assert_eq!(classify("git commit -m x", &[], &[]), Decision::Confirm);
+    }
+
+    #[test]
+    fn description_is_required_on_every_call() {
+        let ctx = ToolContext::for_test(std::path::PathBuf::from("."), 1);
+        let missing = BashTool.execute(&json!({ "command": "rm -rf foo" }), &ctx);
+        assert!(
+            missing.text.contains("bash: `description` is required."),
+            "{}",
+            missing.text
+        );
+        let blank = BashTool.execute(
+            &json!({ "command": "git status", "description": " \n\t " }),
+            &ctx,
+        );
+        assert!(
+            blank.text.contains("bash: `description` is empty."),
+            "{}",
+            blank.text
+        );
+        let described = BashTool.execute(
+            &json!({ "command": "rm -rf foo", "description": "git status && echo ok" }),
+            &ctx,
+        );
+        assert!(
+            described
+                .text
+                .contains("dangerous command must run on the async dispatch path"),
+            "{}",
+            described.text
+        );
+    }
+
+    #[test]
+    fn compound_segments_are_classified() {
+        let cases: &[(&str, &[&str], &[&str], Decision)] = &[
+            ("git status && git diff", &[], &[], Decision::Run),
+            ("git status && rm -rf foo", &[], &[], Decision::Confirm),
+            ("bash -c \"rm -rf foo\"", &[], &[], Decision::Confirm),
+            ("bash -c\"rm -rf foo\"", &[], &[], Decision::Confirm),
+            ("sh -c \"rm -rf foo\"", &[], &[], Decision::Confirm),
+            ("zsh -lc \"rm -rf foo\"", &[], &[], Decision::Confirm),
+            ("bash -lc \"rm -rf foo\"", &[], &[], Decision::Confirm),
+            ("echo \"rm -rf foo\"", &[], &[], Decision::Run),
+            ("echo \"a; rm -rf foo\"", &[], &[], Decision::Run),
+            ("echo 'a; rm -rf foo'", &[], &[], Decision::Run),
+            ("cmd >/dev/null", &[], &[], Decision::Run),
+            ("cmd > out.txt", &[], &[], Decision::Confirm),
+            ("echo $(rm -rf foo)", &[], &[], Decision::Confirm),
+            ("echo \"$(rm -rf foo)\"", &[], &[], Decision::Confirm),
+            ("echo '$(rm -rf foo)'", &[], &[], Decision::Run),
+            ("echo `rm -rf foo`", &[], &[], Decision::Confirm),
+            ("git status || git diff", &[], &[], Decision::Run),
+            ("git status || rm -rf foo", &[], &[], Decision::Confirm),
+            (
+                "git status && git diff",
+                &["git status", "git diff"],
+                &[],
+                Decision::Allowed,
+            ),
+            (
+                "git status && git diff",
+                &["git status && git diff"],
+                &[],
+                Decision::Allowed,
+            ),
+            (
+                "git status && git diff",
+                &["git status"],
+                &[],
+                Decision::Run,
+            ),
+            (
+                "git status && rm -rf foo",
+                &["git status"],
+                &["rm -rf foo"],
+                Decision::Blocked,
+            ),
+            (
+                "bash -c \"rm -rf foo\"",
+                &[],
+                &["rm -rf foo"],
+                Decision::Blocked,
+            ),
+        ];
+        for (command, allow, block, decision) in cases {
+            let allowed: Vec<String> = allow.iter().map(|item| (*item).to_string()).collect();
+            let blocked: Vec<String> = block.iter().map(|item| (*item).to_string()).collect();
+            assert_eq!(
+                classify(command, &allowed, &blocked),
+                *decision,
+                "{command}"
+            );
+        }
     }
 
     #[test]

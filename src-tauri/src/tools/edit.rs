@@ -12,7 +12,11 @@ use super::{
 
 pub const NAME: &str = "edit";
 
-const DESCRIPTION: &str = "Exact string replace. Two call shapes. Never mix them. One edit: send only filePath, oldString, and newString (optional replaceAll). Do not send edits. Several edits: send only edits. Each edits item has its own filePath, oldString, and newString. Do not also send top-level filePath, oldString, newString, or replaceAll. Top-level filePath is not a parent of edits. Both shapes in one call is an error and writes nothing. All edits are checked before any file is written. Read first. oldString is the file text, not the line-number prefix from read. Match is exact, including whitespace. Fails if oldString is missing or not unique, unless replaceAll is true, and the error says which. Paths outside the workspace wait for the user to allow or deny.";
+const DESCRIPTION: &str = "Exact string replace.\nTwo shapes. Never both in one call. Both shapes write nothing.\nOne replacement: only filePath, oldString, newString, and optional replaceAll. Do not send edits.\nMany replacements: only edits. Each item has its own filePath, oldString, newString, and optional replaceAll. Do not also send top-level filePath, oldString, newString, or replaceAll. Top-level filePath is not a directory for the array.\noldString and newString are exact file text. Not a line-number prefix from read. Not a diff hunk. Include the indentation that is in the file.\nThe call fails if oldString is missing or appears more than once, unless replaceAll is true. The error says which.\nCopy oldString from a read of that file in this turn, large enough to be unique, small enough to be exact.\nnewString is the full replacement of that span, not a patch line with + or -.\nAll edits are checked before any file is written. A bad item leaves every file unchanged.\nPaths outside the workspace wait for the user.";
+
+fn with_rules(lead: &str) -> String {
+    format!("{lead}\n{DESCRIPTION}")
+}
 
 pub struct EditTool;
 
@@ -26,23 +30,23 @@ impl Tool for EditTool {
                 "properties": {
                     "filePath": {
                         "type": "string",
-                        "description": "Single-edit shape only. Absolute or workspace-relative path. Omit this when edits is set. It is not a parent path for edits."
+                        "description": with_rules("One replacement only. File path. Omit this when edits is set. Not a directory for the array.")
                     },
                     "oldString": {
                         "type": "string",
-                        "description": "Single-edit shape only. Text to find. Omit this when edits is set."
+                        "description": with_rules("One replacement only. Exact file text to find. Omit this when edits is set. Not a line-number prefix from read. Not a diff hunk. Include the indentation that is in the file.")
                     },
                     "newString": {
                         "type": "string",
-                        "description": "Single-edit shape only. Replacement text. Omit this when edits is set."
+                        "description": with_rules("One replacement only. Full replacement of that span, not a patch line with + or -. Omit this when edits is set.")
                     },
                     "replaceAll": {
                         "type": "boolean",
-                        "description": "Single-edit shape only. Replace every match (default false). Omit this when edits is set."
+                        "description": with_rules("One replacement only. Optional. True replaces every match. Default false. Omit this when edits is set.")
                     },
                     "edits": {
                         "type": "array",
-                        "description": "Multi-edit shape only. Each item has its own filePath, oldString, newString, and optional replaceAll. Omit top-level filePath, oldString, newString, and replaceAll.",
+                        "description": with_rules("Many replacements only. Each item has its own filePath, oldString, newString, and optional replaceAll. Do not send top-level filePath, oldString, newString, or replaceAll. Top-level filePath is not a directory for this array."),
                         "items": {
                             "type": "object",
                             "properties": {
