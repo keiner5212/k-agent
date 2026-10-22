@@ -415,23 +415,61 @@ fn user_turn(content: String) -> Turn {
     }
 }
 
+// Providers sometimes return tool arguments as a JSON string. Unwrap until an object.
+fn json_object_input(raw: &str) -> serde_json::Value {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return json!({});
+    }
+    let mut value = match serde_json::from_str::<serde_json::Value>(trimmed) {
+        Ok(value) => value,
+        Err(_) => return json!({}),
+    };
+    for _ in 0..4 {
+        let Some(text) = value.as_str() else {
+            break;
+        };
+        let inner = text.trim();
+        if inner.is_empty() {
+            return json!({});
+        }
+        match serde_json::from_str::<serde_json::Value>(inner) {
+            Ok(next) => value = next,
+            Err(_) => return json!({}),
+        }
+    }
+    if value.is_object() {
+        value
+    } else {
+        json!({})
+    }
+}
+
+fn json_object_text(raw: &str) -> String {
+    serde_json::to_string(&json_object_input(raw)).unwrap_or_else(|_| "{}".to_string())
+}
+
+fn json_object_text_from_value(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(text) => json_object_text(text),
+        other if other.is_object() => {
+            serde_json::to_string(other).unwrap_or_else(|_| "{}".to_string())
+        }
+        _ => "{}".to_string(),
+    }
+}
+
 fn tool_arguments_json(name: &str, argument: Option<&str>, arguments: Option<&str>) -> String {
-    let raw_arguments = arguments
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .and_then(|value| {
-            serde_json::from_str::<serde_json::Value>(value)
-                .ok()
-                .and_then(|parsed| {
-                    if parsed.is_object() {
-                        Some(parsed)
-                    } else {
-                        None
-                    }
-                })
-        });
-    if let Some(parsed) = raw_arguments {
-        return serde_json::to_string(&parsed).unwrap_or_else(|_| "{}".to_string());
+    if let Some(raw) = arguments.map(str::trim).filter(|value| !value.is_empty()) {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(raw) {
+            if parsed.is_object() {
+                return serde_json::to_string(&parsed).unwrap_or_else(|_| "{}".to_string());
+            }
+            let object = json_object_input(raw);
+            if object.as_object().is_some_and(|map| !map.is_empty()) {
+                return serde_json::to_string(&object).unwrap_or_else(|_| "{}".to_string());
+            }
+        }
     }
     let raw = argument.unwrap_or("").trim();
     if raw.is_empty() {
@@ -816,7 +854,7 @@ fn openai_assistant_message(turn: &Turn) -> serde_json::Value {
                     "type": "function",
                     "function": {
                         "name": call.name,
-                        "arguments": call.arguments,
+                        "arguments": json_object_text(&call.arguments),
                     }
                 })
             })
@@ -979,13 +1017,11 @@ fn anthropic_assistant_blocks(turn: &Turn) -> Vec<serde_json::Value> {
         blocks.push(json!({ "type": "text", "text": turn.content }));
     }
     for call in &turn.tool_calls {
-        let input = serde_json::from_str::<serde_json::Value>(&call.arguments)
-            .unwrap_or(serde_json::Value::Null);
         blocks.push(json!({
             "type": "tool_use",
             "id": call.id,
             "name": call.name,
-            "input": input,
+            "input": json_object_input(&call.arguments),
         }));
     }
     if blocks.is_empty() {
@@ -1023,12 +1059,10 @@ fn gemini_contents(turns: &[Turn]) -> serde_json::Value {
                     .map(|call| call.thought_signature.as_str())
             });
             for call in &turn.tool_calls {
-                let args = serde_json::from_str::<serde_json::Value>(&call.arguments)
-                    .unwrap_or(serde_json::Value::Null);
                 let mut part = json!({
                     "functionCall": {
                         "name": call.name,
-                        "args": args,
+                        "args": json_object_input(&call.arguments),
                     }
                 });
                 let signature = nonempty_text(Some(&call.thought_signature)).or(fallback_signature);
@@ -1399,11 +1433,7 @@ fn finish_stream_tools(slots: Vec<(usize, ToolCallBuilder)>) -> Vec<ModelToolCal
         .into_iter()
         .filter(|(_, slot)| !slot.name.is_empty())
         .map(|(_, slot)| {
-            let arguments = if slot.arguments.trim().is_empty() {
-                "{}".to_string()
-            } else {
-                slot.arguments
-            };
+            let arguments = json_object_text(&slot.arguments);
             let id = if slot.id.is_empty() {
                 tools::new_tool_call_id()
             } else {
@@ -1963,11 +1993,7 @@ async fn send_anthropic_like(
                 if block.id.is_empty() || block.name.is_empty() {
                     continue;
                 }
-                let arguments = if block.input.is_null() {
-                    "{}".to_string()
-                } else {
-                    serde_json::to_string(&block.input).unwrap_or_else(|_| block.input.to_string())
-                };
+                let arguments = json_object_text_from_value(&block.input);
                 tool_calls.push(ModelToolCall {
                     id: block.id.clone(),
                     name: block.name.clone(),
@@ -2089,11 +2115,7 @@ async fn send_gemini_like(
                 reasoning_signature = part_signature.clone();
             }
             if let Some(call) = part.function_call {
-                let arguments = if call.args.is_null() {
-                    "{}".to_string()
-                } else {
-                    serde_json::to_string(&call.args).unwrap_or_else(|_| call.args.to_string())
-                };
+                let arguments = json_object_text_from_value(&call.args);
                 tool_calls.push(ModelToolCall {
                     id: format!("gemini_{}_{}", call.name, tool_calls.len()),
                     name: call.name,
@@ -3159,7 +3181,7 @@ impl OpenAiChatMessage {
             .map(|call| ModelToolCall {
                 id: call.id,
                 name: call.function.name,
-                arguments: call.function.arguments,
+                arguments: json_object_text(&call.function.arguments),
                 thought_signature: String::new(),
             })
             .collect::<Vec<_>>();
@@ -3948,5 +3970,109 @@ mod tests {
         assert_eq!(turns.len(), 2);
         assert!(turns[1].tool_calls.len() == 1);
         assert!(turns[1].tool_result.is_none());
+    }
+
+    fn assistant_tool_turn(arguments: &str) -> Turn {
+        Turn {
+            assistant: true,
+            content: "looking".into(),
+            reasoning: "think".into(),
+            reasoning_signature: String::new(),
+            attachments: Vec::new(),
+            tool_calls: vec![ModelToolCall {
+                id: "call_1".into(),
+                name: "read".into(),
+                arguments: arguments.into(),
+                thought_signature: String::new(),
+            }],
+            tool_result: None,
+        }
+    }
+
+    fn assert_object(value: &serde_json::Value, label: &str) {
+        assert!(value.is_object(), "{label} must be an object, got {value}");
+    }
+
+    #[test]
+    fn tool_use_input_is_always_an_object() {
+        let samples = [
+            r#"{"filePath":"a.ts"}"#,
+            "",
+            "   ",
+            "not-json",
+            r#"{"filePath":"#,
+            "null",
+            "[]",
+            "42",
+            "true",
+            r#""hello""#,
+            r#""{\"filePath\":\"a.ts\"}""#,
+            r#""\"{\\\"filePath\\\":\\\"a.ts\\\"}\"""#,
+        ];
+        for raw in samples {
+            let turn = assistant_tool_turn(raw);
+            let anthropic = anthropic_messages(&[turn.clone()]);
+            let input = &anthropic[0]["content"][2]["input"];
+            assert_eq!(anthropic[0]["content"][2]["type"], "tool_use");
+            assert_object(input, raw);
+
+            let gemini = gemini_contents(&[turn.clone()]);
+            let args = &gemini[0]["parts"][2]["functionCall"]["args"];
+            assert_object(args, raw);
+
+            let openai = openai_messages(None, &[turn]);
+            let arguments = openai[0]["tool_calls"][0]["function"]["arguments"]
+                .as_str()
+                .unwrap_or("");
+            let parsed: serde_json::Value = serde_json::from_str(arguments).unwrap_or(json!(null));
+            assert_object(&parsed, raw);
+        }
+
+        let kept = anthropic_messages(&[assistant_tool_turn(r#"{"filePath":"a.ts"}"#)]);
+        assert_eq!(kept[0]["content"][2]["input"]["filePath"], "a.ts");
+
+        let unwrapped = anthropic_messages(&[assistant_tool_turn(r#""{\"filePath\":\"a.ts\"}""#)]);
+        assert_eq!(unwrapped[0]["content"][2]["input"]["filePath"], "a.ts");
+    }
+
+    #[test]
+    fn finish_stream_tools_stores_object_json() {
+        let calls = finish_stream_tools(vec![(
+            0,
+            ToolCallBuilder {
+                id: "1".into(),
+                name: "read".into(),
+                arguments: r#"{"filePath":"#.into(),
+                thought_signature: String::new(),
+            },
+        )]);
+        assert_eq!(calls[0].arguments, "{}");
+
+        let calls = finish_stream_tools(vec![(
+            0,
+            ToolCallBuilder {
+                id: "1".into(),
+                name: "read".into(),
+                arguments: r#""{\"filePath\":\"a.ts\"}""#.into(),
+                thought_signature: String::new(),
+            },
+        )]);
+        assert_eq!(calls[0].arguments, r#"{"filePath":"a.ts"}"#);
+    }
+
+    #[test]
+    fn tool_arguments_json_keeps_path_fallback_for_garbage() {
+        assert_eq!(
+            tool_arguments_json(tools::READ_TOOL_NAME, Some("src/main.rs"), Some("not-json")),
+            r#"{"filePath":"src/main.rs"}"#
+        );
+        assert_eq!(
+            tool_arguments_json(
+                tools::READ_TOOL_NAME,
+                None,
+                Some(r#""{\"filePath\":\"a.ts\"}""#)
+            ),
+            r#"{"filePath":"a.ts"}"#
+        );
     }
 }
