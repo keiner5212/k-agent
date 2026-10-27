@@ -55,7 +55,11 @@ export const useGlobalKeybindings = (onAction: (action: KeybindingAction) => voi
           return;
         }
         const sessions = useSessionsStore.getState();
-        if (sessions.sending || sessions.shellRunning) {
+        const active = sessions.activeSessionId;
+        const activeIsBusy =
+          (active !== null && sessions.sendingSessionIds.includes(active)) ||
+          (active !== null && sessions.shellRunningSessionIds.includes(active));
+        if (activeIsBusy) {
           event.preventDefault();
           event.stopPropagation();
           const now = Date.now();

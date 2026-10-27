@@ -86,8 +86,9 @@ const ThreadTail = ({ messages }: { messages: ChatMessage[] }): ReactNode => {
 const InterruptHint = (): ReactNode => {
   const { t } = useTranslation();
   const armed = useSessionsStore((state) => state.interruptArmedAt);
-  const sending = useSessionsStore((state) => state.sending);
-  const shellRunning = useSessionsStore((state) => state.shellRunning);
+  const sendingSessionIds = useSessionsStore((state) => state.sendingSessionIds);
+  const shellRunningSessionIds = useSessionsStore((state) => state.shellRunningSessionIds);
+  const activeSessionId = useSessionsStore((state) => state.activeSessionId);
 
   useEffect(() => {
     if (armed === null) return;
@@ -102,7 +103,10 @@ const InterruptHint = (): ReactNode => {
     return () => window.clearTimeout(timer);
   }, [armed]);
 
-  if (armed === null || (!sending && !shellRunning)) return null;
+  const busy =
+    sendingSessionIds.includes(activeSessionId ?? "") ||
+    shellRunningSessionIds.includes(activeSessionId ?? "");
+  if (armed === null || !busy) return null;
   return (
     <div className="chat-interrupt-hint" role="status" aria-live="polite">
       <span className="chat-interrupt-hint__dot" aria-hidden="true" />
@@ -154,19 +158,18 @@ const ActiveThread = ({
 export const ChatThread = (): ReactNode => {
   const { t } = useTranslation();
   const messages = useSessionsStore(selectActiveMessages);
-  const sending = useSessionsStore((state) => state.sending);
-  const sendingSessionId = useSessionsStore((state) => state.sendingSessionId);
-  const shellRunning = useSessionsStore((state) => state.shellRunning);
-  const shellRunningSessionId = useSessionsStore((state) => state.shellRunningSessionId);
+  const sendingSessionIds = useSessionsStore((state) => state.sendingSessionIds);
+  const shellRunningSessionIds = useSessionsStore((state) => state.shellRunningSessionIds);
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
   const error = useSessionsStore((state) => state.error);
   const canRetry = useSessionsStore((state) => state.canRetry);
   const asking = useAskUserStore((state) =>
     Object.values(state.byCallId).some((item) => item.sessionId === activeSessionId),
   );
+  // Only the turn of the chat that is on screen makes it busy.
   const busy =
-    (sending && sendingSessionId === activeSessionId) ||
-    (shellRunning && shellRunningSessionId === activeSessionId);
+    sendingSessionIds.includes(activeSessionId ?? "") ||
+    shellRunningSessionIds.includes(activeSessionId ?? "");
   const waiting =
     busy &&
     !error &&

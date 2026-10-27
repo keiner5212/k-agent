@@ -571,7 +571,26 @@ export const confirmChoiceFrom = (
   return "deny";
 };
 
-let sendEpoch = 0;
+const sendEpochs = new Map<string, number>();
+
+const nextSendEpoch = (sessionId: string): number => {
+  const epoch = (sendEpochs.get(sessionId) ?? 0) + 1;
+  sendEpochs.set(sessionId, epoch);
+  return epoch;
+};
+
+const sendEpochOf = (sessionId: string): number => sendEpochs.get(sessionId) ?? 0;
+
+/** A chat that is busy does not stop another chat. */
+const isSessionBusy = (
+  state: { sendingSessionIds: string[]; shellRunningSessionIds: string[] },
+  sessionId: string | null,
+): boolean => {
+  if (!sessionId) return false;
+  return (
+    state.sendingSessionIds.includes(sessionId) || state.shellRunningSessionIds.includes(sessionId)
+  );
+};
 
 const continueResumedTools = (sessions: SessionRecord[]): void => {
   if (!isTauri()) return;
@@ -602,8 +621,8 @@ const continueResumedTools = (sessions: SessionRecord[]): void => {
 type SessionsStore = {
   sessions: SessionRecord[];
   activeSessionId: string | null;
-  sendingSessionId: string | null;
-  shellRunningSessionId: string | null;
+  sendingSessionIds: string[];
+  shellRunningSessionIds: string[];
   hydrated: boolean;
   sending: boolean;
   shellRunning: boolean;
@@ -645,8 +664,8 @@ type SessionsStore = {
 export const useSessionsStore = create<SessionsStore>((set, get) => ({
   sessions: [],
   activeSessionId: null,
-  sendingSessionId: null,
-  shellRunningSessionId: null,
+  sendingSessionIds: [],
+  shellRunningSessionIds: [],
   hydrated: false,
   sending: false,
   shellRunning: false,
@@ -751,12 +770,14 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   },
 
   remove: async (id) => {
-    const { sessions, activeSessionId, sendingSessionId, shellRunningSessionId } = get();
+    const { sessions, activeSessionId, sendingSessionIds, shellRunningSessionIds } = get();
     const nextSessions = sessions.filter(
       (session) => session.id !== id && session.parentSessionId !== id,
     );
-    const stopSending = sendingSessionId === id;
-    const stopShell = shellRunningSessionId === id;
+    const stopSending = sendingSessionIds.includes(id);
+    const stopShell = shellRunningSessionIds.includes(id);
+    const leftSending = sendingSessionIds.filter((item) => item !== id);
+    const leftShell = shellRunningSessionIds.filter((item) => item !== id);
     if (stopSending || stopShell) {
       try {
         await invoke<boolean>("cancel_running_task", { sessionId: id });
@@ -775,8 +796,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         activeSessionId: session.id,
         error: undefined,
         queued: get().queued.filter((item) => item.sessionId !== id),
-        ...(stopSending ? { sending: false, sendingSessionId: null } : {}),
-        ...(stopShell ? { shellRunning: false, shellRunningSessionId: null } : {}),
+        ...(stopSending ? { sending: leftSending.length > 0, sendingSessionIds: leftSending } : {}),
+        ...(stopShell
+          ? { shellRunning: leftShell.length > 0, shellRunningSessionIds: leftShell }
+          : {}),
       });
       void persistSnapshot(snapshotFromState(seeded, session.id));
       if (stopSending || stopShell) get().flushQueued();
@@ -797,8 +820,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       activeSessionId: nextActiveId,
       error: undefined,
       queued: get().queued.filter((item) => item.sessionId !== id),
-      ...(stopSending ? { sending: false, sendingSessionId: null } : {}),
-      ...(stopShell ? { shellRunning: false, shellRunningSessionId: null } : {}),
+      ...(stopSending ? { sending: leftSending.length > 0, sendingSessionIds: leftSending } : {}),
+      ...(stopShell
+        ? { shellRunning: leftShell.length > 0, shellRunningSessionIds: leftShell }
+        : {}),
     });
     void persistSnapshot(snapshotFromState(sorted, nextActiveId));
     if (stopSending || stopShell) get().flushQueued();
@@ -863,7 +888,6 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   send: async (text, targetSessionId, attachments, replay) => {
     const trimmed = replay ? "" : text.trim();
     const pending = attachments ?? [];
-    if (get().sending || get().shellRunning) return false;
     if (!replay && !trimmed && pending.length === 0) return false;
     if (!get().hydrated) return false;
 
@@ -884,15 +908,17 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       sessionId = ensured.activeSessionId;
     }
     if (!sessionId) return false;
+    // The chat that is sending is the only one that cannot send.
+    if (isSessionBusy(get(), sessionId)) return false;
     const activeSession = sessions.find((session) => session.id === sessionId);
     if (!activeSession) return false;
 
     const stickActive = get().activeSessionId === sessionId || get().activeSessionId === null;
-    const epoch = ++sendEpoch;
+    const epoch = nextSendEpoch(sessionId);
     const turnStartedAt = Date.now();
     set({
       sending: true,
-      sendingSessionId: sessionId,
+      sendingSessionIds: [...get().sendingSessionIds, sessionId],
       error: undefined,
       canRetry: false,
       ...(stickActive ? { activeSessionId: sessionId } : {}),
@@ -905,9 +931,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       try {
         content = await resolveUserMessageContent(trimmed);
       } catch (error) {
+        const left = get().sendingSessionIds.filter((id) => id !== sessionId);
         set({
-          sending: false,
-          sendingSessionId: null,
+          sending: left.length > 0,
+          sendingSessionIds: left,
           error: ipcErrorMessage(error),
           canRetry: false,
         });
@@ -915,10 +942,11 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         return true;
       }
     }
-    if (get().sendingSessionId !== sessionId) return true;
+    if (!get().sendingSessionIds.includes(sessionId)) return true;
     const latest = get().sessions.find((session) => session.id === sessionId);
     if (!latest) {
-      set({ sending: false, sendingSessionId: null });
+      const left = get().sendingSessionIds.filter((id) => id !== sessionId);
+      set({ sending: left.length > 0, sendingSessionIds: left });
       get().flushQueued();
       return true;
     }
@@ -1005,7 +1033,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         }
       };
       const publishStreaming = (preview: string | null): void => {
-        if (get().sendingSessionId !== sessionId) return;
+        if (!get().sendingSessionIds.includes(sessionId)) return;
         const nextSessions = get().sessions.map((session) => {
           if (session.id !== sessionId) return session;
           const index = session.messages.findIndex((message) => message.id === assistantId);
@@ -1082,7 +1110,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         });
       const onChunk = new Channel<ChatChunk>();
       onChunk.onmessage = (chunk) => {
-        if (!chunk.text || get().sendingSessionId !== sessionId) return;
+        if (!chunk.text || !get().sendingSessionIds.includes(sessionId)) return;
         if (chunk.kind === "tool_result") {
           const update = parseToolResultChunk(chunk.text);
           if (update) {
@@ -1314,7 +1342,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       });
       cancelPaint();
       commitBuffer();
-      if (epoch !== sendEpoch) return true;
+      if (sendEpochOf(sessionId) !== epoch) return true;
       const replyAt = Date.now();
       const activeRound = rounds[activeRoundIndex];
       if (activeRound) recordRoundThinkingMs(activeRound, replyAt);
@@ -1366,10 +1394,13 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           messages,
         };
       });
-      const stillSending = get().sendingSessionId === sessionId;
+      const stillSending = get().sendingSessionIds.includes(sessionId);
+      const leftSending = get().sendingSessionIds.filter((id) => id !== sessionId);
       set({
         sessions: withAssistant,
-        ...(stillSending ? { sending: false, sendingSessionId: null } : {}),
+        ...(stillSending
+          ? { sending: leftSending.length > 0, sendingSessionIds: leftSending }
+          : {}),
       });
       const active = get().activeSessionId ?? sessionId;
       void persistSnapshot(snapshotFromState(withAssistant, active));
@@ -1385,8 +1416,8 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       return true;
     } catch (error) {
       cancelPaint();
-      if (epoch !== sendEpoch) return true;
-      if (get().sendingSessionId === sessionId) {
+      if (sendEpochOf(sessionId) !== epoch) return true;
+      if (get().sendingSessionIds.includes(sessionId)) {
         const cancelled = ipcErrorMessage(error).toLowerCase().includes("interrupted by user");
         const turnMs = Math.max(0, Date.now() - turnStartedAt);
         const nextSessions = get().sessions.map((session) => {
@@ -1405,10 +1436,11 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
             ),
           };
         });
+        const left = get().sendingSessionIds.filter((id) => id !== sessionId);
         set({
           sessions: nextSessions,
-          sending: false,
-          sendingSessionId: null,
+          sending: left.length > 0,
+          sendingSessionIds: left,
           interruptArmedAt: null,
           error: cancelled ? undefined : ipcErrorMessage(error),
           canRetry: !cancelled,
@@ -1465,10 +1497,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   },
 
   flushQueued: () => {
-    if (get().sending || get().shellRunning) return;
-    const next = get().queued[0];
+    const queued = get().queued;
+    const next = queued.find((item) => !isSessionBusy(get(), item.sessionId));
     if (!next) return;
-    set({ queued: get().queued.slice(1) });
+    set({ queued: queued.filter((item) => item.id !== next.id) });
     const started =
       next.mode === "shell"
         ? get().runShell(next.text, next.sessionId)
@@ -1492,15 +1524,27 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       if (!item) return;
       set({ queued: [item, ...current.filter((entry) => entry.id !== id)] });
     }
-    if (get().sending || get().shellRunning) {
-      await get().interruptActiveTask();
+    // The chat of the message that goes now is the one that is interrupted.
+    const target = get().queued[0];
+    if (target && isSessionBusy(get(), target.sessionId)) {
+      try {
+        await invoke<boolean>("cancel_running_task", { sessionId: target.sessionId });
+      } catch (error) {
+        console.warn("cancel_running_task failed", error);
+      }
+      set({ interruptArmedAt: null });
     }
     get().flushQueued();
   },
 
   interruptActiveTask: async () => {
     const state = get();
-    const sessionId = state.sendingSessionId ?? state.shellRunningSessionId;
+    const active = state.activeSessionId;
+    const sessionId =
+      (active && state.sendingSessionIds.includes(active) ? active : undefined) ??
+      (active && state.shellRunningSessionIds.includes(active) ? active : undefined) ??
+      state.sendingSessionIds[0] ??
+      state.shellRunningSessionIds[0];
     if (!sessionId) return false;
     try {
       await invoke<boolean>("cancel_running_task", { sessionId });
@@ -1520,10 +1564,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   },
 
   rewindTo: async (messageId) => {
-    const { sessions, activeSessionId, sendingSessionId, shellRunningSessionId } = get();
+    const { sessions, activeSessionId } = get();
     const sessionId = activeSessionId;
     if (!sessionId) return false;
-    if (sendingSessionId === sessionId || shellRunningSessionId === sessionId) return false;
+    if (isSessionBusy(get(), sessionId)) return false;
     const session = sessions.find((item) => item.id === sessionId);
     if (!session) return false;
     const messages = sessionMessages(session);
@@ -1547,7 +1591,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         return false;
       }
     }
-    if (get().sendingSessionId === sessionId || get().shellRunningSessionId === sessionId) {
+    if (isSessionBusy(get(), sessionId)) {
       await putCheckpointBack(sessionId, checkpoints, "after");
       return false;
     }
@@ -1582,10 +1626,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   },
 
   redo: async () => {
-    const { sessions, activeSessionId, sendingSessionId, shellRunningSessionId } = get();
+    const { sessions, activeSessionId } = get();
     const sessionId = activeSessionId;
     if (!sessionId) return false;
-    if (sendingSessionId === sessionId || shellRunningSessionId === sessionId) return false;
+    if (isSessionBusy(get(), sessionId)) return false;
     const session = sessions.find((item) => item.id === sessionId);
     const redo = session?.redo;
     if (!session || !redo || redo.messages.length === 0) return false;
@@ -1599,7 +1643,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         return false;
       }
     }
-    if (get().sendingSessionId === sessionId || get().shellRunningSessionId === sessionId) {
+    if (isSessionBusy(get(), sessionId)) {
       await putCheckpointBack(sessionId, redo.checkpoints, "before");
       return false;
     }
@@ -1662,20 +1706,23 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     }
     if (!sessionId) return false;
     if (!sessions.some((session) => session.id === sessionId)) return false;
+    // The chat that is running a shell is the only one that cannot start one.
+    if (isSessionBusy(get(), sessionId)) return false;
 
     const stickActive = get().activeSessionId === sessionId || get().activeSessionId === null;
     set({
       shellRunning: true,
-      shellRunningSessionId: sessionId,
+      shellRunningSessionIds: [...get().shellRunningSessionIds, sessionId],
       error: undefined,
       ...(stickActive ? { activeSessionId: sessionId } : {}),
     });
 
     const workspaceRoot = await invoke<string | null>("get_workspace_path").catch(() => null);
     if (!workspaceRoot) {
+      const left = get().shellRunningSessionIds.filter((id) => id !== sessionId);
       set({
-        shellRunning: false,
-        shellRunningSessionId: null,
+        shellRunning: left.length > 0,
+        shellRunningSessionIds: left,
         error: i18n.t("chat.shell.needsWorkspace"),
         canRetry: false,
       });
@@ -1683,24 +1730,26 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       return true;
     }
 
-    if (get().shellRunningSessionId !== sessionId) return true;
+    if (!get().shellRunningSessionIds.includes(sessionId)) return true;
     let resolvedCommand: string;
     try {
       resolvedCommand = await resolveOutgoingMentions(trimmed, workspaceRoot, "shell");
     } catch (error) {
+      const left = get().shellRunningSessionIds.filter((id) => id !== sessionId);
       set({
-        shellRunning: false,
-        shellRunningSessionId: null,
+        shellRunning: left.length > 0,
+        shellRunningSessionIds: left,
         error: ipcErrorMessage(error),
         canRetry: false,
       });
       get().flushQueued();
       return true;
     }
-    if (get().shellRunningSessionId !== sessionId) return true;
+    if (!get().shellRunningSessionIds.includes(sessionId)) return true;
     const latest = get().sessions.find((session) => session.id === sessionId);
     if (!latest) {
-      set({ shellRunning: false, shellRunningSessionId: null });
+      const left = get().shellRunningSessionIds.filter((id) => id !== sessionId);
+      set({ shellRunning: left.length > 0, shellRunningSessionIds: left });
       get().flushQueued();
       return true;
     }
@@ -1778,7 +1827,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       if (streamFrame !== 0) return;
       streamFrame = requestAnimationFrame(() => {
         streamFrame = 0;
-        if (get().shellRunningSessionId !== sessionId) return;
+        if (!get().shellRunningSessionIds.includes(sessionId)) return;
         applyShellStream();
       });
     };
@@ -1806,10 +1855,11 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           };
         }),
       );
-      const stillRunning = get().shellRunningSessionId === sessionId;
+      const stillRunning = get().shellRunningSessionIds.includes(sessionId);
+      const left = get().shellRunningSessionIds.filter((id) => id !== sessionId);
       set({
         sessions: nextSessions,
-        ...(stillRunning ? { shellRunning: false, shellRunningSessionId: null } : {}),
+        ...(stillRunning ? { shellRunning: left.length > 0, shellRunningSessionIds: left } : {}),
         ...(stillRunning ? { interruptArmedAt: null } : {}),
         error,
         canRetry: false,
@@ -1821,7 +1871,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
 
     const onChunk = new Channel<ShellChunk>();
     onChunk.onmessage = (chunk) => {
-      if (get().shellRunningSessionId !== sessionId) return;
+      if (!get().shellRunningSessionIds.includes(sessionId)) return;
       if (chunk.kind === "stdout") streamBuffer.stdout += chunk.text;
       else if (chunk.kind === "stderr") streamBuffer.stderr += chunk.text;
       scheduleShellStream();

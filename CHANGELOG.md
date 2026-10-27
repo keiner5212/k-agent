@@ -8,7 +8,7 @@ section. The release draft uses that section as its body.
 The entries say what changed and why it mattered, in the words of the person who
 had to live with it.
 
-## [0.2.1] - 2026-10-27
+## [0.2.2] - 2026-10-27
 
 ### Fixed
 
@@ -18,11 +18,13 @@ had to live with it.
 - A tool that fails is shown as failed. The errors of the MCP servers were rendered as a success, so a broken server looked like a tool that did nothing.
 
 - The button that improves the prompt works while the chat answers, and it says why it is off. It turned itself off when a turn was running and the tooltip blamed the model, which was already chosen, so it looked broken.
+- A chat that one window deletes is not deleted by another window. The backend only removes the chats that the window that saved named, and a chat of another window survives.
 - The names of the commands that need a confirmation follow the host. The names of Windows are not commands of Linux, and a program of Linux keeps its extension.
 - Two writes of the same chat no longer share the name of the temporary file. The file of the session is written whole, and the temporary name carries the process and a counter of its own.
 
 ### Added
 
+- Each chat runs on its own. A chat that is answering keeps going when you open another one, and the new chat can send its message and be answered while the first one finishes. The composer, the escape key and the queue of a chat only look at the turn of that chat.
 - Every tool has an icon. Seven of them had none and left an empty gap in the list of the tools.
 - The undo says what it does not undo. Only the edits of the files are rolled back, and the changes made with commands are not, which the dialog now says before the user confirms.
 - The row of a tool shows a short summary instead of the whole list of the parameters while the tool runs. The raw parameters were shown until the tool answered, and the row jumped when it did.
