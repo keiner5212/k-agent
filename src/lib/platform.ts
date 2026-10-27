@@ -31,7 +31,9 @@ export const ipcErrorMessage = (error: unknown, depth = 4): string => {
 export const isTauri = (): boolean =>
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-export const platform = (): "macos" | "windows" | "linux" | "other" => {
+export type Platform = "macos" | "windows" | "linux" | "other";
+
+export const platform = (): Platform => {
   if (typeof navigator === "undefined") return "other";
   const ua = navigator.userAgent.toLowerCase();
   if (ua.includes("mac")) return "macos";
@@ -41,3 +43,29 @@ export const platform = (): "macos" | "windows" | "linux" | "other" => {
 };
 
 export const isMac = (): boolean => platform() === "macos";
+export const isWindows = (): boolean => platform() === "windows";
+export const isLinux = (): boolean => platform() === "linux";
+
+/** Separator used by PATH on this host. */
+export const pathSeparator = (): string => (isWindows() ? ";" : ":");
+
+/** Shell the app runs when the user has not chosen one. */
+export const defaultShellProgram = (): string => {
+  if (isWindows()) return "powershell.exe";
+  if (isMac()) return "/bin/zsh";
+  return "/bin/sh";
+};
+
+/** Name of the host in the words the app shows. */
+export const platformLabel = (): string => {
+  switch (platform()) {
+    case "macos":
+      return "macOS";
+    case "windows":
+      return "Windows";
+    case "linux":
+      return "Linux";
+    default:
+      return "this host";
+  }
+};

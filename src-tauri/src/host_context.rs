@@ -49,11 +49,7 @@ fn shell_label(app: &AppHandle) -> String {
     if let Some(shell) = configured {
         return shell;
     }
-    if cfg!(windows) {
-        "cmd.exe".into()
-    } else {
-        "/bin/sh".into()
-    }
+    crate::compat::shell::default_shell().program
 }
 
 fn os_pretty() -> String {
@@ -68,7 +64,59 @@ fn os_pretty() -> String {
             );
         }
     }
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(name) = macos_pretty_name() {
+            return format!(
+                "{name} ({}/{})",
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            );
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(name) = windows_pretty_name() {
+            return format!(
+                "{name} ({}/{})",
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            );
+        }
+    }
     fallback
+}
+
+#[cfg(target_os = "macos")]
+fn macos_pretty_name() -> Option<String> {
+    let product = command_output("sw_vers", &["-productName"])?;
+    let version = command_output("sw_vers", &["-productVersion"])?;
+    Some(format!("{product} {version}"))
+}
+
+#[cfg(target_os = "windows")]
+fn windows_pretty_name() -> Option<String> {
+    let text = command_output("cmd", &["/C", "ver"])?;
+    let name = text.split('[').nth(1)?.split(']').next()?.trim();
+    let name = name.trim_start_matches("Version ").trim();
+    if name.is_empty() {
+        return None;
+    }
+    Some(name.to_string())
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn command_output(program: &str, args: &[&str]) -> Option<String> {
+    let output = std::process::Command::new(program)
+        .args(args)
+        .output()
+        .ok()?;
+    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if text.is_empty() {
+        None
+    } else {
+        Some(text)
+    }
 }
 
 #[cfg(target_os = "linux")]
