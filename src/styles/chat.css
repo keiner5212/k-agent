@@ -376,6 +376,7 @@ button.change-bar__stat:focus-visible {
     clip-path: inset(0 100% 0 0);
     opacity: 0.45;
   }
+
   to {
     clip-path: inset(0 0 0 0);
     opacity: 1;
@@ -1096,6 +1097,7 @@ button.change-bar__stat:focus-visible {
   0% {
     background-position: 100% 0;
   }
+
   100% {
     background-position: 0 0;
   }
@@ -1163,12 +1165,53 @@ button.change-bar__stat:focus-visible {
 }
 
 .chat-tools__symbol {
-  color: var(--frost-fill-accent);
-  font-size: var(--text-sm);
-  line-height: var(--leading-tight);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 1em;
-  display: inline-block;
-  flex-shrink: 0;
+  height: 1em;
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: var(--text-sm);
+  line-height: 1;
+}
+
+.chat-tools__symbol > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.chat-tools__symbol--running {
+  animation: chat-tool-icon-pulse 1.6s ease-in-out infinite;
+}
+
+.chat-tools__symbol--error {
+  color: var(--danger);
+}
+
+@keyframes chat-tool-icon-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+:root[data-animations="disabled"] .chat-tools__symbol--running,
+:root[data-animations="false"] .chat-tools__symbol--running {
+  animation: none;
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-tools__symbol--running {
+    animation: none;
+    opacity: 0.85;
+  }
 }
 
 .chat-tools__line {
@@ -1207,6 +1250,7 @@ button.change-bar__stat:focus-visible {
   padding: 0;
   min-width: 0;
   overflow: hidden;
+  flex: 0 0 auto;
   font: inherit;
   border: 0;
   cursor: pointer;
@@ -1214,6 +1258,55 @@ button.change-bar__stat:focus-visible {
   text-underline-offset: 0.15em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.chat-tools__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.chat-tools__label-name {
+  flex: 0 0 auto;
+}
+
+.chat-tools__summary {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chat-tools__range {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.chat-rewind__warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  background-color: color-mix(in oklch, var(--warning) 12%, transparent);
+  border: 1px solid color-mix(in oklch, var(--warning) 30%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+.chat-rewind__warning-icon {
+  flex: 0 0 auto;
+  margin-top: var(--space-1);
+  color: var(--warning);
+}
+
+.chat-rewind__warning-text {
+  min-width: 0;
 }
 
 .chat-tools__name:not(.chat-live-label) {
@@ -1367,6 +1460,7 @@ button.change-bar__stat:focus-visible {
       0 0 0 1px color-mix(in oklch, var(--accent) 10%, transparent),
       0 0 14px color-mix(in oklch, var(--accent) 12%, transparent);
   }
+
   50% {
     border-color: color-mix(in oklch, var(--accent) 58%, var(--border));
     box-shadow:
@@ -1380,9 +1474,11 @@ button.change-bar__stat:focus-visible {
   100% {
     transform: rotate(-12deg) scale(1);
   }
+
   35% {
     transform: rotate(16deg) scale(1.14);
   }
+
   65% {
     transform: rotate(-6deg) scale(0.94);
   }
@@ -1394,10 +1490,12 @@ button.change-bar__stat:focus-visible {
     opacity: 0.35;
     transform: translate3d(0, 0, 0) scale(0.7);
   }
+
   40% {
     opacity: 1;
     transform: translate3d(3px, -4px, 0) scale(1.15);
   }
+
   70% {
     opacity: 0.55;
     transform: translate3d(-2px, 2px, 0) scale(0.85);
@@ -1409,6 +1507,7 @@ button.change-bar__stat:focus-visible {
     opacity: 0;
     scale: 0.98;
   }
+
   to {
     opacity: 1;
     scale: 1;
@@ -1420,6 +1519,7 @@ button.change-bar__stat:focus-visible {
     opacity: 0;
     scale: 0.98;
   }
+
   to {
     opacity: 1;
     scale: 1;
@@ -1432,6 +1532,7 @@ button.change-bar__stat:focus-visible {
     transform: rotate(-8deg) scale(1);
     filter: drop-shadow(0 0 0 transparent);
   }
+
   50% {
     transform: rotate(10deg) scale(1.08);
     filter: drop-shadow(0 0 8px color-mix(in oklch, var(--accent) 45%, transparent));
@@ -1579,10 +1680,12 @@ button.change-bar__stat:focus-visible {
     transform: scale(0.72);
     opacity: 0.35;
   }
+
   55% {
     transform: scale(1.16);
     opacity: 1;
   }
+
   100% {
     transform: scale(1);
     opacity: 1;
@@ -1860,6 +1963,7 @@ button.change-bar__stat:focus-visible {
     opacity: 0.4;
     transform: scale(0.85);
   }
+
   50% {
     opacity: 1;
     transform: scale(1.05);
@@ -2415,10 +2519,12 @@ button.change-bar__stat:focus-visible {
     scale: 1 1;
     opacity: 1;
   }
+
   40% {
     scale: 1 0.35;
     opacity: 0.55;
   }
+
   100% {
     scale: 1 1;
     opacity: 1;

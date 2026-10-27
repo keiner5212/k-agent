@@ -1,6 +1,29 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  BookOpen,
+  Braces,
+  Camera,
+  CircleQuestionMark,
+  FileDiff,
+  FilePen,
+  FolderPlus,
+  FolderSearch,
+  Globe,
+  Link,
+  ListTodo,
+  MessagesSquare,
+  ScrollText,
+  Search,
+  SquarePen,
+  SquareTerminal,
+  Terminal,
+  Trash2,
+  Wrench,
+  Workflow,
+  type LucideIcon,
+} from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import type { LineKind } from "@/components/LineEditor";
 import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
@@ -9,7 +32,8 @@ import { runDiffLinesJob } from "@/lib/jobs";
 import { useProvidersStore } from "@/lib/providers";
 import { readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
 import { useSelectionStore } from "@/lib/selected-model";
-import { skillNameFromCall, type ChatToolCall, type ToolDisplay } from "@/types/chat";
+import { AGENT_TOOL_IDS, type AgentToolId } from "@/types/agents";
+import { type ChatToolCall, type ToolDisplay } from "@/types/chat";
 import type { SessionRecord } from "@/types/sessions";
 import { formatContextWindow } from "@/types/providers";
 import { ChatTranscript } from "./ChatTranscript";
@@ -29,11 +53,6 @@ type PreviewState = {
   lineNumbers?: number[];
   lineKinds?: LineKind[];
   language?: string;
-};
-
-const fileName = (path: string): string => {
-  const parts = path.replace(/\\/g, "/").split("/");
-  return parts[parts.length - 1] || path;
 };
 
 const TOOL_TITLE: Record<string, string> = {
@@ -58,19 +77,34 @@ const TOOL_TITLE: Record<string, string> = {
   diagram: "chat.tools.diagramTitle",
 };
 
-const TOOL_SYMBOL: Record<string, string> = {
-  skill: "\u2726 ",
-  read: "\u25CB ",
-  write: "\u270E ",
-  edit: "\u2710 ",
-  glob: "\u229E ",
-  ask_user: "\u25CC ",
-  create_folder: "\u25A4 ",
-  delete: "\u2715 ",
-  todowrite: "\u25C7 ",
-  bash: "\u25B8 ",
-  background: "\u25B8 ",
-  grep: "\u2315 ",
+const TOOL_ICON: Record<AgentToolId, LucideIcon> = {
+  skill: BookOpen,
+  read: ScrollText,
+  write: FilePen,
+  edit: SquarePen,
+  glob: FolderSearch,
+  ask_user: CircleQuestionMark,
+  create_folder: FolderPlus,
+  delete: Trash2,
+  fetch_url: Link,
+  internet_search: Globe,
+  page_shot: Camera,
+  todowrite: ListTodo,
+  bash: Terminal,
+  background: SquareTerminal,
+  grep: Search,
+  apply_patch: FileDiff,
+  lsp: Braces,
+  task: MessagesSquare,
+  diagram: Workflow,
+};
+
+const isKnownTool = (name: string): name is AgentToolId =>
+  (AGENT_TOOL_IDS as readonly string[]).includes(name);
+
+const ToolIcon = ({ name }: { name: string }): ReactNode => {
+  const Icon = isKnownTool(name) ? TOOL_ICON[name] : Wrench;
+  return <Icon size={14} strokeWidth={1.75} />;
 };
 
 const READ_LINE_RE = /^(\d+): (.*)$/;
@@ -104,16 +138,34 @@ const readToolView = (raw: string): { content: string; startLine: number | undef
   return { content: cleaned.join("\n"), startLine };
 };
 
-const argString = (call: ChatToolCall, key: string): string => {
-  const raw = call.arguments ?? (call.argument?.startsWith("{") ? call.argument : undefined);
-  if (!raw) return "";
-  try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (typeof parsed[key] !== "string") return "";
-    return parsed[key].trim();
-  } catch {
-    return "";
+const callArgs = (call: ChatToolCall): Record<string, unknown> | null => {
+  for (const raw of [call.arguments, call.argument]) {
+    const trimmed = raw?.trim();
+    if (!trimmed || !trimmed.startsWith("{")) continue;
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      // Not a JSON object. Try the next candidate.
+    }
   }
+  return null;
+};
+
+const argText = (args: Record<string, unknown> | null, key: string): string => {
+  const value = args?.[key];
+  return typeof value === "string" ? value.trim() : "";
+};
+
+const argString = (call: ChatToolCall, key: string): string => argText(callArgs(call), key);
+
+const legacyArgText = (call: ChatToolCall): string => {
+  const raw = call.argument?.trim() ?? "";
+  if (!raw || raw.startsWith("{")) return "";
+  const cut = raw.indexOf(" :: ");
+  return (cut > 0 ? raw.slice(0, cut) : raw).trim();
 };
 
 const fieldOr = (raw: string, key: string, fallback: string): string => {
@@ -195,35 +247,57 @@ const LspNotes = ({
   );
 };
 
-const toolCallLabel = (call: ChatToolCall, lineRange = ""): string => {
-  const name = call.name;
-  if (name === "skill") {
-    const skill = skillNameFromCall(call);
-    return skill ? `${name} "${skill}"` : name;
-  }
-  const path = call.display?.path?.trim() || call.argument?.trim() || "";
-  if (name === "read") {
-    if (!path) return name;
-    return lineRange ? `${name} "${path}" ${lineRange}` : `${name} "${path}"`;
-  }
-  if (name === "glob") return path ? `${name} "${path}"` : name;
-  if (name === "bash" || name === "background") {
-    const command = argString(call, "command");
-    if (!command) return name;
-    const shown = command.length > 80 ? `${command.slice(0, 77)}...` : command;
-    if (name === "bash") return `$ ${shown}`;
-    return `${name} "${shown}"`;
-  }
-  if (name === "grep") {
-    const pattern = argString(call, "pattern");
-    return pattern ? `${name} "${pattern}"` : name;
-  }
-  if (call.display?.kind === "action") {
-    return path ? `${name} ${fileName(path)}` : name;
-  }
-  if (path) return `${name} "${path}"`;
-  return name;
+const SUMMARY_MAX = 120;
+const PATCH_FILE_RE = /^\*\*\* (?:Add|Update|Delete) File: (.+)$/m;
+
+const TOOL_SUMMARY_KEYS: Record<string, readonly string[]> = {
+  skill: ["name"],
+  read: ["filePath"],
+  write: ["filePath"],
+  edit: ["filePath"],
+  apply_patch: [],
+  glob: ["pattern", "dirPath"],
+  ask_user: [],
+  create_folder: ["dirPath"],
+  delete: ["path"],
+  todowrite: [],
+  bash: ["command"],
+  background: ["command"],
+  grep: ["pattern"],
+  fetch_url: ["url"],
+  internet_search: ["query"],
+  page_shot: ["url"],
+  lsp: ["filePath"],
+  task: ["description"],
+  diagram: ["brief"],
 };
+
+const toolSummary = (call: ChatToolCall): string => {
+  const args = callArgs(call);
+  for (const key of TOOL_SUMMARY_KEYS[call.name] ?? []) {
+    const value = argText(args, key);
+    if (value) return value;
+  }
+  if (call.name === "edit") {
+    const rawEdits = args?.edits;
+    const edits: unknown[] = Array.isArray(rawEdits) ? (rawEdits as unknown[]) : [];
+    const first = edits[0];
+    if (first && typeof first === "object") {
+      const path = argText(first as Record<string, unknown>, "filePath");
+      if (path) return path;
+    }
+  }
+  if (call.name === "apply_patch") {
+    const match = PATCH_FILE_RE.exec(argText(args, "patchText"));
+    if (match) return match[1].trim();
+  }
+  const legacy = legacyArgText(call);
+  if (legacy && legacy.length <= SUMMARY_MAX) return legacy;
+  return call.display?.path?.trim() ?? "";
+};
+
+const summaryText = (value: string): string =>
+  value.length > SUMMARY_MAX ? `${value.slice(0, SUMMARY_MAX - 3)}...` : value;
 
 const callIsRunning = (call: ChatToolCall, pending: boolean | undefined): boolean => {
   if (!pending) return false;
@@ -329,7 +403,8 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
             display?.startLine !== undefined && display.endLine !== undefined
               ? t("chat.tools.lines", { start: display.startLine, end: display.endLine })
               : "";
-          const label = toolCallLabel(call, lineRange);
+          const toolName = isKnownTool(call.name) ? call.name : "";
+          const summary = toolSummary(call);
           const bashDescription = call.name === "bash" ? argString(call, "description") : "";
           const runningCall = callIsRunning(call, pending);
           const canOpen =
@@ -343,24 +418,49 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
               className={`chat-tools__item${call.name === "skill" ? " chat-tools__item--skill" : ""}${isAction ? " chat-tools__item--action" : ""}`}
             >
               <span className="chat-tools__line">
-                <span className="chat-tools__symbol" aria-hidden="true">
-                  {TOOL_SYMBOL[call.name] ?? ""}
+                <span
+                  className={
+                    runningCall
+                      ? "chat-tools__symbol chat-tools__symbol--running"
+                      : display?.status === "error"
+                        ? "chat-tools__symbol chat-tools__symbol--error"
+                        : "chat-tools__symbol"
+                  }
+                  aria-hidden="true"
+                >
+                  <ToolIcon name={call.name} />
                 </span>
-                {canOpen ? (
-                  <button
-                    type="button"
-                    className={
-                      runningCall ? "chat-tools__name chat-live-label" : "chat-tools__name"
-                    }
-                    onClick={() => {
-                      void openPreview(call);
-                    }}
-                  >
-                    {label}
-                  </button>
-                ) : (
-                  <span className={runningCall ? "chat-live-label" : undefined}>{label}</span>
-                )}
+                <span className="chat-tools__label">
+                  {canOpen ? (
+                    <button
+                      type="button"
+                      className={
+                        runningCall ? "chat-tools__name chat-live-label" : "chat-tools__name"
+                      }
+                      onClick={() => {
+                        void openPreview(call);
+                      }}
+                    >
+                      {toolName}
+                    </button>
+                  ) : (
+                    <span
+                      className={
+                        runningCall
+                          ? "chat-tools__label-name chat-live-label"
+                          : "chat-tools__label-name"
+                      }
+                    >
+                      {toolName}
+                    </span>
+                  )}
+                  {summary ? (
+                    <span className="chat-tools__summary" title={summary}>
+                      {summaryText(summary)}
+                    </span>
+                  ) : null}
+                  {lineRange ? <span className="chat-tools__range">{lineRange}</span> : null}
+                </span>
                 {isAction ? (
                   <span
                     className={`chat-tools__status${display?.status === "ok" ? " chat-tools__status--ok" : " chat-tools__status--error"}`}

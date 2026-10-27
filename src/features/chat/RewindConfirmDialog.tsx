@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { TriangleAlert } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
 import { GlassButton } from "@/components/GlassButton";
 import { useRewindConfirmStore } from "@/lib/rewind-confirm";
@@ -46,6 +47,15 @@ export const RewindConfirmDialog = (): ReactNode => {
     >
       <div className="delete-skill">
         <p className="delete-skill__body">{t("chat.rewind.body", { count: removalCount })}</p>
+        <p className="chat-rewind__warning">
+          <TriangleAlert
+            className="chat-rewind__warning-icon"
+            size={16}
+            strokeWidth={1.5}
+            aria-hidden="true"
+          />
+          <span className="chat-rewind__warning-text">{t("chat.rewind.warning")}</span>
+        </p>
         <div className="form-actions">
           <GlassButton variant="secondary" onClick={cancel}>
             {t("chat.rewind.cancel")}
