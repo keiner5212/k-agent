@@ -109,6 +109,47 @@ fn extract_zip(archive: &Path, dest: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+    use std::path::PathBuf;
+
+    fn scratch(name: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|value| value.as_nanos())
+            .unwrap_or_default();
+        let dir = std::env::temp_dir().join(format!("k-agent-archive-{name}-{nanos}"));
+        std::fs::create_dir_all(&dir).expect("scratch dir");
+        dir
+    }
+
+    fn tar_gz() -> Vec<u8> {
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        {
+            let mut builder = tar::Builder::new(&mut encoder);
+            let data = b"hello from the tar";
+            let mut header = tar::Header::new_gnu();
+            header.set_size(data.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            builder
+                .append_data(&mut header, "bin/tool", &data[..])
+                .expect("tar entry");
+            builder.finish().expect("tar builder");
+        }
+        encoder.finish().expect("gzip")
+    }
+
+    fn zip() -> Vec<u8> {
+        let mut buffer = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(std::io::Cursor::new(&mut buffer));
+            let options = zip::write::SimpleFileOptions::default();
+            writer.start_file("bin/tool", options).expect("zip entry");
+            writer.write_all(b"hello from the zip").expect("zip write");
+            writer.finish().expect("zip writer");
+        }
+        buffer
+    }
 
     #[test]
     fn kind_follows_the_catalog_label() {
@@ -117,5 +158,45 @@ mod tests {
         assert_eq!(kind_from_label("tar.gz"), Some(Kind::TarGz));
         assert_eq!(kind_from_label("tar.xz"), Some(Kind::TarXz));
         assert_eq!(kind_from_label("none"), None);
+    }
+
+    #[test]
+    fn extracts_a_tar_gz() {
+        let dir = scratch("tar");
+        let archive = dir.join("server.tar.gz");
+        std::fs::write(&archive, tar_gz()).expect("write archive");
+        extract(Kind::TarGz, &archive, &dir).expect("extract");
+        let body = std::fs::read_to_string(dir.join("bin/tool")).expect("extracted file");
+        assert_eq!(body, "hello from the tar");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn extracts_a_zip() {
+        let dir = scratch("zip");
+        let archive = dir.join("server.zip");
+        std::fs::write(&archive, zip()).expect("write archive");
+        extract(Kind::Zip, &archive, &dir).expect("extract");
+        let body = std::fs::read_to_string(dir.join("bin/tool")).expect("extracted file");
+        assert_eq!(body, "hello from the zip");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn decompresses_a_gz_file() {
+        let dir = scratch("gz");
+        let archive = dir.join("server.gz");
+        let encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        let mut encoder = encoder;
+        encoder
+            .write_all(b"hello from the gzip")
+            .expect("gzip write");
+        let packed = encoder.finish().expect("gzip");
+        std::fs::write(&archive, packed).expect("write archive");
+        let out = dir.join("server");
+        decompress_gz(&archive, &out).expect("decompress");
+        let body = std::fs::read_to_string(&out).expect("decompressed file");
+        assert_eq!(body, "hello from the gzip");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

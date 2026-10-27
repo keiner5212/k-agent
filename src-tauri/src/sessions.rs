@@ -311,13 +311,24 @@ fn write_session_record(app: &AppHandle, session: &mut SessionRecord) -> Result<
 
 // A crash mid write must not leave a half written chat behind.
 fn write_atomic(path: &Path, contents: &str) -> Result<(), SessionError> {
+    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let name = path
         .file_name()
         .map(|value| value.to_string_lossy().to_string())
         .unwrap_or_else(|| "session.json".to_string());
-    let temp = path.with_file_name(format!("{name}.tmp"));
-    std::fs::write(&temp, contents).map_err(|e| SessionError::Io(e.to_string()))?;
-    std::fs::rename(&temp, path).map_err(|e| SessionError::Io(e.to_string()))
+    // Two writes of the same file can overlap, so the temp name carries the
+    // process and a counter of its own.
+    let unique = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let temp = path.with_file_name(format!("{name}.{}.{unique}.tmp", std::process::id()));
+    if let Err(error) = std::fs::write(&temp, contents) {
+        let _ = std::fs::remove_file(&temp);
+        return Err(SessionError::Io(error.to_string()));
+    }
+    if let Err(error) = std::fs::rename(&temp, path) {
+        let _ = std::fs::remove_file(&temp);
+        return Err(SessionError::Io(error.to_string()));
+    }
+    Ok(())
 }
 
 pub fn begin_child_session(

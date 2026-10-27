@@ -44,28 +44,3 @@ export const platform = (): Platform => {
 
 export const isMac = (): boolean => platform() === "macos";
 export const isWindows = (): boolean => platform() === "windows";
-export const isLinux = (): boolean => platform() === "linux";
-
-/** Separator used by PATH on this host. */
-export const pathSeparator = (): string => (isWindows() ? ";" : ":");
-
-/** Shell the app runs when the user has not chosen one. */
-export const defaultShellProgram = (): string => {
-  if (isWindows()) return "powershell.exe";
-  if (isMac()) return "/bin/zsh";
-  return "/bin/sh";
-};
-
-/** Name of the host in the words the app shows. */
-export const platformLabel = (): string => {
-  switch (platform()) {
-    case "macos":
-      return "macOS";
-    case "windows":
-      return "Windows";
-    case "linux":
-      return "Linux";
-    default:
-      return "this host";
-  }
-};

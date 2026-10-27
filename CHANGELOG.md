@@ -17,6 +17,10 @@ had to live with it.
 - The screenshot refuses a capture of one pixel. It answered "ok" with a picture of a single pixel when the selector matched a tiny box, and the model took that picture for the page.
 - A tool that fails is shown as failed. The errors of the MCP servers were rendered as a success, so a broken server looked like a tool that did nothing.
 
+- The button that improves the prompt works while the chat answers, and it says why it is off. It turned itself off when a turn was running and the tooltip blamed the model, which was already chosen, so it looked broken.
+- The names of the commands that need a confirmation follow the host. The names of Windows are not commands of Linux, and a program of Linux keeps its extension.
+- Two writes of the same chat no longer share the name of the temporary file. The file of the session is written whole, and the temporary name carries the process and a counter of its own.
+
 ### Added
 
 - Every tool has an icon. Seven of them had none and left an empty gap in the list of the tools.

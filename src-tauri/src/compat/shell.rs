@@ -1,5 +1,6 @@
 use std::ffi::OsString;
 use std::path::Path;
+use std::sync::OnceLock;
 
 /// Shell program plus the arguments that make it run one command string.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -168,37 +169,14 @@ pub fn null_device() -> &'static str {
 }
 
 /// Commands that destroy data or take the machine down.
-pub const DANGEROUS_COMMANDS: &[&str] = &[
-    "rm",
-    "rmdir",
-    "mv",
-    "cp",
-    "chmod",
-    "chown",
-    "chgrp",
-    "sudo",
-    "su",
-    "doas",
-    "dd",
-    "mkfs",
-    "shutdown",
-    "reboot",
-    "poweroff",
-    "halt",
-    "kill",
-    "killall",
-    "pkill",
-    "curl",
-    "wget",
-    "nc",
-    "ncat",
-    "ssh",
-    "scp",
-    "rsync",
-    "docker",
-    "podman",
-    "kubectl",
-    // Windows.
+const UNIX_DANGEROUS: &[&str] = &[
+    "rm", "rmdir", "mv", "cp", "chmod", "chown", "chgrp", "sudo", "su", "doas", "dd", "mkfs",
+    "shutdown", "reboot", "poweroff", "halt", "kill", "killall", "pkill", "curl", "wget", "nc",
+    "ncat", "ssh", "scp", "rsync", "docker", "podman", "kubectl",
+];
+
+/// The names that only exist on Windows.
+const WINDOWS_DANGEROUS: &[&str] = &[
     "del",
     "erase",
     "rd",
@@ -216,21 +194,48 @@ pub const DANGEROUS_COMMANDS: &[&str] = &[
     "manage-bde",
 ];
 
+/// The commands that need a confirmation on this host.
+pub fn dangerous_commands() -> &'static [&'static str] {
+    #[cfg(windows)]
+    {
+        static MERGED: OnceLock<Vec<&'static str>> = OnceLock::new();
+        MERGED.get_or_init(|| {
+            UNIX_DANGEROUS
+                .iter()
+                .chain(WINDOWS_DANGEROUS.iter())
+                .copied()
+                .collect()
+        })
+    }
+    #[cfg(not(windows))]
+    {
+        UNIX_DANGEROUS
+    }
+}
+
 pub fn is_dangerous_command(name: &str) -> bool {
     let base = base_command_name(name);
-    DANGEROUS_COMMANDS
+    dangerous_commands()
         .iter()
         .any(|item| base.eq_ignore_ascii_case(item))
 }
 
-/// Command name without the directory and without an executable extension.
+/// Command name without the directory. Windows also drops the extension of a
+/// program, because `del.exe` is the `del` of the list of dangerous commands.
 pub fn base_command_name(token: &str) -> String {
     let base = token.rsplit(['/', '\\']).next().unwrap_or(token);
-    let stem = Path::new(base)
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .unwrap_or(base);
-    stem.to_string()
+    #[cfg(windows)]
+    {
+        let stem = Path::new(base)
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or(base);
+        stem.to_string()
+    }
+    #[cfg(not(windows))]
+    {
+        base.to_string()
+    }
 }
 
 #[cfg(test)]
@@ -255,21 +260,32 @@ mod tests {
     }
 
     #[test]
-    fn windows_commands_are_dangerous() {
-        assert!(is_dangerous_command("del"));
-        assert!(is_dangerous_command("C:\\Windows\\System32\\format.com"));
+    fn dangerous_commands_follow_the_host() {
         assert!(is_dangerous_command("rm"));
         assert!(!is_dangerous_command("cargo"));
+        if cfg!(windows) {
+            assert!(is_dangerous_command("del"));
+            assert!(is_dangerous_command("C:\\Windows\\System32\\format.com"));
+        } else {
+            // The names of Windows are not commands of this host.
+            assert!(!is_dangerous_command("del"));
+            assert!(!is_dangerous_command("format"));
+        }
     }
 
     #[test]
-    fn base_command_name_drops_directory_and_extension() {
+    fn base_command_name_drops_the_directory() {
         assert_eq!(base_command_name("/usr/bin/ls"), "ls");
-        assert_eq!(
-            base_command_name("C:\\Windows\\System32\\where.exe"),
-            "where"
-        );
         assert_eq!(base_command_name("ls"), "ls");
+        if cfg!(windows) {
+            assert_eq!(
+                base_command_name("C:\\Windows\\System32\\where.exe"),
+                "where"
+            );
+        } else {
+            // The name of a program of this host keeps its extension.
+            assert_eq!(base_command_name("/usr/bin/ls.sh"), "ls.sh");
+        }
     }
 
     #[test]
