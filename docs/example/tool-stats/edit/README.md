@@ -26,7 +26,8 @@ Replace an exact span in an existing file. Two shapes. Never both in one call.
 - Create a new file. Use `write` if the file is missing.
 - Accept empty `oldString`. Use `write` for a full-file replacement.
 - Forgive whitespace or indentation drift.
-- Guess a nearby span. A miss returns `Could not find oldString`.
+- Guess a nearby span. A miss returns `Could not find oldString` with the indentation of the file and the one the span asked for.
+- Write the file whole or not at all. The text goes to a file of its own and the target is replaced with a rename, so a failure never leaves a half written file.
 - Accept both shapes in one call.
 
 ## Options
@@ -72,8 +73,8 @@ See `response.toon` for the concrete wire shape the LLM sees.
 - `File not found: <path>`
 - `Cannot edit binary file: <path>`
 - `Found multiple matches for oldString. Provide more surrounding context ..., or set replaceAll to true.`
-- `Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings.`
-- A whitespace or indent mismatch is a miss. Re-read the file and copy the exact span.
+- `Could not find oldString in the file. ...`: the text is not in the file. The message names the line endings of the file and the line that starts the same, with the indentation it has and the one the oldString asks for.
+- A whitespace or indent mismatch is a miss. The message says how much the indentation differs.
 
 ## Source
 

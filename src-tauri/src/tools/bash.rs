@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::io::Read;
-use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -19,12 +18,6 @@ const DESCRIPTION: &str = "Run one shell command in the workspace and wait for i
 
 const MAX_OUTPUT_CHARS: usize = 50_000;
 const TIMEOUT: Duration = Duration::from_secs(30);
-
-const DANGEROUS: &[&str] = &[
-    "rm", "rmdir", "mv", "cp", "chmod", "chown", "chgrp", "sudo", "su", "doas", "dd", "mkfs",
-    "shutdown", "reboot", "poweroff", "halt", "kill", "killall", "pkill", "curl", "wget", "nc",
-    "ncat", "ssh", "scp", "rsync", "docker", "podman", "kubectl",
-];
 
 const GIT_SAFE: &[&str] = &[
     "status",
@@ -281,7 +274,7 @@ fn segment_outer_dangerous(segment: &str, full: &str) -> bool {
     if name.eq_ignore_ascii_case("curl") {
         return !safe_curl_command(full);
     }
-    if DANGEROUS.iter().any(|item| name.eq_ignore_ascii_case(item)) {
+    if crate::compat::shell::is_dangerous_command(&name) {
         return true;
     }
     if name.eq_ignore_ascii_case("git") {
@@ -649,13 +642,9 @@ fn command_name(tokens: &[String]) -> Option<String> {
     while index < tokens.len() && is_env_assignment(&tokens[index]) {
         index += 1;
     }
-    tokens.get(index).map(|token| {
-        token
-            .rsplit(['/', '\\'])
-            .next()
-            .unwrap_or(token)
-            .to_string()
-    })
+    tokens
+        .get(index)
+        .map(|token| crate::compat::shell::base_command_name(token))
 }
 
 fn is_env_assignment(token: &str) -> bool {
@@ -708,7 +697,7 @@ fn harmless_redirect(from_gt: &[char]) -> bool {
         .next()
         .unwrap_or("");
     let token = token.trim_matches('"').trim_matches('\'');
-    token == "/dev/null"
+    token == crate::compat::shell::null_device()
 }
 
 fn is_loopback_url(url: &str) -> bool {
@@ -922,7 +911,7 @@ fn curl_long_takes_value(flag: &str) -> bool {
 
 fn curl_long_value_ok(flag: &str, value: &str) -> bool {
     match flag {
-        "output" => value == "/dev/null",
+        "output" => value == crate::compat::shell::null_device(),
         "max-time" | "connect-timeout" => is_timeout_value(value),
         "request" => is_http_method(value),
         "url" => is_loopback_url(value),
@@ -946,7 +935,7 @@ fn curl_short_takes_value(flag: char) -> bool {
 
 fn curl_short_value_ok(flag: char, value: &str) -> bool {
     match flag {
-        'o' => value == "/dev/null",
+        'o' => value == crate::compat::shell::null_device(),
         'm' => is_timeout_value(value),
         'X' => is_http_method(value),
         'd' => !value.starts_with('@'),
@@ -1039,8 +1028,6 @@ fn pipes_to_shell(command: &str) -> bool {
     false
 }
 
-const ENV_MARK: &[u8] = b"\0__KAGENT_ENV__\0";
-const ENV_PROBE: &str = "command printf '\\0__KAGENT_ENV__\\0'; command env -0";
 const ENV_STDOUT_CAP: u64 = 2 * 1024 * 1024;
 const ENV_STDERR_CAP: u64 = 8 * 1024;
 
@@ -1059,35 +1046,15 @@ fn resolved_shell(program: &str) -> String {
 }
 
 fn shell_flag(shell: &str) -> &'static str {
-    if shell.to_ascii_lowercase().ends_with("cmd.exe") || shell.eq_ignore_ascii_case("cmd") {
-        "/c"
-    } else {
-        "-c"
-    }
-}
-
-fn shell_stem(shell: &str) -> String {
-    Path::new(shell)
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .unwrap_or(shell)
-        .to_ascii_lowercase()
+    crate::compat::shell::shell_flag(shell)
 }
 
 fn shell_reads_profile(shell: &str) -> bool {
-    !matches!(shell_stem(shell).as_str(), "cmd" | "powershell" | "pwsh")
+    crate::compat::shell::shell_reads_profile(shell)
 }
 
 fn probe_shell_for(shell: &str) -> String {
-    if !matches!(shell_stem(shell).as_str(), "sh" | "dash") {
-        return shell.to_string();
-    }
-    for candidate in ["/bin/bash", "/usr/bin/bash"] {
-        if Path::new(candidate).is_file() {
-            return candidate.to_string();
-        }
-    }
-    shell.to_string()
+    crate::compat::shell::probe_shell_for(shell)
 }
 
 fn login_envs() -> &'static Mutex<HashMap<String, Arc<LoginEnv>>> {
@@ -1168,7 +1135,7 @@ fn last_path_value(vars: &[(OsString, OsString)]) -> Option<&OsString> {
 }
 
 fn join_missing_path(primary: &OsString, extra: &OsString) -> OsString {
-    let sep = if cfg!(windows) { b';' } else { b':' };
+    let sep = crate::compat::shell::path_separator();
     let mut out = primary.as_encoded_bytes().to_vec();
     for component in extra.as_encoded_bytes().split(|byte| *byte == sep) {
         if component.is_empty() || path_has_component(&out, component, sep) {
@@ -1193,12 +1160,13 @@ fn process_env() -> Vec<(OsString, OsString)> {
 
 fn probe_login_env(shell: &str) -> Result<Vec<(OsString, OsString)>, String> {
     // Probe is separate so the user command is not executed inside the profile.
-    let mut child = Command::new(shell)
-        .args(["-l", "-i", "-c", ENV_PROBE])
+    let mut command = Command::new(shell);
+    command
+        .args(["-l", "-i", "-c", crate::compat::shell::env_probe_command()])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
+        .stderr(Stdio::piped());
+    let mut child = crate::compat::process::spawn_protected(&mut command)
         .map_err(|error| format!("could not start `{shell}`: {error}"))?;
     let stdout_pipe = child.stdout.take();
     let stderr_pipe = child.stderr.take();
@@ -1251,58 +1219,15 @@ fn read_capped(pipe: impl Read, cap: u64) -> Vec<u8> {
 }
 
 fn parse_env_block(bytes: &[u8]) -> Result<Vec<(OsString, OsString)>, String> {
-    let Some(start) = find_bytes(bytes, ENV_MARK) else {
-        return Err("login shell returned no environment".into());
-    };
-    let rest = &bytes[start + ENV_MARK.len()..];
-    let mut vars = Vec::new();
-    let mut saw_path = false;
-    for record in rest.split(|byte| *byte == 0) {
-        if record.is_empty() {
-            continue;
-        }
-        let Some(eq) = record.iter().position(|byte| *byte == b'=') else {
-            continue;
-        };
-        if eq == 0 {
-            continue;
-        }
-        let key = &record[..eq];
-        let value = &record[eq + 1..];
-        if is_path_key(key) && !value.is_empty() {
-            saw_path = true;
-        }
-        vars.push((os_from_bytes(key), os_from_bytes(value)));
-    }
-    if !saw_path {
-        return Err("login shell returned no PATH".into());
-    }
-    Ok(vars)
-}
-
-fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() || haystack.len() < needle.len() {
-        return None;
-    }
-    haystack
-        .windows(needle.len())
-        .position(|window| window == needle)
+    crate::compat::shell::parse_env_dump(bytes)
 }
 
 fn is_path_key(key: &[u8]) -> bool {
-    key.eq_ignore_ascii_case(b"PATH")
+    crate::compat::shell::is_path_key(key)
 }
 
 fn os_from_bytes(bytes: &[u8]) -> OsString {
-    #[cfg(unix)]
-    {
-        use std::os::unix::ffi::OsStringExt;
-        OsString::from_vec(bytes.to_vec())
-    }
-    #[cfg(not(unix))]
-    {
-        String::from_utf8_lossy(bytes).into_owned().into()
-    }
+    crate::compat::shell::os_from_bytes(bytes)
 }
 
 fn stderr_suffix(stderr: &[u8]) -> String {
@@ -1380,7 +1305,7 @@ fn run_command(ctx: &ToolContext<'_>, command: &str) -> ToolOutcome {
     if prep.clear_proxy {
         clear_proxy_env(&mut process);
     }
-    let mut child = match process.spawn() {
+    let mut child = match crate::compat::process::spawn_protected(&mut process) {
         Ok(child) => child,
         Err(error) => {
             return error_outcome(&with_login_note(
@@ -1472,11 +1397,7 @@ fn run_command(ctx: &ToolContext<'_>, command: &str) -> ToolOutcome {
 }
 
 fn default_shell() -> String {
-    if cfg!(windows) {
-        "cmd.exe".into()
-    } else {
-        "/bin/sh".into()
-    }
+    crate::compat::shell::default_shell().program
 }
 
 fn clip(text: &str) -> String {

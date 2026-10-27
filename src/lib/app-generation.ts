@@ -17,6 +17,18 @@ export const resolveAppGenerationModel = (): SelectedModel | null => {
   return useSelectionStore.getState().selection;
 };
 
+// The backend gives up on its own. This is the belt to that braces: the
+// button must never stay dead because a provider never answered.
+const REQUEST_TIMEOUT_MS = 150_000;
+
+const withTimeout = <T>(work: Promise<T>, ms: number): Promise<T> =>
+  Promise.race([
+    work,
+    new Promise<T>((_resolve, reject) => {
+      window.setTimeout(() => reject(new Error("timeout")), ms);
+    }),
+  ]);
+
 export const generateAppContent = async (
   input: AppGenerationInput,
 ): Promise<{ text?: string; error?: string }> => {
@@ -25,19 +37,23 @@ export const generateAppContent = async (
   if (!model) return { error: "noModel" };
 
   try {
-    const result = await invoke<{ text: string }>("generate_app_content", {
-      input: {
-        providerId: model.providerId,
-        modelId: model.modelId,
-        kind: input.kind,
-        content: input.content ?? "",
-        limitProviderDataUse: useSettingsStore.getState().limitProviderDataUse,
-      },
-    });
+    const result = await withTimeout(
+      invoke<{ text: string }>("generate_app_content", {
+        input: {
+          providerId: model.providerId,
+          modelId: model.modelId,
+          kind: input.kind,
+          content: input.content ?? "",
+          limitProviderDataUse: useSettingsStore.getState().limitProviderDataUse,
+        },
+      }),
+      REQUEST_TIMEOUT_MS,
+    );
     const text = result.text.trim();
     if (!text) return { error: "empty" };
     return { text };
   } catch (error) {
-    return { error: ipcErrorMessage(error) };
+    const message = ipcErrorMessage(error);
+    return { error: message === "timeout" ? "timeout" : message };
   }
 };

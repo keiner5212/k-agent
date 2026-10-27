@@ -1,6 +1,6 @@
 [package]
 name = "k-agent"
-version = "0.2.1"
+version = "0.2.2"
 description = "AI coding model orchestrator"
 authors = ["k-agent"]
 edition = "2021"
@@ -50,9 +50,24 @@ grep-regex = "0.1"
 grep-searcher = "0.1"
 ignore = "0.4"
 memchr = "2"
+# Archive handling runs in process so it works without host tools.
+tar = "0.4"
+flate2 = "1"
+lzma-rs = "0.3"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+# Windows needs the job object and access control APIs.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+] }
 
 # Linux tray icon needs GLib + a system-tray indicator; macOS/Windows use native APIs.
 [target.'cfg(target_os = "linux")'.dependencies]

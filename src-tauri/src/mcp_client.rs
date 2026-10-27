@@ -48,12 +48,14 @@ async fn probe_stdio(server: &McpServer) -> Result<Vec<McpToolSummary>, McpServe
         .filter(|value| !value.is_empty())
         .ok_or(McpServerError::CommandRequired)?;
 
-    let mut child = Command::new(command);
+    let (program, args) = crate::compat::exec::resolve(command, &server.args);
+    let mut child = Command::new(program);
     child
-        .args(&server.args)
+        .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null());
+        .stderr(Stdio::null())
+        .kill_on_drop(true);
     if let Some(cwd) = server
         .cwd
         .as_deref()
@@ -65,10 +67,14 @@ async fn probe_stdio(server: &McpServer) -> Result<Vec<McpToolSummary>, McpServe
     for (key, value) in server.probe_env() {
         child.env(key, value);
     }
+    crate::compat::process::protect(child.as_std_mut());
 
     let mut child = child
         .spawn()
         .map_err(|error| McpServerError::ProbeFailed(error.to_string()))?;
+    if let Some(pid) = child.id() {
+        crate::compat::process::protect_pid(pid);
+    }
     let stdin = child
         .stdin
         .take()
@@ -576,12 +582,14 @@ async fn call_stdio(
         .filter(|value| !value.is_empty())
         .ok_or(McpServerError::CommandRequired)?;
 
-    let mut child = Command::new(command);
+    let (program, args) = crate::compat::exec::resolve(command, &server.args);
+    let mut child = Command::new(program);
     child
-        .args(&server.args)
+        .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null());
+        .stderr(Stdio::null())
+        .kill_on_drop(true);
     if let Some(cwd) = server
         .cwd
         .as_deref()
@@ -593,10 +601,14 @@ async fn call_stdio(
     for (key, value) in server.probe_env() {
         child.env(key, value);
     }
+    crate::compat::process::protect(child.as_std_mut());
 
     let mut child = child
         .spawn()
         .map_err(|error| McpServerError::CallFailed(error.to_string()))?;
+    if let Some(pid) = child.id() {
+        crate::compat::process::protect_pid(pid);
+    }
     let stdin = child
         .stdin
         .take()

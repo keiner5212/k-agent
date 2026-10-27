@@ -8,6 +8,7 @@ Capture one http or https page in a hidden WebKit view and return a PNG.
 - Viewport default is `1280x720`. Width is clamped to `320-1600`. Height is clamped to `240-1200`. Height is the window, not the document.
 - Ignores `about:` and empty documents. After load, polls until the view has a size and a non-blank paint, up to 10 seconds, inside the 25 second cap. Then waits `waitMs` (default `300`, max `5000`).
 - Rejects a nearly solid black or white frame after those waits. That frame is a capture miss, not the page. One call does the waits. The model does not retry with another host or height.
+- A `selector` crop under `2x2` pixels is rejected as a blank frame. A one pixel box is a capture miss, not the page.
 - `localStorage` and `sessionStorage` are `{key, value}` lists. They are set on the page origin, then `url` loads again so the app script sees them. The shot is that load. Each list is at most 50 items. Each value is at most 8 KB.
 - `cookies` are set with the WebKit cookie API before the first request, so `httpOnly` is sent. Default domain is the URL host. Default path is `/`. A domain that does not match the host is rejected. Same 50 item and 8 KB caps.
 - Over-limit storage or cookies return `page_shot ...` and do not open a window. Counts come back in the response. Values do not.
@@ -15,7 +16,7 @@ Capture one http or https page in a hidden WebKit view and return a PNG.
 
 ## Does not
 
-- Run on hosts without Linux WebKit. Other platforms return `page_shot currently requires Linux WebKit.`
+- Run on hosts without Linux WebKit. Other platforms return `page_shot needs WebKit and runs on Linux only.` plus the host name.
 - Click or type. Intentional. A URL hash is the only scroll, and it runs before the shot.
 - Set cookies with `document.cookie`. Intentional. `httpOnly` would be dropped.
 - Send headers, proxy, or an auth flow. Intentional.
@@ -82,8 +83,8 @@ Capture one http or https page in a hidden WebKit view and return a PNG.
 - `page_shot selector matched no element.`: selector missed.
 - `page_shot selector matched an empty element.`: box has no size.
 - `page_shot snapshot: <error>`: WebKit snapshot failed.
-- `page_shot captured a blank frame. A blank frame is not the page.`: pixels stayed nearly one flat black or white after the internal waits.
+- `page_shot captured a blank frame. A blank frame is not the page.`: pixels stayed nearly one flat black or white after the internal waits, or the selector box was under `2x2` pixels.
 
 ## Source
 
-`src-tauri/src/tools/page_shot.rs` - `spec()` / `execute()` / `execute_async()`. Linux capture: `capture_linux()` / `shoot()` / `encode_crop()`.
+`src-tauri/src/tools/page_shot.rs` - `spec()` / `execute()` / `execute_async()`. Capture engine in `src-tauri/src/browser/`: `mod.rs` holds the shot description and the host routing, `webkit.rs` holds the Linux WebKit capture (`capture()` / `shoot()` / `encode_crop()`).

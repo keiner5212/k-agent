@@ -120,7 +120,8 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
     const summary = answerSummary(state.questions, state.answers);
     const choice = confirmChoiceFrom(state.questions, state.answers);
     const sessions = useSessionsStore.getState();
-    const live = Boolean(state.sessionId) && sessions.sendingSessionId === state.sessionId;
+    const live =
+      Boolean(state.sessionId) && sessions.sendingSessionIds.includes(state.sessionId ?? "");
     if (!live) {
       if (state.sessionId) {
         try {
@@ -144,7 +145,10 @@ export const QuestionDialog = ({ state }: QuestionDialogProps): ReactNode => {
           // The waiting tool is already gone.
         }
       }
-      useSessionsStore.setState({ sending: false, sendingSessionId: null });
+      useSessionsStore.setState((current) => ({
+        sending: current.sendingSessionIds.length > 1,
+        sendingSessionIds: current.sendingSessionIds.filter((id) => id !== state.sessionId),
+      }));
       const continued = await useSessionsStore.getState().resumeAsk(state.callId, summary, choice);
       setSubmitting(false);
       if (!continued) setError(t("chat.question.submitFailed"));

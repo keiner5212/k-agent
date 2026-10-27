@@ -306,7 +306,29 @@ fn write_session_record(app: &AppHandle, session: &mut SessionRecord) -> Result<
     let path = dir.join(SESSION_FILE);
     let json =
         serde_json::to_string_pretty(session).map_err(|e| SessionError::Parse(e.to_string()))?;
-    std::fs::write(path, json).map_err(|e| SessionError::Io(e.to_string()))
+    write_atomic(&path, &json)
+}
+
+// A crash mid write must not leave a half written chat behind.
+fn write_atomic(path: &Path, contents: &str) -> Result<(), SessionError> {
+    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let name = path
+        .file_name()
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|| "session.json".to_string());
+    // Two writes of the same file can overlap, so the temp name carries the
+    // process and a counter of its own.
+    let unique = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let temp = path.with_file_name(format!("{name}.{}.{unique}.tmp", std::process::id()));
+    if let Err(error) = std::fs::write(&temp, contents) {
+        let _ = std::fs::remove_file(&temp);
+        return Err(SessionError::Io(error.to_string()));
+    }
+    if let Err(error) = std::fs::rename(&temp, path) {
+        let _ = std::fs::remove_file(&temp);
+        return Err(SessionError::Io(error.to_string()));
+    }
+    Ok(())
 }
 
 pub fn begin_child_session(
@@ -477,7 +499,7 @@ fn write_index(app: &AppHandle, snapshot: &SessionsSnapshot) -> Result<(), Sessi
     }
     let json = serde_json::to_string_pretty(&index_from_snapshot(snapshot))
         .map_err(|e| SessionError::Parse(e.to_string()))?;
-    std::fs::write(path, json).map_err(|e| SessionError::Io(e.to_string()))
+    write_atomic(&path, &json)
 }
 
 fn prune_removed_session_dirs(

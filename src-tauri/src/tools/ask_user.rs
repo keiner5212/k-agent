@@ -1,8 +1,7 @@
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex, OnceLock};
-
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock};
 use tokio::sync::oneshot;
 
 use super::{
@@ -201,19 +200,30 @@ pub async fn ask_user_wait(
     let (tx, rx) = oneshot::channel::<AskUserAnswer>();
     ask_user_registry().insert(call_id.to_string(), tx);
 
-    if let Some(channel) = ctx.question_chunk.or(ctx.on_chunk) {
-        let payload = json!({
-            "callId": call_id,
-            "questions": questions,
-            "arguments": arguments,
-            "thoughtSignature": thought_signature,
-        });
-        let _ = channel.send(ChatChunk {
-            kind: "question".to_string(),
-            text: payload.to_string(),
-        });
+    let payload = json!({
+        "callId": call_id,
+        "questions": questions,
+        "arguments": arguments,
+        "thoughtSignature": thought_signature,
+    });
+    let delivered = match ctx.question_chunk.or(ctx.on_chunk) {
+        Some(channel) => channel
+            .send(ChatChunk {
+                kind: "question".to_string(),
+                text: payload.to_string(),
+            })
+            .is_ok(),
+        None => false,
+    };
+    if !delivered {
+        // Nobody can answer a question that never reached the chat.
+        ask_user_registry().cancel(call_id);
+        return Vec::new();
     }
 
+    // The question waits for the user as long as it takes. The chat cancels it
+    // when the user answers, when the turn is cancelled, or when the question
+    // never reached the chat.
     rx.await.unwrap_or_default()
 }
 

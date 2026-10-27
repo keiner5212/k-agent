@@ -34,14 +34,11 @@ const outputChars = (message: ChatMessage): number => {
 export const StreamRate = (): ReactNode => {
   const { t } = useTranslation();
   const chars = useSessionsStore((state) => {
-    if (
-      !state.sending ||
-      !state.sendingSessionId ||
-      state.activeSessionId !== state.sendingSessionId
-    ) {
+    const active = state.activeSessionId;
+    if (!active || !state.sendingSessionIds.includes(active)) {
       return 0;
     }
-    const session = state.sessions.find((item) => item.id === state.sendingSessionId);
+    const session = state.sessions.find((item) => item.id === active);
     const message = session?.messages.find((item) => item.streaming && item.role === "assistant");
     if (!message || message.kind === "shell") return 0;
     return outputChars(message);

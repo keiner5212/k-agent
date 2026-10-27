@@ -179,12 +179,10 @@ pub(crate) fn install_dir(app: &AppHandle, spec: &LanguageServerSpec) -> Result<
 }
 
 fn platform_key() -> String {
-    let os = if cfg!(target_os = "macos") {
-        "darwin"
-    } else if cfg!(target_os = "windows") {
-        "windows"
-    } else {
-        "linux"
+    let os = match crate::compat::os() {
+        crate::compat::Os::Mac => "darwin",
+        crate::compat::Os::Windows => "windows",
+        _ => "linux",
     };
     let arch = if cfg!(target_arch = "aarch64") {
         "arm64"
@@ -195,13 +193,7 @@ fn platform_key() -> String {
 }
 
 fn find_in_path(name: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    for dir in std::env::split_paths(&path) {
-        if let Some(found) = executable_in_dir(&dir, name) {
-            return Some(found);
-        }
-    }
-    None
+    crate::compat::exec::find_in_path(name)
 }
 
 fn executable_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
@@ -209,33 +201,17 @@ fn executable_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
     if is_runnable(&candidate) {
         return Some(candidate);
     }
-    #[cfg(windows)]
-    {
-        for ext in [".exe", ".cmd", ".bat"] {
-            let with_ext = dir.join(format!("{name}{ext}"));
-            if is_runnable(&with_ext) {
-                return Some(with_ext);
-            }
+    for extension in crate::compat::paths::executable_extensions() {
+        let with_extension = dir.join(format!("{name}{extension}"));
+        if is_runnable(&with_extension) {
+            return Some(with_extension);
         }
     }
     None
 }
 
 fn is_runnable(path: &Path) -> bool {
-    if !path.is_file() {
-        return false;
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        return std::fs::metadata(path)
-            .map(|meta| meta.permissions().mode() & 0o111 != 0)
-            .unwrap_or(false);
-    }
-    #[cfg(not(unix))]
-    {
-        true
-    }
+    crate::compat::paths::is_executable(path)
 }
 
 fn managed_command_path(dir: &Path, spec: &LanguageServerSpec) -> Option<PathBuf> {
@@ -245,11 +221,14 @@ fn managed_command_path(dir: &Path, spec: &LanguageServerSpec) -> Option<PathBuf
         }
         InstallMethod::Go => executable_in_dir(&dir.join("bin"), &spec.command),
         InstallMethod::Pip => {
-            let unix = dir.join("venv").join("bin");
-            if let Some(found) = executable_in_dir(&unix, &spec.command) {
-                return Some(found);
+            for folder in ["bin", "Scripts"] {
+                if let Some(found) =
+                    executable_in_dir(&dir.join("venv").join(folder), &spec.command)
+                {
+                    return Some(found);
+                }
             }
-            executable_in_dir(&dir.join("venv").join("Scripts"), &spec.command)
+            None
         }
         InstallMethod::Github => github_command_path(dir, spec),
         InstallMethod::Http => github_command_path(dir, spec),
@@ -707,70 +686,27 @@ async fn extract_asset(
             make_executable(&dest)?;
         }
         "gz" => {
-            let gzip =
-                find_in_path("gzip").ok_or_else(|| LspError::MissingRequire("gzip".into()))?;
-            let output = tokio::process::Command::new(&gzip)
-                .args(["-dc", &download.to_string_lossy()])
-                .output()
-                .await
-                .map_err(|error| LspError::Io(error.to_string()))?;
-            if !output.status.success() {
-                return Err(LspError::Message(stderr_or_status("gzip", &output)));
-            }
-            tokio::fs::write(&dest, output.stdout)
-                .await
-                .map_err(|error| LspError::Io(error.to_string()))?;
+            let source = download.to_path_buf();
+            let target = dest.clone();
+            tokio::task::spawn_blocking(move || {
+                crate::compat::archive::decompress_gz(&source, &target)
+            })
+            .await
+            .map_err(|error| LspError::Message(error.to_string()))?
+            .map_err(LspError::Io)?;
             make_executable(&dest)?;
         }
-        "zip" => {
-            let unzip =
-                find_in_path("unzip").ok_or_else(|| LspError::MissingRequire("unzip".into()))?;
-            run_cmd(
-                &unzip,
-                &[
-                    "-o".to_string(),
-                    download.to_string_lossy().into_owned(),
-                    "-d".to_string(),
-                    dir.to_string_lossy().into_owned(),
-                ],
-                None,
-                GITHUB_TIMEOUT,
-            )
-            .await?;
-            let bin_rel = spec.install.bin_path.as_deref().unwrap_or(&spec.command);
-            ensure_github_bin(dir, bin_rel, &dest)?;
-        }
-        "tar.gz" => {
-            let tar = find_in_path("tar").ok_or_else(|| LspError::MissingRequire("tar".into()))?;
-            run_cmd(
-                &tar,
-                &[
-                    "-xzf".to_string(),
-                    download.to_string_lossy().into_owned(),
-                    "-C".to_string(),
-                    dir.to_string_lossy().into_owned(),
-                ],
-                None,
-                GITHUB_TIMEOUT,
-            )
-            .await?;
-            let bin_rel = spec.install.bin_path.as_deref().unwrap_or(&spec.command);
-            ensure_github_bin(dir, bin_rel, &dest)?;
-        }
-        "tar.xz" => {
-            let tar = find_in_path("tar").ok_or_else(|| LspError::MissingRequire("tar".into()))?;
-            run_cmd(
-                &tar,
-                &[
-                    "-xJf".to_string(),
-                    download.to_string_lossy().into_owned(),
-                    "-C".to_string(),
-                    dir.to_string_lossy().into_owned(),
-                ],
-                None,
-                GITHUB_TIMEOUT,
-            )
-            .await?;
+        "zip" | "tar.gz" | "tar.xz" => {
+            let archive_kind = crate::compat::archive::kind_from_label(kind)
+                .ok_or_else(|| LspError::Message(format!("unsupported archive: {kind}")))?;
+            let source = download.to_path_buf();
+            let target = dir.to_path_buf();
+            tokio::task::spawn_blocking(move || {
+                crate::compat::archive::extract(archive_kind, &source, &target)
+            })
+            .await
+            .map_err(|error| LspError::Message(error.to_string()))?
+            .map_err(LspError::Message)?;
             let bin_rel = spec.install.bin_path.as_deref().unwrap_or(&spec.command);
             ensure_github_bin(dir, bin_rel, &dest)?;
         }
@@ -858,17 +794,7 @@ fn find_prefixed_executable(root: &Path, prefix: &str) -> Option<PathBuf> {
 }
 
 fn make_executable(path: &Path) -> Result<(), LspError> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = std::fs::metadata(path)
-            .map_err(|error| LspError::Io(error.to_string()))?
-            .permissions();
-        perms.set_mode(perms.mode() | 0o755);
-        std::fs::set_permissions(path, perms).map_err(|error| LspError::Io(error.to_string()))?;
-    }
-    let _ = path;
-    Ok(())
+    crate::compat::paths::make_executable(path).map_err(LspError::Io)
 }
 
 async fn run_cmd(

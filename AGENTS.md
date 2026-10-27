@@ -300,6 +300,19 @@ Tool result rendering in the chat has two layouts:
 
 Pick inline when the result fits in 5-8 lines and the user reads it as part of the flow. Pick modal when the result is long, structured, or benefits from line numbers and search.
 
+## Changelog, CI and releases
+
+- `CHANGELOG.md` needs a `## [version]` section for the version in `package.json` before a release. The same version must be in `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`. `node scripts/changelog.mjs` checks the three versions and that the section exists and is not empty.
+- Keep `.github/workflows/ci.yml` green. Run the local equivalent before committing:
+  - `node scripts/changelog.mjs`
+  - `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm format:check`, `pnpm build`
+  - `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`
+  - `cargo test --manifest-path src-tauri/Cargo.toml --lib`
+- The CI runs when a pull request is opened and when the branch lands in `main`. A push to a branch that has a pull request does not run it again.
+- The release workflow runs after the CI of `main` passes and publishes a draft release whose body is the section of the changelog. A pull request never publishes. `workflow_dispatch` publishes by hand.
+- Entries of the changelog say what changed and why it mattered. One line per change, in the past tense.
+- Fix the cause of a failing check in the same change. Never weaken, skip, or ignore a check to make it pass.
+
 ## Checks
 
 Run locally before push. The GitHub `publish-tauri` job (`.github/workflows/release.yml`) runs these steps and fails the release if any exit non-zero. Do not leave that job as the first run.

@@ -31,7 +31,9 @@ export const ipcErrorMessage = (error: unknown, depth = 4): string => {
 export const isTauri = (): boolean =>
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-export const platform = (): "macos" | "windows" | "linux" | "other" => {
+export type Platform = "macos" | "windows" | "linux" | "other";
+
+export const platform = (): Platform => {
   if (typeof navigator === "undefined") return "other";
   const ua = navigator.userAgent.toLowerCase();
   if (ua.includes("mac")) return "macos";
@@ -41,3 +43,4 @@ export const platform = (): "macos" | "windows" | "linux" | "other" => {
 };
 
 export const isMac = (): boolean => platform() === "macos";
+export const isWindows = (): boolean => platform() === "windows";

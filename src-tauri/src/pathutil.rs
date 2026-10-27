@@ -6,17 +6,7 @@ pub fn canonicalize_path(path: &Path) -> io::Result<PathBuf> {
 }
 
 fn home_dir() -> Option<PathBuf> {
-    if let Some(home) = std::env::var_os("HOME") {
-        if !home.is_empty() {
-            return Some(PathBuf::from(home));
-        }
-    }
-    if let Some(home) = std::env::var_os("USERPROFILE") {
-        if !home.is_empty() {
-            return Some(PathBuf::from(home));
-        }
-    }
-    None
+    crate::compat::paths::home_dir()
 }
 
 fn unify_separators(raw: &str) -> String {

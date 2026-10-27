@@ -913,6 +913,7 @@
       "title": "Retroceder el historial?",
       "body_one": "Esto eliminara el mensaje seleccionado y 1 posterior del historial del chat.",
       "body_other": "Esto eliminara el mensaje seleccionado y los {{count}} posteriores del historial del chat.",
+      "warning": "Solo se revierten las ediciones de archivos. Los cambios hechos con comandos de shell no se revierten.",
       "cancel": "Cancelar",
       "confirm": "Retroceder",
       "skipped": "No se puede restaurar {{paths}}. Los archivos actuales no coinciden con el estado guardado."
@@ -1050,6 +1051,8 @@
       "improve": "Mejorar prompt",
       "improveEmpty": "Escribe un prompt para mejorar.",
       "improveDisabled": "Elige un modelo para mejorar el prompt.",
+      "improveWorking": "Mejorando el prompt.",
+      "improveTimeout": "La reescritura tardo demasiado. Intentalo de nuevo.",
       "attachFilter": "Archivos permitidos",
       "removeAttachment": "Quitar adjunto",
       "attachTooMany": "Demasiados adjuntos.",

@@ -17,6 +17,8 @@ fn detach_from_terminal() {
     }
     unsafe {
         if libc::isatty(libc::STDOUT_FILENO) == 0 {
+            // Lead an own process group so the exit path can kill every child at once.
+            libc::setpgid(0, 0);
             return;
         }
         let pid = libc::fork();

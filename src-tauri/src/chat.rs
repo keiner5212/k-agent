@@ -2271,94 +2271,98 @@ async fn commit_tool_calls(
         if emit {
             emit_tool_call(on_chunk, tc);
         }
-        let (raw_text, display, image_png, file) = if let Some(mcp) =
-            call.mcp_tools.iter().find(|item| item.wire_name == tc.name)
-        {
-            let args = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
-            let text = match crate::mcp_client::call_tool(&mcp.server, &mcp.tool_name, args).await {
-                Ok(text) => text,
-                Err(error) => format!("MCP tool `{}` failed: {error}", mcp.tool_name),
-            };
-            (
-                text,
-                Some(ToolDisplay {
-                    kind: tools::TOOL_KIND_CONTEXT.to_string(),
-                    ..ToolDisplay::default()
-                }),
-                None,
-                None,
-            )
-        } else if call.tool_names.iter().any(|name| name == &tc.name) {
-            let tool_ctx = ToolContext {
-                app: Some(app),
-                call_id: tc.id.clone(),
-                session_id: session_id.map(str::to_string),
-                thought_signature: tc.thought_signature.clone(),
-                outside_workspace_allowed,
-                on_chunk,
-                workspace: None,
-                parallelism: call.parallelism,
-                allowed_commands: call.allowed_commands.to_vec(),
-                blocked_commands: call.blocked_commands.to_vec(),
-                shell_program: call.shell_program.to_string(),
-                input_modalities: call.model.input.clone(),
-                attachment_types: if call.model.attachment_types.is_empty() {
-                    crate::providers::derive_attachment_types(
-                        &call.model.input,
-                        call.model.attachment,
-                    )
-                } else {
-                    call.model.attachment_types.clone()
-                },
-                turn: Some(turn.clone()),
-                nested: call.nested.clone(),
-                question_chunk: call.question_chunk,
-                agent_personalities: Arc::clone(&call.agent_personalities),
-            };
-            if let Err(message) = tools::gate_tool(&tool_ctx, &tc.name).await {
-                let persisted = denied_call(tc, &message);
-                emit_tool_result(on_chunk, &persisted);
-                persisted_calls.push(persisted);
-                turns.push(denied_turn(&tc.id, &tc.name, &message));
-                continue;
-            }
-            let outcome = Box::pin(tools::execute(&tc.name, &tc.arguments, &tool_ctx)).await;
-            if tc.name == tools::READ_TOOL_NAME {
-                if let Some(path) = outcome.display.path.as_deref() {
-                    if outcome.display.status.as_deref() == Some("ok") {
-                        turn.note_read(path);
+        let (raw_text, display, image_png, file) =
+            if let Some(mcp) = call.mcp_tools.iter().find(|item| item.wire_name == tc.name) {
+                let args = serde_json::from_str(&tc.arguments).unwrap_or(json!({}));
+                let (text, failed) =
+                    match crate::mcp_client::call_tool(&mcp.server, &mcp.tool_name, args).await {
+                        Ok(text) => (text, false),
+                        Err(error) => (
+                            format!("MCP tool `{}` failed: {error}", mcp.tool_name),
+                            true,
+                        ),
+                    };
+                (
+                    text,
+                    Some(ToolDisplay {
+                        kind: tools::TOOL_KIND_CONTEXT.to_string(),
+                        status: if failed { Some("error".into()) } else { None },
+                        ..ToolDisplay::default()
+                    }),
+                    None,
+                    None,
+                )
+            } else if call.tool_names.iter().any(|name| name == &tc.name) {
+                let tool_ctx = ToolContext {
+                    app: Some(app),
+                    call_id: tc.id.clone(),
+                    session_id: session_id.map(str::to_string),
+                    thought_signature: tc.thought_signature.clone(),
+                    outside_workspace_allowed,
+                    on_chunk,
+                    workspace: None,
+                    parallelism: call.parallelism,
+                    allowed_commands: call.allowed_commands.to_vec(),
+                    blocked_commands: call.blocked_commands.to_vec(),
+                    shell_program: call.shell_program.to_string(),
+                    input_modalities: call.model.input.clone(),
+                    attachment_types: if call.model.attachment_types.is_empty() {
+                        crate::providers::derive_attachment_types(
+                            &call.model.input,
+                            call.model.attachment,
+                        )
+                    } else {
+                        call.model.attachment_types.clone()
+                    },
+                    turn: Some(turn.clone()),
+                    nested: call.nested.clone(),
+                    question_chunk: call.question_chunk,
+                    agent_personalities: Arc::clone(&call.agent_personalities),
+                };
+                if let Err(message) = tools::gate_tool(&tool_ctx, &tc.name).await {
+                    let persisted = denied_call(tc, &message);
+                    emit_tool_result(on_chunk, &persisted);
+                    persisted_calls.push(persisted);
+                    turns.push(denied_turn(&tc.id, &tc.name, &message));
+                    continue;
+                }
+                let outcome = Box::pin(tools::execute(&tc.name, &tc.arguments, &tool_ctx)).await;
+                if tc.name == tools::READ_TOOL_NAME {
+                    if let Some(path) = outcome.display.path.as_deref() {
+                        if outcome.display.status.as_deref() == Some("ok") {
+                            turn.note_read(path);
+                        }
                     }
                 }
-            }
-            if let Some(snapshot) = outcome.snapshot {
-                if let Some(sid) = session_id {
-                    let _ = crate::sessions::write_file_revision(
-                        app,
-                        sid,
-                        &tc.id,
-                        &snapshot.before,
-                        &snapshot.after,
-                    );
+                if let Some(snapshot) = outcome.snapshot {
+                    if let Some(sid) = session_id {
+                        let _ = crate::sessions::write_file_revision(
+                            app,
+                            sid,
+                            &tc.id,
+                            &snapshot.before,
+                            &snapshot.after,
+                        );
+                    }
                 }
-            }
-            (
-                outcome.text,
-                Some(outcome.display),
-                outcome.image_png,
-                outcome.file,
-            )
-        } else {
-            (
-                format!("Tool `{}` is not enabled for this agent.", tc.name),
-                Some(ToolDisplay {
-                    kind: tools::TOOL_KIND_CONTEXT.to_string(),
-                    status: Some("error".into()),
-                    ..ToolDisplay::default()
-                }),
-                None,
-                None,
-            )
-        };
+                (
+                    outcome.text,
+                    Some(outcome.display),
+                    outcome.image_png,
+                    outcome.file,
+                )
+            } else {
+                (
+                    format!("Tool `{}` is not enabled for this agent.", tc.name),
+                    Some(ToolDisplay {
+                        kind: tools::TOOL_KIND_CONTEXT.to_string(),
+                        status: Some("error".into()),
+                        ..ToolDisplay::default()
+                    }),
+                    None,
+                    None,
+                )
+            };
         let outcome_text = tools::truncate_output(&raw_text);
         let argument = tool_call_argument(&tc.name, &tc.arguments);
         let mut display = display;

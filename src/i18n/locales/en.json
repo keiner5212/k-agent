@@ -913,6 +913,7 @@
       "title": "Rewind history?",
       "body_one": "This will remove the selected message and 1 that follow it from the chat history.",
       "body_other": "This will remove the selected message and {{count}} that follow it from the chat history.",
+      "warning": "Only file edits are rolled back. Changes made with shell commands are not reverted.",
       "cancel": "Cancel",
       "confirm": "Rewind",
       "skipped": "Cannot restore {{paths}}. Current files do not match the saved state."
@@ -1050,6 +1051,8 @@
       "improve": "Improve prompt",
       "improveEmpty": "Type a prompt to improve.",
       "improveDisabled": "Pick a model to improve the prompt.",
+      "improveWorking": "Improving the prompt.",
+      "improveTimeout": "The rewrite took too long. Try again.",
       "attachFilter": "Allowed files",
       "removeAttachment": "Remove attachment",
       "attachTooMany": "Too many attachments.",

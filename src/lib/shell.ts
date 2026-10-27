@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Channel } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
 import { expandWorkspaceMentions } from "@/lib/file-mentions";
-import { DESKTOP_REQUIRED, isTauri, platform } from "@/lib/platform";
+import { DESKTOP_REQUIRED, isTauri, isWindows } from "@/lib/platform";
 import type { WorkspaceEntry } from "@/types/workspace-files";
 
 export type ShellChunkKind = "stdout" | "stderr";
@@ -41,7 +41,7 @@ const POSIX_SAFE = /^[A-Za-z0-9_\-./:=]+$/;
 const WIN_SAFE = /^[A-Za-z0-9_\\/.:-]+$/;
 
 export const shellQuote = (value: string): string => {
-  if (platform() === "windows") {
+  if (isWindows()) {
     if (value.length === 0) return '""';
     if (WIN_SAFE.test(value)) return value;
     return `"${value.replace(/"/g, '\\"')}"`;

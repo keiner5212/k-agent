@@ -28,10 +28,9 @@ export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
   const { t } = useTranslation();
   const requestRewind = useRewindConfirmStore((state) => state.requestRewind);
   const openShellOutput = useShellOutputStore((state) => state.openFor);
-  const sending = useSessionsStore((state) => state.sending);
-  const sendingSessionId = useSessionsStore((state) => state.sendingSessionId);
+  const sendingSessionIds = useSessionsStore((state) => state.sendingSessionIds);
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
-  const isSendingHere = sending && sendingSessionId === activeSessionId;
+  const isSendingHere = sendingSessionIds.includes(activeSessionId ?? "");
   const [copied, setCopied] = useState(false);
   const [copyPop, setCopyPop] = useState(0);
   const copyTimer = useRef(0);

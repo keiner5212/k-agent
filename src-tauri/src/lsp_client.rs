@@ -142,8 +142,9 @@ async fn read_rpc(reader: &mut BufReader<tokio::process::ChildStdout>) -> Result
 }
 
 fn spawn_server(spec: &LanguageServerSpec, dir: &Path, command: &str) -> Result<Child, LspError> {
-    let mut cmd = Command::new(command);
-    cmd.args(&spec.args)
+    let (program, args) = crate::compat::exec::resolve(command, &spec.args);
+    let mut cmd = Command::new(program);
+    cmd.args(args)
         .current_dir(dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -161,7 +162,14 @@ fn spawn_server(spec: &LanguageServerSpec, dir: &Path, command: &str) -> Result<
     for (key, value) in &spec.env {
         cmd.env(key, value);
     }
-    cmd.spawn().map_err(|error| LspError::Io(error.to_string()))
+    crate::compat::process::protect(cmd.as_std_mut());
+    let child = cmd
+        .spawn()
+        .map_err(|error| LspError::Io(error.to_string()))?;
+    if let Some(pid) = child.id() {
+        crate::compat::process::protect_pid(pid);
+    }
+    Ok(child)
 }
 
 async fn start_session(

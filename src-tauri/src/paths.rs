@@ -35,9 +35,5 @@ pub fn tool_cache_dir(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
 }
 
 pub fn set_user_private(path: &Path) {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
-    }
+    crate::compat::paths::set_user_private(path);
 }

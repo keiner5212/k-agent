@@ -231,20 +231,11 @@ async fn authorize(command: &str, ctx: &ToolContext<'_>) -> Result<(), ToolOutco
 
 fn shell_invocation(ctx: &ToolContext<'_>) -> (String, &'static str) {
     let shell = if ctx.shell_program.trim().is_empty() {
-        if cfg!(windows) {
-            "cmd.exe".to_string()
-        } else {
-            "/bin/sh".to_string()
-        }
+        crate::compat::shell::default_shell().program
     } else {
         ctx.shell_program.trim().to_string()
     };
-    let flag =
-        if shell.to_ascii_lowercase().ends_with("cmd.exe") || shell.eq_ignore_ascii_case("cmd") {
-            "/c"
-        } else {
-            "-c"
-        };
+    let flag = crate::compat::shell::shell_flag(&shell);
     (shell, flag)
 }
 
@@ -268,8 +259,7 @@ fn launch(
         use std::os::unix::process::CommandExt;
         cmd.process_group(0);
     }
-    let mut child = cmd
-        .spawn()
+    let mut child = crate::compat::process::spawn_protected(&mut cmd)
         .map_err(|error| format!("background could not start `{shell}`: {error}"))?;
     let output = Arc::new(Mutex::new(String::new()));
     let mut readers = Vec::new();
@@ -417,16 +407,8 @@ fn kill_group(child: &mut Child) {
             libc::kill(-pid, libc::SIGTERM);
         }
         std::thread::sleep(Duration::from_millis(50));
-        unsafe {
-            libc::kill(-pid, libc::SIGKILL);
-        }
     }
-    #[cfg(windows)]
-    {
-        let _ = Command::new("taskkill")
-            .args(["/F", "/T", "/PID", &child.id().to_string()])
-            .status();
-    }
+    crate::compat::process::kill_tree(child.id());
     let _ = child.kill();
 }
 

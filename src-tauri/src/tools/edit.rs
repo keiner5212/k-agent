@@ -5,6 +5,7 @@ use std::sync::{Mutex, OnceLock};
 
 use serde_json::{json, Value};
 
+use super::tool_utils::files::write_atomic;
 use super::{
     line_add_remove, toon_doc, FileSnapshot, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec,
     ToonValue, TOOL_KIND_ACTION,
@@ -261,7 +262,7 @@ fn apply_edits(ctx: &ToolContext<'_>, ops: &[EditRequest]) -> ToolOutcome {
         super::note_checkpoint(ctx, &file.resolved, &file.rel);
     }
     for (index, file) in staged.iter().enumerate() {
-        if let Err(error) = fs::write(&file.resolved, &file.after) {
+        if let Err(error) = write_atomic(&file.resolved, &file.after) {
             for written in staged.iter().take(index) {
                 let _ = fs::write(&written.resolved, &written.before);
             }
@@ -409,6 +410,67 @@ fn convert_to_line_ending(text: &str, ending: LineEnding) -> String {
     }
 }
 
+/// Say what the file really looks like, so the next try is right.
+fn not_found_message(content: &str, old_string: &str) -> String {
+    let ending = if content.contains("\r\n") {
+        "CRLF"
+    } else {
+        "LF"
+    };
+    let mut message = format!(
+        "Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings. The file has {ending} line endings."
+    );
+    if let Some(hint) = indentation_hint(content, old_string) {
+        message.push(' ');
+        message.push_str(&hint);
+    }
+    message
+}
+
+/// Compare the indentation the oldString asks for with the lines of the file that start the same.
+fn indentation_hint(content: &str, old_string: &str) -> Option<String> {
+    let old_lines: Vec<&str> = old_string
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .collect();
+    let first = old_lines.first()?;
+    let text = first.trim();
+    let file_lines: Vec<&str> = content.lines().collect();
+    for (index, line) in file_lines.iter().enumerate() {
+        if line.trim() != text {
+            continue;
+        }
+        for offset in 0..old_lines.len() {
+            let Some(candidate) = file_lines.get(index + offset) else {
+                break;
+            };
+            if candidate.trim() != old_lines[offset].trim() {
+                break;
+            }
+            let actual = leading_whitespace(candidate);
+            let wanted = leading_whitespace(old_lines[offset]);
+            if actual == wanted {
+                continue;
+            }
+            return Some(format!(
+                "The line `{}` is at line {} of the file with {actual} spaces of indentation, and the oldString asks for {wanted}.",
+                old_lines[offset].trim(),
+                index + offset + 1
+            ));
+        }
+        let actual = leading_whitespace(line);
+        return Some(format!(
+            "The line `{text}` is at line {} of the file with {actual} spaces of indentation.",
+            index + 1
+        ));
+    }
+    None
+}
+
+fn leading_whitespace(line: &str) -> usize {
+    line.chars().take_while(|ch| ch.is_whitespace()).count()
+}
+
 pub fn replace(
     content: &str,
     old_string: &str,
@@ -441,9 +503,7 @@ pub fn replace(
         start = at + old_string.len();
     }
     let Some(first) = first else {
-        return Err(
-            "Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings.".into(),
-        );
+        return Err(not_found_message(content, old_string));
     };
     if replace_all {
         return Ok(content.replace(old_string, new_string));
@@ -515,6 +575,22 @@ mod tests {
     fn not_found_message_for_missing_substring() {
         let err = replace("hello world", "xyz", "abc", false).unwrap_err();
         assert!(err.contains("Could not find"));
+    }
+
+    #[test]
+    fn not_found_message_names_the_indentation_of_the_file() {
+        let content = "on:\n  push:\n  pull_request:\n";
+        let err = replace(content, "on:\n    push:\n    pull_request:", "x", false).unwrap_err();
+        assert!(err.contains("2 spaces"), "{err}");
+        assert!(err.contains("asks for 4"), "{err}");
+        assert!(err.contains("line 2"), "{err}");
+        assert!(err.contains("`push:`"), "{err}");
+    }
+
+    #[test]
+    fn not_found_message_says_the_line_endings() {
+        let err = replace("a\r\nb", "zz", "x", false).unwrap_err();
+        assert!(err.contains("CRLF"), "{err}");
     }
 
     #[test]
