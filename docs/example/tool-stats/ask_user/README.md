@@ -11,11 +11,12 @@ Block a turn and ask the user one to four questions through a frontend dialog.
 - Supports `allowFreeText` per question so the user can type a free-text answer alongside (or instead of) the option picks.
 - Reports which `questionId` was answered, which option labels were picked, and any free-text value, summarized per question in the response.
 - Tracks answers through a shared `AskUserRegistry` keyed by `call_id` so submit and cancel operations are race-safe.
+- Gives up when the question cannot reach the frontend. A closed chunk channel cancels the question instead of blocking the turn.
 
 ## Does not
 
 - Persist the answers in a session. The response is a single in-memory tool result; it is not stored on disk.
-- Time out while waiting. The async dispatcher awaits the registry until the user submits or cancels, or until the chat is cancelled.
+- Wait forever. The wait ends when the user submits or cancels, or when the chat is cancelled. A question that never reached the chat is given up at once and the turn continues with `status: cancelled`.
 - Allow questions with fewer than 2 options. Use the chat input for free-form prompts instead.
 - Run from the synchronous `Tool::execute` path. The tool errors out with `ask_user must run on the async dispatch path.` if you call it via the sync dispatcher; only the async `execute_async` implementation is wired to wait on the registry.
 

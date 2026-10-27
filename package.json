@@ -4,6 +4,11 @@
   "version": "0.2.1",
   "type": "module",
   "description": "AI coding model orchestrator desktop app",
+  "packageManager": "pnpm@11.2.2",
+  "engines": {
+    "node": ">=22.13",
+    "pnpm": ">=9"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -14,6 +19,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "changelog": "node scripts/changelog.mjs",
     "tauri": "tauri",
     "dev:tauri": "K_AGENT_FOREGROUND=1 tauri dev",
     "build:tauri": "tauri build",
