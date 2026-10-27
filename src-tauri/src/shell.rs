@@ -118,34 +118,14 @@ fn resolve_cwd(cwd: Option<&str>, workspace_root: &Path) -> Result<PathBuf, Shel
     }
 }
 
-struct ShellSpec {
-    program: String,
-    prefix_args: Vec<String>,
-}
+use crate::compat::shell::ShellSpec;
 
 fn default_shell() -> ShellSpec {
-    #[cfg(windows)]
-    {
-        ShellSpec {
-            program: "cmd.exe".into(),
-            prefix_args: vec!["/C".into()],
-        }
-    }
-    #[cfg(not(windows))]
-    {
-        ShellSpec {
-            program: "/bin/sh".into(),
-            prefix_args: vec!["-c".into()],
-        }
-    }
+    crate::compat::shell::default_shell()
 }
 
 fn shell_file_stem(program: &str) -> String {
-    Path::new(program)
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .unwrap_or(program)
-        .to_ascii_lowercase()
+    crate::compat::shell::shell_stem(program)
 }
 
 fn shell_from_program(program: &str) -> ShellSpec {
@@ -296,22 +276,10 @@ where
     (s, truncated)
 }
 
-#[cfg(unix)]
-extern "C" {
-    fn setsid() -> i32;
-}
-
-#[cfg(unix)]
-fn kill_tree(child: &tokio::process::Child) {
-    if let Some(pid) = child.id() {
-        unsafe {
-            libc::kill(-(pid as i32), libc::SIGKILL);
-        }
-    }
-}
-
-#[cfg(not(unix))]
 fn kill_tree(child: &mut tokio::process::Child) {
+    if let Some(pid) = child.id() {
+        crate::compat::process::kill_tree(pid);
+    }
     let _ = child.start_kill();
 }
 
@@ -427,18 +395,7 @@ pub async fn run_shell_command(
         .stderr(Stdio::piped())
         .kill_on_drop(true);
 
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        unsafe {
-            cmd.as_std_mut().pre_exec(|| {
-                if setsid() == -1 {
-                    return Err(std::io::Error::last_os_error());
-                }
-                Ok(())
-            });
-        }
-    }
+    crate::compat::process::protect_detached(cmd.as_std_mut());
 
     let mut child = cmd
         .spawn()

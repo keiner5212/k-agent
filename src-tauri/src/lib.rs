@@ -5,6 +5,7 @@ mod attachments;
 mod catalog;
 mod chat;
 mod checkpoints;
+mod compat;
 mod host_context;
 mod lsp;
 mod lsp_client;
@@ -559,8 +560,14 @@ fn register_linux_identity() {}
 // WebKitWebProcess aborts with heap corruption while the webview drops, and KDE reports that as an app crash.
 #[cfg(target_os = "linux")]
 fn quit_without_webkit_teardown() -> ! {
-    kill_descendants(std::process::id());
+    kill_child_processes();
     std::process::exit(0);
+}
+
+fn kill_child_processes() {
+    #[cfg(target_os = "linux")]
+    kill_descendants(std::process::id());
+    compat::process::kill_own_process_group();
 }
 
 #[cfg(target_os = "linux")]
@@ -623,11 +630,12 @@ fn expand_user_path(input: &str) -> Option<PathBuf> {
     if trimmed.is_empty() {
         return None;
     }
+    let home = crate::compat::paths::home_dir();
     if trimmed == "~" {
-        return std::env::var_os("HOME").map(PathBuf::from);
+        return home;
     }
     if let Some(suffix) = trimmed.strip_prefix("~/") {
-        let home = std::env::var_os("HOME").map(PathBuf::from)?;
+        let home = home?;
         return Some(home.join(suffix));
     }
     Some(PathBuf::from(trimmed))
@@ -667,9 +675,7 @@ fn parse_workspace_arg() -> Option<PathBuf> {
 }
 
 fn default_workspace() -> PathBuf {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."))
+    crate::compat::paths::home_dir().unwrap_or_else(|| PathBuf::from("."))
 }
 
 fn saved_last_workspace(app: &tauri::AppHandle) -> Option<PathBuf> {
@@ -838,7 +844,10 @@ pub fn run() {
                         #[cfg(target_os = "linux")]
                         quit_without_webkit_teardown();
                         #[cfg(not(target_os = "linux"))]
-                        app.exit(0);
+                        {
+                            kill_child_processes();
+                            app.exit(0);
+                        }
                     }
                     _ => {}
                 })
@@ -871,6 +880,11 @@ pub fn run() {
             }
             _ => {}
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                kill_child_processes();
+            }
+        });
 }

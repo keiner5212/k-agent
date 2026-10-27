@@ -21,9 +21,13 @@ pub fn toon_doc(fields: &[(&str, ToonValue<'_>)]) -> String {
             },
         );
     }
-    encode_default(&Value::Object(map)).unwrap_or_else(|error| {
-        panic!("toon_doc failed to encode valid JSON map: {error}");
-    })
+    let object = Value::Object(map);
+    match encode_default(&object) {
+        Ok(text) => text,
+        // A tool result that cannot be encoded must not take the app down.
+        Err(_) => serde_json::to_string(&object)
+            .unwrap_or_else(|_| "error: tool result could not be encoded".to_string()),
+    }
 }
 
 #[cfg(test)]

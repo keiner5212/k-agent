@@ -130,6 +130,7 @@ fn prepare_config_dir(config_dir: &Path) -> Result<(), SecretError> {
     {
         fs::create_dir_all(config_dir).map_err(|_| SecretError::Persist)?;
     }
+    crate::compat::paths::set_dir_private(config_dir);
     Ok(())
 }
 
@@ -185,13 +186,7 @@ fn write_master(path: &Path) -> Result<MasterKey, SecretError> {
 }
 
 fn restrict_file(path: &Path) {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o600));
-    }
-    #[cfg(not(unix))]
-    let _ = path;
+    crate::compat::paths::set_user_private(path);
 }
 
 fn derive_aes_key(master: &[u8; MASTER_LEN]) -> [u8; MASTER_LEN] {

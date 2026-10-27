@@ -166,6 +166,20 @@ const parseTodoChunk = (raw: string): { todos: TodoItem[]; diff: TodoDiff } | nu
   }
 };
 
+// A question that the chat cannot read would leave the tool waiting for an
+// answer that can never come. The ask is cancelled so the turn continues.
+const cancelUndeliveredAsk = (raw: string): void => {
+  let callId = "";
+  try {
+    const parsed = JSON.parse(raw) as { callId?: unknown };
+    if (typeof parsed.callId === "string") callId = parsed.callId.trim();
+  } catch {
+    return;
+  }
+  if (!callId) return;
+  void useAskUserStore.getState().cancel(callId);
+};
+
 const handleAskUserChunk = (
   raw: string,
   messageId: string,
@@ -1109,6 +1123,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           cancelPaint();
           commitBuffer();
           const pending = handleAskUserChunk(chunk.text, assistantId, sessionId);
+          if (!pending) {
+            cancelUndeliveredAsk(chunk.text);
+          }
           if (pending) {
             const activeRound = ensureActiveRound();
             const calls = activeRound.calls.map((call) => ({ ...call }));
