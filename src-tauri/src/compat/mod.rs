@@ -3,6 +3,8 @@
 //! Every call site asks this module for the algorithm that fits the host OS
 //! instead of carrying its own `cfg` blocks.
 
+pub mod archive;
+pub mod exec;
 pub mod paths;
 pub mod process;
 pub mod shell;
