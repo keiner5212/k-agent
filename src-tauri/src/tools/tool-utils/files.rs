@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Write the file whole or not at all.
 ///
@@ -7,11 +8,17 @@ use std::path::Path;
 /// replaced with a rename, so a failure never leaves a half written file. The
 /// mode of the file that is replaced is kept.
 pub fn write_atomic(path: &Path, content: &str) -> Result<(), String> {
+    static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
     let name = path
         .file_name()
         .map(|value| value.to_string_lossy().to_string())
         .unwrap_or_else(|| "file".to_string());
-    let temp = path.with_file_name(format!(".{name}.k-agent-write"));
+    // Two writes of the same file can overlap. The temp name is unique.
+    let unique = TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let temp = path.with_file_name(format!(
+        ".{name}.{}.{unique}.k-agent-write",
+        std::process::id()
+    ));
     if let Err(error) = fs::write(&temp, content) {
         let _ = fs::remove_file(&temp);
         return Err(error.to_string());
@@ -26,7 +33,7 @@ pub fn write_atomic(path: &Path, content: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;

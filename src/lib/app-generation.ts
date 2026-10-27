@@ -21,13 +21,13 @@ export const resolveAppGenerationModel = (): SelectedModel | null => {
 // button must never stay dead because a provider never answered.
 const REQUEST_TIMEOUT_MS = 150_000;
 
-const withTimeout = <T>(work: Promise<T>, ms: number): Promise<T> =>
-  Promise.race([
-    work,
-    new Promise<T>((_resolve, reject) => {
-      window.setTimeout(() => reject(new Error("timeout")), ms);
-    }),
-  ]);
+const withTimeout = <T>(work: Promise<T>, ms: number): Promise<T> => {
+  let timer = 0;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = window.setTimeout(() => reject(new Error("timeout")), ms);
+  });
+  return Promise.race([work, timeout]).finally(() => window.clearTimeout(timer));
+};
 
 export const generateAppContent = async (
   input: AppGenerationInput,

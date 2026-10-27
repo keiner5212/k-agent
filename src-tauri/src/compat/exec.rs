@@ -1,37 +1,79 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-/// Program and arguments that can actually be started on this host.
-///
-/// Windows keeps its runnable scripts in `.cmd` and `.bat` files, which the
-/// loader cannot execute on its own. They run through the command processor.
+/// Program and arguments unchanged. Batch files use `command` instead.
 pub fn resolve(program: &str, args: &[String]) -> (OsString, Vec<OsString>) {
+    (
+        OsString::from(program),
+        args.iter().map(OsString::from).collect(),
+    )
+}
+
+/// A command the host can start. Batch files go through `cmd /C`.
+pub fn command(program: &str, args: &[String]) -> std::process::Command {
     #[cfg(windows)]
     {
-        return resolve_windows(program, args);
+        return windows_command(program, args);
     }
     #[cfg(not(windows))]
     {
-        (
-            OsString::from(program),
-            args.iter().map(OsString::from).collect(),
-        )
+        let (program, args) = resolve(program, args);
+        let mut cmd = std::process::Command::new(program);
+        cmd.args(args);
+        cmd
     }
 }
 
 #[cfg(windows)]
-fn resolve_windows(program: &str, args: &[String]) -> (OsString, Vec<OsString>) {
-    let passthrough: Vec<OsString> = args.iter().map(OsString::from).collect();
+fn windows_command(program: &str, args: &[String]) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+
     let Some(full) = find_in_path(program) else {
-        return (OsString::from(program), passthrough);
+        let mut cmd = std::process::Command::new(program);
+        cmd.args(args);
+        return cmd;
     };
     if !is_script(&full) {
-        return (OsString::from(full), passthrough);
+        let mut cmd = std::process::Command::new(full);
+        cmd.args(args);
+        return cmd;
     }
     let processor = std::env::var_os("ComSpec").unwrap_or_else(|| OsString::from("cmd.exe"));
-    let mut script_args = vec![OsString::from("/C"), OsString::from(&full)];
-    script_args.extend(passthrough);
-    (processor, script_args)
+    let mut cmd = std::process::Command::new(processor);
+    // /S strips the first and last quote. The trailing space keeps that last
+    // quote from being one that belongs to an argument.
+    cmd.arg("/D")
+        .arg("/S")
+        .arg("/C")
+        .raw_arg(cmd_c_argument(&full.to_string_lossy(), args));
+    cmd
+}
+
+/// `cmd /S /C` argument for a batch file. The outer quotes are sacrificial.
+pub fn cmd_c_argument(script: &str, args: &[String]) -> String {
+    let mut line = String::from("call ");
+    line.push_str(&quote_cmd_argument(script));
+    for arg in args {
+        line.push(' ');
+        line.push_str(&quote_cmd_argument(arg));
+    }
+    format!("\"{line} \"")
+}
+
+fn quote_cmd_argument(value: &str) -> String {
+    if value.is_empty() {
+        return "\"\"".to_string();
+    }
+    let special = value.chars().any(|ch| {
+        matches!(
+            ch,
+            ' ' | '\t' | '"' | '&' | '|' | '<' | '>' | '^' | '%' | '(' | ')'
+        )
+    });
+    if !special {
+        return value.to_string();
+    }
+    format!("\"{}\"", value.replace('"', "\"\""))
 }
 
 /// Find a program on this host.
@@ -81,6 +123,18 @@ fn is_script(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cmd_c_argument_keeps_a_path_with_spaces() {
+        let line = cmd_c_argument(
+            r"C:\Program Files\tool.cmd",
+            &["one".to_string(), "two words".to_string()],
+        );
+        assert_eq!(
+            line,
+            "\"call \"C:\\Program Files\\tool.cmd\" one \"two words\" \""
+        );
+    }
 
     #[test]
     fn resolve_keeps_the_program_on_unix() {

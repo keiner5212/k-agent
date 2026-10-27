@@ -142,10 +142,8 @@ async fn read_rpc(reader: &mut BufReader<tokio::process::ChildStdout>) -> Result
 }
 
 fn spawn_server(spec: &LanguageServerSpec, dir: &Path, command: &str) -> Result<Child, LspError> {
-    let (program, args) = crate::compat::exec::resolve(command, &spec.args);
-    let mut cmd = Command::new(program);
-    cmd.args(args)
-        .current_dir(dir)
+    let mut cmd = Command::from(crate::compat::exec::command(command, &spec.args));
+    cmd.current_dir(dir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
