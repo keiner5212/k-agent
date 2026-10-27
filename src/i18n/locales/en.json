@@ -1051,6 +1051,8 @@
       "improve": "Improve prompt",
       "improveEmpty": "Type a prompt to improve.",
       "improveDisabled": "Pick a model to improve the prompt.",
+      "improveWorking": "Improving the prompt.",
+      "improveTimeout": "The rewrite took too long. Try again.",
       "attachFilter": "Allowed files",
       "removeAttachment": "Remove attachment",
       "attachTooMany": "Too many attachments.",

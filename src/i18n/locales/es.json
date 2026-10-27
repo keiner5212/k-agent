@@ -1051,6 +1051,8 @@
       "improve": "Mejorar prompt",
       "improveEmpty": "Escribe un prompt para mejorar.",
       "improveDisabled": "Elige un modelo para mejorar el prompt.",
+      "improveWorking": "Mejorando el prompt.",
+      "improveTimeout": "La reescritura tardo demasiado. Intentalo de nuevo.",
       "attachFilter": "Archivos permitidos",
       "removeAttachment": "Quitar adjunto",
       "attachTooMany": "Demasiados adjuntos.",

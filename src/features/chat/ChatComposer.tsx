@@ -88,8 +88,9 @@ export const ChatComposer = (): ReactNode => {
   const canRunShell = hydrated && value.trim().length > 0 && !busy;
   const canAttach = !shellMode && isTauri() && allowedTypes.length > 0;
   const generationModel = appGenerationModel ?? selection;
-  const canImprove =
-    !shellMode && isTauri() && Boolean(generationModel) && value.trim().length > 0 && !busy;
+  // The rewrite is its own request to the provider. It does not wait for the
+  // chat, so a turn in flight must not turn the button off.
+  const canImprove = !shellMode && isTauri() && Boolean(generationModel) && value.trim().length > 0;
 
   const runSlashAction = useCallback(
     (commandId: string): void => {
@@ -290,11 +291,13 @@ export const ChatComposer = (): ReactNode => {
         ? t("chat.composer.send")
         : t("chat.composer.disabledHint");
   const attachLabel = canAttach ? t("chat.composer.attach") : t("chat.composer.attachDisabled");
-  const improveLabel = canImprove
-    ? t("chat.composer.improve")
-    : value.trim().length === 0
-      ? t("chat.composer.improveEmpty")
-      : t("chat.composer.improveDisabled");
+  const improveLabel = improving
+    ? t("chat.composer.improveWorking")
+    : canImprove
+      ? t("chat.composer.improve")
+      : value.trim().length === 0
+        ? t("chat.composer.improveEmpty")
+        : t("chat.composer.improveDisabled");
 
   const handleImprove = useCallback(() => {
     if (!canImprove || improving) return;
@@ -307,7 +310,13 @@ export const ChatComposer = (): ReactNode => {
       });
       setImproving(false);
       if (result.error) {
-        setImproveError(result.error === "noModel" ? t("appGeneration.noModel") : result.error);
+        setImproveError(
+          result.error === "noModel"
+            ? t("appGeneration.noModel")
+            : result.error === "timeout"
+              ? t("chat.composer.improveTimeout")
+              : result.error,
+        );
         return;
       }
       if (result.text) pushChange(result.text);
