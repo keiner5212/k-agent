@@ -293,13 +293,18 @@ mod tests {
     #[test]
     fn env_dump_needs_a_path() {
         let marker = env_probe_marker();
+        let sep = [env_probe_separator()];
         let mut dump = marker.to_vec();
-        dump.extend_from_slice(b"PATH=/bin\0HOME=/root\0");
+        dump.extend_from_slice(b"PATH=/bin");
+        dump.extend_from_slice(&sep);
+        dump.extend_from_slice(b"HOME=/root");
+        dump.extend_from_slice(&sep);
         let vars = parse_env_dump(&dump).expect("dump parses");
         assert_eq!(vars.len(), 2);
 
         let mut no_path = marker.to_vec();
-        no_path.extend_from_slice(b"HOME=/root\0");
+        no_path.extend_from_slice(b"HOME=/root");
+        no_path.extend_from_slice(&sep);
         assert!(parse_env_dump(&no_path).is_err());
     }
 }

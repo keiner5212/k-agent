@@ -7,6 +7,8 @@ pub fn protect(command: &mut Command) {
         use std::os::unix::process::CommandExt;
         unsafe {
             command.pre_exec(|| {
+                // prctl is Linux. macOS has no parent-death signal.
+                #[cfg(target_os = "linux")]
                 set_parent_death_signal();
                 Ok(())
             });
@@ -25,6 +27,7 @@ pub fn protect_detached(command: &mut Command) {
         use std::os::unix::process::CommandExt;
         unsafe {
             command.pre_exec(|| {
+                #[cfg(target_os = "linux")]
                 set_parent_death_signal();
                 if setsid() == -1 {
                     return Err(std::io::Error::last_os_error());
@@ -78,8 +81,11 @@ pub fn kill_tree(pid: u32) {
     }
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         let _ = Command::new("taskkill")
             .args(["/F", "/T", "/PID", &pid.to_string()])
+            .creation_flags(CREATE_NO_WINDOW)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status();
@@ -104,7 +110,7 @@ pub fn kill_own_process_group() {
     {}
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 pub unsafe fn set_parent_death_signal() {
     libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGKILL as libc::c_ulong);
 }
@@ -115,24 +121,32 @@ extern "C" {
 }
 
 /// Kill the members of the app process group, this process excepted.
+///
+/// A shared group is left alone: the terminal that launched the app lives
+/// there. macOS still kills descendants by parent, because it has no
+/// parent-death signal and no /proc.
 #[cfg(unix)]
 fn kill_group_members() {
     unsafe {
         let pid = libc::getpid() as i32;
         let group = libc::getpgid(pid);
-        if group != pid {
-            // The app shares a group with something else. Killing it would hit that too.
-            return;
+        let mut victims = Vec::new();
+        if group == pid {
+            victims.extend(group_members(group));
         }
-        for child in group_members(group) {
-            if child != pid {
+        #[cfg(target_os = "macos")]
+        collect_descendants(pid, &mut victims);
+        victims.sort_unstable();
+        victims.dedup();
+        for child in victims {
+            if child > 0 && child != pid {
                 libc::kill(child, libc::SIGKILL);
             }
         }
     }
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn group_members(group: i32) -> Vec<i32> {
     let mut members = Vec::new();
     let Ok(entries) = std::fs::read_dir("/proc") else {
@@ -152,7 +166,7 @@ fn group_members(group: i32) -> Vec<i32> {
     members
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn process_group(pid: i32) -> i32 {
     // /proc/<pid>/stat: pid (comm) state ppid pgrp session ...
     let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else {
@@ -166,6 +180,56 @@ fn process_group(pid: i32) -> i32 {
         .get(2)
         .and_then(|value| value.parse().ok())
         .unwrap_or(-1)
+}
+
+#[cfg(all(unix, not(any(target_os = "linux", target_os = "macos"))))]
+fn group_members(_group: i32) -> Vec<i32> {
+    Vec::new()
+}
+
+#[cfg(target_os = "macos")]
+fn group_members(group: i32) -> Vec<i32> {
+    list_pids(|buffer, size| unsafe { libc::proc_listpgrppids(group, buffer, size) })
+}
+
+#[cfg(target_os = "macos")]
+fn collect_descendants(root: i32, out: &mut Vec<i32>) {
+    let mut pending = vec![root];
+    let mut seen = std::collections::HashSet::from([root]);
+    while let Some(parent) = pending.pop() {
+        for child in
+            list_pids(|buffer, size| unsafe { libc::proc_listchildpids(parent, buffer, size) })
+        {
+            if child <= 0 || !seen.insert(child) {
+                continue;
+            }
+            out.push(child);
+            pending.push(child);
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn list_pids(fill: impl Fn(*mut libc::c_void, libc::c_int) -> libc::c_int) -> Vec<i32> {
+    let mut count = 64usize;
+    for _ in 0..6 {
+        let mut buf = vec![0i32; count];
+        let bytes = fill(
+            buf.as_mut_ptr() as *mut libc::c_void,
+            (buf.len() * std::mem::size_of::<i32>()) as libc::c_int,
+        );
+        if bytes <= 0 {
+            return Vec::new();
+        }
+        let found = bytes as usize / std::mem::size_of::<i32>();
+        if found < buf.len() {
+            buf.truncate(found);
+            buf.retain(|pid| *pid > 0);
+            return buf;
+        }
+        count = count.saturating_mul(2);
+    }
+    Vec::new()
 }
 
 #[cfg(windows)]
@@ -247,7 +311,17 @@ mod windows_job {
         }
     }
 
-    pub fn resume_primary_thread(pid: u32) {
+    pub fn resume_primary_thread(pid: u32) -> bool {
+        for _ in 0..20 {
+            if resume_once(pid) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        false
+    }
+
+    fn resume_once(pid: u32) -> bool {
         use windows::Win32::Foundation::CloseHandle;
         use windows::Win32::System::Diagnostics::ToolHelp::{
             CreateToolhelp32Snapshot, Thread32First, Thread32Next, TH32CS_SNAPTHREAD, THREADENTRY32,
@@ -256,12 +330,13 @@ mod windows_job {
 
         unsafe {
             let Ok(snapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0) else {
-                return;
+                return false;
             };
             let mut entry = THREADENTRY32 {
                 dwSize: size_of::<THREADENTRY32>() as u32,
                 ..Default::default()
             };
+            let mut resumed = false;
             if Thread32First(snapshot, &mut entry).is_ok() {
                 loop {
                     if entry.th32OwnerProcessID == pid {
@@ -270,6 +345,7 @@ mod windows_job {
                         {
                             let _ = ResumeThread(thread);
                             let _ = CloseHandle(thread);
+                            resumed = true;
                         }
                         break;
                     }
@@ -279,6 +355,7 @@ mod windows_job {
                 }
             }
             let _ = CloseHandle(snapshot);
+            resumed
         }
     }
 }
@@ -295,7 +372,13 @@ fn spawn_windows(command: &mut Command) -> std::io::Result<Child> {
     unsafe {
         windows_job::assign(windows::Win32::Foundation::HANDLE(child.as_raw_handle()));
     }
-    windows_job::resume_primary_thread(child.id());
+    if !windows_job::resume_primary_thread(child.id()) {
+        let _ = child.kill();
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "could not resume the suspended process",
+        ));
+    }
     Ok(child)
 }
 

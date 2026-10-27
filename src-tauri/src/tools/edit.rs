@@ -264,7 +264,7 @@ fn apply_edits(ctx: &ToolContext<'_>, ops: &[EditRequest]) -> ToolOutcome {
     for (index, file) in staged.iter().enumerate() {
         if let Err(error) = write_atomic(&file.resolved, &file.after) {
             for written in staged.iter().take(index) {
-                let _ = fs::write(&written.resolved, &written.before);
+                let _ = write_atomic(&written.resolved, &written.before);
             }
             return super::action_error(
                 &file.rel,

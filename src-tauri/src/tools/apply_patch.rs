@@ -457,7 +457,7 @@ fn restore(written: &[(PathBuf, Option<String>)]) {
     for (path, previous) in written.iter().rev() {
         match previous {
             Some(text) => {
-                let _ = fs::write(path, text);
+                let _ = super::tool_utils::files::write_atomic(path, text);
             }
             None => {
                 let _ = fs::remove_file(path);

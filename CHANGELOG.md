@@ -8,6 +8,15 @@ section. The release draft uses that section as its body.
 The entries say what changed and why it mattered, in the words of the person who
 had to live with it.
 
+## [0.2.3] - 2026-10-27
+
+### Fixed
+
+- The release build stopped on a Tauri version check. The Rust crates had moved to a newer minor and the JavaScript packages had not. The packages now share the locked minor.
+- A shell command queued in one chat was dropped while another chat was answering, and retry was blocked the same way. Each chat now starts its own command.
+- The macOS build called a Linux-only process call, so that release could not compile. macOS now finds the app's children through its own process list and kills them on exit. Windows resumes a suspended child even when its thread shows up late, and a batch file whose path has spaces still starts.
+- File writes that overlap no longer share one temporary name. A failed edit or patch rolls the file back the same way, whole or not at all.
+
 ## [0.2.2] - 2026-10-27
 
 ### Fixed

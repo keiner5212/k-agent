@@ -116,9 +116,7 @@ fn restrict_acl(path: &Path) {
         PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR,
     };
 
-    let Some(wide) = path_to_wide(path) else {
-        return;
-    };
+    let wide = path_to_wide(path);
     // Protected DACL, full access for the owner only.
     let sddl: Vec<u16> = "D:P(A;;FA;;;OW)\0".encode_utf16().collect();
     let mut descriptor = PSECURITY_DESCRIPTOR(std::ptr::null_mut());
@@ -158,9 +156,12 @@ fn restrict_acl(path: &Path) {
 }
 
 #[cfg(windows)]
-fn path_to_wide(path: &Path) -> Option<Vec<u16>> {
-    let text = path.as_os_str().to_str()?;
-    Some(text.encode_utf16().chain(std::iter::once(0)).collect())
+fn path_to_wide(path: &Path) -> Vec<u16> {
+    use std::os::windows::ffi::OsStrExt;
+    path.as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect()
 }
 
 #[cfg(test)]

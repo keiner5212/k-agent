@@ -1507,11 +1507,16 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         : get().send(next.text, next.sessionId, next.attachments);
     void started.then(
       (ok) => {
-        if (!ok) get().flushQueued();
+        if (ok) return;
+        const current = get().queued;
+        if (!current.some((item) => item.id === next.id)) {
+          set({ queued: [next, ...current] });
+        }
+        if (!isSessionBusy(get(), next.sessionId)) get().flushQueued();
       },
       (error: unknown) => {
         console.warn("queued task failed", error);
-        if (!get().sending && !get().shellRunning) get().flushQueued();
+        get().flushQueued();
       },
     );
   },
@@ -1688,8 +1693,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
 
   runShell: async (text, targetSessionId) => {
     const trimmed = text.trim();
-    if (!trimmed || get().shellRunning || get().sending) return false;
-    if (!get().hydrated) return false;
+    if (!trimmed || !get().hydrated) return false;
 
     let sessions = get().sessions;
     let sessionId = targetSessionId ?? get().activeSessionId;
@@ -1908,10 +1912,10 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   },
 
   retryLast: () => {
-    if (!get().canRetry || get().sending || get().shellRunning || !get().hydrated) return;
+    if (!get().canRetry || !get().hydrated) return;
     if (!useSelectionStore.getState().selection || !isTauri()) return;
     const sessionId = get().activeSessionId;
-    if (!sessionId) return;
+    if (!sessionId || isSessionBusy(get(), sessionId)) return;
     const session = get().sessions.find((item) => item.id === sessionId);
     if (!session) return;
     let messages = sessionMessages(session);

@@ -48,10 +48,8 @@ async fn probe_stdio(server: &McpServer) -> Result<Vec<McpToolSummary>, McpServe
         .filter(|value| !value.is_empty())
         .ok_or(McpServerError::CommandRequired)?;
 
-    let (program, args) = crate::compat::exec::resolve(command, &server.args);
-    let mut child = Command::new(program);
+    let mut child = Command::from(crate::compat::exec::command(command, &server.args));
     child
-        .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -582,10 +580,8 @@ async fn call_stdio(
         .filter(|value| !value.is_empty())
         .ok_or(McpServerError::CommandRequired)?;
 
-    let (program, args) = crate::compat::exec::resolve(command, &server.args);
-    let mut child = Command::new(program);
+    let mut child = Command::from(crate::compat::exec::command(command, &server.args));
     child
-        .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
