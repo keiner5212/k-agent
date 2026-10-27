@@ -27,17 +27,17 @@
   },
   "dependencies": {
     "@tauri-apps/api": "2.11.1",
-    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
+    "@tauri-apps/plugin-clipboard-manager": "^2.5.0",
     "@tauri-apps/plugin-dialog": "2.7.2",
     "@tauri-apps/plugin-notification": "2.3.3",
-    "@tauri-apps/plugin-opener": "^2.5.0",
+    "@tauri-apps/plugin-opener": "^2.7.2",
     "@tauri-apps/plugin-store": "2.4.4",
-    "dompurify": "^3.4.14",
+    "dompurify": "^3.4.17",
     "highlight.js": "^11.12.0",
     "i18next": "26.4.0",
     "lucide-react": "1.33.0",
-    "marked": "^18.0.11",
-    "mermaid": "^12.0.0",
+    "marked": "^18.1.2",
+    "mermaid": "^12.2.0",
     "modern-screenshot": "4.7.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -56,16 +56,11 @@
     "eslint": "10.9.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.11.0",
-    "happy-dom": "^20.14.5",
+    "happy-dom": "^21.0.4",
     "prettier": "3.9.6",
     "typescript": "5.9.3",
     "typescript-eslint": "8.67.0",
-    "vite": "8.2.2",
-    "vitest": "^4.1.11"
-  },
-  "engines": {
-    "node": ">=22.13",
-    "pnpm": ">=9"
-  },
-  "packageManager": "pnpm@11.2.2"
+    "vite": "8.2.4",
+    "vitest": "^4.1.12"
+  }
 }

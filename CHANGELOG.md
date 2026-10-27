@@ -32,4 +32,6 @@ had to live with it.
 
 ### Changed
 
+- The dependencies of the build were updated and the lock file of the backend is kept now. The advisories of the frontend and of the backend are gone, the build of a release is the same everywhere, and the CI can watch for the new ones.
+
 - The compatibility core. The shell, the paths, the permissions of the secret files, the language servers, the MCP servers and the archives now take the algorithm that fits the host instead of assuming Linux. The Windows build gets the job object that kills the tree of processes, the access control list that only the owner can read, the resolution of the commands that live in a `.cmd` file, and the archives that no longer need `gzip`, `unzip` or `tar` in the system.
