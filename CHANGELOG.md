@@ -12,6 +12,7 @@ had to live with it.
 
 ### Fixed
 
+- The edit tool says what the file really looks like when the text is not found, and it never leaves a half written file. The message names the line endings of the file and the line that starts the same, with the indentation it has and the one the oldString asks for. The text goes to a file of its own and the target is replaced with a rename, so a failure leaves the file as it was. The write tool and the patch tool write the same way.
 - The chat no longer gets stuck when a tool answers with something the app cannot read. The answer was encoded with a panic and the app is built to abort on a panic, so the whole process died in the middle of the turn: the message of the user stayed there without an answer and the file of the session could end up half written. The answer is now encoded without a panic, the session file is written whole or not at all, and a turn that waits for the user cannot wait forever.
 - The children of the app die with it. On Linux the signal was already there, but on Windows the processes were left running and kept the processor busy after the app closed, one set for each time the app was opened and closed.
 - The screenshot refuses a capture of one pixel. It answered "ok" with a picture of a single pixel when the selector matched a tiny box, and the model took that picture for the page.
@@ -32,6 +33,7 @@ had to live with it.
 
 ### Changed
 
+- The CI runs only when a pull request is opened and when the branch lands in `main`. The same commit was checked twice before, once for the push of the branch and once for the pull request.
 - The dependencies of the build were updated and the lock file of the backend is kept now. The advisories of the frontend and of the backend are gone, the build of a release is the same everywhere, and the CI can watch for the new ones.
 
 - The compatibility core. The shell, the paths, the permissions of the secret files, the language servers, the MCP servers and the archives now take the algorithm that fits the host instead of assuming Linux. The Windows build gets the job object that kills the tree of processes, the access control list that only the owner can read, the resolution of the commands that live in a `.cmd` file, and the archives that no longer need `gzip`, `unzip` or `tar` in the system.

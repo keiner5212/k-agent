@@ -393,7 +393,7 @@ fn apply_files(ctx: &ToolContext<'_>, files: &[PatchFile]) -> ToolOutcome {
             }
         }
         let previous = fs::read_to_string(&item.dest).ok();
-        if fs::write(&item.dest, &item.after).is_err() {
+        if super::tool_utils::files::write_atomic(&item.dest, &item.after).is_err() {
             restore(&written);
             return super::action_error(&item.rel, "Unable to write file.");
         }
