@@ -1,5 +1,6 @@
 use std::ffi::OsString;
 use std::path::Path;
+#[cfg(windows)]
 use std::sync::OnceLock;
 
 /// Shell program plus the arguments that make it run one command string.
@@ -176,6 +177,7 @@ const UNIX_DANGEROUS: &[&str] = &[
 ];
 
 /// The names that only exist on Windows.
+#[cfg_attr(not(windows), allow(dead_code))]
 const WINDOWS_DANGEROUS: &[&str] = &[
     "del",
     "erase",
