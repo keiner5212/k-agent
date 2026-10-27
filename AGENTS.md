@@ -308,7 +308,8 @@ Pick inline when the result fits in 5-8 lines and the user reads it as part of t
   - `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm format:check`, `pnpm build`
   - `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`
   - `cargo test --manifest-path src-tauri/Cargo.toml --lib`
-- The release workflow runs after CI passes on `main` and publishes a draft release whose body is the section of the changelog. A pull request never publishes. `workflow_dispatch` publishes by hand.
+- The CI runs when a pull request is opened and when the branch lands in `main`. A push to a branch that has a pull request does not run it again.
+- The release workflow runs after the CI of `main` passes and publishes a draft release whose body is the section of the changelog. A pull request never publishes. `workflow_dispatch` publishes by hand.
 - Entries of the changelog say what changed and why it mattered. One line per change, in the past tense.
 - Fix the cause of a failing check in the same change. Never weaken, skip, or ignore a check to make it pass.
 

@@ -1,8 +1,19 @@
 name: CI
 
 on:
-  push:
+  # The CI runs when a pull request is opened and when the branch lands in
+  # main. A push to a branch that has a pull request does not run it again:
+  # the run of the pull request already covers that commit.
   pull_request:
+  push:
+    branches:
+      - main
+
+# A new commit in a pull request makes the old run useless. The runs of main
+# wait for each other, so every merge gets its release.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

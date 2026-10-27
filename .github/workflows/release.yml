@@ -1,6 +1,7 @@
 name: "Create Releases"
 
-# CI on main is the gate. A pull request does not publish.
+# The release happens when the CI of main passes, so only a merge into main
+# publishes. A pull request never does.
 on:
   workflow_run:
     workflows: ["CI"]
