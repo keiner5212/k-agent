@@ -381,14 +381,13 @@ fn limit_provider_data(app: &AppHandle) -> bool {
 }
 
 fn node_available() -> bool {
-    std::process::Command::new("node")
-        .arg("--version")
+    let mut cmd = std::process::Command::new("node");
+    cmd.arg("--version")
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
+        .stderr(std::process::Stdio::null());
+    crate::utils::console::hide_console(&mut cmd);
+    cmd.status().map(|status| status.success()).unwrap_or(false)
 }
 
 fn checker_script(app: &AppHandle) -> Option<PathBuf> {
@@ -407,12 +406,14 @@ fn checker_script(app: &AppHandle) -> Option<PathBuf> {
 }
 
 async fn parse_source(script: &Path, source: &str) -> Result<(), String> {
-    let mut child = tokio::process::Command::new("node")
-        .arg(script)
+    let mut cmd = tokio::process::Command::new("node");
+    cmd.arg(script)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true)
+        .kill_on_drop(true);
+    crate::utils::console::hide_console(cmd.as_std_mut());
+    let mut child = cmd
         .spawn()
         .map_err(|error| format!("node failed to start: {error}"))?;
     if let Some(mut stdin) = child.stdin.take() {

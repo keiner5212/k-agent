@@ -149,6 +149,7 @@ fn spawn_server(spec: &LanguageServerSpec, dir: &Path, command: &str) -> Result<
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
+    crate::utils::console::hide_console(cmd.as_std_mut());
     if let Some(parent) = Path::new(command).parent() {
         if let Some(old) = std::env::var_os("PATH") {
             let mut paths = vec![parent.to_path_buf()];

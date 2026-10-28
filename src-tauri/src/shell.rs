@@ -427,6 +427,8 @@ pub async fn run_shell_command(
         .stderr(Stdio::piped())
         .kill_on_drop(true);
 
+    crate::utils::console::hide_console(cmd.as_std_mut());
+
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;

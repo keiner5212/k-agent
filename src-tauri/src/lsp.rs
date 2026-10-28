@@ -709,8 +709,10 @@ async fn extract_asset(
         "gz" => {
             let gzip =
                 find_in_path("gzip").ok_or_else(|| LspError::MissingRequire("gzip".into()))?;
-            let output = tokio::process::Command::new(&gzip)
-                .args(["-dc", &download.to_string_lossy()])
+            let mut cmd = tokio::process::Command::new(&gzip);
+            cmd.args(["-dc", &download.to_string_lossy()]);
+            crate::utils::console::hide_console(cmd.as_std_mut());
+            let output = cmd
                 .output()
                 .await
                 .map_err(|error| LspError::Io(error.to_string()))?;
@@ -879,6 +881,7 @@ async fn run_cmd(
 ) -> Result<(), LspError> {
     let mut cmd = tokio::process::Command::new(program);
     cmd.args(args);
+    crate::utils::console::hide_console(cmd.as_std_mut());
     if let Some(pairs) = env {
         for (key, value) in pairs {
             cmd.env(key, value);

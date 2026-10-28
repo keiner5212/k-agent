@@ -1193,11 +1193,13 @@ fn process_env() -> Vec<(OsString, OsString)> {
 
 fn probe_login_env(shell: &str) -> Result<Vec<(OsString, OsString)>, String> {
     // Probe is separate so the user command is not executed inside the profile.
-    let mut child = Command::new(shell)
-        .args(["-l", "-i", "-c", ENV_PROBE])
+    let mut cmd = Command::new(shell);
+    cmd.args(["-l", "-i", "-c", ENV_PROBE])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+    crate::utils::console::hide_console(&mut cmd);
+    let mut child = cmd
         .spawn()
         .map_err(|error| format!("could not start `{shell}`: {error}"))?;
     let stdout_pipe = child.stdout.take();
@@ -1376,6 +1378,8 @@ fn run_command(ctx: &ToolContext<'_>, command: &str) -> ToolOutcome {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+
+    crate::utils::console::hide_console(&mut process);
     apply_login_env(&mut process, &login);
     if prep.clear_proxy {
         clear_proxy_env(&mut process);

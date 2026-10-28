@@ -262,6 +262,7 @@ fn launch(
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    crate::utils::console::hide_console(&mut cmd);
     bash::install_command_env(&mut cmd, shell, prep.clear_proxy);
     #[cfg(unix)]
     {
