@@ -156,17 +156,13 @@ export const ChatThread = (): ReactNode => {
   const messages = useSessionsStore(selectActiveMessages);
   const sending = useSessionsStore((state) => state.sending);
   const sendingSessionId = useSessionsStore((state) => state.sendingSessionId);
-  const shellRunning = useSessionsStore((state) => state.shellRunning);
-  const shellRunningSessionId = useSessionsStore((state) => state.shellRunningSessionId);
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
   const error = useSessionsStore((state) => state.error);
   const canRetry = useSessionsStore((state) => state.canRetry);
   const asking = useAskUserStore((state) =>
     Object.values(state.byCallId).some((item) => item.sessionId === activeSessionId),
   );
-  const busy =
-    (sending && sendingSessionId === activeSessionId) ||
-    (shellRunning && shellRunningSessionId === activeSessionId);
+  const busy = sending && sendingSessionId === activeSessionId;
   const waiting =
     busy &&
     !error &&
