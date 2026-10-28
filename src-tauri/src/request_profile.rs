@@ -818,9 +818,9 @@ fn gemini_shell() -> Contract {
 
 fn kind_native(kind: ProviderKind) -> &'static str {
     match kind {
-        ProviderKind::OpenAiLike => "openai",
-        ProviderKind::AnthropicLike => "anthropic",
-        ProviderKind::GeminiLike => "gemini",
+        ProviderKind::OpenAi => "openai",
+        ProviderKind::Anthropic => "anthropic",
+        ProviderKind::Gemini => "gemini",
     }
 }
 
@@ -862,15 +862,10 @@ fn apply_spec(contract: &mut Contract, spec: &ModelRequestSpec, kind: ProviderKi
     if !spec.tiers.is_empty() {
         contract.tiers = spec.tiers.clone();
     }
-    if spec.tier_may_reject
-        && !contract
-            .notes
-            .iter()
-            .any(|note| *note == "chat.request.note.tierMayReject")
-    {
+    if spec.tier_may_reject && !contract.notes.contains(&"chat.request.note.tierMayReject") {
         contract.notes.push("chat.request.note.tierMayReject");
     }
-    contract.reasoning_split = spec.reasoning_split_openai && kind == ProviderKind::OpenAiLike;
+    contract.reasoning_split = spec.reasoning_split_openai && kind == ProviderKind::OpenAi;
     if contract.reasoning_split {
         contract.notes.push("chat.request.note.reasoningSplit");
     }
@@ -933,7 +928,7 @@ fn reasoning_from_spec(spec: &ModelReasoningSpec, kind: ProviderKind) -> ModelRe
     else {
         return spec.clone();
     };
-    let default_mode = if kind == ProviderKind::AnthropicLike {
+    let default_mode = if kind == ProviderKind::Anthropic {
         anthropic_default_mode
             .clone()
             .unwrap_or_else(|| default_mode.clone())
@@ -1055,7 +1050,7 @@ mod tests {
     #[test]
     fn minimax_m3_openai_uses_thinking_and_split() {
         let query = query(
-            ProviderKind::OpenAiLike,
+            ProviderKind::OpenAi,
             "https://api.minimax.io/v1",
             "MiniMax-M3",
         );
@@ -1077,7 +1072,7 @@ mod tests {
     #[test]
     fn minimax_m3_anthropic_defaults_thinking_off_without_split() {
         let query = query(
-            ProviderKind::AnthropicLike,
+            ProviderKind::Anthropic,
             "https://api.minimax.io/anthropic",
             "MiniMax-M3",
         );
@@ -1089,7 +1084,7 @@ mod tests {
     #[test]
     fn routed_minimax_uses_catalog_contract() {
         let query = query(
-            ProviderKind::OpenAiLike,
+            ProviderKind::OpenAi,
             "https://openrouter.ai/api/v1",
             "MiniMax-M3",
         );
@@ -1111,7 +1106,7 @@ mod tests {
     #[test]
     fn unknown_host_uses_openai_catalog_contract() {
         let query = query(
-            ProviderKind::OpenAiLike,
+            ProviderKind::OpenAi,
             "https://proxy.example.com/v1",
             "gpt-5.4",
         );
@@ -1126,7 +1121,7 @@ mod tests {
     #[test]
     fn openai_effort_comes_from_catalog() {
         let query = query(
-            ProviderKind::OpenAiLike,
+            ProviderKind::OpenAi,
             "https://api.openai.com/v1",
             "gpt-5.4-pro",
         );

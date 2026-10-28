@@ -84,7 +84,7 @@ fn pick(seed: u64) -> UserAgentSelection {
     s = s.wrapping_mul(2_654_435_761).wrapping_add(1);
     let patch = PATCH_VERSIONS[(s as usize) % PATCH_VERSIONS.len()];
     s = s.wrapping_mul(2_654_435_761).wrapping_add(1);
-    let build = ((s as u32) % 100) as u32;
+    let build = (s as u32) % 100;
     UserAgentSelection {
         browser: CHROMIUM_BROWSERS[browser_idx],
         os: os.os_token,

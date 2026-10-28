@@ -665,7 +665,7 @@ mod tests {
     fn trims_lines_over_max_length() {
         let dir = tempdir();
         let path = dir.join("long.txt");
-        let body: String = std::iter::repeat('x').take(MAX_LINE_LENGTH + 50).collect();
+        let body = "x".repeat(MAX_LINE_LENGTH + 50);
         fs::write(&path, &body).unwrap();
         let result = read_windowed(&path, 1, 1).unwrap();
         assert_eq!(result.raw.len(), 1);

@@ -50,6 +50,7 @@ fn windows_command(program: &str, args: &[String]) -> std::process::Command {
 }
 
 /// `cmd /S /C` argument for a batch file. The outer quotes are sacrificial.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn cmd_c_argument(script: &str, args: &[String]) -> String {
     let mut line = String::from("call ");
     line.push_str(&quote_cmd_argument(script));
@@ -60,6 +61,7 @@ pub fn cmd_c_argument(script: &str, args: &[String]) -> String {
     format!("\"{line} \"")
 }
 
+#[cfg_attr(not(windows), allow(dead_code))]
 fn quote_cmd_argument(value: &str) -> String {
     if value.is_empty() {
         return "\"\"".to_string();

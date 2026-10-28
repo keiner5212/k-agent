@@ -342,10 +342,12 @@ pub fn begin_child_session(
         app,
         parent_session_id,
         title,
-        prompt,
-        "",
-        "",
-        "",
+        ChildSessionText {
+            prompt,
+            content: "",
+            reasoning: "",
+            reasoning_signature: "",
+        },
         Vec::new(),
         workspace_path,
     )
@@ -376,17 +378,27 @@ pub fn update_child_session(
     write_session_record(app, &mut session)
 }
 
+pub(crate) struct ChildSessionText<'a> {
+    prompt: &'a str,
+    content: &'a str,
+    reasoning: &'a str,
+    reasoning_signature: &'a str,
+}
+
 pub fn write_child_session(
     app: &AppHandle,
     parent_session_id: &str,
     title: &str,
-    prompt: &str,
-    content: &str,
-    reasoning: &str,
-    reasoning_signature: &str,
+    text: ChildSessionText<'_>,
     tool_rounds: Vec<crate::chat::ToolRoundTrace>,
     workspace_path: Option<String>,
 ) -> Result<String, SessionError> {
+    let ChildSessionText {
+        prompt,
+        content,
+        reasoning,
+        reasoning_signature,
+    } = text;
     if !is_safe_id(parent_session_id) {
         return Err(SessionError::Path("invalid session id".into()));
     }
@@ -618,7 +630,7 @@ fn load_from_session_dirs(app: &AppHandle) -> Result<SessionsSnapshot, SessionEr
     if sessions.is_empty() {
         return Ok(empty_snapshot());
     }
-    sessions.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+    sessions.sort_by_key(|left| std::cmp::Reverse(left.updated_at));
     let active_session_id = sessions[0].id.clone();
     Ok(SessionsSnapshot {
         active_session_id,

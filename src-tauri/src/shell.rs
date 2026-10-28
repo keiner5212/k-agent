@@ -97,7 +97,7 @@ fn clamp_timeout(value: Option<u64>) -> u64 {
 fn clamp_output_cap(value: Option<usize>) -> usize {
     match value {
         None => DEFAULT_MAX_OUTPUT_BYTES,
-        Some(v) if v == 0 => DEFAULT_MAX_OUTPUT_BYTES,
+        Some(0) => DEFAULT_MAX_OUTPUT_BYTES,
         Some(v) => v.min(MAX_OUTPUT_BYTES_CAP),
     }
 }
@@ -283,17 +283,26 @@ fn kill_tree(child: &mut tokio::process::Child) {
     let _ = child.start_kill();
 }
 
+struct PipeStop {
+    exit_code: Option<i32>,
+    timed_out: bool,
+    cancelled: bool,
+}
+
 fn result_from_pipes(
     command: String,
     cwd: String,
     stdout: (String, bool),
     stderr: (String, bool),
-    exit_code: Option<i32>,
-    timed_out: bool,
-    cancelled: bool,
+    stop: PipeStop,
     started: Instant,
     started_at_ms: u64,
 ) -> RunShellResult {
+    let PipeStop {
+        exit_code,
+        timed_out,
+        cancelled,
+    } = stop;
     RunShellResult {
         command,
         cwd,
@@ -480,9 +489,11 @@ pub async fn run_shell_command(
                 cwd.to_string_lossy().into_owned(),
                 stdout,
                 stderr,
-                exit_status.code(),
-                false,
-                false,
+                PipeStop {
+                    exit_code: exit_status.code(),
+                    timed_out: false,
+                    cancelled: false,
+                },
                 started,
                 started_at_ms,
             ))
@@ -498,9 +509,11 @@ pub async fn run_shell_command(
                 cwd.to_string_lossy().into_owned(),
                 stdout,
                 stderr,
-                None,
-                !cancelled,
-                cancelled,
+                PipeStop {
+                    exit_code: None,
+                    timed_out: !cancelled,
+                    cancelled,
+                },
                 started,
                 started_at_ms,
             ))

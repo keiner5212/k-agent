@@ -307,8 +307,10 @@ fn render_pattern(
         root,
         "",
         0,
-        max_depth,
-        parallelism,
+        GlobLimits {
+            max_depth,
+            parallelism,
+        },
         pattern,
         &budget,
         &mut hits,
@@ -382,16 +384,25 @@ where
     out
 }
 
+#[derive(Clone, Copy)]
+struct GlobLimits {
+    max_depth: usize,
+    parallelism: usize,
+}
+
 fn collect_pattern(
     dir: &Path,
     prefix: &str,
     depth: usize,
-    max_depth: usize,
-    parallelism: usize,
+    limits: GlobLimits,
     pattern: &str,
     budget: &Arc<Mutex<usize>>,
     hits: &mut Vec<String>,
 ) {
+    let GlobLimits {
+        max_depth,
+        parallelism,
+    } = limits;
     if depth >= max_depth || budget.lock().map(|guard| *guard).unwrap_or(0) == 0 {
         return;
     }
@@ -421,8 +432,10 @@ fn collect_pattern(
                     &subdir,
                     &child,
                     depth + 1,
-                    max_depth,
-                    1,
+                    GlobLimits {
+                        max_depth,
+                        parallelism: 1,
+                    },
                     &pattern,
                     &budget,
                     &mut local,
@@ -451,8 +464,10 @@ fn collect_pattern(
                         &dir.join(&entry.name),
                         &child,
                         depth + 1,
-                        max_depth,
-                        1,
+                        GlobLimits {
+                            max_depth,
+                            parallelism: 1,
+                        },
                         pattern,
                         budget,
                         hits,

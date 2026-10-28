@@ -734,7 +734,7 @@ fn turn_text(turn: &Turn) -> String {
         if !text.is_empty() {
             text.push_str("\n\n");
         }
-        text.push_str("[");
+        text.push('[');
         text.push_str(&item.name);
         text.push_str("]\n");
         text.push_str(extracted);
@@ -1370,22 +1370,12 @@ struct StreamToolDelta {
     replace_args: bool,
 }
 
+#[derive(Default)]
 struct StreamDelta {
     content: String,
     reasoning: String,
     reasoning_signature: String,
     tools: Vec<StreamToolDelta>,
-}
-
-impl Default for StreamDelta {
-    fn default() -> Self {
-        Self {
-            content: String::new(),
-            reasoning: String::new(),
-            reasoning_signature: String::new(),
-            tools: Vec::new(),
-        }
-    }
 }
 
 #[derive(Default)]
@@ -2157,9 +2147,9 @@ async fn dispatch_provider(
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
 ) -> Result<ChatOutput, ChatError> {
     match provider.kind {
-        ProviderKind::OpenAiLike => send_openai_like(provider, call, on_chunk).await,
-        ProviderKind::AnthropicLike => send_anthropic_like(provider, call, on_chunk).await,
-        ProviderKind::GeminiLike => send_gemini_like(provider, call, on_chunk).await,
+        ProviderKind::OpenAi => send_openai_like(provider, call, on_chunk).await,
+        ProviderKind::Anthropic => send_anthropic_like(provider, call, on_chunk).await,
+        ProviderKind::Gemini => send_gemini_like(provider, call, on_chunk).await,
     }
 }
 
@@ -2255,17 +2245,26 @@ fn seed_reads(slot: &tools::TurnSlot, turns: &[Turn]) {
     }
 }
 
+struct CommitScope<'a> {
+    session_id: Option<&'a str>,
+    outside_workspace_allowed: bool,
+    emit: bool,
+}
+
 async fn commit_tool_calls(
     app: &AppHandle,
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
-    session_id: Option<&str>,
-    outside_workspace_allowed: bool,
+    scope: CommitScope<'_>,
     turns: &mut Vec<Turn>,
     model_calls: &[ModelToolCall],
-    emit: bool,
     turn: std::sync::Arc<tools::TurnSlot>,
 ) -> Vec<PersistedToolCall> {
+    let CommitScope {
+        session_id,
+        outside_workspace_allowed,
+        emit,
+    } = scope;
     let mut persisted_calls = Vec::new();
     for tc in model_calls {
         if emit {
@@ -2432,16 +2431,25 @@ fn publish_child(
     );
 }
 
+struct AssistantParts {
+    content: String,
+    reasoning: String,
+    reasoning_signature: String,
+}
+
 fn sent_message(
     app: &AppHandle,
     session_id: Option<&str>,
     turn: &tools::TurnSlot,
     record_checkpoints: bool,
-    content: String,
-    reasoning: String,
-    reasoning_signature: String,
+    parts: AssistantParts,
     tool_rounds: Vec<ToolRoundTrace>,
 ) -> SentMessage {
+    let AssistantParts {
+        content,
+        reasoning,
+        reasoning_signature,
+    } = parts;
     let (checkpoint_id, files) = if record_checkpoints {
         seal_checkpoints(app, session_id, turn)
     } else {
@@ -2475,16 +2483,32 @@ fn seal_checkpoints(
     }
 }
 
+#[derive(Clone, Copy)]
+struct SendFlags {
+    outside_workspace_allowed: bool,
+    resume_confirmed: bool,
+    record_checkpoints: bool,
+}
+
+const QUIET_FLAGS: SendFlags = SendFlags {
+    outside_workspace_allowed: false,
+    resume_confirmed: false,
+    record_checkpoints: false,
+};
+
 async fn send_message(
     app: &AppHandle,
     provider: &Provider,
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
     session_id: Option<&str>,
-    outside_workspace_allowed: bool,
-    resume_confirmed: bool,
-    record_checkpoints: bool,
+    flags: SendFlags,
 ) -> Result<SentMessage, ChatError> {
+    let SendFlags {
+        outside_workspace_allowed,
+        resume_confirmed,
+        record_checkpoints,
+    } = flags;
     if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
     }
@@ -2529,11 +2553,13 @@ async fn send_message(
                     app,
                     call,
                     on_chunk,
-                    session_id,
-                    true,
+                    CommitScope {
+                        session_id,
+                        outside_workspace_allowed: true,
+                        emit: false,
+                    },
                     &mut turns,
                     &model_calls,
-                    false,
                     turn.clone(),
                 )
                 .await;
@@ -2597,9 +2623,11 @@ async fn send_message(
                     session_id,
                     &turn,
                     record_checkpoints,
-                    content,
-                    output.reasoning,
-                    output.reasoning_signature,
+                    AssistantParts {
+                        content,
+                        reasoning: output.reasoning,
+                        reasoning_signature: output.reasoning_signature,
+                    },
                     tool_rounds,
                 ));
             }
@@ -2616,9 +2644,11 @@ async fn send_message(
                 session_id,
                 &turn,
                 record_checkpoints,
-                output.content,
-                output.reasoning,
-                output.reasoning_signature,
+                AssistantParts {
+                    content: output.content,
+                    reasoning: output.reasoning,
+                    reasoning_signature: output.reasoning_signature,
+                },
                 tool_rounds,
             ));
         }
@@ -2655,11 +2685,13 @@ async fn send_message(
             app,
             call,
             on_chunk,
-            session_id,
-            outside_workspace_allowed,
+            CommitScope {
+                session_id,
+                outside_workspace_allowed,
+                emit: true,
+            },
             &mut turns,
             &model_calls,
-            true,
             turn.clone(),
         )
         .await;
@@ -2800,9 +2832,7 @@ pub async fn generate_session_title(
             &call,
             None,
             input.session_id.as_deref(),
-            false,
-            false,
-            false,
+            QUIET_FLAGS,
         )
         .await?
         .content,
@@ -2891,9 +2921,7 @@ pub async fn summarize_conversation(
             &call,
             None,
             input.session_id.as_deref(),
-            false,
-            false,
-            false,
+            QUIET_FLAGS,
         )
         .await?
         .content,
@@ -3028,16 +3056,21 @@ fn app_content_output_cap(kind: GenerateAppContentKind) -> u64 {
     }
 }
 
+pub(crate) struct QuietPrompt<'a> {
+    pub system: &'a str,
+    pub user: &'a str,
+}
+
 pub(crate) async fn complete_quiet(
     app: &AppHandle,
     provider_id: &str,
     model_id: &str,
-    system: &str,
-    user: &str,
+    prompt: QuietPrompt<'_>,
     max_output: u64,
     limit_provider_data_use: bool,
     session_id: Option<&str>,
 ) -> Result<String, ChatError> {
+    let QuietPrompt { system, user } = prompt;
     let (provider, model) = load_provider_model(app, provider_id, model_id).await?;
     let turns = vec![user_turn(user.to_string())];
     let max_output = capped_output(&model, max_output);
@@ -3063,7 +3096,7 @@ pub(crate) async fn complete_quiet(
         child_session_id: None,
     };
     let text = normalize_generated_text(
-        &send_message(app, &provider, &call, None, session_id, false, false, false)
+        &send_message(app, &provider, &call, None, session_id, QUIET_FLAGS)
             .await?
             .content,
     );
@@ -3104,7 +3137,7 @@ pub async fn generate_app_content(
         child_session_id: None,
     };
     let text = normalize_generated_text(
-        &send_message(&app, &provider, &call, None, None, false, false, false)
+        &send_message(&app, &provider, &call, None, None, QUIET_FLAGS)
             .await?
             .content,
     );
@@ -3607,9 +3640,11 @@ pub(crate) async fn run_task(
         &call,
         None,
         child_session_id.as_deref().or(ctx.session_id.as_deref()),
-        ctx.outside_workspace_allowed,
-        false,
-        false,
+        SendFlags {
+            outside_workspace_allowed: ctx.outside_workspace_allowed,
+            resume_confirmed: false,
+            record_checkpoints: false,
+        },
     );
     let output = match feed_guard.as_ref() {
         Some(guard) => CHILD_FEED_ID.scope(guard.0.clone(), pending).await,
@@ -3756,9 +3791,11 @@ pub async fn send_chat_message(
         &call,
         Some(&on_chunk),
         input.session_id.as_deref(),
-        input.outside_workspace_allowed,
-        input.resume_confirmed,
-        true,
+        SendFlags {
+            outside_workspace_allowed: input.outside_workspace_allowed,
+            resume_confirmed: input.resume_confirmed,
+            record_checkpoints: true,
+        },
     );
     tokio::pin!(send_fut);
     let output = match cancel_rx {
@@ -4015,12 +4052,12 @@ mod tests {
         ];
         for raw in samples {
             let turn = assistant_tool_turn(raw);
-            let anthropic = anthropic_messages(&[turn.clone()]);
+            let anthropic = anthropic_messages(std::slice::from_ref(&turn));
             let input = &anthropic[0]["content"][2]["input"];
             assert_eq!(anthropic[0]["content"][2]["type"], "tool_use");
             assert_object(input, raw);
 
-            let gemini = gemini_contents(&[turn.clone()]);
+            let gemini = gemini_contents(std::slice::from_ref(&turn));
             let args = &gemini[0]["parts"][2]["functionCall"]["args"];
             assert_object(args, raw);
 

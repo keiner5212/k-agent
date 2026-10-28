@@ -263,14 +263,9 @@ impl Catalog {
         if let Some(entry) = self.by_id.get(&normalized) {
             return Some(entry);
         }
-        for suffix in ["-highspeed"] {
-            if let Some(base) = normalized.strip_suffix(suffix) {
-                if let Some(entry) = self.by_id.get(base) {
-                    return Some(entry);
-                }
-            }
-        }
-        None
+        normalized
+            .strip_suffix("-highspeed")
+            .and_then(|base| self.by_id.get(base))
     }
 
     pub fn apply(&self, model: &mut ModelInfo) {

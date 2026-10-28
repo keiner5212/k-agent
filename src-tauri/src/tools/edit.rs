@@ -440,21 +440,21 @@ fn indentation_hint(content: &str, old_string: &str) -> Option<String> {
         if line.trim() != text {
             continue;
         }
-        for offset in 0..old_lines.len() {
+        for (offset, old_line) in old_lines.iter().enumerate() {
             let Some(candidate) = file_lines.get(index + offset) else {
                 break;
             };
-            if candidate.trim() != old_lines[offset].trim() {
+            if candidate.trim() != old_line.trim() {
                 break;
             }
             let actual = leading_whitespace(candidate);
-            let wanted = leading_whitespace(old_lines[offset]);
+            let wanted = leading_whitespace(old_line);
             if actual == wanted {
                 continue;
             }
             return Some(format!(
                 "The line `{}` is at line {} of the file with {actual} spaces of indentation, and the oldString asks for {wanted}.",
-                old_lines[offset].trim(),
+                old_line.trim(),
                 index + offset + 1
             ));
         }

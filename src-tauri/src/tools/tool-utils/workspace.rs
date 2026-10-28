@@ -100,11 +100,11 @@ fn session_granted(ctx: &ToolContext<'_>) -> bool {
 }
 
 fn session_id_granted(session_id: Option<&str>) -> bool {
-    session_id_granted_in(&session_grants(), session_id)
+    session_id_granted_in(session_grants(), session_id)
 }
 
 fn grant_session(session_id: Option<&str>) {
-    grant_in(&session_grants(), session_id);
+    grant_in(session_grants(), session_id);
 }
 
 fn grant_in(grants: &Mutex<HashSet<String>>, session_id: Option<&str>) {

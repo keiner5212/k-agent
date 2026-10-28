@@ -152,7 +152,7 @@ fn spawn_server(spec: &LanguageServerSpec, dir: &Path, command: &str) -> Result<
         if let Some(old) = std::env::var_os("PATH") {
             let mut paths = vec![parent.to_path_buf()];
             paths.extend(std::env::split_paths(&old));
-            if let Some(joined) = std::env::join_paths(paths).ok() {
+            if let Ok(joined) = std::env::join_paths(paths) {
                 cmd.env("PATH", joined);
             }
         }
@@ -474,7 +474,7 @@ fn apply_text_edits(text: &str, edits: &[Value]) -> Option<String> {
         }
         spans.push((start, end, new_text));
     }
-    spans.sort_by(|left, right| right.0.cmp(&left.0));
+    spans.sort_by_key(|left| std::cmp::Reverse(left.0));
     let mut out = text.to_string();
     for (start, end, new_text) in spans {
         out.replace_range(start..end, &new_text);
@@ -486,7 +486,6 @@ fn lsp_offset(text: &str, pos: &Value) -> Option<usize> {
     let line = pos.get("line")?.as_u64()? as usize;
     let character = pos.get("character")?.as_u64()? as usize;
     let mut byte = 0usize;
-    let mut index = 0usize;
     let lines: Vec<&str> = text.split_inclusive('\n').collect();
     if line > lines.len() {
         return None;
@@ -498,13 +497,12 @@ fn lsp_offset(text: &str, pos: &Value) -> Option<usize> {
             None
         };
     }
-    for row in &lines {
+    for (index, row) in lines.iter().enumerate() {
         if index == line {
             let body = row.trim_end_matches(['\n', '\r']);
             return Some(byte + utf16_to_byte(body, character)?);
         }
         byte += row.len();
-        index += 1;
     }
     None
 }

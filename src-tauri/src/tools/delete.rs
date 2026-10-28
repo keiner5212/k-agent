@@ -34,7 +34,7 @@ impl Tool for DeleteTool {
 
     fn execute(&self, args: &Value, ctx: &ToolContext<'_>) -> ToolOutcome {
         match parse_target(args, ctx) {
-            Err(outcome) => outcome,
+            Err(outcome) => *outcome,
             Ok(target)
                 if super::tool_utils::workspace::reject_if_unconfirmed(
                     &target.resolved,
@@ -80,20 +80,23 @@ struct DeleteTarget {
     rel: String,
 }
 
-fn parse_target(args: &Value, ctx: &ToolContext<'_>) -> Result<DeleteTarget, ToolOutcome> {
+fn parse_target(args: &Value, ctx: &ToolContext<'_>) -> Result<DeleteTarget, Box<ToolOutcome>> {
     let Some(raw_path) = args.get("path").and_then(Value::as_str) else {
-        return Err(super::action_error(
+        return Err(Box::new(super::action_error(
             "",
             "delete tool requires a string `path`.",
-        ));
+        )));
     };
     let trimmed = raw_path.trim();
     if trimmed.is_empty() {
-        return Err(super::action_error("", "delete tool `path` is empty."));
+        return Err(Box::new(super::action_error(
+            "",
+            "delete tool `path` is empty.",
+        )));
     }
     let resolved = match resolve_path(ctx, trimmed) {
         Ok(value) => value,
-        Err(message) => return Err(super::action_error(trimmed, &message)),
+        Err(message) => return Err(Box::new(super::action_error(trimmed, &message))),
     };
     let rel = ctx.relative_path(&resolved);
     Ok(DeleteTarget { resolved, rel })

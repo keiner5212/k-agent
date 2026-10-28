@@ -12,7 +12,7 @@ Desktop AI coding orchestrator. Tauri 2 + Rust + React 19 + TypeScript.
 
 ```sh
 pnpm install
-pnpm tauri dev        # desktop window (requires Rust >= 1.77.2)
+pnpm tauri dev        # desktop window (requires Rust >= 1.83)
 ```
 
 ## Build

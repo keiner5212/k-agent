@@ -279,7 +279,7 @@ fn write_stats(
     } else {
         response.lines().count()
     };
-    let tokens = (chars + 3) / 4;
+    let tokens = chars.div_ceil(4);
     let kind = if outcome.display.kind.is_empty() {
         "context"
     } else {
