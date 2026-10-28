@@ -26,12 +26,12 @@ const targetLabel = (server: McpServer): string => {
   return server.url ?? "";
 };
 
-const formatToolsCell = (
+const formatToolsCount = (
   server: McpServer,
   t: (key: string, options?: Record<string, unknown>) => string,
 ): string => {
   const tools = server.tools ?? [];
-  if (tools.length > 0) return tools.map((tool) => tool.name).join(", ");
+  if (tools.length > 0) return t("mcpServers.tools.count", { count: tools.length });
   if (server.toolsProbeError) return server.toolsProbeError;
   return t("mcpServers.tools.none");
 };
@@ -48,7 +48,7 @@ const ToolsCell = ({
   onOpen: (server: McpServer) => void;
 }): ReactNode => {
   const tools = server.tools ?? [];
-  const label = formatToolsCell(server, t);
+  const label = formatToolsCount(server, t);
   if (tools.length === 0) return highlightMatch(label, query);
   return (
     <button
@@ -137,7 +137,7 @@ export const McpServersPanel = ({ query }: McpServersPanelProps): ReactNode => {
         className: "data-table__tools",
         wrap: true,
         cellProps: (server) => ({
-          title: formatToolsCell(server, t),
+          title: formatToolsCount(server, t),
           "data-empty": (server.tools?.length ?? 0) === 0 ? "true" : undefined,
         }),
         render: (server) => (

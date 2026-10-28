@@ -29,6 +29,7 @@ import type { LineKind } from "@/components/LineEditor";
 import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
 import { resolveVisionModel, toolCallTokens } from "@/lib/context-usage";
 import { runDiffLinesJob } from "@/lib/jobs";
+import { mcpToolRefs, useMcpServersStore, type McpToolRef } from "@/lib/mcp-servers";
 import { useProvidersStore } from "@/lib/providers";
 import { readSessionFileRevision, toonFieldValue } from "@/lib/session-files";
 import { useSelectionStore } from "@/lib/selected-model";
@@ -105,6 +106,12 @@ const isKnownTool = (name: string): name is AgentToolId =>
 const ToolIcon = ({ name }: { name: string }): ReactNode => {
   const Icon = isKnownTool(name) ? TOOL_ICON[name] : Wrench;
   return <Icon size={14} strokeWidth={1.75} />;
+};
+
+const toolDisplayName = (name: string, refs: Map<string, McpToolRef>): string => {
+  const ref = refs.get(name);
+  if (ref) return `${ref.serverName} / ${ref.toolName}`;
+  return name;
 };
 
 const READ_LINE_RE = /^(\d+): (.*)$/;
@@ -313,6 +320,8 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
   const selection = useSelectionStore((state) => state.selection);
   const providers = useProvidersStore((state) => state.providers);
   const vision = useMemo(() => resolveVisionModel(providers, selection), [providers, selection]);
+  const mcpServers = useMcpServersStore((state) => state.servers);
+  const mcpTools = useMemo(() => mcpToolRefs(mcpServers), [mcpServers]);
   if (calls.length === 0) return null;
 
   const openPreview = async (call: ChatToolCall): Promise<void> => {
@@ -403,7 +412,7 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
             display?.startLine !== undefined && display.endLine !== undefined
               ? t("chat.tools.lines", { start: display.startLine, end: display.endLine })
               : "";
-          const toolName = isKnownTool(call.name) ? call.name : "";
+          const toolName = toolDisplayName(call.name, mcpTools);
           const summary = toolSummary(call);
           const bashDescription = call.name === "bash" ? argString(call, "description") : "";
           const runningCall = callIsRunning(call, pending);
