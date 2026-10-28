@@ -81,6 +81,8 @@ import {
 
 export const INTERRUPT_ARM_MS = 2000;
 const STREAM_PAINT_MS = 100;
+// Shell bubbles wait this long for the first output before revealing the command alone.
+const SHELL_REVEAL_DELAY_MS = 150;
 
 export type QueuedMessage = {
   id: string;
@@ -1691,25 +1693,77 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     const now = Date.now();
     const isFirstMessage = sessionMessages(latest).length === 0;
     const userMessageId = nextId();
-    const userMessage: ChatMessage = {
-      id: userMessageId,
-      role: "user",
-      kind: "shell",
-      content: formatShellMessage(resolvedCommand, i18n.t("chat.shell.running")),
+
+    // The shell bubble is revealed late on purpose: the command and its output land
+    // in a single paint instead of a placeholder being swapped for the result.
+    const upsertShellMessage = (
+      content: string,
+      streaming: boolean,
+      options: { shellAiSummary?: string; preview?: string } = {},
+    ): SessionRecord[] => {
+      const nextSessions = sortSessions(
+        patchActiveSession(get().sessions, sessionId, (session) => {
+          const messages = sessionMessages(session).slice();
+          const idx = messages.findIndex((message) => message.id === userMessageId);
+          const current = idx >= 0 ? messages[idx] : undefined;
+          const summary = options.shellAiSummary;
+          if (current) {
+            messages[idx] = {
+              ...current,
+              content,
+              streaming,
+              ...(summary === undefined ? {} : { shellAiSummary: summary }),
+            };
+          } else {
+            messages.push({
+              id: userMessageId,
+              role: "user",
+              kind: "shell",
+              content,
+              streaming,
+              ...(summary === undefined ? {} : { shellAiSummary: summary }),
+            });
+          }
+          return {
+            ...session,
+            preview: options.preview ?? resolvedCommand,
+            updatedAt: Date.now(),
+            messages,
+          };
+        }),
+      );
+      set({
+        sessions: nextSessions,
+        ...(stickActive ? { activeSessionId: sessionId } : {}),
+      });
+      return nextSessions;
     };
-    const withUser = sortSessions(
+
+    const withPreview = sortSessions(
       patchActiveSession(get().sessions, sessionId, (session) => ({
         ...session,
         preview: resolvedCommand,
         updatedAt: now,
-        messages: [...sessionMessages(session), userMessage],
       })),
     );
     set({
-      sessions: withUser,
+      sessions: withPreview,
       ...(stickActive ? { activeSessionId: sessionId } : {}),
     });
-    void persistSnapshot(snapshotFromState(withUser, get().activeSessionId ?? sessionId));
+
+    let revealTimer = 0;
+    const clearRevealTimer = (): void => {
+      if (revealTimer === 0) return;
+      window.clearTimeout(revealTimer);
+      revealTimer = 0;
+    };
+    const revealShellMessage = (): void => {
+      revealTimer = 0;
+      if (get().shellRunningSessionId !== sessionId) return;
+      const next = upsertShellMessage(formatShellMessage(resolvedCommand, ""), true);
+      void persistSnapshot(snapshotFromState(next, get().activeSessionId ?? sessionId));
+    };
+    revealTimer = window.setTimeout(revealShellMessage, SHELL_REVEAL_DELAY_MS);
 
     if (isFirstMessage && !latest.title) {
       void generateSessionTitle(sessionId, trimmed).then((title) => {
@@ -1733,22 +1787,12 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       if (streamBuffer.stderr.length > 0) {
         parts.push(`stderr:\n${streamBuffer.stderr.replace(/\n$/, "")}`);
       }
-      if (parts.length === 0) return i18n.t("chat.shell.running");
       return parts.join("\n\n");
     };
 
     const applyShellStream = (): void => {
-      const content = formatShellMessage(resolvedCommand, displayStream());
-      const nextSessions = patchActiveSession(get().sessions, sessionId, (session) => {
-        const messages = session.messages.slice();
-        const idx = messages.findIndex((message) => message.id === userMessageId);
-        if (idx < 0) return session;
-        const current = messages[idx];
-        if (!current) return session;
-        messages[idx] = { ...current, content, streaming: true };
-        return { ...session, preview: resolvedCommand, messages };
-      });
-      set({ sessions: nextSessions });
+      clearRevealTimer();
+      upsertShellMessage(formatShellMessage(resolvedCommand, displayStream()), true);
     };
 
     let streamFrame = 0;
@@ -1767,31 +1811,13 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     };
 
     const applyShellMessage = (content: string, shellAiSummary?: string, error?: string): void => {
-      const nextSessions = sortSessions(
-        patchActiveSession(get().sessions, sessionId, (session) => {
-          const messages = session.messages.slice();
-          const idx = messages.findIndex((message) => message.id === userMessageId);
-          if (idx >= 0) {
-            const current = messages[idx];
-            if (!current) return session;
-            messages[idx] = {
-              ...current,
-              content,
-              shellAiSummary,
-              streaming: false,
-            };
-          }
-          return {
-            ...session,
-            preview: content,
-            updatedAt: Date.now(),
-            messages,
-          };
-        }),
-      );
+      clearRevealTimer();
+      const nextSessions = upsertShellMessage(content, false, {
+        ...(shellAiSummary === undefined ? {} : { shellAiSummary }),
+        preview: content,
+      });
       const stillRunning = get().shellRunningSessionId === sessionId;
       set({
-        sessions: nextSessions,
         ...(stillRunning ? { shellRunning: false, shellRunningSessionId: null } : {}),
         ...(stillRunning ? { interruptArmedAt: null } : {}),
         error,

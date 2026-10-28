@@ -7,6 +7,7 @@ import type { ChatAttachment, ChatMessage } from "@/types/chat";
 import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { MessageActions } from "./MessageActions";
+import { ShellMessage } from "./ShellMessage";
 import { ThinkingBlock, thinkingIsLive } from "./ThinkingBlock";
 import { ToolCallsBlock } from "./ToolCallsBlock";
 import { useChatStick } from "./use-chat-stick";
@@ -81,14 +82,16 @@ const MessageAttachments = ({
 const MessageBody = memo(function MessageBody({
   message,
   sessionId,
+  followTail,
 }: {
   message: ChatMessage;
   sessionId: string | null;
+  followTail: boolean;
 }): ReactNode {
   if (message.kind === "shell") {
     return (
       <>
-        <pre className="chat-message__content chat-message__shell">{message.content}</pre>
+        <ShellMessage message={message} followTail={followTail} />
         <InterruptedFooter interrupted={message.interrupted ?? false} />
       </>
     );
@@ -250,7 +253,7 @@ export const ChatTranscript = ({
                 {fromParent ? (
                   <span className="chat-message__kicker">{t("chat.tools.taskParent")}</span>
                 ) : null}
-                <MessageBody message={message} sessionId={sessionId} />
+                <MessageBody message={message} sessionId={sessionId} followTail={isAtBottom} />
                 {message.role === "assistant" &&
                 message.kind !== "shell" &&
                 !message.streaming &&

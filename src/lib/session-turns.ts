@@ -189,6 +189,13 @@ const sanitizeRedo = (value: unknown): RedoRecord | undefined => {
   };
 };
 
+// A persisted shell command is never running anymore: the process that ran it died
+// with the app. Without this, a crash mid-command leaves the bubble in "running".
+const sanitizeMessages = (messages: ChatMessage[]): ChatMessage[] =>
+  messages.map((message) =>
+    message.kind === "shell" && message.streaming ? { ...message, streaming: false } : message,
+  );
+
 export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => {
   const fileCheckpoints = sanitizeCheckpoints(session.fileCheckpoints);
   const redo = sanitizeRedo(session.redo);
@@ -197,7 +204,7 @@ export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => {
     title: session.title ?? "",
     preview: session.preview ?? "",
     updatedAt: typeof session.updatedAt === "number" ? session.updatedAt : 0,
-    messages: sessionMessages(session),
+    messages: sanitizeMessages(sessionMessages(session)),
     todos: sanitizeTodoItems(session.todos),
     todosHistory: sanitizeTodoHistory(session.todosHistory),
     outsideWorkspaceAllowed: session.outsideWorkspaceAllowed === true,
