@@ -1,7 +1,7 @@
 {
   "name": "k-agent",
   "private": true,
-  "version": "0.2.3",
+  "version": "0.2.4",
   "type": "module",
   "description": "AI coding model orchestrator desktop app",
   "packageManager": "pnpm@11.2.2",

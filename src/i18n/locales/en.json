@@ -557,12 +557,16 @@
       "actions": "Actions"
     },
     "tools": {
-      "none": "No tools"
+      "none": "No tools",
+      "count_one": "{{count}} tool",
+      "count_other": "{{count}} tools"
     },
     "toolsDialog": {
       "title": "MCP tools",
       "server": "Server: {{name}}",
       "noDescription": "No description.",
+      "parameters": "Parameters",
+      "required": "required",
       "close": "Close",
       "open": "View tool details for {{name}}"
     },

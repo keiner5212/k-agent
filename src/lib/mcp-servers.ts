@@ -28,6 +28,49 @@ const runMutation = async (
   }
 };
 
+export type McpToolRef = {
+  serverName: string;
+  toolName: string;
+};
+
+// Mirrors sanitize_ident in src-tauri/src/mcp_client.rs.
+const sanitizeIdent = (raw: string): string => {
+  let out = "";
+  for (const ch of raw) {
+    if (/[a-zA-Z0-9]/.test(ch)) out += ch.toLowerCase();
+    else if (out.length > 0 && !out.endsWith("_")) out += "_";
+  }
+  const trimmed = out.replace(/^_+|_+$/g, "");
+  return trimmed.length === 0 ? "x" : trimmed;
+};
+
+export const mcpToolWire = (server: string, tool: string, used: Set<string>): string => {
+  const base = `mcp_${sanitizeIdent(server)}_${sanitizeIdent(tool)}`;
+  let wire = base;
+  let n = 2;
+  while (used.has(wire)) {
+    wire = `${base}_${n}`;
+    n += 1;
+  }
+  used.add(wire);
+  return wire;
+};
+
+// Mirrors bound_tools_for_chat in src-tauri/src/mcp_client.rs, so wire names resolve back
+// to the server and tool that minted them.
+export const mcpToolRefs = (servers: readonly McpServer[]): Map<string, McpToolRef> => {
+  const used = new Set<string>();
+  const refs = new Map<string, McpToolRef>();
+  for (const server of servers) {
+    if (!server.enabled) continue;
+    for (const tool of server.tools ?? []) {
+      const wire = mcpToolWire(server.name, tool.name, used);
+      refs.set(wire, { serverName: server.name, toolName: tool.name });
+    }
+  }
+  return refs;
+};
+
 type McpServersStore = {
   servers: McpServer[];
   workspaceReady: boolean;

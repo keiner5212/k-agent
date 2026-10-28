@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import { resolveAgentMeta } from "@/lib/builtin-agents";
+import { mcpToolWire } from "@/lib/mcp-servers";
 import type { AgentContext, AgentMeta, AgentSkillRef } from "@/types/agents";
 import type { AgentsMdFile } from "@/types/agents-md";
 import type { McpServer } from "@/types/mcp-servers";
@@ -265,28 +266,6 @@ const buildToolChoice = (agent: AgentMeta, shape: PromptShape, readBeforeEdit: b
   return tagged("tools", lines.join("\n"), shape);
 };
 
-const sanitizeIdent = (raw: string): string => {
-  let out = "";
-  for (const ch of raw) {
-    if (/[a-zA-Z0-9]/.test(ch)) out += ch.toLowerCase();
-    else if (out.length > 0 && !out.endsWith("_")) out += "_";
-  }
-  const trimmed = out.replace(/^_+|_+$/g, "");
-  return trimmed.length === 0 ? "x" : trimmed;
-};
-
-const mcpWire = (server: string, tool: string, used: Set<string>): string => {
-  const base = `mcp_${sanitizeIdent(server)}_${sanitizeIdent(tool)}`;
-  let wire = base;
-  let n = 2;
-  while (used.has(wire)) {
-    wire = `${base}_${n}`;
-    n += 1;
-  }
-  used.add(wire);
-  return wire;
-};
-
 export const buildMcpTools = (
   servers: readonly McpServer[],
   shape: PromptShape = "xml",
@@ -299,7 +278,7 @@ export const buildMcpTools = (
       const name = tool.name.trim();
       if (name.length === 0) continue;
       const detail = tool.description?.trim() || name;
-      lines.push(`- \`${mcpWire(server.name, name, used)}\`: ${detail}`);
+      lines.push(`- \`${mcpToolWire(server.name, name, used)}\`: ${detail}`);
     }
   }
   if (lines.length === 0) return "";

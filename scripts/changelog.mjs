@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { appendFileSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -6,8 +7,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
 
 const mode = process.argv[2];
-if (mode !== undefined && mode !== "check" && mode !== "body") {
-  console.error("Use: node scripts/changelog.mjs [check|body]");
+if (mode !== undefined && mode !== "check" && mode !== "body" && mode !== "outputs") {
+  console.error("Use: node scripts/changelog.mjs [check|body|outputs]");
   process.exit(1);
 }
 
@@ -38,6 +39,30 @@ if (!notes) {
 
 if (mode === "body") {
   process.stdout.write(`${section}\n`);
+}
+
+if (mode === "outputs") {
+  writeGitHubOutputs(version, section);
+}
+
+function writeGitHubOutputs(appVersion, releaseNotes) {
+  const outputPath = process.env.GITHUB_OUTPUT;
+  if (!outputPath) {
+    console.error("GITHUB_OUTPUT is not set.");
+    process.exit(1);
+  }
+  let delimiter = outputDelimiter();
+  while (releaseNotes.includes(delimiter)) {
+    delimiter = outputDelimiter();
+  }
+  appendFileSync(
+    outputPath,
+    `version=${appVersion}\nnotes<<${delimiter}\n${releaseNotes}\n${delimiter}\n`,
+  );
+}
+
+function outputDelimiter() {
+  return `notes_${randomBytes(16).toString("hex")}`;
 }
 
 function versionDrift() {

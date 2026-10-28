@@ -73,13 +73,7 @@ jobs:
 
       - name: Read the app version
         id: app-version
-        run: |
-          version=$(node -p "require('./package.json').version")
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-          delimiter="notes_$(openssl rand -hex 16)"
-          echo "notes<<${delimiter}" >> "$GITHUB_OUTPUT"
-          node scripts/changelog.mjs body >> "$GITHUB_OUTPUT"
-          echo "${delimiter}" >> "$GITHUB_OUTPUT"
+        run: node scripts/changelog.mjs outputs
 
       - name: Create Tauri release
         uses: tauri-apps/tauri-action@v1
