@@ -12,7 +12,7 @@ use super::{
 
 pub const NAME: &str = "read";
 
-const DESCRIPTION: &str = "Read a file. Text stays line-numbered text. Prefer one read of the needed range over many tiny slices. An image is attached only when the model accepts image input. A PDF is attached only when the model accepts pdf input. A docx is extracted to text when the model accepts documents. Path is absolute or workspace-relative. Paths outside the workspace wait for the user. Optional offset and limit for text. Text capped at 50 KB. Images capped at 20 MB. Use this instead of cat, head, tail, or wc. A missing path returns an error that names the path.";
+const DESCRIPTION: &str = "Read a file. Text stays line-numbered text. Each line is `N: ` plus the file line. The `N: ` prefix is not file text. Prefer one read of the needed range over many tiny slices. An image is attached only when the model accepts image input. A PDF is attached only when the model accepts pdf input. A docx is extracted to text when the model accepts documents. Path is absolute or workspace-relative. Paths outside the workspace wait for the user. Optional offset and limit for text. Text capped at 50 KB. Images capped at 20 MB. Use this instead of cat, head, tail, or wc. A missing path returns an error that names the path.";
 
 const DEFAULT_LIMIT: usize = 2000;
 const MAX_LINE_LENGTH: usize = 2000;
@@ -665,7 +665,7 @@ mod tests {
     fn trims_lines_over_max_length() {
         let dir = tempdir();
         let path = dir.join("long.txt");
-        let body: String = std::iter::repeat('x').take(MAX_LINE_LENGTH + 50).collect();
+        let body = "x".repeat(MAX_LINE_LENGTH + 50);
         fs::write(&path, &body).unwrap();
         let result = read_windowed(&path, 1, 1).unwrap();
         assert_eq!(result.raw.len(), 1);

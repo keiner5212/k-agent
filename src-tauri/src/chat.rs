@@ -97,6 +97,16 @@ pub struct SendChatInput {
     pub resume_confirmed: bool,
     #[serde(default)]
     pub agent_personalities: HashMap<String, String>,
+    #[serde(default = "default_summarize_percent")]
+    pub context_summarize_percent: u8,
+    #[serde(default)]
+    pub summary_provider_id: Option<String>,
+    #[serde(default)]
+    pub summary_model_id: Option<String>,
+}
+
+fn default_summarize_percent() -> u8 {
+    80
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -734,7 +744,7 @@ fn turn_text(turn: &Turn) -> String {
         if !text.is_empty() {
             text.push_str("\n\n");
         }
-        text.push_str("[");
+        text.push('[');
         text.push_str(&item.name);
         text.push_str("]\n");
         text.push_str(extracted);
@@ -1370,22 +1380,12 @@ struct StreamToolDelta {
     replace_args: bool,
 }
 
+#[derive(Default)]
 struct StreamDelta {
     content: String,
     reasoning: String,
     reasoning_signature: String,
     tools: Vec<StreamToolDelta>,
-}
-
-impl Default for StreamDelta {
-    fn default() -> Self {
-        Self {
-            content: String::new(),
-            reasoning: String::new(),
-            reasoning_signature: String::new(),
-            tools: Vec::new(),
-        }
-    }
 }
 
 #[derive(Default)]
@@ -2157,9 +2157,9 @@ async fn dispatch_provider(
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
 ) -> Result<ChatOutput, ChatError> {
     match provider.kind {
-        ProviderKind::OpenAiLike => send_openai_like(provider, call, on_chunk).await,
-        ProviderKind::AnthropicLike => send_anthropic_like(provider, call, on_chunk).await,
-        ProviderKind::GeminiLike => send_gemini_like(provider, call, on_chunk).await,
+        ProviderKind::OpenAi => send_openai_like(provider, call, on_chunk).await,
+        ProviderKind::Anthropic => send_anthropic_like(provider, call, on_chunk).await,
+        ProviderKind::Gemini => send_gemini_like(provider, call, on_chunk).await,
     }
 }
 
@@ -2255,17 +2255,26 @@ fn seed_reads(slot: &tools::TurnSlot, turns: &[Turn]) {
     }
 }
 
+struct CommitScope<'a> {
+    session_id: Option<&'a str>,
+    outside_workspace_allowed: bool,
+    emit: bool,
+}
+
 async fn commit_tool_calls(
     app: &AppHandle,
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
-    session_id: Option<&str>,
-    outside_workspace_allowed: bool,
+    scope: CommitScope<'_>,
     turns: &mut Vec<Turn>,
     model_calls: &[ModelToolCall],
-    emit: bool,
     turn: std::sync::Arc<tools::TurnSlot>,
 ) -> Vec<PersistedToolCall> {
+    let CommitScope {
+        session_id,
+        outside_workspace_allowed,
+        emit,
+    } = scope;
     let mut persisted_calls = Vec::new();
     for tc in model_calls {
         if emit {
@@ -2432,16 +2441,25 @@ fn publish_child(
     );
 }
 
+struct AssistantParts {
+    content: String,
+    reasoning: String,
+    reasoning_signature: String,
+}
+
 fn sent_message(
     app: &AppHandle,
     session_id: Option<&str>,
     turn: &tools::TurnSlot,
     record_checkpoints: bool,
-    content: String,
-    reasoning: String,
-    reasoning_signature: String,
+    parts: AssistantParts,
     tool_rounds: Vec<ToolRoundTrace>,
 ) -> SentMessage {
+    let AssistantParts {
+        content,
+        reasoning,
+        reasoning_signature,
+    } = parts;
     let (checkpoint_id, files) = if record_checkpoints {
         seal_checkpoints(app, session_id, turn)
     } else {
@@ -2475,16 +2493,519 @@ fn seal_checkpoints(
     }
 }
 
+#[derive(Clone)]
+struct SendFlags {
+    outside_workspace_allowed: bool,
+    resume_confirmed: bool,
+    record_checkpoints: bool,
+    summary_provider_id: String,
+    summary_model_id: String,
+    limit_data: bool,
+}
+
+const QUIET_FLAGS: SendFlags = SendFlags {
+    outside_workspace_allowed: false,
+    resume_confirmed: false,
+    record_checkpoints: false,
+    summary_provider_id: String::new(),
+    summary_model_id: String::new(),
+    limit_data: false,
+};
+
+const FALLBACK_CONTEXT_WINDOW: u64 = 128_000;
+
+fn turn_chars(turn: &Turn) -> u64 {
+    let mut chars = turn.content.chars().count() as u64 + turn.reasoning.chars().count() as u64;
+    for call in &turn.tool_calls {
+        chars += call.name.chars().count() as u64 + call.arguments.chars().count() as u64;
+    }
+    if let Some(result) = &turn.tool_result {
+        chars += result.content.chars().count() as u64;
+    }
+    chars
+}
+
+fn span_tokens(turns: &[Turn]) -> u64 {
+    turns.iter().map(turn_chars).sum::<u64>().div_ceil(4)
+}
+
+fn context_tokens(system: Option<&str>, turns: &[Turn], tool_count: usize) -> u64 {
+    let mut chars = system.unwrap_or("").chars().count() as u64;
+    chars += tool_count as u64 * 800;
+    chars += turns.iter().map(turn_chars).sum::<u64>();
+    chars.div_ceil(4)
+}
+
+fn turn_groups(turns: &[Turn]) -> Vec<(usize, usize)> {
+    let mut groups = Vec::new();
+    let mut index = 0;
+    while index < turns.len() {
+        if turns[index].assistant && !turns[index].tool_calls.is_empty() {
+            let start = index;
+            index += 1;
+            while index < turns.len() && turns[index].tool_result.is_some() {
+                index += 1;
+            }
+            groups.push((start, index));
+            continue;
+        }
+        groups.push((index, index + 1));
+        index += 1;
+    }
+    groups
+}
+
+fn compact_cut(turns: &[Turn], tail_tokens: u64) -> usize {
+    let groups = turn_groups(turns);
+    if groups.len() < 2 {
+        return 0;
+    }
+    let mut used = 0u64;
+    let mut cut = turns.len();
+    for (start, end) in groups.iter().rev() {
+        let cost = span_tokens(&turns[*start..*end]);
+        if cut == turns.len() && cost > tail_tokens {
+            return *start;
+        }
+        if cut != turns.len() && used.saturating_add(cost) > tail_tokens {
+            break;
+        }
+        used = used.saturating_add(cost);
+        cut = *start;
+    }
+    cut
+}
+
+fn clip_chars(text: &str, max: usize) -> String {
+    if text.chars().count() <= max {
+        return text.to_string();
+    }
+    let mut out: String = text.chars().take(max).collect();
+    out.push_str("...");
+    out
+}
+
+fn transcript_of(turns: &[Turn]) -> String {
+    const BUDGET: usize = 60_000;
+    let mut parts = Vec::new();
+    let mut used = 0usize;
+    for turn in turns {
+        let mut lines = Vec::new();
+        let content = without_kept_blocks(turn.content.trim());
+        if !content.is_empty() {
+            lines.push(clip_chars(&content, 2_000));
+        }
+        if !turn.reasoning.trim().is_empty() {
+            lines.push(clip_chars(turn.reasoning.trim(), 800));
+        }
+        for call in &turn.tool_calls {
+            lines.push(clip_chars(
+                &format!("{} {}", call.name, call.arguments),
+                500,
+            ));
+        }
+        if let Some(result) = &turn.tool_result {
+            let marker = if tool_output_survives(&result.name) {
+                "[kept]"
+            } else {
+                "[omitted]"
+            };
+            lines.push(format!("{}: {marker}", result.name));
+        }
+        if lines.is_empty() {
+            continue;
+        }
+        let role = if turn.assistant { "assistant" } else { "user" };
+        let block = format!("{role}: {}", lines.join("\n"));
+        if used > 0 && used + block.len() > BUDGET {
+            break;
+        }
+        used += block.len();
+        parts.push(block);
+    }
+    parts.join("\n")
+}
+
+fn tool_output_survives(name: &str) -> bool {
+    name == "task" || name == "skill"
+}
+
+fn surviving_tool_text(turns: &[Turn]) -> String {
+    let mut parts = Vec::new();
+    for turn in turns {
+        let Some(result) = &turn.tool_result else {
+            continue;
+        };
+        if !tool_output_survives(&result.name) {
+            continue;
+        }
+        let body = result.content.trim();
+        if body.is_empty() {
+            continue;
+        }
+        parts.push(format!("<kept name=\"{}\">\n{body}\n</kept>", result.name));
+    }
+    parts.join("\n\n")
+}
+
+fn kept_blocks_from_text(text: &str) -> String {
+    let mut parts = Vec::new();
+    let mut rest = text;
+    const OPEN: &str = "<kept name=\"";
+    const CLOSE: &str = "\n</kept>";
+    while let Some(start) = rest.find(OPEN) {
+        let after = &rest[start..];
+        let Some(end_rel) = after.find(CLOSE) else {
+            break;
+        };
+        let end = end_rel + CLOSE.len();
+        parts.push(after[..end].to_string());
+        rest = &after[end..];
+    }
+    parts.join("\n\n")
+}
+
+fn without_kept_blocks(text: &str) -> String {
+    let mut out = String::new();
+    let mut rest = text;
+    const OPEN: &str = "<kept name=\"";
+    const CLOSE: &str = "\n</kept>";
+    loop {
+        let Some(start) = rest.find(OPEN) else {
+            out.push_str(rest);
+            break;
+        };
+        let after = &rest[start..];
+        let Some(end_rel) = after.find(CLOSE) else {
+            out.push_str(rest);
+            break;
+        };
+        out.push_str(&rest[..start]);
+        rest = &after[end_rel + CLOSE.len()..];
+    }
+    let mut collapsed = String::new();
+    let mut newlines = 0;
+    for ch in out.trim().chars() {
+        if ch == '\n' {
+            newlines += 1;
+            if newlines <= 2 {
+                collapsed.push('\n');
+            }
+        } else {
+            newlines = 0;
+            collapsed.push(ch);
+        }
+    }
+    collapsed
+}
+
+fn carried_kept_blocks(turns: &[Turn]) -> String {
+    let mut parts = Vec::new();
+    for turn in turns {
+        let prior = kept_blocks_from_text(&turn.content);
+        if !prior.is_empty() {
+            parts.push(prior);
+        }
+    }
+    let fresh = surviving_tool_text(turns);
+    if !fresh.is_empty() {
+        parts.push(fresh);
+    }
+    parts.join("\n\n")
+}
+
+fn cut_under_limit(turns: &[Turn], system: Option<&str>, tool_count: usize, limit: u64) -> usize {
+    let groups = turn_groups(turns);
+    if groups.len() < 2 {
+        return 0;
+    }
+    let mut low = 1usize;
+    let mut high = groups.len() - 1;
+    let mut best = groups.len() - 1;
+    while low <= high {
+        let mid = (low + high) / 2;
+        let start = groups[mid].0;
+        if context_tokens(system, &turns[start..], tool_count) < limit {
+            best = mid;
+            high = mid - 1;
+        } else {
+            low = mid + 1;
+        }
+    }
+    groups[best].0
+}
+
+fn strip_ordinary_tool_results(turns: &mut [Turn]) {
+    for turn in turns.iter_mut() {
+        let Some(result) = turn.tool_result.as_mut() else {
+            continue;
+        };
+        if tool_output_survives(&result.name) {
+            continue;
+        }
+        let empty =
+            result.content.is_empty() && result.image_png.is_none() && result.file_bytes.is_none();
+        if empty {
+            continue;
+        }
+        result.content = "[omitted]".to_string();
+        result.image_png = None;
+        result.file_name = None;
+        result.file_mime = None;
+        result.file_bytes = None;
+    }
+}
+
+fn floor_char(text: &str, mut index: usize) -> usize {
+    if index >= text.len() {
+        return text.len();
+    }
+    while index > 0 && !text.is_char_boundary(index) {
+        index -= 1;
+    }
+    index
+}
+
+fn next_char(text: &str, start: usize) -> usize {
+    let mut index = start.saturating_add(1).min(text.len());
+    while index < text.len() && !text.is_char_boundary(index) {
+        index += 1;
+    }
+    index
+}
+
+fn split_summary_text(text: &str, room: usize) -> Vec<String> {
+    let room = room.max(1);
+    if text.len() <= room {
+        return vec![text.to_string()];
+    }
+    let mut parts = Vec::new();
+    let mut start = 0;
+    while start < text.len() {
+        let mut end = floor_char(text, (start + room).min(text.len()));
+        if end < text.len() {
+            if let Some(rel) = text[start..end].rfind('\n') {
+                let at = start + rel;
+                if at > start && at - start >= room / 2 {
+                    end = at;
+                }
+            }
+        }
+        if end <= start {
+            end = next_char(text, start);
+        }
+        parts.push(text[start..end].to_string());
+        start = end;
+    }
+    parts
+}
+
+fn summary_room(model: &ModelInfo) -> usize {
+    let window = model
+        .context_window
+        .filter(|value| *value > 0)
+        .unwrap_or(FALLBACK_CONTEXT_WINDOW);
+    let output = capped_output(model, SUMMARY_MAX_OUTPUT);
+    let tokens = window.saturating_sub(output).saturating_sub(800);
+    let chars = usize::try_from(tokens.saturating_mul(4)).unwrap_or(32_000);
+    chars.saturating_sub(SUMMARY_PROMPT.len()).max(4_000)
+}
+
+async fn summarize_once(
+    provider: &Provider,
+    model: &ModelInfo,
+    plan: &crate::request_profile::WirePlan,
+    transcript: &str,
+) -> Option<String> {
+    let prompt = format!("{SUMMARY_PROMPT}{transcript}");
+    let summary_turns = vec![user_turn(prompt)];
+    let summary_call = ChatCall {
+        model,
+        turns: &summary_turns,
+        system: None,
+        effort: None,
+        max_output: plan.max_output,
+        enable_reasoning: false,
+        plan,
+        tool_names: &[],
+        mcp_tools: &[],
+        parallelism: 1,
+        allowed_commands: &[],
+        blocked_commands: &[],
+        shell_program: "",
+        nested: None,
+        question_chunk: None,
+        agent_personalities: no_personalities(),
+        child_session_id: None,
+    };
+    let output = dispatch_with_retry(provider, &summary_call, None)
+        .await
+        .ok()?;
+    let text = if !output.content.trim().is_empty() {
+        output.content.trim().to_string()
+    } else {
+        output.reasoning.trim().to_string()
+    };
+    if text.is_empty() {
+        None
+    } else {
+        Some(clip_chars(&text, 6_000))
+    }
+}
+
+async fn summarize_parts(
+    provider: &Provider,
+    model: &ModelInfo,
+    plan: &crate::request_profile::WirePlan,
+    transcript: &str,
+    depth: u8,
+) -> Option<String> {
+    let room = summary_room(model);
+    let chunks = split_summary_text(transcript, room);
+    if chunks.len() <= 1 {
+        return summarize_once(provider, model, plan, transcript).await;
+    }
+    let mut parts = Vec::with_capacity(chunks.len());
+    for chunk in chunks {
+        parts.push(summarize_once(provider, model, plan, &chunk).await?);
+    }
+    let joined = parts.join("\n\n");
+    if depth >= 4 || joined.len() <= room {
+        return Some(joined);
+    }
+    Box::pin(summarize_parts(provider, model, plan, &joined, depth + 1)).await
+}
+
+async fn summarize_chunked(
+    provider: &Provider,
+    model: &ModelInfo,
+    limit_data: bool,
+    transcript: &str,
+) -> Option<String> {
+    let plan = request_plan(
+        provider,
+        model,
+        &quiet_request_options(limit_data),
+        capped_output(model, SUMMARY_MAX_OUTPUT),
+    );
+    summarize_parts(provider, model, &plan, transcript, 0).await
+}
+
+struct SummarySource<'a> {
+    app: &'a AppHandle,
+    session_id: Option<&'a str>,
+    provider_id: &'a str,
+    model_id: &'a str,
+    limit_data: bool,
+}
+
+async fn maybe_compact_turns(
+    provider: &Provider,
+    call: &ChatCall<'_>,
+    turns: &mut Vec<Turn>,
+    percent: u8,
+    summary: &SummarySource<'_>,
+) {
+    if percent == 0 || percent > 100 || turns.len() < 2 {
+        return;
+    }
+    // Catalog often omits context_window. Compact still has to fire.
+    let window = call
+        .model
+        .context_window
+        .filter(|value| *value > 0)
+        .unwrap_or(FALLBACK_CONTEXT_WINDOW);
+    let limit = window.saturating_mul(u64::from(percent)) / 100;
+    let tail_budget = (window.saturating_mul(u64::from(100 - percent)) / 100).max(4_000);
+    if context_tokens(call.system, turns, call.tool_names.len()) < limit {
+        return;
+    }
+    let mut cut = compact_cut(turns, tail_budget);
+    let system = call.system;
+    let tool_count = call.tool_names.len();
+    if cut == 0 || context_tokens(system, &turns[cut..], tool_count) >= limit {
+        let tighter = cut_under_limit(turns, system, tool_count, limit);
+        if tighter > 0 {
+            cut = tighter;
+        }
+    }
+    let mut compacted = false;
+    if cut > 0 {
+        let transcript = transcript_of(&turns[..cut]);
+        if !transcript.is_empty() {
+            let (summary_provider, summary_model) = resolve_summarizer(
+                summary.app,
+                summary.session_id,
+                provider,
+                call.model,
+                summary.provider_id,
+                summary.model_id,
+            )
+            .await;
+            if let Some(summary_text) = summarize_chunked(
+                &summary_provider,
+                &summary_model,
+                summary.limit_data,
+                &transcript,
+            )
+            .await
+            {
+                let kept = carried_kept_blocks(&turns[..cut]);
+                let tail = turns.split_off(cut);
+                let mut body =
+                    format!("<conversation-summary>\n{summary_text}\n</conversation-summary>");
+                if !kept.is_empty() {
+                    body.push_str("\n\n");
+                    body.push_str(&kept);
+                }
+                let mut next = vec![user_turn(body)];
+                next.extend(tail);
+                *turns = next;
+                compacted = true;
+            }
+        }
+    }
+    if compacted || context_tokens(call.system, turns, call.tool_names.len()) >= limit {
+        strip_ordinary_tool_results(turns);
+    }
+}
+
+async fn resolve_summarizer(
+    app: &AppHandle,
+    session_id: Option<&str>,
+    chat_provider: &Provider,
+    chat_model: &ModelInfo,
+    provider_id: &str,
+    model_id: &str,
+) -> (Provider, ModelInfo) {
+    if !provider_id.is_empty() && !model_id.is_empty() {
+        if let Ok((mut provider, model)) = load_provider_model(app, provider_id, model_id).await {
+            if bind_session_headers(Some(app), session_id, &mut provider).is_ok() {
+                return (provider, model);
+            }
+        }
+    }
+    (chat_provider.clone(), chat_model.clone())
+}
+
 async fn send_message(
     app: &AppHandle,
     provider: &Provider,
     call: &ChatCall<'_>,
     on_chunk: Option<&tauri::ipc::Channel<ChatChunk>>,
     session_id: Option<&str>,
-    outside_workspace_allowed: bool,
-    resume_confirmed: bool,
-    record_checkpoints: bool,
+    flags: SendFlags,
+    summarize_percent: u8,
 ) -> Result<SentMessage, ChatError> {
+    let summary_provider_id = flags.summary_provider_id.clone();
+    let summary_model_id = flags.summary_model_id.clone();
+    let limit_data = flags.limit_data;
+    let SendFlags {
+        outside_workspace_allowed,
+        resume_confirmed,
+        record_checkpoints,
+        ..
+    } = flags;
     if !last_user_has_input(call.turns) {
         return Err(ChatError::EmptyMessage);
     }
@@ -2509,6 +3030,7 @@ async fn send_message(
     let mut tool_rounds: Vec<ToolRoundTrace> = Vec::new();
     let turn = tools::TurnSlot::start();
     seed_reads(&turn, call.turns);
+    let mut continued = false;
 
     loop {
         if resume_confirmed {
@@ -2529,11 +3051,13 @@ async fn send_message(
                     app,
                     call,
                     on_chunk,
-                    session_id,
-                    true,
+                    CommitScope {
+                        session_id,
+                        outside_workspace_allowed: true,
+                        emit: false,
+                    },
                     &mut turns,
                     &model_calls,
-                    false,
                     turn.clone(),
                 )
                 .await;
@@ -2547,6 +3071,22 @@ async fn send_message(
                 publish_child(app, call, "", "", "", &tool_rounds);
                 continue;
             }
+        }
+        if summarize_percent > 0 {
+            maybe_compact_turns(
+                &provider,
+                call,
+                &mut turns,
+                summarize_percent,
+                &SummarySource {
+                    app,
+                    session_id,
+                    provider_id: &summary_provider_id,
+                    model_id: &summary_model_id,
+                    limit_data,
+                },
+            )
+            .await;
         }
         let round_call = ChatCall {
             model: call.model,
@@ -2579,34 +3119,25 @@ async fn send_message(
         }
 
         if output.tool_calls.is_empty() {
-            if !output.content.is_empty() {
-                let content = tools::truncate_assistant(&output.content);
-                if !streamed {
-                    emit_chunk(on_chunk, "content", &content);
+            if output.content.trim().is_empty() {
+                if !continued {
+                    continued = true;
+                    turns.push(user_turn(
+                        "Continue. Reply to the user or call a tool. Do not stop after reasoning."
+                            .to_string(),
+                    ));
+                    continue;
                 }
-                publish_child(
-                    app,
-                    call,
-                    &content,
-                    &output.reasoning,
-                    &output.reasoning_signature,
-                    &tool_rounds,
-                );
-                return Ok(sent_message(
-                    app,
-                    session_id,
-                    &turn,
-                    record_checkpoints,
-                    content,
-                    output.reasoning,
-                    output.reasoning_signature,
-                    tool_rounds,
-                ));
+                return Err(ChatError::EmptyResponse);
+            }
+            let content = tools::truncate_assistant(&output.content);
+            if !streamed {
+                emit_chunk(on_chunk, "content", &content);
             }
             publish_child(
                 app,
                 call,
-                &output.content,
+                &content,
                 &output.reasoning,
                 &output.reasoning_signature,
                 &tool_rounds,
@@ -2616,9 +3147,11 @@ async fn send_message(
                 session_id,
                 &turn,
                 record_checkpoints,
-                output.content,
-                output.reasoning,
-                output.reasoning_signature,
+                AssistantParts {
+                    content,
+                    reasoning: output.reasoning,
+                    reasoning_signature: output.reasoning_signature,
+                },
                 tool_rounds,
             ));
         }
@@ -2655,11 +3188,13 @@ async fn send_message(
             app,
             call,
             on_chunk,
-            session_id,
-            outside_workspace_allowed,
+            CommitScope {
+                session_id,
+                outside_workspace_allowed,
+                emit: true,
+            },
             &mut turns,
             &model_calls,
-            true,
             turn.clone(),
         )
         .await;
@@ -2800,9 +3335,8 @@ pub async fn generate_session_title(
             &call,
             None,
             input.session_id.as_deref(),
-            false,
-            false,
-            false,
+            QUIET_FLAGS,
+            0,
         )
         .await?
         .content,
@@ -2855,48 +3389,13 @@ pub async fn summarize_conversation(
     if transcript.is_empty() {
         return Err(ChatError::EmptyResponse);
     }
-    let (provider, model) = load_provider_model(&app, &input.provider_id, &input.model_id).await?;
-    let prompt = format!("{SUMMARY_PROMPT}{transcript}");
-    let turns = vec![user_turn(prompt)];
-    let options = quiet_request_options(input.limit_provider_data_use);
-    let plan = request_plan(
-        &provider,
-        &model,
-        &options,
-        capped_output(&model, SUMMARY_MAX_OUTPUT),
-    );
-    let call = ChatCall {
-        model: &model,
-        turns: &turns,
-        system: None,
-        effort: None,
-        max_output: plan.max_output,
-        enable_reasoning: plan.enable_reasoning,
-        plan: &plan,
-        tool_names: &[],
-        mcp_tools: &[],
-        parallelism: 1,
-        allowed_commands: &[],
-        blocked_commands: &[],
-        shell_program: "",
-        nested: None,
-        question_chunk: None,
-        agent_personalities: no_personalities(),
-        child_session_id: None,
-    };
+    let (mut provider, model) =
+        load_provider_model(&app, &input.provider_id, &input.model_id).await?;
+    bind_session_headers(Some(&app), input.session_id.as_deref(), &mut provider)?;
     let summary = normalize_generated_text(
-        &send_message(
-            &app,
-            &provider,
-            &call,
-            None,
-            input.session_id.as_deref(),
-            false,
-            false,
-            false,
-        )
-        .await?
-        .content,
+        &summarize_chunked(&provider, &model, input.limit_provider_data_use, transcript)
+            .await
+            .ok_or(ChatError::EmptyResponse)?,
     );
     if summary.is_empty() {
         return Err(ChatError::EmptyResponse);
@@ -3028,16 +3527,21 @@ fn app_content_output_cap(kind: GenerateAppContentKind) -> u64 {
     }
 }
 
+pub(crate) struct QuietPrompt<'a> {
+    pub system: &'a str,
+    pub user: &'a str,
+}
+
 pub(crate) async fn complete_quiet(
     app: &AppHandle,
     provider_id: &str,
     model_id: &str,
-    system: &str,
-    user: &str,
+    prompt: QuietPrompt<'_>,
     max_output: u64,
     limit_provider_data_use: bool,
     session_id: Option<&str>,
 ) -> Result<String, ChatError> {
+    let QuietPrompt { system, user } = prompt;
     let (provider, model) = load_provider_model(app, provider_id, model_id).await?;
     let turns = vec![user_turn(user.to_string())];
     let max_output = capped_output(&model, max_output);
@@ -3063,7 +3567,7 @@ pub(crate) async fn complete_quiet(
         child_session_id: None,
     };
     let text = normalize_generated_text(
-        &send_message(app, &provider, &call, None, session_id, false, false, false)
+        &send_message(app, &provider, &call, None, session_id, QUIET_FLAGS, 0)
             .await?
             .content,
     );
@@ -3104,7 +3608,7 @@ pub async fn generate_app_content(
         child_session_id: None,
     };
     let text = normalize_generated_text(
-        &send_message(&app, &provider, &call, None, None, false, false, false)
+        &send_message(&app, &provider, &call, None, None, QUIET_FLAGS, 0)
             .await?
             .content,
     );
@@ -3572,6 +4076,8 @@ pub(crate) async fn run_task(
             .or_else(|| plan.anthropic_effort.clone())
             .or_else(|| plan.gemini_level.clone()),
         request: options,
+        summary_provider_id: scope.summary_provider_id.clone(),
+        summary_model_id: scope.summary_model_id.clone(),
     };
     let effort = plan
         .reasoning_effort
@@ -3607,9 +4113,15 @@ pub(crate) async fn run_task(
         &call,
         None,
         child_session_id.as_deref().or(ctx.session_id.as_deref()),
-        ctx.outside_workspace_allowed,
-        false,
-        false,
+        SendFlags {
+            outside_workspace_allowed: ctx.outside_workspace_allowed,
+            resume_confirmed: false,
+            record_checkpoints: false,
+            summary_provider_id: scope.summary_provider_id.clone(),
+            summary_model_id: scope.summary_model_id.clone(),
+            limit_data: scope.request.limit_provider_data_use,
+        },
+        80,
     );
     let output = match feed_guard.as_ref() {
         Some(guard) => CHILD_FEED_ID.scope(guard.0.clone(), pending).await,
@@ -3744,6 +4256,8 @@ pub async fn send_chat_message(
             task_depth: 0,
             effort: effort_label.clone(),
             request: options,
+            summary_provider_id: input.summary_provider_id.clone().unwrap_or_default(),
+            summary_model_id: input.summary_model_id.clone().unwrap_or_default(),
         }),
         question_chunk: None,
         agent_personalities: personality_map(input.agent_personalities.clone()),
@@ -3756,9 +4270,15 @@ pub async fn send_chat_message(
         &call,
         Some(&on_chunk),
         input.session_id.as_deref(),
-        input.outside_workspace_allowed,
-        input.resume_confirmed,
-        true,
+        SendFlags {
+            outside_workspace_allowed: input.outside_workspace_allowed,
+            resume_confirmed: input.resume_confirmed,
+            record_checkpoints: true,
+            summary_provider_id: input.summary_provider_id.clone().unwrap_or_default(),
+            summary_model_id: input.summary_model_id.clone().unwrap_or_default(),
+            limit_data: input.request.limit_provider_data_use,
+        },
+        input.context_summarize_percent,
     );
     tokio::pin!(send_fut);
     let output = match cancel_rx {
@@ -4015,12 +4535,12 @@ mod tests {
         ];
         for raw in samples {
             let turn = assistant_tool_turn(raw);
-            let anthropic = anthropic_messages(&[turn.clone()]);
+            let anthropic = anthropic_messages(std::slice::from_ref(&turn));
             let input = &anthropic[0]["content"][2]["input"];
             assert_eq!(anthropic[0]["content"][2]["type"], "tool_use");
             assert_object(input, raw);
 
-            let gemini = gemini_contents(&[turn.clone()]);
+            let gemini = gemini_contents(std::slice::from_ref(&turn));
             let args = &gemini[0]["parts"][2]["functionCall"]["args"];
             assert_object(args, raw);
 
@@ -4078,5 +4598,146 @@ mod tests {
             ),
             r#"{"filePath":"a.ts"}"#
         );
+    }
+
+    fn user(text: &str) -> Turn {
+        user_turn(text.to_string())
+    }
+
+    fn tool_round(output: &str) -> Vec<Turn> {
+        vec![
+            Turn {
+                assistant: true,
+                content: String::new(),
+                reasoning: String::new(),
+                reasoning_signature: String::new(),
+                attachments: Vec::new(),
+                tool_calls: vec![ModelToolCall {
+                    id: "1".into(),
+                    name: "read".into(),
+                    arguments: "{}".into(),
+                    thought_signature: String::new(),
+                }],
+                tool_result: None,
+            },
+            Turn {
+                assistant: false,
+                content: String::new(),
+                reasoning: String::new(),
+                reasoning_signature: String::new(),
+                attachments: Vec::new(),
+                tool_calls: Vec::new(),
+                tool_result: Some(ToolResultTurn {
+                    call_id: "1".into(),
+                    name: "read".into(),
+                    content: output.to_string(),
+                    image_png: None,
+                    file_name: None,
+                    file_mime: None,
+                    file_bytes: None,
+                }),
+            },
+        ]
+    }
+
+    fn kept_result(name: &str, content: &str) -> Turn {
+        Turn {
+            assistant: false,
+            content: String::new(),
+            reasoning: String::new(),
+            reasoning_signature: String::new(),
+            attachments: Vec::new(),
+            tool_calls: Vec::new(),
+            tool_result: Some(ToolResultTurn {
+                call_id: name.into(),
+                name: name.into(),
+                content: content.into(),
+                image_png: None,
+                file_name: None,
+                file_mime: None,
+                file_bytes: None,
+            }),
+        }
+    }
+
+    #[test]
+    fn split_summary_text_breaks_a_transcript_that_does_not_fit() {
+        let text = format!("{}\n{}", "a".repeat(50), "b".repeat(50));
+        let parts = split_summary_text(&text, 40);
+        assert!(parts.len() > 1, "{}", parts.len());
+        assert!(parts.iter().all(|part| part.len() <= 40), "{parts:?}");
+        assert_eq!(parts.join(""), text);
+    }
+
+    #[test]
+    fn transcript_omits_tool_bodies() {
+        let text = transcript_of(&tool_round("SECRET_FILE"));
+        assert!(!text.contains("SECRET_FILE"), "{text}");
+        assert!(text.contains("[omitted]"), "{text}");
+    }
+
+    #[test]
+    fn strip_ordinary_tool_results_keeps_task_and_skill() {
+        let mut turns = vec![
+            kept_result("read", "file"),
+            kept_result("task", "agent report"),
+            kept_result("skill", "skill body"),
+        ];
+        strip_ordinary_tool_results(&mut turns);
+        assert_eq!(turns[0].tool_result.as_ref().unwrap().content, "[omitted]");
+        assert_eq!(
+            turns[1].tool_result.as_ref().unwrap().content,
+            "agent report"
+        );
+        assert_eq!(turns[2].tool_result.as_ref().unwrap().content, "skill body");
+        let kept = surviving_tool_text(&turns);
+        assert!(kept.contains("agent report"), "{kept}");
+        assert!(kept.contains("skill body"), "{kept}");
+        assert!(!kept.contains("file"), "{kept}");
+    }
+
+    #[test]
+    fn compact_cut_keeps_a_newest_turn_that_exceeds_the_tail() {
+        let turns = vec![user("goal"), user(&"x".repeat(20_000))];
+        assert_eq!(compact_cut(&turns, 100), 1);
+    }
+
+    #[test]
+    fn cut_under_limit_keeps_the_newest_when_older_turns_blow_the_window() {
+        let turns = vec![user("goal"), user(&"x".repeat(20_000)), user("latest")];
+        let cut = cut_under_limit(&turns, None, 0, 100);
+        assert!(cut > 0, "{cut}");
+        assert_eq!(turns[cut].content, "latest");
+    }
+
+    #[test]
+    fn carried_kept_blocks_survive_the_next_summary() {
+        let prior = user(
+            "<conversation-summary>\nprose\n</conversation-summary>\n\n<kept name=\"skill\">\nSKILL_SECRET\n</kept>",
+        );
+        let text = transcript_of(std::slice::from_ref(&prior));
+        assert!(text.contains("prose"), "{text}");
+        assert!(!text.contains("SKILL_SECRET"), "{text}");
+        let turns = vec![prior, kept_result("task", "agent report")];
+        let kept = carried_kept_blocks(&turns);
+        assert!(kept.contains("SKILL_SECRET"), "{kept}");
+        assert!(kept.contains("agent report"), "{kept}");
+    }
+
+    #[test]
+    fn compact_cut_keeps_a_short_thread() {
+        let turns = vec![user("goal"), user("latest")];
+        assert_eq!(compact_cut(&turns, 8_000), 0);
+    }
+
+    #[test]
+    fn compact_cut_drops_old_tool_rounds_that_do_not_fit() {
+        let mut turns = vec![user("goal")];
+        turns.extend(tool_round(&"x".repeat(20_000)));
+        turns.extend(tool_round("recent"));
+        let cut = compact_cut(&turns, 2_000);
+        assert!(cut > 0, "{cut}");
+        assert!(cut < turns.len());
+        assert!(turns[cut].assistant && !turns[cut].tool_calls.is_empty());
     }
 }

@@ -65,10 +65,8 @@ fn find_git_dir(start: &Path) -> Option<PathBuf> {
                 }
             }
         }
-        match current.parent() {
-            Some(parent) => current = parent.to_path_buf(),
-            None => return None,
-        }
+        let parent = current.parent()?.to_path_buf();
+        current = parent;
     }
 }
 

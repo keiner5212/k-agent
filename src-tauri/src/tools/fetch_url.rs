@@ -245,7 +245,7 @@ fn bare_host(hostname: &str) -> String {
 }
 
 fn is_blocked_host(host: &str) -> bool {
-    if BLOCKED_HOSTS.iter().any(|blocked| *blocked == host) {
+    if BLOCKED_HOSTS.contains(&host) {
         return true;
     }
     BLOCKED_SUFFIXES
@@ -614,9 +614,7 @@ fn platform_token(user_agent: &str) -> String {
         "\"Windows\"".to_string()
     } else if user_agent.contains("Macintosh") {
         "\"macOS\"".to_string()
-    } else if user_agent.contains("Linux") {
-        "\"Linux\"".to_string()
-    } else if user_agent.contains("X11") {
+    } else if user_agent.contains("Linux") || user_agent.contains("X11") {
         "\"Linux\"".to_string()
     } else {
         "\"Windows\"".to_string()

@@ -405,11 +405,12 @@ fn apply_files(ctx: &ToolContext<'_>, files: &[PatchFile]) -> ToolOutcome {
                 restore(&written);
                 return super::action_error(&item.rel, "Unable to remove the old path.");
             }
-        } else if item.remove_source && item.after.is_empty() {
-            if fs::remove_file(&item.source).is_err() {
-                restore(&written);
-                return super::action_error(&item.rel, "Unable to delete file.");
-            }
+        } else if item.remove_source
+            && item.after.is_empty()
+            && fs::remove_file(&item.source).is_err()
+        {
+            restore(&written);
+            return super::action_error(&item.rel, "Unable to delete file.");
         }
     }
     let mut added = 0u32;
@@ -527,10 +528,8 @@ fn apply_hunks(content: &str, hunks: &[Vec<HunkLine>]) -> Result<String, String>
         lines = next;
     }
     let mut out = lines.join("\n");
-    if trailing || !out.is_empty() {
-        if !out.ends_with('\n') {
-            out.push('\n');
-        }
+    if (trailing || !out.is_empty()) && !out.ends_with('\n') {
+        out.push('\n');
     }
     if crlf {
         out = out.replace('\n', "\r\n");

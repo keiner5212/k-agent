@@ -28,7 +28,8 @@ import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import { promptShapeForModel } from "@/lib/prompt-shape";
 import { responseLanguageDirective } from "@/lib/response-language";
 import { useProvidersStore } from "@/lib/providers";
-import { selectActiveMessages, useSessionsStore } from "@/lib/sessions";
+import { FALLBACK_CONTEXT_WINDOW, projectModelMessages } from "@/lib/session-turns";
+import { selectActiveMessages, selectActiveSession, useSessionsStore } from "@/lib/sessions";
 import { useSelectionStore } from "@/lib/selected-model";
 import { isTauri } from "@/lib/platform";
 import { useSettingsStore } from "@/lib/settings";
@@ -48,6 +49,11 @@ export const ContextUsage = (): ReactNode => {
   const selection = useSelectionStore((state) => state.selection);
   const providers = useProvidersStore((state) => state.providers);
   const messages = useSessionsStore(selectActiveMessages);
+  const modelContext = useSessionsStore((state) => selectActiveSession(state)?.modelContext);
+  const modelMessages = useMemo(
+    () => projectModelMessages(messages, modelContext),
+    [messages, modelContext],
+  );
   const selectedAgent = useComposerStore((state) => state.selectedAgent);
   const agentContexts = useAgentsStore((state) => state.contexts);
   const skillContexts = useSkillsStore((state) => state.contexts);
@@ -147,13 +153,18 @@ export const ContextUsage = (): ReactNode => {
   const usage = useMemo(
     () =>
       buildContextUsage({
-        windowTokens: model?.contextWindow,
+        windowTokens:
+          model?.contextWindow && model.contextWindow > 0
+            ? model.contextWindow
+            : model
+              ? FALLBACK_CONTEXT_WINDOW
+              : undefined,
         extras: started ? extras : {},
         cost: model?.cost,
-        messages: started ? messages : [],
+        messages: started ? modelMessages : [],
         vision,
       }),
-    [extras, messages, model, started, vision],
+    [extras, model, modelMessages, started, vision],
   );
   const visibleBuckets = usage.buckets.filter((item) => item.tokens > 0);
   const listBuckets =

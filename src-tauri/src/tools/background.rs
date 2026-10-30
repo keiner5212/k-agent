@@ -164,7 +164,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     };
     let command = command.trim();
     if let Err(outcome) = authorize(command, ctx).await {
-        return outcome;
+        return *outcome;
     }
     let Some(workspace) = ctx.workspace_path() else {
         return error_outcome("background needs a workspace.");
@@ -193,15 +193,15 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     }
 }
 
-async fn authorize(command: &str, ctx: &ToolContext<'_>) -> Result<(), ToolOutcome> {
+async fn authorize(command: &str, ctx: &ToolContext<'_>) -> Result<(), Box<ToolOutcome>> {
     match bash::classify(command, &ctx.allowed_commands, &ctx.blocked_commands) {
-        bash::Decision::Empty => Err(error_outcome("background `command` is empty.")),
-        bash::Decision::Blocked => Err(error_outcome(
+        bash::Decision::Empty => Err(Box::new(error_outcome("background `command` is empty."))),
+        bash::Decision::Blocked => Err(Box::new(error_outcome(
             "background refused: command is on the block list.",
-        )),
-        bash::Decision::Background => Err(error_outcome(
+        ))),
+        bash::Decision::Background => Err(Box::new(error_outcome(
             "background keeps the process until the turn ends. Do not use &, nohup, or disown.",
-        )),
+        ))),
         bash::Decision::Run | bash::Decision::Allowed => Ok(()),
         bash::Decision::Confirm => {
             if bash::shell_session_granted(ctx) {
@@ -216,14 +216,14 @@ async fn authorize(command: &str, ctx: &ToolContext<'_>) -> Result<(), ToolOutco
             .await
             {
                 Ok(super::tool_utils::workspace::ConfirmChoice::Deny) => {
-                    Err(error_outcome("User denied the command."))
+                    Err(Box::new(error_outcome("User denied the command.")))
                 }
                 Ok(super::tool_utils::workspace::ConfirmChoice::Once) => Ok(()),
                 Ok(super::tool_utils::workspace::ConfirmChoice::Session) => {
                     grant_shell_session_from(ctx);
                     Ok(())
                 }
-                Err(message) => Err(error_outcome(&message)),
+                Err(message) => Err(Box::new(error_outcome(&message))),
             }
         }
     }

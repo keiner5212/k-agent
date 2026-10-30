@@ -84,6 +84,7 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
   buildActionCommand("undo", "undo", "chat.slashCommands.undo.description"),
   buildActionCommand("redo", "redo", "chat.slashCommands.redo.description"),
   buildActionCommand("stop", "stop", "chat.slashCommands.stop.description"),
+  buildActionCommand("compact", "compact", "chat.slashCommands.compact.description"),
   buildActionCommand("help", "help", "chat.slashCommands.help.description"),
 ];
 

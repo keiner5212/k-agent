@@ -368,7 +368,7 @@ fn parse_bing_results(html: &str, policy: FetchPolicy) -> Vec<SearchResult> {
         Err(_) => return results,
     };
 
-    let blocks: Vec<&str> = block_re.split(&region).collect();
+    let blocks: Vec<&str> = block_re.split(region).collect();
     for block in blocks.into_iter().skip(1) {
         let Some(caps) = link_re_double
             .captures(block)

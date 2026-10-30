@@ -350,7 +350,7 @@ fn collect_system_font_families() -> Vec<String> {
             Some(trimmed.to_string())
         })
         .collect();
-    names.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    names.sort_by_key(|name| name.to_lowercase());
     names.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
     names
 }

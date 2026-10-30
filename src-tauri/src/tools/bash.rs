@@ -68,7 +68,7 @@ impl Tool for BashTool {
     fn execute(&self, args: &Value, ctx: &ToolContext<'_>) -> ToolOutcome {
         let (command, _description) = match bash_args(args) {
             Ok(pair) => pair,
-            Err(outcome) => return outcome,
+            Err(outcome) => return *outcome,
         };
         match classify(command, &ctx.allowed_commands, &ctx.blocked_commands) {
             Decision::Empty => error_outcome("bash `command` is empty."),
@@ -88,7 +88,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     let args: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
     let (command, description) = match bash_args(&args) {
         Ok(pair) => pair,
-        Err(outcome) => return outcome,
+        Err(outcome) => return *outcome,
     };
     let command = command.trim();
     if let Some(message) = background_kill_refusal(command, ctx) {
@@ -127,15 +127,15 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
     }
 }
 
-fn bash_args(args: &Value) -> Result<(&str, &str), ToolOutcome> {
+fn bash_args(args: &Value) -> Result<(&str, &str), Box<ToolOutcome>> {
     let Some(command) = args.get("command").and_then(Value::as_str) else {
-        return Err(error_outcome("bash requires a string `command`."));
+        return Err(Box::new(error_outcome("bash requires a string `command`.")));
     };
     let Some(description) = args.get("description").and_then(Value::as_str) else {
-        return Err(error_outcome("bash: `description` is required."));
+        return Err(Box::new(error_outcome("bash: `description` is required.")));
     };
     if description.trim().is_empty() {
-        return Err(error_outcome("bash: `description` is empty."));
+        return Err(Box::new(error_outcome("bash: `description` is empty.")));
     }
     Ok((command, description.trim()))
 }

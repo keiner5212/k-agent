@@ -72,7 +72,7 @@ const EDIT_TOOL_PARAMETERS = {
     },
     oldString: {
       type: "string",
-      description: `One replacement only. Exact file text to find. Omit this when edits is set. Not a line-number prefix from read. Not a diff hunk. Include the indentation that is in the file.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
+      description: `One replacement only. File text to find. Omit this when edits is set. Copy the file text, not the read line numbers. Not a diff hunk. Include the indentation that is in the file. A miss returns the exact file lines.\n${CHAT_TOOL_DESCRIPTIONS.edit}`,
     },
     newString: {
       type: "string",

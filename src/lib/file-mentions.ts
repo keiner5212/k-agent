@@ -17,8 +17,51 @@ export type MentionListingContext = {
   prefix: string;
 };
 
-const MENTION_PATH_RE = /@([^\s@]+)/g;
 export const MENTION_RESULT_LIMIT = 20;
+
+export type FileMentionSpan = {
+  start: number;
+  end: number;
+  path: string;
+};
+
+const fileMentionPattern = (): RegExp => /@(?:"((?:\\.|[^"\\])*)"|([^\s@]+))/g;
+
+const unescapeMentionPath = (value: string): string => value.replace(/\\(["\\])/g, "$1");
+
+const quoteIsOpen = (body: string): boolean => {
+  let escaped = false;
+  for (const char of body) {
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') return false;
+  }
+  return true;
+};
+
+export const fileMentionSpans = (text: string): FileMentionSpan[] => {
+  const spans: FileMentionSpan[] = [];
+  for (const match of text.matchAll(fileMentionPattern())) {
+    const quoted = match[1];
+    const bare = match[2];
+    const path = quoted !== undefined ? unescapeMentionPath(quoted) : (bare ?? "");
+    const start = match.index ?? 0;
+    spans.push({ start, end: start + (match[0]?.length ?? 0), path });
+  }
+  return spans;
+};
+
+export const formatMentionToken = (path: string): string => {
+  if (!/[\s"\\@]/.test(path)) return `@${path}`;
+  const escaped = path.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `@"${escaped}"`;
+};
 export const ROOT_DIR = "";
 
 export type MentionFilterResult = {
@@ -32,6 +75,11 @@ export const parseActiveMention = (text: string, cursor: number): ActiveMention 
   if (atIndex === -1) return null;
   if (atIndex > 0 && !/\s/.test(before.charAt(atIndex - 1))) return null;
   const query = before.slice(atIndex + 1);
+  if (query.startsWith('"')) {
+    const body = query.slice(1);
+    if (!quoteIsOpen(body)) return null;
+    return { start: atIndex, end: cursor, query: unescapeMentionPath(body) };
+  }
   if (query.length > 0 && /\s/.test(query)) return null;
   return { start: atIndex, end: cursor, query };
 };
@@ -151,11 +199,17 @@ export const expandWorkspaceMentions = (
 ): string => {
   if (!text.includes("@")) return text;
   const paths = buildMentionPathSet(entries);
-  return text.replace(MENTION_PATH_RE, (match, raw: string) => {
-    const normalized = toPosixPath(raw).replace(/\/+$/, "");
-    if (!isExactMentionPath(paths, normalized)) return match;
-    return renderAbsolute(joinWorkspacePath(workspaceRoot, normalized));
-  });
+  let out = "";
+  let last = 0;
+  for (const span of fileMentionSpans(text)) {
+    out += text.slice(last, span.start);
+    const normalized = toPosixPath(span.path).replace(/\/+$/, "");
+    out += isExactMentionPath(paths, normalized)
+      ? renderAbsolute(joinWorkspacePath(workspaceRoot, normalized))
+      : text.slice(span.start, span.end);
+    last = span.end;
+  }
+  return out + text.slice(last);
 };
 
 export const segmentMentionHighlights = (
@@ -165,18 +219,15 @@ export const segmentMentionHighlights = (
   if (!text.includes("@")) return [{ text, mention: false }];
   const segments: MentionSegment[] = [];
   let last = 0;
-  for (const match of text.matchAll(MENTION_PATH_RE)) {
-    const index = match.index ?? 0;
-    if (index > last) {
-      segments.push({ text: text.slice(last, index), mention: false });
+  for (const span of fileMentionSpans(text)) {
+    if (span.start > last) {
+      segments.push({ text: text.slice(last, span.start), mention: false });
     }
-    const token = match[0] ?? "";
-    const path = match[1] ?? "";
     segments.push({
-      text: token,
-      mention: isExactMentionPath(paths, path.replace(/\/+$/, "")),
+      text: text.slice(span.start, span.end),
+      mention: isExactMentionPath(paths, span.path.replace(/\/+$/, "")),
     });
-    last = index + token.length;
+    last = span.end;
   }
   if (last < text.length) {
     segments.push({ text: text.slice(last), mention: false });
@@ -191,8 +242,10 @@ export const applyMentionSelection = (
 ): { next: string; cursor: number } => {
   const before = text.slice(0, mention.start);
   const after = text.slice(mention.end);
-  const token = entry.kind === "dir" ? `${entry.path}/` : `${entry.path} `;
-  const next = `${before}@${token}${after}`;
-  const cursor = before.length + 1 + token.length;
+  const path = entry.kind === "dir" ? `${entry.path}/` : entry.path;
+  const token = formatMentionToken(path);
+  const spacer = entry.kind === "dir" ? "" : " ";
+  const next = `${before}${token}${spacer}${after}`;
+  const cursor = before.length + token.length + spacer.length;
   return { next, cursor };
 };

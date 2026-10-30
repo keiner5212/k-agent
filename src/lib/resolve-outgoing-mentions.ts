@@ -1,4 +1,4 @@
-import { expandWorkspaceMentions } from "@/lib/file-mentions";
+import { expandWorkspaceMentions, fileMentionSpans } from "@/lib/file-mentions";
 import { shellQuote } from "@/lib/shell";
 import { useWorkspaceFilesStore } from "@/lib/workspace-files";
 
@@ -6,8 +6,8 @@ export type OutgoingMentionFormat = "plain" | "shell";
 
 const mentionQueriesInText = (text: string): string[] => {
   const queries: string[] = [];
-  for (const match of text.matchAll(/@([^\s@]+)/g)) {
-    const query = (match[1] ?? "").replace(/\/+$/, "");
+  for (const span of fileMentionSpans(text)) {
+    const query = span.path.replace(/\/+$/, "");
     if (query.length > 0) queries.push(query);
   }
   return queries;

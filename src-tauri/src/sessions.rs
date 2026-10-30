@@ -65,6 +65,8 @@ pub struct SessionRecord {
     pub file_checkpoints: Vec<TurnCheckpoint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redo: Option<RedoRecord>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_context: Option<ModelContext>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,6 +94,19 @@ pub struct RedoRecord {
     pub checkpoints: Vec<TurnCheckpoint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub todos: Option<Vec<crate::tools::todo::TodoItem>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_context: Option<ModelContext>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelContext {
+    #[serde(default)]
+    pub summary: String,
+    #[serde(default)]
+    pub through_id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub omitted_call_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -217,6 +232,7 @@ fn empty_snapshot() -> SessionsSnapshot {
             parent_session_id: None,
             file_checkpoints: Vec::new(),
             redo: None,
+            model_context: None,
         }],
     }
 }
@@ -342,10 +358,12 @@ pub fn begin_child_session(
         app,
         parent_session_id,
         title,
-        prompt,
-        "",
-        "",
-        "",
+        ChildSessionText {
+            prompt,
+            content: "",
+            reasoning: "",
+            reasoning_signature: "",
+        },
         Vec::new(),
         workspace_path,
     )
@@ -376,17 +394,27 @@ pub fn update_child_session(
     write_session_record(app, &mut session)
 }
 
+pub(crate) struct ChildSessionText<'a> {
+    prompt: &'a str,
+    content: &'a str,
+    reasoning: &'a str,
+    reasoning_signature: &'a str,
+}
+
 pub fn write_child_session(
     app: &AppHandle,
     parent_session_id: &str,
     title: &str,
-    prompt: &str,
-    content: &str,
-    reasoning: &str,
-    reasoning_signature: &str,
+    text: ChildSessionText<'_>,
     tool_rounds: Vec<crate::chat::ToolRoundTrace>,
     workspace_path: Option<String>,
 ) -> Result<String, SessionError> {
+    let ChildSessionText {
+        prompt,
+        content,
+        reasoning,
+        reasoning_signature,
+    } = text;
     if !is_safe_id(parent_session_id) {
         return Err(SessionError::Path("invalid session id".into()));
     }
@@ -410,6 +438,7 @@ pub fn write_child_session(
         parent_session_id: Some(parent_session_id.to_string()),
         file_checkpoints: Vec::new(),
         redo: None,
+        model_context: None,
     };
     write_session_record(app, &mut session)?;
     Ok(id)
@@ -478,6 +507,7 @@ pub(crate) fn read_session_record(
             parent_session_id: None,
             file_checkpoints: Vec::new(),
             redo: None,
+            model_context: None,
         });
     }
     let raw = std::fs::read_to_string(&path).map_err(|e| SessionError::Io(e.to_string()))?;
@@ -618,7 +648,7 @@ fn load_from_session_dirs(app: &AppHandle) -> Result<SessionsSnapshot, SessionEr
     if sessions.is_empty() {
         return Ok(empty_snapshot());
     }
-    sessions.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+    sessions.sort_by_key(|left| std::cmp::Reverse(left.updated_at));
     let active_session_id = sessions[0].id.clone();
     Ok(SessionsSnapshot {
         active_session_id,

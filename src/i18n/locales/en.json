@@ -1100,6 +1100,13 @@
     },
     "interruptedByUser": "interrupted by user",
     "interruptHint": "Press Esc again to interrupt",
+    "compact": {
+      "nothing": "Nothing to compact.",
+      "failed": "Could not compact context.",
+      "busy": "Wait until the reply finishes.",
+      "notice": "Context compacted. Marked turns stay in the chat. The model no longer sees them.",
+      "omitted": "omitted"
+    },
     "error": {
       "empty": "The model returned an empty response.",
       "network": "Could not reach the model.",
@@ -1146,6 +1153,9 @@
       },
       "stop": {
         "description": "Stop the running reply"
+      },
+      "compact": {
+        "description": "Summarize older context and keep the recent tail"
       },
       "help": {
         "description": "Opens the k-agent issue list"

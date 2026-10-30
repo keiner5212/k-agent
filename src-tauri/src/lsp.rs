@@ -275,8 +275,7 @@ fn row_for(app: &AppHandle, spec: &LanguageServerSpec) -> Result<LanguageServerR
 }
 
 fn filename_matches(pattern: &str, name: &str) -> bool {
-    if pattern.ends_with(".*") {
-        let prefix = &pattern[..pattern.len() - 2];
+    if let Some(prefix) = pattern.strip_suffix(".*") {
         return name.eq_ignore_ascii_case(prefix)
             || name
                 .get(..prefix.len())
@@ -578,8 +577,8 @@ async fn download_file(
             .await
             .map_err(|error| LspError::Io(error.to_string()))?;
         if let Some(total) = total {
-            if total > 0 {
-                let percent = ((downloaded * 100) / total).min(100) as u8;
+            if let Some(raw) = (downloaded * 100).checked_div(total) {
+                let percent = raw.min(100) as u8;
                 emit_install_progress(app, id, "downloading", Some(percent), None);
             }
         }

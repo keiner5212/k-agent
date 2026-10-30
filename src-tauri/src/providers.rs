@@ -38,11 +38,11 @@ const HEADER_SAMPLE_TRIES: usize = 16;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ProviderKind {
     #[serde(rename = "openai-like")]
-    OpenAiLike,
+    OpenAi,
     #[serde(rename = "anthropic-like")]
-    AnthropicLike,
+    Anthropic,
     #[serde(rename = "gemini-like")]
-    GeminiLike,
+    Gemini,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -703,14 +703,14 @@ pub(crate) fn attach_auth(
     provider: &Provider,
 ) -> reqwest::RequestBuilder {
     let req = match provider.kind {
-        ProviderKind::OpenAiLike => {
+        ProviderKind::OpenAi => {
             if let Some(key) = provider.api_key.as_deref() {
                 req.bearer_auth(key)
             } else {
                 req
             }
         }
-        ProviderKind::AnthropicLike => {
+        ProviderKind::Anthropic => {
             if let Some(key) = provider.api_key.as_deref() {
                 req.header("x-api-key", key)
                     .header("anthropic-version", "2023-06-01")
@@ -718,7 +718,7 @@ pub(crate) fn attach_auth(
                 req
             }
         }
-        ProviderKind::GeminiLike => req,
+        ProviderKind::Gemini => req,
     };
     apply_provider_headers(req, provider)
 }
@@ -985,7 +985,7 @@ async fn fetch_models(provider: &Provider) -> Result<Vec<String>, ProviderError>
     let base = provider.base_url.trim_end_matches('/').to_string();
 
     match provider.kind {
-        ProviderKind::OpenAiLike => {
+        ProviderKind::OpenAi => {
             let url = format!("{base}/models");
             let req = client.get(&url);
             let resp = attach_auth(req, provider)
@@ -1006,7 +1006,7 @@ async fn fetch_models(provider: &Provider) -> Result<Vec<String>, ProviderError>
                 .map_err(|e| ProviderError::Parse(e.to_string()))?;
             Ok(body.data.into_iter().map(|m| m.id).collect())
         }
-        ProviderKind::AnthropicLike => {
+        ProviderKind::Anthropic => {
             let url = format!("{base}/v1/models");
             let req = client.get(&url);
             let resp = attach_auth(req, provider)
@@ -1027,7 +1027,7 @@ async fn fetch_models(provider: &Provider) -> Result<Vec<String>, ProviderError>
                 .map_err(|e| ProviderError::Parse(e.to_string()))?;
             Ok(body.data.into_iter().map(|m| m.id).collect())
         }
-        ProviderKind::GeminiLike => {
+        ProviderKind::Gemini => {
             let url = match provider.api_key.as_deref() {
                 Some(key) => format!("{base}/v1beta/models?key={key}"),
                 None => format!("{base}/v1beta/models"),
@@ -1070,7 +1070,7 @@ async fn fetch_model_details(provider: &Provider, model_id: &str) -> ModelInfo {
     let base = provider.base_url.trim_end_matches('/').to_string();
 
     match provider.kind {
-        ProviderKind::OpenAiLike => {
+        ProviderKind::OpenAi => {
             let url = format!("{base}/models/{model_id}");
             let resp = attach_auth(client.get(&url), provider).send().await;
             if let Ok(resp) = resp {
@@ -1083,15 +1083,13 @@ async fn fetch_model_details(provider: &Provider, model_id: &str) -> ModelInfo {
                         info.multimodal = detail.multimodal;
                         return info;
                     }
-                } else if resp.status().as_u16() == 404 {
-                    let _ = resp.bytes().await;
                 } else {
                     let _ = resp.bytes().await;
                 }
             }
             ModelInfo::detected(model_id)
         }
-        ProviderKind::AnthropicLike => {
+        ProviderKind::Anthropic => {
             let url = format!("{base}/v1/models/{model_id}");
             let resp = attach_auth(client.get(&url), provider).send().await;
             if let Ok(resp) = resp {
@@ -1110,7 +1108,7 @@ async fn fetch_model_details(provider: &Provider, model_id: &str) -> ModelInfo {
             }
             ModelInfo::detected(model_id)
         }
-        ProviderKind::GeminiLike => {
+        ProviderKind::Gemini => {
             let url = match provider.api_key.as_deref() {
                 Some(key) => format!("{base}/v1beta/models/{model_id}?key={key}"),
                 None => format!("{base}/v1beta/models/{model_id}"),
@@ -1531,7 +1529,7 @@ pub async fn set_model_favorite(
         .models
         .iter_mut()
         .find(|model| model.id == input.model_id)
-        .ok_or_else(|| ProviderError::NotFound(input.model_id))?;
+        .ok_or(ProviderError::NotFound(input.model_id))?;
     model.favorite = input.favorite;
 
     let updated = provider.clone();

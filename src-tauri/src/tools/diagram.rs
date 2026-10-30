@@ -236,8 +236,10 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
             app,
             &provider_id,
             &model_id,
-            SYSTEM,
-            &user,
+            crate::chat::QuietPrompt {
+                system: SYSTEM,
+                user: &user,
+            },
             MAX_OUTPUT,
             limit,
             ctx.session_id.as_deref(),
