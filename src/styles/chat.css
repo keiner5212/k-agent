@@ -1272,6 +1272,36 @@ button.change-bar__stat:focus-visible {
   flex: 0 0 auto;
 }
 
+.chat-tools__omitted {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.chat-compact-notice {
+  align-self: center;
+  margin: var(--space-2) 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.chat-tools__agent {
+  flex: 0 1 auto;
+  max-width: 12rem;
+  overflow: hidden;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .chat-tools__summary {
   flex: 0 1 auto;
   min-width: 0;

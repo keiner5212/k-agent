@@ -7,7 +7,7 @@ Replace an exact span in an existing file. Two shapes. Never both in one call.
 - One replacement: only `filePath`, `oldString`, `newString`, and optional `replaceAll`. Do not send `edits`.
 - Many replacements: only `edits`. Each item has its own `filePath`, `oldString`, `newString`, and optional `replaceAll`. Do not also send top-level `filePath`, `oldString`, `newString`, or `replaceAll`. Top-level `filePath` is not a directory for the array.
 - Both shapes in one call write nothing.
-- `oldString` and `newString` are exact file text. Not a line-number prefix from `read`. Not a diff hunk. Include the indentation that is in the file.
+- `oldString` and `newString` are file text. Copy the file text, not the `read` line numbers (`N: `). Not a diff hunk. Include the indentation that is in the file.
 - Copy `oldString` from a `read` of that file in this turn, large enough to be unique, small enough to be exact.
 - `newString` is the full replacement of that span, not a patch line with `+` or `-`.
 - Fails if `oldString` is missing or appears more than once, unless `replaceAll` is true. The error says which.
@@ -26,20 +26,20 @@ Replace an exact span in an existing file. Two shapes. Never both in one call.
 - Create a new file. Use `write` if the file is missing.
 - Accept empty `oldString`. Use `write` for a full-file replacement.
 - Forgive whitespace or indentation drift.
-- Guess a nearby span. A miss returns `Could not find oldString` with the indentation of the file and the one the span asked for.
+- Guess a nearby span. A miss returns `oldString not in file` plus the exact file lines to copy.
 - Write the file whole or not at all. The text goes to a file of its own and the target is replaced with a rename, so a failure never leaves a half written file.
 - Accept both shapes in one call.
 
 ## Options
 
-| Name         | Type    | Required | Default | Notes                                                                                                          |
-| ------------ | ------- | -------- | ------- | -------------------------------------------------------------------------------------------------------------- |
-| `filePath`   | string  | no       | -       | One replacement only. Omit when `edits` is set. Not a directory for the array.                                 |
-| `oldString`  | string  | no       | -       | One replacement only. Exact file text. Not a line-number prefix. Not a diff hunk. Include indentation.         |
-| `newString`  | string  | no       | -       | One replacement only. Full replacement of that span. Not a patch line with `+` or `-`.                         |
-| `replaceAll` | boolean | no       | `false` | One replacement only. When `true`, replace every match. Omit when `edits` is set.                              |
-| `edits`      | array   | no       | -       | Many replacements only. Each item has its own `filePath`, `oldString`, `newString`, and optional `replaceAll`. |
-| `format`     | boolean | no       | `true`  | Default on. Set `format` false only when this call must not reformat.                                          |
+| Name         | Type    | Required | Default | Notes                                                                                                                |
+| ------------ | ------- | -------- | ------- | -------------------------------------------------------------------------------------------------------------------- |
+| `filePath`   | string  | no       | -       | One replacement only. Omit when `edits` is set. Not a directory for the array.                                       |
+| `oldString`  | string  | no       | -       | One replacement only. File text. Copy the file text, not the read line numbers. A miss returns the exact file lines. |
+| `newString`  | string  | no       | -       | One replacement only. Full replacement of that span. Not a patch line with `+` or `-`.                               |
+| `replaceAll` | boolean | no       | `false` | One replacement only. When `true`, replace every match. Omit when `edits` is set.                                    |
+| `edits`      | array   | no       | -       | Many replacements only. Each item has its own `filePath`, `oldString`, `newString`, and optional `replaceAll`.       |
+| `format`     | boolean | no       | `true`  | Default on. Set `format` false only when this call must not reformat.                                                |
 
 ### `edits` item
 
@@ -73,8 +73,8 @@ See `response.toon` for the concrete wire shape the LLM sees.
 - `File not found: <path>`
 - `Cannot edit binary file: <path>`
 - `Found multiple matches for oldString. Provide more surrounding context ..., or set replaceAll to true.`
-- `Could not find oldString in the file. ...`: the text is not in the file. The message names the line endings of the file and the line that starts the same, with the indentation it has and the one the oldString asks for.
-- A whitespace or indent mismatch is a miss. The message says how much the indentation differs.
+- `oldString not in file.`: the text is not in the file. When a nearby line matches, the message continues with `Exact lines:` and the file text to copy. A pasted `N: ` prefix is used only to find those lines. It is not written. No line numbers.
+- A whitespace or indent mismatch is a miss. The message shows the file lines, not a lecture about indentation.
 
 ## Source
 

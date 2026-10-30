@@ -1,9 +1,11 @@
-import { memo, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, memo, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, FileText, Film } from "lucide-react";
 import { attachmentPreviewUrl, useHydratedAttachment } from "@/lib/attachments";
+import { forgottenMessageIds } from "@/lib/session-turns";
 import type { ChatAttachment, ChatMessage } from "@/types/chat";
+import type { ModelContext } from "@/types/sessions";
 import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { MessageActions } from "./MessageActions";
@@ -81,9 +83,11 @@ const MessageAttachments = ({
 const MessageBody = memo(function MessageBody({
   message,
   sessionId,
+  omittedCallIds,
 }: {
   message: ChatMessage;
   sessionId: string | null;
+  omittedCallIds?: ReadonlySet<string>;
 }): ReactNode {
   if (message.kind === "shell") {
     return (
@@ -123,6 +127,7 @@ const MessageBody = memo(function MessageBody({
                   sessionId={sessionId}
                   calls={calls}
                   pending={Boolean(message.streaming) && isLastRound}
+                  omittedCallIds={omittedCallIds}
                 />
               </div>
             );
@@ -150,6 +155,7 @@ const MessageBody = memo(function MessageBody({
           sessionId={sessionId}
           calls={message.toolCalls ?? []}
           pending={Boolean(message.streaming)}
+          omittedCallIds={omittedCallIds}
         />
         <ChatMarkdown content={message.content} />
         <InterruptedFooter interrupted={message.interrupted ?? false} />
@@ -208,17 +214,33 @@ export const ChatTranscript = ({
   sessionId,
   actions = true,
   peer = "user",
+  modelContext,
   children,
 }: {
   messages: ChatMessage[];
   sessionId: string | null;
   actions?: boolean;
   peer?: "user" | "parent";
+  modelContext?: ModelContext;
   children?: ReactNode;
 }): ReactNode => {
   const { t } = useTranslation();
   const { scrollRef, contentRef, isAtBottom, scrollToBottom } = useChatStick();
   const newestUserId = newestUserMessageId(messages);
+  const forgotten = useMemo(
+    () => forgottenMessageIds(messages, modelContext),
+    [messages, modelContext],
+  );
+  const omittedCallIds = useMemo(() => new Set(modelContext?.omittedCallIds ?? []), [modelContext]);
+  const compacted = Boolean(
+    modelContext &&
+    (modelContext.summary || modelContext.throughId || modelContext.omittedCallIds.length > 0),
+  );
+  const notice = compacted ? (
+    <p className="chat-compact-notice" role="status">
+      {t("chat.compact.notice")}
+    </p>
+  ) : null;
   const pinKey = `${sessionId ?? ""}:${newestUserId ?? ""}`;
   const pinnedKey = useRef<string | null>(null);
   const stickReady = useRef(false);
@@ -239,26 +261,37 @@ export const ChatTranscript = ({
     <>
       <section ref={scrollRef} className="chat-thread chat-thread--active" aria-live="polite">
         <div ref={contentRef} className="chat-thread__messages">
+          {compacted && !modelContext?.throughId ? notice : null}
           {messages.map((message) => {
             const fromParent = peer === "parent" && message.role === "user";
+            const dropped = forgotten.has(message.id);
             return (
-              <article
-                key={message.id}
-                className={messageClass(message, fromParent)}
-                data-role={fromParent ? "parent" : message.role}
-              >
-                {fromParent ? (
-                  <span className="chat-message__kicker">{t("chat.tools.taskParent")}</span>
-                ) : null}
-                <MessageBody message={message} sessionId={sessionId} />
-                {message.role === "assistant" &&
-                message.kind !== "shell" &&
-                !message.streaming &&
-                typeof message.turnMs === "number" ? (
-                  <span className="chat-turn-time">{formatTurnDuration(message.turnMs, t)}</span>
-                ) : null}
-                {actions ? <MessageActions message={message} /> : null}
-              </article>
+              <Fragment key={message.id}>
+                <article
+                  className={messageClass(message, fromParent)}
+                  data-role={fromParent ? "parent" : message.role}
+                >
+                  {fromParent ? (
+                    <span className="chat-message__kicker">{t("chat.tools.taskParent")}</span>
+                  ) : null}
+                  {dropped ? (
+                    <span className="chat-message__kicker">{t("chat.compact.omitted")}</span>
+                  ) : null}
+                  <MessageBody
+                    message={message}
+                    sessionId={sessionId}
+                    omittedCallIds={omittedCallIds}
+                  />
+                  {message.role === "assistant" &&
+                  message.kind !== "shell" &&
+                  !message.streaming &&
+                  typeof message.turnMs === "number" ? (
+                    <span className="chat-turn-time">{formatTurnDuration(message.turnMs, t)}</span>
+                  ) : null}
+                  {actions ? <MessageActions message={message} /> : null}
+                </article>
+                {modelContext?.throughId === message.id ? notice : null}
+              </Fragment>
             );
           })}
           {children}

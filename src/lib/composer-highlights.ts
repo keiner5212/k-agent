@@ -1,4 +1,4 @@
-import { isExactMentionPath } from "@/lib/file-mentions";
+import { fileMentionSpans, isExactMentionPath } from "@/lib/file-mentions";
 import type { MentionSegment } from "@/lib/file-mentions";
 import { ACTION_SLASH_NAMES } from "@/lib/slash-commands";
 
@@ -7,8 +7,6 @@ const BARE_ACTION_RE = new RegExp(
   `(?:^|(?<=\\s))/(?:${ACTION_SLASH_NAMES.join("|")})(?![\\w-])`,
   "g",
 );
-const FILE_MENTION_RE = /@([^\s@]+)/g;
-
 export const segmentComposerHighlights = (
   text: string,
   paths: ReadonlySet<string>,
@@ -35,14 +33,11 @@ export const segmentComposerHighlights = (
     mark(index, index + (match[0]?.length ?? 0));
   }
 
-  for (const match of text.matchAll(FILE_MENTION_RE)) {
-    const path = match[1] ?? "";
-    const index = match.index ?? 0;
-    const token = match[0] ?? "";
-    const covered = spans.some((span) => index >= span.start && index < span.end);
+  for (const mention of fileMentionSpans(text)) {
+    const covered = spans.some((span) => mention.start >= span.start && mention.start < span.end);
     if (covered) continue;
-    if (isExactMentionPath(paths, path.replace(/\/+$/, ""))) {
-      mark(index, index + token.length);
+    if (isExactMentionPath(paths, mention.path.replace(/\/+$/, ""))) {
+      mark(mention.start, mention.end);
     }
   }
 

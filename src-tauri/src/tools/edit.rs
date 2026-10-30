@@ -13,7 +13,7 @@ use super::{
 
 pub const NAME: &str = "edit";
 
-const DESCRIPTION: &str = "Exact string replace.\nTwo shapes. Never both in one call. Both shapes write nothing.\nOne replacement: only filePath, oldString, newString, and optional replaceAll. Do not send edits.\nMany replacements: only edits. Each item has its own filePath, oldString, newString, and optional replaceAll. Do not also send top-level filePath, oldString, newString, or replaceAll. Top-level filePath is not a directory for the array.\noldString and newString are exact file text. Not a line-number prefix from read. Not a diff hunk. Include the indentation that is in the file.\nThe call fails if oldString is missing or appears more than once, unless replaceAll is true. The error says which.\nCopy oldString from a read of that file in this turn, large enough to be unique, small enough to be exact.\nnewString is the full replacement of that span, not a patch line with + or -.\nAll edits are checked before any file is written. A bad item leaves every file unchanged.\nPaths outside the workspace wait for the user.\nformat defaults on. Set format false only when this call must not reformat.";
+const DESCRIPTION: &str = "Exact string replace.\nTwo shapes. Never both in one call. Both shapes write nothing.\nOne replacement: only filePath, oldString, newString, and optional replaceAll. Do not send edits.\nMany replacements: only edits. Each item has its own filePath, oldString, newString, and optional replaceAll. Do not also send top-level filePath, oldString, newString, or replaceAll. Top-level filePath is not a directory for the array.\noldString and newString are file text. Copy the file text, not the read line numbers. Not a diff hunk. Include the indentation that is in the file. A miss returns the exact file lines.\nThe call fails if oldString is missing or appears more than once, unless replaceAll is true. The error says which.\nCopy oldString from a read of that file in this turn, large enough to be unique, small enough to be exact.\nnewString is the full replacement of that span, not a patch line with + or -.\nAll edits are checked before any file is written. A bad item leaves every file unchanged.\nPaths outside the workspace wait for the user.\nformat defaults on. Set format false only when this call must not reformat.";
 
 fn with_rules(lead: &str) -> String {
     format!("{lead}\n{DESCRIPTION}")
@@ -35,7 +35,7 @@ impl Tool for EditTool {
                     },
                     "oldString": {
                         "type": "string",
-                        "description": with_rules("One replacement only. Exact file text to find. Omit this when edits is set. Not a line-number prefix from read. Not a diff hunk. Include the indentation that is in the file.")
+                        "description": with_rules("One replacement only. File text to find. Omit this when edits is set. Copy the file text, not the read line numbers. Not a diff hunk. Include the indentation that is in the file. A miss returns the exact file lines.")
                     },
                     "newString": {
                         "type": "string",
@@ -410,65 +410,45 @@ fn convert_to_line_ending(text: &str, ending: LineEnding) -> String {
     }
 }
 
-/// Say what the file really looks like, so the next try is right.
-fn not_found_message(content: &str, old_string: &str) -> String {
-    let ending = if content.contains("\r\n") {
-        "CRLF"
-    } else {
-        "LF"
-    };
-    let mut message = format!(
-        "Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings. The file has {ending} line endings."
-    );
-    if let Some(hint) = indentation_hint(content, old_string) {
-        message.push(' ');
-        message.push_str(&hint);
+fn read_prefix_body(line: &str) -> &str {
+    let trimmed = line.trim();
+    let bytes = trimmed.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() && bytes[index].is_ascii_digit() {
+        index += 1;
     }
-    message
+    if index > 0 && bytes.get(index) == Some(&b':') && bytes.get(index + 1) == Some(&b' ') {
+        return trimmed[index + 2..].trim();
+    }
+    if index > 0 && bytes.get(index) == Some(&b'|') {
+        return trimmed[index + 1..].trim();
+    }
+    trimmed
 }
 
-/// Compare the indentation the oldString asks for with the lines of the file that start the same.
-fn indentation_hint(content: &str, old_string: &str) -> Option<String> {
-    let old_lines: Vec<&str> = old_string
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .collect();
-    let first = old_lines.first()?;
-    let text = first.trim();
+fn closest_snippet(content: &str, old_string: &str) -> Option<String> {
+    let anchor = read_prefix_body(old_string.lines().find(|line| !line.trim().is_empty())?);
+    if anchor.is_empty() {
+        return None;
+    }
     let file_lines: Vec<&str> = content.lines().collect();
-    for (index, line) in file_lines.iter().enumerate() {
-        if line.trim() != text {
-            continue;
-        }
-        for (offset, old_line) in old_lines.iter().enumerate() {
-            let Some(candidate) = file_lines.get(index + offset) else {
-                break;
-            };
-            if candidate.trim() != old_line.trim() {
-                break;
-            }
-            let actual = leading_whitespace(candidate);
-            let wanted = leading_whitespace(old_line);
-            if actual == wanted {
-                continue;
-            }
-            return Some(format!(
-                "The line `{}` is at line {} of the file with {actual} spaces of indentation, and the oldString asks for {wanted}.",
-                old_line.trim(),
-                index + offset + 1
-            ));
-        }
-        let actual = leading_whitespace(line);
-        return Some(format!(
-            "The line `{text}` is at line {} of the file with {actual} spaces of indentation.",
-            index + 1
-        ));
+    let start = file_lines.iter().position(|line| line.trim() == anchor)?;
+    let count = old_string.lines().count().clamp(1, 20);
+    let end = (start + count).min(file_lines.len());
+    let mut snippet = file_lines[start..end].join("\n");
+    const MAX: usize = 1_200;
+    if snippet.len() > MAX {
+        snippet.truncate(MAX);
+        snippet.push_str("...");
     }
-    None
+    Some(snippet)
 }
 
-fn leading_whitespace(line: &str) -> usize {
-    line.chars().take_while(|ch| ch.is_whitespace()).count()
+fn not_found_message(content: &str, old_string: &str) -> String {
+    match closest_snippet(content, old_string) {
+        Some(snippet) => format!("oldString not in file. Exact lines:\n{snippet}"),
+        None => "oldString not in file.".into(),
+    }
 }
 
 pub fn replace(
@@ -553,13 +533,13 @@ mod tests {
     #[test]
     fn whitespace_drift_does_not_match() {
         let err = replace("   foo   \n  bar  ", "foo\nbar", "BAZ", false).unwrap_err();
-        assert!(err.contains("Could not find"));
+        assert!(err.contains("oldString not in file"));
     }
 
     #[test]
     fn indent_drift_does_not_match() {
         let err = replace("    foo\n    bar", "foo\n        bar", "BAZ", false).unwrap_err();
-        assert!(err.contains("Could not find"));
+        assert!(err.contains("oldString not in file"));
     }
 
     #[test]
@@ -574,23 +554,37 @@ mod tests {
     #[test]
     fn not_found_message_for_missing_substring() {
         let err = replace("hello world", "xyz", "abc", false).unwrap_err();
-        assert!(err.contains("Could not find"));
+        assert_eq!(err, "oldString not in file.");
     }
 
     #[test]
-    fn not_found_message_names_the_indentation_of_the_file() {
+    fn not_found_message_shows_the_file_text() {
         let content = "on:\n  push:\n  pull_request:\n";
         let err = replace(content, "on:\n    push:\n    pull_request:", "x", false).unwrap_err();
-        assert!(err.contains("2 spaces"), "{err}");
-        assert!(err.contains("asks for 4"), "{err}");
-        assert!(err.contains("line 2"), "{err}");
-        assert!(err.contains("`push:`"), "{err}");
+        assert!(
+            err.starts_with("oldString not in file. Exact lines:\n"),
+            "{err}"
+        );
+        assert!(err.contains("  push:"), "{err}");
     }
 
     #[test]
-    fn not_found_message_says_the_line_endings() {
-        let err = replace("a\r\nb", "zz", "x", false).unwrap_err();
-        assert!(err.contains("CRLF"), "{err}");
+    fn not_found_message_shows_the_exact_spaced_line() {
+        let content = "    async #getChats(){\n        const chats = await Theorim.api({command: 'chat_get_chats', method: 'GET'});\n    }\n";
+        let old = "    async #getChats(){\n        const chats = await Theorim.api({command:'chat_get_chats', method:'GET'});\n    }";
+        let err = replace(content, old, "x", false).unwrap_err();
+        assert!(err.contains("command: 'chat_get_chats'"), "{err}");
+        assert!(!err.contains("spaces of indentation"), "{err}");
+    }
+
+    #[test]
+    fn read_line_prefixes_do_not_match() {
+        let content = "    async #getChats(){\n        const chats = await Theorim.api({command: 'chat_get_chats', method: 'GET'});\n    }\n";
+        let old = "308:     async #getChats(){\n309:         const chats = await Theorim.api({command: 'chat_get_chats', method: 'GET'});\n310:     }\n";
+        let err = replace(content, old, "return;", false).unwrap_err();
+        assert!(err.starts_with("oldString not in file."), "{err}");
+        assert!(err.contains("command: 'chat_get_chats'"), "{err}");
+        assert!(!err.contains("308:"), "{err}");
     }
 
     #[test]

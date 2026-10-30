@@ -8,6 +8,26 @@ section. The release draft uses that section as its body.
 The entries say what changed and why it mattered, in the words of the person who
 had to live with it.
 
+## [0.2.5] - 2026-10-29
+
+### Fixed
+
+- Edit matches the file text. A miss returns the exact lines, so the next try can copy them. The old error talked about indentation that was already right, and a guessed strip of read line numbers could rewrite the wrong span.
+- Automatic compact now shrinks what the model sees. It used to keep the last two messages, so one huge turn never left the window. The chat on screen stays. Turns and tool results the model no longer sees are marked omitted. The message just sent stays even when it is large. Task and skill results stay verbatim on later compacts. A system prompt that is already over the limit still cuts older turns.
+- A file mention whose path has a space is one reference again. It is written as `@"my file.ts"`, so the highlight and the replacement still see the whole path.
+- A turn that ended with reasoning and no text no longer stops in silence. The model is asked once to continue, then the chat shows an empty-response error.
+- The context ring uses the same 128k window as compact when the catalog omits a context size.
+
+### Added
+
+- `/compact` runs the same compact by hand.
+- A task row shows the agent that was launched.
+- Compact uses the app generation model. A transcript that does not fit that model is summarized in parts. Task and skill results stay in the summary.
+
+### Changed
+
+- The turn order tells the model to load a listed skill when it can help answer the question. The line that said to call only tools from the request list is gone, because that list is already the only tools the request has.
+
 ## [0.2.4] - 2026-10-28
 
 This is everything since 0.2.1, the version on main. 0.2.2 and 0.2.3 never shipped.

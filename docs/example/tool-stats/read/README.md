@@ -5,7 +5,7 @@ Read a file. Text files come back as line-numbered text. Supported images (PNG, 
 ## Does
 
 - Reads a regular file and chooses the path by content and the selected model's input. PNG / JPEG / GIF / WebP are attached only when the model accepts `image`. A PDF is attached only when the model accepts `pdf`. A `.docx` is extracted to text only when the model accepts `document`. Other text stays line-numbered text.
-- Text: `BufReader` line scan, 1-based line numbers, optional `offset` (default `1`) and `limit` (default `2000`).
+- Text: `BufReader` line scan, 1-based line numbers, optional `offset` (default `1`) and `limit` (default `2000`). Each line is `N: ` plus the file line. The prefix is not file text.
 - Text: caps response at `50 KB` of rendered text or 2000 lines, whichever first. Emits a `(Output capped at 50 KB ...)`, `(Showing lines A-B of N ...)`, or `(End of file - total N lines)` footer.
 - Text: caps any single line at 2000 chars; longer lines get a `... (line truncated to 2000 chars)` suffix.
 - Text: trims trailing `\r\n` / `\n` per line so the footer and line numbers stay aligned.

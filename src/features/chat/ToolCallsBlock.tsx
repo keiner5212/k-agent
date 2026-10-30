@@ -44,6 +44,7 @@ type ToolCallsBlockProps = {
   calls: ChatToolCall[];
   sessionId: string | null;
   pending?: boolean;
+  omittedCallIds?: ReadonlySet<string>;
 };
 
 type PreviewState = {
@@ -312,7 +313,12 @@ const callIsRunning = (call: ChatToolCall, pending: boolean | undefined): boolea
   return (call.output?.length ?? 0) === 0;
 };
 
-const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): ReactNode => {
+const ToolCallsBlock = ({
+  calls,
+  sessionId,
+  pending,
+  omittedCallIds,
+}: ToolCallsBlockProps): ReactNode => {
   const { t } = useTranslation();
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [image, setImage] = useState<{ titleKey: string; data: string } | null>(null);
@@ -414,6 +420,11 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
               : "";
           const toolName = toolDisplayName(call.name, mcpTools);
           const summary = toolSummary(call);
+          const taskAgent =
+            call.name === "task"
+              ? argString(call, "agent") || toonFieldValue(call.output ?? "", "agent")
+              : "";
+          const omitted = Boolean(call.id && omittedCallIds?.has(call.id));
           const bashDescription = call.name === "bash" ? argString(call, "description") : "";
           const runningCall = callIsRunning(call, pending);
           const canOpen =
@@ -463,6 +474,14 @@ const ToolCallsBlock = ({ calls, sessionId, pending }: ToolCallsBlockProps): Rea
                       {toolName}
                     </span>
                   )}
+                  {taskAgent ? (
+                    <span className="chat-tools__agent" title={taskAgent}>
+                      {taskAgent}
+                    </span>
+                  ) : null}
+                  {omitted ? (
+                    <span className="chat-tools__omitted">{t("chat.compact.omitted")}</span>
+                  ) : null}
                   {summary ? (
                     <span className="chat-tools__summary" title={summary}>
                       {summaryText(summary)}

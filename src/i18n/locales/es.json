@@ -1100,6 +1100,13 @@
     },
     "interruptedByUser": "interrumpido por el usuario",
     "interruptHint": "Pulsa Esc otra vez para interrumpir",
+    "compact": {
+      "nothing": "Nada que compactar.",
+      "failed": "No se pudo compactar el contexto.",
+      "busy": "Espera a que termine la respuesta.",
+      "notice": "Contexto compactado. Los turnos marcados siguen en el chat. El modelo ya no los ve.",
+      "omitted": "omitido"
+    },
     "error": {
       "empty": "El modelo devolvio una respuesta vacia.",
       "network": "No se pudo contactar al modelo.",
@@ -1146,6 +1153,9 @@
       },
       "stop": {
         "description": "Detiene la respuesta en curso"
+      },
+      "compact": {
+        "description": "Resume el contexto viejo y conserva lo reciente"
       },
       "help": {
         "description": "Abre la lista de issues de k-agent"

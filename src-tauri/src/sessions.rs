@@ -65,6 +65,8 @@ pub struct SessionRecord {
     pub file_checkpoints: Vec<TurnCheckpoint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redo: Option<RedoRecord>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_context: Option<ModelContext>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,6 +94,19 @@ pub struct RedoRecord {
     pub checkpoints: Vec<TurnCheckpoint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub todos: Option<Vec<crate::tools::todo::TodoItem>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_context: Option<ModelContext>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelContext {
+    #[serde(default)]
+    pub summary: String,
+    #[serde(default)]
+    pub through_id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub omitted_call_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -217,6 +232,7 @@ fn empty_snapshot() -> SessionsSnapshot {
             parent_session_id: None,
             file_checkpoints: Vec::new(),
             redo: None,
+            model_context: None,
         }],
     }
 }
@@ -422,6 +438,7 @@ pub fn write_child_session(
         parent_session_id: Some(parent_session_id.to_string()),
         file_checkpoints: Vec::new(),
         redo: None,
+        model_context: None,
     };
     write_session_record(app, &mut session)?;
     Ok(id)
@@ -490,6 +507,7 @@ pub(crate) fn read_session_record(
             parent_session_id: None,
             file_checkpoints: Vec::new(),
             redo: None,
+            model_context: None,
         });
     }
     let raw = std::fs::read_to_string(&path).map_err(|e| SessionError::Io(e.to_string()))?;

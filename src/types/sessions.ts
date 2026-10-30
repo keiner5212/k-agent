@@ -12,10 +12,17 @@ export type TurnCheckpoint = {
   files: FileTouch[];
 };
 
+export type ModelContext = {
+  summary: string;
+  throughId: string;
+  omittedCallIds: string[];
+};
+
 export type RedoRecord = {
   messages: ChatMessage[];
   checkpoints: TurnCheckpoint[];
   todos?: TodoItem[];
+  modelContext?: ModelContext;
 };
 
 export type TodoHistoryEvent = {
@@ -36,6 +43,7 @@ export type SessionRecord = {
   parentSessionId?: string;
   fileCheckpoints?: TurnCheckpoint[];
   redo?: RedoRecord;
+  modelContext?: ModelContext;
 };
 
 export type SessionSummary = Pick<SessionRecord, "id" | "title" | "preview" | "updatedAt">;

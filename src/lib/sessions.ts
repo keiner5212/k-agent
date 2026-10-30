@@ -1,3 +1,4 @@
+import { resolveAppGenerationModel } from "@/lib/app-generation";
 import { create } from "zustand";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import i18n from "@/i18n";
@@ -43,11 +44,18 @@ import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import { useProvidersStore } from "@/lib/providers";
 import {
   applySystemReminder,
-  messagesBeforeTail,
+  FALLBACK_CONTEXT_WINDOW,
   sanitizeSessionsSnapshot,
   sessionMessages,
+  cutIndexUnderLimit,
+  mergeKeptBlocks,
+  MODEL_SUMMARY_ID,
+  ordinaryCallIds,
+  projectModelMessages,
+  splitForSummary,
   summaryTranscript,
   toChatTurns,
+  trimModelContext,
 } from "@/lib/session-turns";
 import { getWorkerCoreSnapshot } from "@/lib/worker-cores";
 import {
@@ -75,6 +83,7 @@ import {
   sortSessions,
   titleFromFirstMessage,
   workspaceKey,
+  type ModelContext,
   type SessionRecord,
   type SessionsSnapshot,
 } from "@/types/sessions";
@@ -438,64 +447,130 @@ const resolveSendRequest = () => {
   };
 };
 
+type CompactOutcome = "compacted" | "skipped" | "failed";
+
+const sameIds = (left: readonly string[], right: readonly string[]): boolean =>
+  left.length === right.length && left.every((id, index) => id === right[index]);
+
+const storeModelContext = (
+  sessionId: string,
+  previous: ChatMessage[],
+  context: ModelContext,
+): { messages: ChatMessage[]; outcome: CompactOutcome } => {
+  const stamp = previous.map((message) => message.id).join("\n");
+  const state = useSessionsStore.getState();
+  const session = state.sessions.find((item) => item.id === sessionId);
+  const current = sessionMessages(session);
+  if (current.map((message) => message.id).join("\n") !== stamp) {
+    return {
+      messages: projectModelMessages(previous, session?.modelContext),
+      outcome: "failed",
+    };
+  }
+  const nextSessions = patchActiveSession(state.sessions, sessionId, (item) => ({
+    ...item,
+    modelContext: context,
+    updatedAt: Date.now(),
+  }));
+  useSessionsStore.setState({ sessions: nextSessions });
+  void persistSnapshot(snapshotFromState(nextSessions, state.activeSessionId ?? sessionId));
+  return { messages: projectModelMessages(current, context), outcome: "compacted" };
+};
+
 const compactHistory = async (
   sessionId: string,
   messages: ChatMessage[],
   system: string,
   toolNames: readonly string[],
   selection: SelectedModel,
-): Promise<ChatMessage[]> => {
+  force = false,
+): Promise<{ messages: ChatMessage[]; outcome: CompactOutcome }> => {
+  const storedContext = useSessionsStore
+    .getState()
+    .sessions.find((session) => session.id === sessionId)?.modelContext;
+  const view = projectModelMessages(messages, storedContext);
   const { contextSummarizePercent, limitProviderDataUse } = useSettingsStore.getState();
-  const { head, tail } = messagesBeforeTail(messages);
-  if (head.length === 0 || contextSummarizePercent <= 0) return messages;
+  const summarizer = resolveAppGenerationModel() ?? selection;
+  if (!force && contextSummarizePercent <= 0) return { messages: view, outcome: "skipped" };
   const providers = useProvidersStore.getState().providers;
   const model = resolveSelectedModel(providers, selection);
-  const windowTokens = model?.contextWindow;
-  if (!windowTokens || windowTokens <= 0) return messages;
-  const usage = buildContextUsage({
-    windowTokens,
-    messages,
-    cost: undefined,
-    vision: resolveVisionModel(providers, selection),
-    extras: {
-      systemPrompt: estimateTokensFromText(system),
-      toolDefinitions: estimateToolDefinitionTokens(toolNames),
-    },
-  });
-  if (usage.percent < contextSummarizePercent) return messages;
+  const catalogWindow = model?.contextWindow;
+  const windowTokens = catalogWindow && catalogWindow > 0 ? catalogWindow : FALLBACK_CONTEXT_WINDOW;
+  const usageOf = (items: readonly ChatMessage[]) =>
+    buildContextUsage({
+      windowTokens,
+      messages: [...items],
+      cost: undefined,
+      vision: resolveVisionModel(providers, selection),
+      extras: {
+        systemPrompt: estimateTokensFromText(system),
+        toolDefinitions: estimateToolDefinitionTokens(toolNames),
+      },
+    });
+  const usage = usageOf(view);
+  if (!force && usage.percent < contextSummarizePercent)
+    return { messages: view, outcome: "skipped" };
+  const tailBudget = force
+    ? 8_000
+    : Math.max(4_000, Math.floor((windowTokens * (100 - contextSummarizePercent)) / 100));
+  let split = splitForSummary(view, tailBudget);
+  const tailForCheck = split.tail.length > 0 ? split.tail : view.slice(-1);
+  if (view.length > 1 && usageOf(tailForCheck).percent >= contextSummarizePercent) {
+    const start = cutIndexUnderLimit(
+      view,
+      (items) => usageOf(items).percent < contextSummarizePercent,
+    );
+    if (start > 0) split = { head: view.slice(0, start), tail: view.slice(start) };
+  }
+  const { head, tail } = split;
+  const storedById = new Map(messages.map((message) => [message.id, message]));
+  const realOf = (items: ChatMessage[]): ChatMessage[] =>
+    items
+      .filter((message) => message.id !== MODEL_SUMMARY_ID)
+      .map((message) => storedById.get(message.id) ?? message);
+  const omittedOf = (items: ChatMessage[]): string[] => realOf(items).flatMap(ordinaryCallIds);
+  const realHead = realOf(head);
+  const foldSummary =
+    realHead.length === 0 &&
+    usage.percent >= contextSummarizePercent &&
+    head.some((message) => message.id === MODEL_SUMMARY_ID);
+  if (realHead.length === 0 && !foldSummary) {
+    const omittedCallIds = omittedOf(view);
+    const previous = storedContext?.omittedCallIds ?? [];
+    if (sameIds(omittedCallIds, previous)) return { messages: view, outcome: "skipped" };
+    return storeModelContext(sessionId, messages, {
+      summary: storedContext?.summary ?? "",
+      throughId: storedContext?.throughId ?? "",
+      omittedCallIds,
+    });
+  }
   const transcript = summaryTranscript(head);
-  if (transcript.length === 0) return messages;
+  if (transcript.length === 0) return { messages: view, outcome: "skipped" };
   try {
     const result = await invoke<{ summary: string }>("summarize_conversation", {
       input: {
-        providerId: selection.providerId,
-        modelId: selection.modelId,
+        providerId: summarizer.providerId,
+        modelId: summarizer.modelId,
         transcript,
         sessionId,
         limitProviderDataUse,
       },
     });
     const summary = result.summary.trim();
-    if (summary.length === 0) return messages;
-    const nextMessages: ChatMessage[] = [
-      {
-        id: nextId(),
-        role: "user",
-        content: `<conversation-summary>\n${summary}\n</conversation-summary>`,
-      },
-      ...tail,
-    ];
-    const state = useSessionsStore.getState();
-    const nextSessions = patchActiveSession(state.sessions, sessionId, (session) => ({
-      ...session,
-      messages: nextMessages,
-    }));
-    useSessionsStore.setState({ sessions: nextSessions });
-    void persistSnapshot(snapshotFromState(nextSessions, state.activeSessionId ?? sessionId));
-    return nextMessages;
+    if (summary.length === 0) return { messages: view, outcome: "failed" };
+    const kept = mergeKeptBlocks(storedContext?.summary ?? "", realHead);
+    const summaryBody = kept
+      ? `<conversation-summary>\n${summary}\n</conversation-summary>\n\n${kept}`
+      : `<conversation-summary>\n${summary}\n</conversation-summary>`;
+    const throughId = realHead[realHead.length - 1]?.id ?? storedContext?.throughId ?? "";
+    return storeModelContext(sessionId, messages, {
+      summary: summaryBody,
+      throughId,
+      omittedCallIds: omittedOf(tail),
+    });
   } catch (error) {
     console.warn("context summarize failed", error);
-    return messages;
+    return { messages: view, outcome: "failed" };
   }
 };
 
@@ -659,6 +734,7 @@ type SessionsStore = {
   rewindLastUserMessage: () => void;
   editQueued: (id: string) => void;
   retryLast: () => void;
+  compactActive: () => Promise<void>;
 };
 
 export const useSessionsStore = create<SessionsStore>((set, get) => ({
@@ -1304,13 +1380,12 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       );
       const toolNames = agent?.tools ?? [];
       if (!replay) {
-        historyMessages = await compactHistory(
-          sessionId,
-          historyMessages,
-          system,
-          toolNames,
-          selection,
-        );
+        historyMessages = (
+          await compactHistory(sessionId, historyMessages, system, toolNames, selection)
+        ).messages;
+      } else {
+        const context = get().sessions.find((session) => session.id === sessionId)?.modelContext;
+        historyMessages = projectModelMessages(historyMessages, context);
       }
       const chatTurns = applySystemReminder(
         expandPromptCommandsInTurns(toChatTurns(historyMessages)),
@@ -1334,6 +1409,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           allowedCommands: useSettingsStore.getState().allowedCommands,
           blockedCommands: useSettingsStore.getState().blockedCommands,
           shellProgram: useSettingsStore.getState().shellProgram,
+          contextSummarizePercent: useSettingsStore.getState().contextSummarizePercent,
+          summaryProviderId: resolveAppGenerationModel()?.providerId ?? null,
+          summaryModelId: resolveAppGenerationModel()?.modelId ?? null,
           agentPersonalities: Object.fromEntries(
             listAllBuiltinAgents(t).map((agent) => [agent.name, agent.personality]),
           ),
@@ -1616,7 +1694,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           messages: removed,
           checkpoints,
           todos: currentTodos,
+          ...(session.modelContext ? { modelContext: session.modelContext } : {}),
         },
+        modelContext: trimModelContext(session.modelContext, kept),
       })),
     );
     set({
@@ -1662,6 +1742,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           updatedAt: Date.now(),
           todos: redo.todos !== undefined ? cloneTodos(redo.todos) : item.todos,
           fileCheckpoints: [...(item.fileCheckpoints ?? []), ...redo.checkpoints],
+          modelContext: redo.modelContext ?? item.modelContext,
           redo: undefined,
         };
       }),
@@ -1941,6 +2022,36 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     void get().send("", sessionId, undefined, {
       assistantId: nextId(),
       resumeConfirmed: false,
+    });
+  },
+
+  compactActive: async () => {
+    if (!get().hydrated || !isTauri()) return;
+    const sessionId = get().activeSessionId;
+    if (!sessionId) return;
+    if (isSessionBusy(get(), sessionId)) {
+      set({ error: i18n.t("chat.compact.busy"), canRetry: false });
+      return;
+    }
+    const selection = useSelectionStore.getState().selection;
+    const session = get().sessions.find((item) => item.id === sessionId);
+    if (!selection || !session) {
+      set({ error: i18n.t("chat.compact.failed"), canRetry: false });
+      return;
+    }
+    set({ error: undefined, canRetry: false });
+    const result = await compactHistory(
+      sessionId,
+      sessionMessages(session),
+      "",
+      [],
+      selection,
+      true,
+    );
+    if (result.outcome === "compacted") return;
+    set({
+      error: i18n.t(result.outcome === "failed" ? "chat.compact.failed" : "chat.compact.nothing"),
+      canRetry: false,
     });
   },
 

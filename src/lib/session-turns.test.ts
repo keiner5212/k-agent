@@ -2,11 +2,17 @@ import { describe, expect, it } from "vitest";
 import { activateWorkspace, adoptUnscopedSessions, sessionInWorkspace } from "@/types/sessions";
 import {
   applySystemReminder,
-  messagesBeforeTail,
+  splitForSummary,
   sanitizeSessionRecord,
   sanitizeSessionsSnapshot,
   sessionMessages,
+  stripOrdinaryToolOutputs,
+  cutIndexUnderLimit,
+  forgottenMessageIds,
+  mergeKeptBlocks,
+  projectModelMessages,
   summaryTranscript,
+  survivingToolBlocks,
   toChatTurns,
 } from "./session-turns";
 import type { ChatMessage } from "@/types/chat";
@@ -158,12 +164,113 @@ describe("workspace sessions", () => {
 describe("context memory", () => {
   const user = (id: string, content: string): ChatMessage => ({ id, role: "user", content });
 
-  it("keeps the last two messages out of the summary", () => {
+  it("keeps a short thread whole", () => {
     const messages = [user("1", "goal"), user("2", "middle"), user("3", "latest")];
-    const split = messagesBeforeTail(messages);
+    expect(splitForSummary(messages, 2_000).head).toEqual([]);
+  });
+
+  it("summarizes a large recent message that does not fit the tail", () => {
+    const messages = [user("1", "goal"), user("2", "x".repeat(40_000)), user("3", "latest")];
+    const split = splitForSummary(messages, 2_000);
+    expect(split.head.map((message) => message.id)).toEqual(["1", "2"]);
+    expect(split.tail.map((message) => message.id)).toEqual(["3"]);
+  });
+
+  it("keeps a newest message that alone exceeds the tail budget", () => {
+    const messages = [user("1", "goal"), user("2", "x".repeat(40_000))];
+    const split = splitForSummary(messages, 2_000);
     expect(split.head.map((message) => message.id)).toEqual(["1"]);
-    expect(split.tail.map((message) => message.id)).toEqual(["2", "3"]);
-    expect(messagesBeforeTail([user("1", "only"), user("2", "two")]).head).toEqual([]);
+    expect(split.tail.map((message) => message.id)).toEqual(["2"]);
+  });
+
+  it("keeps a single oversized message", () => {
+    const messages = [user("1", "x".repeat(40_000))];
+    const split = splitForSummary(messages, 2_000);
+    expect(split.head).toEqual([]);
+    expect(split.tail.map((message) => message.id)).toEqual(["1"]);
+  });
+
+  it("cuts older messages when the recent tail is still over the limit", () => {
+    const messages = [user("1", "a"), user("2", "b"), user("3", "c")];
+    expect(cutIndexUnderLimit(messages, (items) => items.length <= 1)).toBe(2);
+    expect(cutIndexUnderLimit(messages, () => true)).toBe(0);
+  });
+
+  it("keeps the chat record and projects a smaller model view", () => {
+    const read: ChatMessage = {
+      id: "a",
+      role: "assistant",
+      content: "",
+      toolRounds: [
+        {
+          reasoning: "",
+          calls: [
+            { id: "c1", name: "read", output: "SECRET" },
+            { id: "c2", name: "skill", output: "skill body" },
+          ],
+        },
+      ],
+    };
+    const later: ChatMessage = { id: "b", role: "user", content: "next" };
+    const context = { summary: "sum", throughId: "a", omittedCallIds: ["c1"] };
+    const view = projectModelMessages([read, later], context);
+    expect(view.map((message) => message.id)).toEqual(["model-summary", "b"]);
+    expect(view[0]?.content).toBe("sum");
+    expect(read.toolRounds?.[0]?.calls[0]?.output).toBe("SECRET");
+    expect(forgottenMessageIds([read, later], context).has("a")).toBe(true);
+    expect(forgottenMessageIds([read, later], context).has("b")).toBe(false);
+    const toolOnly = projectModelMessages([read], {
+      summary: "",
+      throughId: "",
+      omittedCallIds: ["c1"],
+    });
+    expect(toolOnly[0]?.toolRounds?.[0]?.calls[0]?.output).toBe("[omitted]");
+    expect(toolOnly[0]?.toolRounds?.[0]?.calls[1]?.output).toBe("skill body");
+    expect(read.toolRounds?.[0]?.calls[0]?.output).toBe("SECRET");
+  });
+
+  it("drops ordinary tool output and keeps task and skill text", () => {
+    const message: ChatMessage = {
+      id: "1",
+      role: "assistant",
+      content: "did work",
+      toolRounds: [
+        {
+          reasoning: "",
+          calls: [
+            { name: "read", output: "SECRET_FILE" },
+            { name: "task", output: "agent report" },
+            { name: "skill", output: "skill body" },
+          ],
+        },
+      ],
+    };
+    const text = summaryTranscript([message]);
+    expect(text.includes("SECRET_FILE")).toBe(false);
+    expect(text.includes("read")).toBe(true);
+    const kept = survivingToolBlocks([message]);
+    expect(kept.includes("agent report")).toBe(true);
+    expect(kept.includes("skill body")).toBe(true);
+    expect(kept.includes("SECRET_FILE")).toBe(false);
+    const previous = [
+      "<conversation-summary>",
+      "the goal",
+      "</conversation-summary>",
+      "",
+      '<kept name="skill">',
+      "skill body",
+      "</kept>",
+    ].join("\n");
+    const carried = mergeKeptBlocks(previous, [message]);
+    expect(carried.includes("skill body")).toBe(true);
+    expect(carried.includes("agent report")).toBe(true);
+    const folded = summaryTranscript([{ id: "model-summary", role: "user", content: previous }]);
+    expect(folded.includes("the goal")).toBe(true);
+    expect(folded.includes("skill body")).toBe(false);
+    const stripped = stripOrdinaryToolOutputs(message);
+    expect(stripped.toolRounds?.[0]?.calls[0]?.output).toBe("[omitted]");
+    expect(stripped.toolRounds?.[0]?.calls[1]?.output).toBe("agent report");
+    expect(stripped.toolRounds?.[0]?.calls[2]?.output).toBe("skill body");
   });
 
   it("keeps the first line and the recent tail inside the transcript budget", () => {

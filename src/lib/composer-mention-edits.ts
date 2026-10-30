@@ -1,3 +1,4 @@
+import { fileMentionSpans, formatMentionToken } from "@/lib/file-mentions";
 import { toPosixPath } from "@/lib/path";
 import { ACTION_SLASH_NAMES } from "@/lib/slash-commands";
 
@@ -11,8 +12,6 @@ const BARE_ACTION_RE = new RegExp(
   `(?:^|(?<=\\s))/(?:${ACTION_SLASH_NAMES.join("|")})(?![\\w-])\\s?`,
   "g",
 );
-const FILE_MENTION_RE = /@([^\s@]+)/g;
-
 const trimFileMentionPath = (path: string): string | null => {
   if (!path) return null;
   const normalized = toPosixPath(path);
@@ -47,19 +46,19 @@ export const tryMentionBackspace = (text: string, cursor: number): MentionEditRe
     }
   }
 
-  for (const match of text.matchAll(FILE_MENTION_RE)) {
-    const start = match.index ?? 0;
-    const end = start + (match[0]?.length ?? 0);
-    if (cursor <= start || cursor > end) continue;
-    const path = match[1] ?? "";
-    const trimmed = trimFileMentionPath(path);
+  for (const mention of fileMentionSpans(text)) {
+    if (cursor <= mention.start || cursor > mention.end) continue;
+    const trimmed = trimFileMentionPath(mention.path);
     if (trimmed === null) {
-      return { next: text.slice(0, start) + text.slice(end), cursor: start };
+      return {
+        next: text.slice(0, mention.start) + text.slice(mention.end),
+        cursor: mention.start,
+      };
     }
-    const token = `@${trimmed}`;
+    const token = formatMentionToken(trimmed);
     return {
-      next: text.slice(0, start) + token + text.slice(end),
-      cursor: start + token.length,
+      next: text.slice(0, mention.start) + token + text.slice(mention.end),
+      cursor: mention.start + token.length,
     };
   }
 

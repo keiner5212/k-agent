@@ -110,6 +110,10 @@ export const ChatComposer = (): ReactNode => {
         void useSessionsStore.getState().interruptActiveTask();
         return;
       }
+      if (commandId === "compact") {
+        void useSessionsStore.getState().compactActive();
+        return;
+      }
       if (commandId === "help") {
         void openExternalUrl(HELP_ISSUES_URL).catch((error: unknown) => {
           console.warn("openExternalUrl failed", error);

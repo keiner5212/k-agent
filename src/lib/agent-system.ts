@@ -97,7 +97,7 @@ const buildFlow = (hasAgentSkills: boolean, shape: PromptShape): string =>
         ? "Turn 1 loads every skill in <agent-skills> and writes no prose."
         : "Turn 1 has no agent-skill batch when <agent-skills> is absent.",
       "Then load a <workspace-skills> entry only when it matches the task.",
-      "Call only tools in the request tools list. Do not invent names.",
+      "If a listed skill can help answer the question, load that skill.",
       "Answer using <personality>.",
     ].join("\n"),
     shape,

@@ -2,8 +2,14 @@ import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Sparkles } from "lucide-react";
 import { useAskUserStore } from "@/lib/ask-user";
-import { INTERRUPT_ARM_MS, selectActiveMessages, useSessionsStore } from "@/lib/sessions";
+import {
+  INTERRUPT_ARM_MS,
+  selectActiveMessages,
+  selectActiveSession,
+  useSessionsStore,
+} from "@/lib/sessions";
 import type { ChatMessage } from "@/types/chat";
+import type { ModelContext } from "@/types/sessions";
 import { ChatTranscript } from "./ChatTranscript";
 import {
   assistantIsAnswering,
@@ -121,17 +127,19 @@ const ActiveThread = ({
   error,
   canRetry,
   sessionId,
+  modelContext,
 }: {
   messages: ChatMessage[];
   waiting: boolean;
   error?: string;
   canRetry: boolean;
   sessionId: string | null;
+  modelContext?: ModelContext;
 }): ReactNode => {
   const { t } = useTranslation();
 
   return (
-    <ChatTranscript messages={messages} sessionId={sessionId}>
+    <ChatTranscript messages={messages} sessionId={sessionId} modelContext={modelContext}>
       <ThreadTail messages={messages} />
       <div className="chat-thread__reserve">{waiting ? <ChatWaitingLine /> : null}</div>
       <InterruptHint />
@@ -158,6 +166,7 @@ const ActiveThread = ({
 export const ChatThread = (): ReactNode => {
   const { t } = useTranslation();
   const messages = useSessionsStore(selectActiveMessages);
+  const modelContext = useSessionsStore((state) => selectActiveSession(state)?.modelContext);
   const sendingSessionIds = useSessionsStore((state) => state.sendingSessionIds);
   const shellRunningSessionIds = useSessionsStore((state) => state.shellRunningSessionIds);
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
@@ -202,6 +211,7 @@ export const ChatThread = (): ReactNode => {
         waiting={waiting}
         error={error}
         canRetry={canRetry}
+        modelContext={modelContext}
         sessionId={activeSessionId}
       />
     </div>

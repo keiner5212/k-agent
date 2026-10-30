@@ -105,7 +105,7 @@ fn flow(has_agent_skills: bool, shape: Shape) -> String {
             "Follow the tagged sections in this system prompt in order.\n\
 {turn}\n\
 Then load a <workspace-skills> entry only when it matches the task.\n\
-Call only tools in the request tools list. Do not invent names.\n\
+If a listed skill can help answer the question, load that skill.\n\
 Answer using <personality>."
         ),
         shape,
