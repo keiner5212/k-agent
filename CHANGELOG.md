@@ -8,6 +8,13 @@ section. The release draft uses that section as its body.
 The entries say what changed and why it mattered, in the words of the person who
 had to live with it.
 
+## [0.2.6] - 2026-10-31
+
+### Fixed
+
+- Command lookup sees the user shell PATH again. The probe treated `/bin/sh` as the login shell, so it never read the zsh or bash profile and missed node and the other commands installed there.
+- A markdown table stays inside the message. A wide table used to stretch the whole message sideways.
+
 ## [0.2.5] - 2026-10-29
 
 ### Fixed

@@ -383,8 +383,7 @@ fn limit_provider_data(app: &AppHandle) -> bool {
 }
 
 fn node_available() -> bool {
-    std::process::Command::new("node")
-        .arg("--version")
+    crate::compat::exec::command("node", &["--version".to_string()])
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -409,12 +408,16 @@ fn checker_script(app: &AppHandle) -> Option<PathBuf> {
 }
 
 async fn parse_source(script: &Path, source: &str) -> Result<(), String> {
-    let mut child = tokio::process::Command::new("node")
-        .arg(script)
+    let mut command = tokio::process::Command::from(crate::compat::exec::command(
+        "node",
+        &[script.to_string_lossy().into_owned()],
+    ));
+    command
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true)
+        .kill_on_drop(true);
+    let mut child = command
         .spawn()
         .map_err(|error| format!("node failed to start: {error}"))?;
     if let Some(mut stdin) = child.stdin.take() {

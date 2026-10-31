@@ -404,6 +404,8 @@ pub async fn run_shell_command(
         .stderr(Stdio::piped())
         .kill_on_drop(true);
 
+    let login = crate::compat::shell::login_env(&shell.program);
+    crate::compat::shell::apply_login_env(cmd.as_std_mut(), &login);
     crate::compat::process::protect_detached(cmd.as_std_mut());
 
     let mut child = cmd

@@ -804,6 +804,10 @@ async fn run_cmd(
 ) -> Result<(), LspError> {
     let mut cmd = tokio::process::Command::new(program);
     cmd.args(args);
+    let path = crate::compat::shell::command_search_path();
+    if !path.is_empty() {
+        cmd.env("PATH", path);
+    }
     if let Some(pairs) = env {
         for (key, value) in pairs {
             cmd.env(key, value);

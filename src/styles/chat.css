@@ -917,6 +917,7 @@ button.change-bar__stat:focus-visible {
   flex: 1;
   padding: var(--space-6);
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
 }
 
@@ -1005,6 +1006,7 @@ button.change-bar__stat:focus-visible {
 .chat-message {
   max-width: 100%;
   min-width: 0;
+  overflow-x: clip;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -1724,7 +1726,8 @@ button.change-bar__stat:focus-visible {
 
 .chat-message__markdown {
   max-width: 100%;
-  overflow-x: auto;
+  min-width: 0;
+  overflow-x: clip;
   white-space: normal;
 }
 
@@ -1741,7 +1744,7 @@ button.change-bar__stat:focus-visible {
 .chat-message__markdown ol,
 .chat-message__markdown pre,
 .chat-message__markdown blockquote,
-.chat-message__markdown table {
+.chat-message__markdown .md-table {
   margin: 0 0 var(--space-2);
 }
 
@@ -1900,22 +1903,29 @@ button.change-bar__stat:focus-visible {
   font-size: var(--text-xs);
 }
 
+.chat-message__markdown .md-table {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
 .chat-message__markdown table {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
+  margin: 0;
   border-collapse: collapse;
   font-size: var(--text-xs);
+  table-layout: fixed;
 }
 
 .chat-message__markdown th,
 .chat-message__markdown td {
-  min-width: 10rem;
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border);
   text-align: left;
   vertical-align: top;
-  word-break: normal;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .chat-message__markdown hr {
