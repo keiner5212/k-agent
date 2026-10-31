@@ -1,7 +1,10 @@
+use std::collections::HashMap;
 use std::ffi::OsString;
+use std::io::Read;
 use std::path::Path;
-#[cfg(windows)]
-use std::sync::OnceLock;
+use std::process::{Command, Stdio};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Duration;
 
 /// Shell program plus the arguments that make it run one command string.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -45,10 +48,21 @@ pub fn shell_reads_profile(shell: &str) -> bool {
     !matches!(shell_stem(shell).as_str(), "cmd" | "powershell" | "pwsh")
 }
 
-/// `sh` has no profile of its own, so a real shell is used for the probe.
+/// `sh` has no profile of its own. Probe the user shell so PATH includes node and the rest.
 pub fn probe_shell_for(shell: &str) -> String {
+    let user = std::env::var_os("SHELL").map(|value| value.to_string_lossy().into_owned());
+    pick_probe_shell(shell, user.as_deref())
+}
+
+fn pick_probe_shell(shell: &str, user_shell: Option<&str>) -> String {
     if !matches!(shell_stem(shell).as_str(), "sh" | "dash") {
         return shell.to_string();
+    }
+    if let Some(program) = user_shell.map(str::trim).filter(|value| !value.is_empty()) {
+        let stem = shell_stem(program);
+        if matches!(stem.as_str(), "bash" | "zsh" | "fish") && Path::new(program).is_file() {
+            return program.to_string();
+        }
     }
     for candidate in login_shell_candidates() {
         if Path::new(candidate).is_file() {
@@ -69,8 +83,8 @@ pub fn login_shell_candidates() -> &'static [&'static str] {
 /// Command that prints the login shell environment behind a marker.
 pub fn env_probe_command() -> &'static str {
     if cfg!(target_os = "linux") {
-        // GNU env can separate records with NUL, so values keep their newlines.
-        "command printf '\\0__KAGENT_ENV__\\0'; command env -0"
+        // A NUL inside one printf format ends that format. The marker is three writes.
+        "command printf '\\0'; command printf '%s' '__KAGENT_ENV__'; command printf '\\0'; command env -0"
     } else {
         // BSD env has no -0 flag. Records are newline separated.
         "command printf '__KAGENT_ENV__\\n'; command env"
@@ -215,6 +229,206 @@ pub fn dangerous_commands() -> &'static [&'static str] {
     }
 }
 
+const PROBE_TIMEOUT: Duration = Duration::from_secs(30);
+const ENV_STDOUT_CAP: u64 = 2 * 1024 * 1024;
+const ENV_STDERR_CAP: u64 = 8 * 1024;
+
+pub struct LoginEnv {
+    pub vars: Vec<(OsString, OsString)>,
+    pub fallback: Option<String>,
+}
+
+fn login_envs() -> &'static Mutex<HashMap<String, Arc<LoginEnv>>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, Arc<LoginEnv>>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn lock_login_envs() -> std::sync::MutexGuard<'static, HashMap<String, Arc<LoginEnv>>> {
+    login_envs().lock().unwrap_or_else(|err| err.into_inner())
+}
+
+pub fn login_env(shell: &str) -> Arc<LoginEnv> {
+    if let Some(hit) = lock_login_envs().get(shell).cloned() {
+        return hit;
+    }
+    let loaded = Arc::new(load_login_env(shell));
+    lock_login_envs()
+        .entry(shell.to_string())
+        .or_insert_with(|| Arc::clone(&loaded))
+        .clone()
+}
+
+fn load_login_env(shell: &str) -> LoginEnv {
+    if !shell_reads_profile(shell) {
+        return LoginEnv {
+            vars: process_env(),
+            fallback: None,
+        };
+    }
+    match probe_login_env(&probe_shell_for(shell)) {
+        Ok(vars) => LoginEnv {
+            vars: merge_probe_env(vars),
+            fallback: None,
+        },
+        Err(reason) => LoginEnv {
+            vars: process_env(),
+            fallback: Some(format!(
+                "bash: login shell startup failed: {reason}. Using the desktop process environment."
+            )),
+        },
+    }
+}
+
+fn merge_probe_env(probed: Vec<(OsString, OsString)>) -> Vec<(OsString, OsString)> {
+    let process = process_env();
+    let mut merged = probed;
+    merge_path(&mut merged, &process);
+    for (key, value) in process {
+        if merged.iter().any(|(existing, _)| existing == &key) {
+            continue;
+        }
+        merged.push((key, value));
+    }
+    merged
+}
+
+fn merge_path(merged: &mut Vec<(OsString, OsString)>, process: &[(OsString, OsString)]) {
+    let Some(process_path) = last_path_value(process) else {
+        return;
+    };
+    let Some(slot) = last_path_index(merged) else {
+        merged.push((OsString::from("PATH"), process_path.clone()));
+        return;
+    };
+    merged[slot].1 = join_missing_path(&merged[slot].1, process_path);
+}
+
+fn last_path_index(vars: &[(OsString, OsString)]) -> Option<usize> {
+    vars.iter()
+        .enumerate()
+        .rev()
+        .find(|(_, (key, _))| is_path_key(key.as_encoded_bytes()))
+        .map(|(index, _)| index)
+}
+
+fn last_path_value(vars: &[(OsString, OsString)]) -> Option<&OsString> {
+    last_path_index(vars).map(|index| &vars[index].1)
+}
+
+fn join_missing_path(primary: &OsString, extra: &OsString) -> OsString {
+    let sep = path_separator();
+    let mut out = primary.as_encoded_bytes().to_vec();
+    for component in extra.as_encoded_bytes().split(|byte| *byte == sep) {
+        if component.is_empty() || path_has_component(&out, component, sep) {
+            continue;
+        }
+        if !out.is_empty() && !out.ends_with(&[sep]) {
+            out.push(sep);
+        }
+        out.extend_from_slice(component);
+    }
+    os_from_bytes(&out)
+}
+
+fn path_has_component(path: &[u8], component: &[u8], sep: u8) -> bool {
+    path.split(|byte| *byte == sep)
+        .any(|item| item == component)
+}
+
+fn process_env() -> Vec<(OsString, OsString)> {
+    std::env::vars_os().collect()
+}
+
+fn probe_login_env(shell: &str) -> Result<Vec<(OsString, OsString)>, String> {
+    let mut command = Command::new(shell);
+    command
+        .args(["-l", "-i", "-c", env_probe_command()])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = crate::compat::process::spawn_protected(&mut command)
+        .map_err(|error| format!("could not start `{shell}`: {error}"))?;
+    let stdout_pipe = child.stdout.take();
+    let stderr_pipe = child.stderr.take();
+    let stdout_task = std::thread::spawn(move || match stdout_pipe {
+        Some(pipe) => read_capped(pipe, ENV_STDOUT_CAP),
+        None => Vec::new(),
+    });
+    let stderr_task = std::thread::spawn(move || match stderr_pipe {
+        Some(pipe) => read_capped(pipe, ENV_STDERR_CAP),
+        None => Vec::new(),
+    });
+    let started = std::time::Instant::now();
+    let status = loop {
+        if started.elapsed() > PROBE_TIMEOUT {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = stdout_task.join();
+            let _ = stderr_task.join();
+            return Err("timed out after 30s".into());
+        }
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) => std::thread::sleep(Duration::from_millis(20)),
+            Err(error) => {
+                let _ = child.kill();
+                let _ = stdout_task.join();
+                let _ = stderr_task.join();
+                return Err(error.to_string());
+            }
+        }
+    };
+    let stdout = stdout_task.join().unwrap_or_default();
+    let stderr = stderr_task.join().unwrap_or_default();
+    match parse_env_dump(&stdout) {
+        Ok(vars) => Ok(vars),
+        Err(reason) if status.success() => Err(reason),
+        Err(_) => Err(format!(
+            "probe exited {}{}",
+            status.code().unwrap_or(-1),
+            stderr_suffix(&stderr)
+        )),
+    }
+}
+
+fn read_capped(pipe: impl Read, cap: u64) -> Vec<u8> {
+    let mut buf = Vec::new();
+    let mut limited = pipe.take(cap);
+    let _ = limited.read_to_end(&mut buf);
+    buf
+}
+
+fn stderr_suffix(stderr: &[u8]) -> String {
+    let text = String::from_utf8_lossy(stderr);
+    let collapsed = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let collapsed = collapsed.trim();
+    if collapsed.is_empty() {
+        return String::new();
+    }
+    let clipped: String = collapsed.chars().take(180).collect();
+    format!(": {clipped}")
+}
+
+pub fn apply_login_env(command: &mut Command, env: &LoginEnv) {
+    command.env_clear();
+    for (key, value) in &env.vars {
+        if key.as_encoded_bytes() == b"BASH_ENV" {
+            continue;
+        }
+        command.env(key, value);
+    }
+}
+
+/// PATH the user shell would use. The desktop process PATH misses profile installs.
+pub fn command_search_path() -> OsString {
+    let env = login_env(&default_shell().program);
+    last_path_value(&env.vars)
+        .filter(|value| !value.is_empty())
+        .cloned()
+        .or_else(|| std::env::var_os("PATH"))
+        .unwrap_or_default()
+}
+
 pub fn is_dangerous_command(name: &str) -> bool {
     let base = base_command_name(name);
     dangerous_commands()
@@ -242,6 +456,8 @@ pub fn base_command_name(token: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
 
     #[test]
@@ -306,5 +522,41 @@ mod tests {
         no_path.extend_from_slice(b"HOME=/root");
         no_path.extend_from_slice(&sep);
         assert!(parse_env_dump(&no_path).is_err());
+    }
+
+    #[test]
+    fn sh_probe_prefers_the_user_shell() {
+        if Path::new("/bin/bash").is_file() {
+            assert_eq!(pick_probe_shell("/bin/sh", Some("/bin/bash")), "/bin/bash");
+            assert_eq!(
+                pick_probe_shell("/bin/sh", Some("/no/such/shell")),
+                "/bin/bash"
+            );
+        }
+        assert_eq!(pick_probe_shell("/bin/zsh", Some("/bin/bash")), "/bin/zsh");
+    }
+
+    #[test]
+    fn probe_command_round_trips_path() {
+        let shell = if Path::new("/bin/bash").is_file() {
+            "/bin/bash"
+        } else if Path::new("/bin/sh").is_file() {
+            "/bin/sh"
+        } else {
+            return;
+        };
+        let output = std::process::Command::new(shell)
+            .args(["-c", env_probe_command()])
+            .output()
+            .expect("probe");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let vars = parse_env_dump(&output.stdout).expect("parse");
+        assert!(vars
+            .iter()
+            .any(|(key, value)| { is_path_key(key.as_encoded_bytes()) && !value.is_empty() }));
     }
 }

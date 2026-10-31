@@ -13,14 +13,26 @@ pub fn resolve(program: &str, args: &[String]) -> (OsString, Vec<OsString>) {
 pub fn command(program: &str, args: &[String]) -> std::process::Command {
     #[cfg(windows)]
     {
-        return windows_command(program, args);
+        let mut cmd = windows_command(program, args);
+        attach_user_path(&mut cmd);
+        return cmd;
     }
     #[cfg(not(windows))]
     {
-        let (program, args) = resolve(program, args);
+        let program = find_in_path(program)
+            .map(PathBuf::into_os_string)
+            .unwrap_or_else(|| OsString::from(program));
         let mut cmd = std::process::Command::new(program);
         cmd.args(args);
+        attach_user_path(&mut cmd);
         cmd
+    }
+}
+
+fn attach_user_path(command: &mut std::process::Command) {
+    let path = crate::compat::shell::command_search_path();
+    if !path.is_empty() {
+        command.env("PATH", path);
     }
 }
 
@@ -84,18 +96,21 @@ pub fn find_in_path(program: &str) -> Option<PathBuf> {
     if candidate.components().count() > 1 {
         return Some(candidate.to_path_buf());
     }
-    let path = std::env::var_os("PATH")?;
+    let path = crate::compat::shell::command_search_path();
+    if path.is_empty() {
+        return None;
+    }
     for dir in std::env::split_paths(&path) {
         if dir.as_os_str().is_empty() {
             continue;
         }
         let direct = dir.join(program);
-        if direct.is_file() {
+        if crate::compat::paths::is_executable(&direct) {
             return Some(direct);
         }
         for extension in crate::compat::paths::executable_extensions() {
             let with_extension = dir.join(format!("{program}{extension}"));
-            if with_extension.is_file() {
+            if crate::compat::paths::is_executable(&with_extension) {
                 return Some(with_extension);
             }
         }

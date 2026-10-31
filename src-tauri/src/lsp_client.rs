@@ -148,8 +148,13 @@ fn spawn_server(spec: &LanguageServerSpec, dir: &Path, command: &str) -> Result<
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
-    if let Some(parent) = Path::new(command).parent() {
-        if let Some(old) = std::env::var_os("PATH") {
+    // A bare name has an empty parent. Prepending it would put the cwd on PATH.
+    if let Some(parent) = Path::new(command)
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+    {
+        let old = crate::compat::shell::command_search_path();
+        if !old.is_empty() {
             let mut paths = vec![parent.to_path_buf()];
             paths.extend(std::env::split_paths(&old));
             if let Ok(joined) = std::env::join_paths(paths) {

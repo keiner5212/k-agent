@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-use std::ffi::OsString;
 use std::io::Read;
 use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use serde_json::{json, Value};
@@ -1028,14 +1026,6 @@ fn pipes_to_shell(command: &str) -> bool {
     false
 }
 
-const ENV_STDOUT_CAP: u64 = 2 * 1024 * 1024;
-const ENV_STDERR_CAP: u64 = 8 * 1024;
-
-struct LoginEnv {
-    vars: Vec<(OsString, OsString)>,
-    fallback: Option<String>,
-}
-
 fn resolved_shell(program: &str) -> String {
     let trimmed = program.trim();
     if trimmed.is_empty() {
@@ -1049,206 +1039,12 @@ fn shell_flag(shell: &str) -> &'static str {
     crate::compat::shell::shell_flag(shell)
 }
 
-fn shell_reads_profile(shell: &str) -> bool {
-    crate::compat::shell::shell_reads_profile(shell)
+fn login_env(shell: &str) -> std::sync::Arc<crate::compat::shell::LoginEnv> {
+    crate::compat::shell::login_env(shell)
 }
 
-fn probe_shell_for(shell: &str) -> String {
-    crate::compat::shell::probe_shell_for(shell)
-}
-
-fn login_envs() -> &'static Mutex<HashMap<String, Arc<LoginEnv>>> {
-    static CACHE: OnceLock<Mutex<HashMap<String, Arc<LoginEnv>>>> = OnceLock::new();
-    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-fn lock_login_envs() -> std::sync::MutexGuard<'static, HashMap<String, Arc<LoginEnv>>> {
-    login_envs().lock().unwrap_or_else(|err| err.into_inner())
-}
-
-fn login_env(shell: &str) -> Arc<LoginEnv> {
-    if let Some(hit) = lock_login_envs().get(shell).cloned() {
-        return hit;
-    }
-    let loaded = Arc::new(load_login_env(shell));
-    lock_login_envs()
-        .entry(shell.to_string())
-        .or_insert_with(|| Arc::clone(&loaded))
-        .clone()
-}
-
-fn load_login_env(shell: &str) -> LoginEnv {
-    if !shell_reads_profile(shell) {
-        return LoginEnv {
-            vars: process_env(),
-            fallback: None,
-        };
-    }
-    match probe_login_env(&probe_shell_for(shell)) {
-        Ok(vars) => LoginEnv {
-            vars: merge_probe_env(vars),
-            fallback: None,
-        },
-        Err(reason) => LoginEnv {
-            vars: process_env(),
-            fallback: Some(format!(
-                "bash: login shell startup failed: {reason}. Using the desktop process environment."
-            )),
-        },
-    }
-}
-
-fn merge_probe_env(probed: Vec<(OsString, OsString)>) -> Vec<(OsString, OsString)> {
-    let process = process_env();
-    let mut merged = probed;
-    merge_path(&mut merged, &process);
-    for (key, value) in process {
-        if merged.iter().any(|(existing, _)| existing == &key) {
-            continue;
-        }
-        merged.push((key, value));
-    }
-    merged
-}
-
-fn merge_path(merged: &mut Vec<(OsString, OsString)>, process: &[(OsString, OsString)]) {
-    let Some(process_path) = last_path_value(process) else {
-        return;
-    };
-    let Some(slot) = last_path_index(merged) else {
-        merged.push((OsString::from("PATH"), process_path.clone()));
-        return;
-    };
-    merged[slot].1 = join_missing_path(&merged[slot].1, process_path);
-}
-
-fn last_path_index(vars: &[(OsString, OsString)]) -> Option<usize> {
-    vars.iter()
-        .enumerate()
-        .rev()
-        .find(|(_, (key, _))| is_path_key(key.as_encoded_bytes()))
-        .map(|(index, _)| index)
-}
-
-fn last_path_value(vars: &[(OsString, OsString)]) -> Option<&OsString> {
-    last_path_index(vars).map(|index| &vars[index].1)
-}
-
-fn join_missing_path(primary: &OsString, extra: &OsString) -> OsString {
-    let sep = crate::compat::shell::path_separator();
-    let mut out = primary.as_encoded_bytes().to_vec();
-    for component in extra.as_encoded_bytes().split(|byte| *byte == sep) {
-        if component.is_empty() || path_has_component(&out, component, sep) {
-            continue;
-        }
-        if !out.is_empty() && !out.ends_with(&[sep]) {
-            out.push(sep);
-        }
-        out.extend_from_slice(component);
-    }
-    os_from_bytes(&out)
-}
-
-fn path_has_component(path: &[u8], component: &[u8], sep: u8) -> bool {
-    path.split(|byte| *byte == sep)
-        .any(|item| item == component)
-}
-
-fn process_env() -> Vec<(OsString, OsString)> {
-    std::env::vars_os().collect()
-}
-
-fn probe_login_env(shell: &str) -> Result<Vec<(OsString, OsString)>, String> {
-    // Probe is separate so the user command is not executed inside the profile.
-    let mut command = Command::new(shell);
-    command
-        .args(["-l", "-i", "-c", crate::compat::shell::env_probe_command()])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    let mut child = crate::compat::process::spawn_protected(&mut command)
-        .map_err(|error| format!("could not start `{shell}`: {error}"))?;
-    let stdout_pipe = child.stdout.take();
-    let stderr_pipe = child.stderr.take();
-    let stdout_task = std::thread::spawn(move || match stdout_pipe {
-        Some(pipe) => read_capped(pipe, ENV_STDOUT_CAP),
-        None => Vec::new(),
-    });
-    let stderr_task = std::thread::spawn(move || match stderr_pipe {
-        Some(pipe) => read_capped(pipe, ENV_STDERR_CAP),
-        None => Vec::new(),
-    });
-    let started = std::time::Instant::now();
-    let status = loop {
-        if started.elapsed() > TIMEOUT {
-            let _ = child.kill();
-            let _ = child.wait();
-            let _ = stdout_task.join();
-            let _ = stderr_task.join();
-            return Err("timed out after 30s".into());
-        }
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) => std::thread::sleep(Duration::from_millis(20)),
-            Err(error) => {
-                let _ = child.kill();
-                let _ = stdout_task.join();
-                let _ = stderr_task.join();
-                return Err(error.to_string());
-            }
-        }
-    };
-    let stdout = stdout_task.join().unwrap_or_default();
-    let stderr = stderr_task.join().unwrap_or_default();
-    match parse_env_block(&stdout) {
-        Ok(vars) => Ok(vars),
-        Err(reason) if status.success() => Err(reason),
-        Err(_) => Err(format!(
-            "probe exited {}{}",
-            status.code().unwrap_or(-1),
-            stderr_suffix(&stderr)
-        )),
-    }
-}
-
-fn read_capped(pipe: impl Read, cap: u64) -> Vec<u8> {
-    let mut buf = Vec::new();
-    let mut limited = pipe.take(cap);
-    let _ = limited.read_to_end(&mut buf);
-    buf
-}
-
-fn parse_env_block(bytes: &[u8]) -> Result<Vec<(OsString, OsString)>, String> {
-    crate::compat::shell::parse_env_dump(bytes)
-}
-
-fn is_path_key(key: &[u8]) -> bool {
-    crate::compat::shell::is_path_key(key)
-}
-
-fn os_from_bytes(bytes: &[u8]) -> OsString {
-    crate::compat::shell::os_from_bytes(bytes)
-}
-
-fn stderr_suffix(stderr: &[u8]) -> String {
-    let text = String::from_utf8_lossy(stderr);
-    let collapsed = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    let collapsed = collapsed.trim();
-    if collapsed.is_empty() {
-        return String::new();
-    }
-    let clipped: String = collapsed.chars().take(180).collect();
-    format!(": {clipped}")
-}
-
-fn apply_login_env(command: &mut Command, env: &LoginEnv) {
-    command.env_clear();
-    for (key, value) in &env.vars {
-        if key.as_encoded_bytes() == b"BASH_ENV" {
-            continue;
-        }
-        command.env(key, value);
-    }
+fn apply_login_env(command: &mut Command, env: &crate::compat::shell::LoginEnv) {
+    crate::compat::shell::apply_login_env(command, env);
 }
 
 pub(crate) fn install_command_env(command: &mut Command, shell: &str, clear_proxy: bool) {

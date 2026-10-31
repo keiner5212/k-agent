@@ -47,11 +47,22 @@ export const withCodeCopy = (html: string, label: string, viewLabel?: string): s
   });
 };
 
+const TABLE_RE = /<table\b[^>]*>[\s\S]*?<\/table>/gi;
+
+const wrapTables = (html: string): string => {
+  if (!html.includes("<table")) return html;
+  TABLE_RE.lastIndex = 0;
+  return html.replace(TABLE_RE, (table) => `<div class="md-table">${table}</div>`);
+};
+
 export const finishMarkdown = (parsedHtml: string, linkTitleHint?: string): string => {
   if (parsedHtml.length === 0) return "";
   const sanitized = DOMPurify.sanitize(parsedHtml);
-  if (!linkTitleHint || linkTitleHint.length === 0) return sanitized;
-  return addTitleToExternalLinks(sanitized, linkTitleHint);
+  const linked =
+    !linkTitleHint || linkTitleHint.length === 0
+      ? sanitized
+      : addTitleToExternalLinks(sanitized, linkTitleHint);
+  return wrapTables(linked);
 };
 
 export const renderMarkdown = (source: string, linkTitleHint?: string): string => {
