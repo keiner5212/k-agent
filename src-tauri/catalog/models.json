@@ -17502,8 +17502,13 @@
     "effortLevels": ["low", "medium", "high"],
     "attachmentTypes": ["image", "video", "audio", "pdf"],
     "request": {
-      "known": false,
-      "native": ["gemini"]
+      "known": true,
+      "native": ["gemini"],
+      "reasoning": {
+        "kind": "gemini-level",
+        "levels": ["low", "medium", "high"],
+        "defaultLevel": "medium"
+      }
     }
   },
   {
@@ -17519,8 +17524,13 @@
     "multimodal": true,
     "attachmentTypes": ["image", "video", "audio", "pdf"],
     "request": {
-      "known": false,
-      "native": ["gemini"]
+      "known": true,
+      "native": ["gemini"],
+      "reasoning": {
+        "kind": "gemini-level",
+        "levels": ["low", "medium", "high"],
+        "defaultLevel": "medium"
+      }
     }
   },
   {
@@ -17536,8 +17546,13 @@
     "multimodal": true,
     "attachmentTypes": ["image", "video", "audio", "pdf"],
     "request": {
-      "known": false,
-      "native": ["gemini"]
+      "known": true,
+      "native": ["gemini"],
+      "reasoning": {
+        "kind": "gemini-level",
+        "levels": ["low", "medium", "high", "xhigh"],
+        "defaultLevel": "high"
+      }
     }
   },
   {
@@ -17553,8 +17568,13 @@
     "multimodal": true,
     "attachmentTypes": ["image", "video", "audio", "pdf"],
     "request": {
-      "known": false,
-      "native": ["gemini"]
+      "known": true,
+      "native": ["gemini"],
+      "reasoning": {
+        "kind": "gemini-level",
+        "levels": ["low", "medium", "high"],
+        "defaultLevel": "medium"
+      }
     }
   },
   {
