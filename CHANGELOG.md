@@ -29,6 +29,8 @@ had to live with it.
 - fetch_url renders a script shell in WebKit on Linux when the static extract is empty, so a client-rendered page can still yield text.
 - The unmerged shell and Windows console work from pull request 71 is in this branch. A shell command no longer shows the thinking line, the bubble shows the command and its output together, and Windows release builds do not open a console for the app or its child processes.
 - The model catalog adds Claude Fable 5.2, DeepSeek Flash, and Gemini 4 Carbon, Hydrogen, and Neon from the current official model pages.
+- The Rust audit can pass again. `cookie` and `url` moved to the patched releases, and `zip` moved to 9 so the archive reader checks entry names.
+- The CI runs when a commit lands on `dev` or `main`. A pull request no longer starts a second run.
 
 ## [0.2.6] - 2026-10-31
 

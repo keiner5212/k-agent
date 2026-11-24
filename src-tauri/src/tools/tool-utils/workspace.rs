@@ -226,7 +226,25 @@ pub async fn confirm_action(
 }
 
 fn canonical_or_normalize(path: &Path) -> PathBuf {
-    dunce::canonicalize(path).unwrap_or_else(|_| normalize(path))
+    if let Ok(canonical) = dunce::canonicalize(path) {
+        return canonical;
+    }
+    let mut suffix = Vec::new();
+    let mut cursor = path.to_path_buf();
+    while !cursor.exists() {
+        let Some(name) = cursor.file_name().map(|name| name.to_os_string()) else {
+            break;
+        };
+        suffix.push(name);
+        if !cursor.pop() {
+            break;
+        }
+    }
+    let mut base = dunce::canonicalize(&cursor).unwrap_or_else(|_| normalize(&cursor));
+    for name in suffix.into_iter().rev() {
+        base.push(name);
+    }
+    base
 }
 
 fn normalize(path: &Path) -> PathBuf {
