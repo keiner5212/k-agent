@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,26 @@ const PAGE_PAUSE_SPAN_MS: u64 = 2_000;
 
 const BING_HOME: &str = "https://www.bing.com/";
 const DUCK_HOME: &str = "https://html.duckduckgo.com/";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Engine {
+    Bing,
+    Duck,
+}
+
+static NEXT_ENGINE: AtomicU8 = AtomicU8::new(0);
+
+fn engine_for(tick: u8) -> Engine {
+    if tick % 2 == 0 {
+        Engine::Bing
+    } else {
+        Engine::Duck
+    }
+}
+
+fn take_primary() -> Engine {
+    engine_for(NEXT_ENGINE.fetch_add(1, Ordering::Relaxed))
+}
 
 const COMMON_QUERY_WORDS: &[&str] = &[
     "and", "are", "como", "con", "del", "der", "die", "ein", "eine", "for", "from", "how", "las",
@@ -130,13 +151,10 @@ async fn search(args: &SearchArgs, ctx: &ToolContext<'_>) -> Result<String, Stri
         return Ok(render_cached(&query, &lang, pages, &cached));
     }
 
-    let mut session = BrowserSession::new(&lang);
-    if session.get(BING_HOME, "none", None).await.is_err() {
-        // Warm-up failure should not block the search. Bing sometimes
-        // serves the home page from a different host.
-    }
-
+    let primary = take_primary();
+    let mut bing_session: Option<BrowserSession> = None;
     let mut duck_session: Option<BrowserSession> = None;
+    let mut bing_warm = false;
     let mut all_results: Vec<SearchResult> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     for page in 0..pages {
@@ -144,12 +162,40 @@ async fn search(args: &SearchArgs, ctx: &ToolContext<'_>) -> Result<String, Stri
             let pause = PAGE_PAUSE_MIN_MS + (random_ms() as u64 % PAGE_PAUSE_SPAN_MS);
             tokio::time::sleep(Duration::from_millis(pause)).await;
         }
-        let bing = bing_page(&mut session, &query, page, policy).await;
-        let batch = match bing {
+        let lead = engine_page(
+            primary,
+            &mut bing_session,
+            &mut duck_session,
+            &mut bing_warm,
+            &query,
+            page,
+            &lang,
+            policy,
+        )
+        .await;
+        let batch = match lead {
             Ok(batch) if has_relevant_results(&query, &batch) => batch,
-            bing => {
-                let duck = duck_session.get_or_insert_with(|| BrowserSession::new(&lang));
-                pick_results(&query, bing, duck_page(duck, &query, page, policy).await)?
+            lead => {
+                let other = match primary {
+                    Engine::Bing => Engine::Duck,
+                    Engine::Duck => Engine::Bing,
+                };
+                let follow = engine_page(
+                    other,
+                    &mut bing_session,
+                    &mut duck_session,
+                    &mut bing_warm,
+                    &query,
+                    page,
+                    &lang,
+                    policy,
+                )
+                .await;
+                let (bing, duck) = match primary {
+                    Engine::Bing => (lead, follow),
+                    Engine::Duck => (follow, lead),
+                };
+                pick_results(&query, bing, duck)?
             }
         };
         if batch.is_empty() {
@@ -179,20 +225,48 @@ async fn search(args: &SearchArgs, ctx: &ToolContext<'_>) -> Result<String, Stri
     Ok(render_results(&query, &lang, pages, &all_results))
 }
 
+async fn engine_page(
+    engine: Engine,
+    bing_session: &mut Option<BrowserSession>,
+    duck_session: &mut Option<BrowserSession>,
+    bing_warm: &mut bool,
+    query: &str,
+    page: usize,
+    lang: &str,
+    policy: FetchPolicy,
+) -> Result<Vec<SearchResult>, String> {
+    match engine {
+        Engine::Bing => {
+            let session = bing_session.get_or_insert_with(|| BrowserSession::new(lang));
+            if !*bing_warm {
+                let _ = session.get(BING_HOME, "none", None).await;
+                *bing_warm = true;
+            }
+            bing_page(session, query, page, policy).await
+        }
+        Engine::Duck => {
+            let session = duck_session.get_or_insert_with(|| BrowserSession::new(lang));
+            duck_page(session, query, page, policy).await
+        }
+    }
+}
+
 fn pick_results(
     query: &str,
     bing: Result<Vec<SearchResult>, String>,
     duck: Result<Vec<SearchResult>, String>,
 ) -> Result<Vec<SearchResult>, String> {
-    if let Ok(batch) = &duck {
-        if has_relevant_results(query, batch) {
-            return Ok(batch.clone());
+    for batch in [&duck, &bing] {
+        if let Ok(batch) = batch {
+            if has_relevant_results(query, batch) {
+                return Ok(batch.clone());
+            }
         }
     }
     match (bing, duck) {
         (Err(error), Err(_)) => Err(error),
-        (Err(error), Ok(batch)) if batch.is_empty() => Err(error),
-        (Ok(_), Err(error)) if is_access_denied_error(&error) => Err(error),
+        (Err(error), Ok(batch)) if batch.is_empty() || is_access_denied_error(&error) => Err(error),
+        (Ok(batch), Err(error)) if batch.is_empty() || is_access_denied_error(&error) => Err(error),
         _ => Ok(Vec::new()),
     }
 }
@@ -997,6 +1071,39 @@ mod tests {
         let encoded = "aHR0cHM6Ly9leGFtcGxlLmNvbS9hcnRpY2xl";
         let decoded = base64_decode(encoded).unwrap();
         assert_eq!(decoded, "https://example.com/article");
+    }
+
+    #[test]
+    fn engine_for_alternates_bing_and_duck() {
+        assert_eq!(engine_for(0), Engine::Bing);
+        assert_eq!(engine_for(1), Engine::Duck);
+        assert_eq!(engine_for(2), Engine::Bing);
+    }
+
+    #[test]
+    fn pick_results_keeps_relevant_bing_when_duck_is_off_topic() {
+        let real = vec![SearchResult {
+            position: 1,
+            title: "What Is Cancer? - NCI".into(),
+            url: "https://www.cancer.gov/about-cancer/understanding/what-is-cancer".into(),
+            site: "cancer.gov".into(),
+            snippet: "Cancer is a disease in which some of the body's cells grow uncontrollably."
+                .into(),
+        }];
+        let decoy = vec![SearchResult {
+            position: 1,
+            title: "OpenCode Zen".into(),
+            url: "https://opencode.ai/docs/zen/".into(),
+            site: "opencode.ai".into(),
+            snippet: "Tested models for coding agents.".into(),
+        }];
+        let picked = pick_results(
+            "cancer NCI NIH overview disease cells",
+            Ok(real.clone()),
+            Ok(decoy),
+        )
+        .unwrap();
+        assert_eq!(picked[0].url, real[0].url);
     }
 
     #[test]

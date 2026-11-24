@@ -28,16 +28,6 @@
   z-index: 0;
   border-radius: inherit;
   pointer-events: none;
-  background-color: var(--surface);
-}
-
-:root[data-translucent="true"] .dialog-root[data-top="true"][data-settled="true"] .dialog-surface {
-  background-color: transparent;
-}
-
-:root[data-translucent="true"]
-  .dialog-root[data-top="true"][data-settled="true"]
-  .dialog-surface::before {
   background-color: var(--frost-dialog-fill);
   -webkit-backdrop-filter: saturate(var(--frost-saturate)) blur(var(--frost-dialog-blur));
   backdrop-filter: saturate(var(--frost-saturate)) blur(var(--frost-dialog-blur));
@@ -60,7 +50,9 @@
 }
 
 :root[data-translucent="true"] .dialog-overlay {
-  background-color: color-mix(in oklch, var(--background) 28%, transparent);
+  background-color: color-mix(in oklch, var(--background) 36%, transparent);
+  -webkit-backdrop-filter: saturate(150%) blur(var(--frost-blur));
+  backdrop-filter: saturate(150%) blur(var(--frost-blur));
 }
 
 :root[data-translucent="true"] .select,

@@ -169,6 +169,13 @@ fn tool_choice(tools: &[String], shape: Shape) -> String {
                 .into(),
         );
     }
+    let mut path_bits: Vec<String> = Vec::new();
+    push_path_bit(&mut path_bits, tools, &["read", "lsp"], "filePath");
+    push_path_bit(&mut path_bits, tools, &["glob"], "dirPath");
+    push_path_bit(&mut path_bits, tools, &["grep"], "path");
+    if !path_bits.is_empty() {
+        lines.push(format!("Path arguments differ. {}.", path_bits.join(". ")));
+    }
     if has(tools, "glob") || has(tools, "grep") {
         lines.push(
             "Readable hidden directories are `.github` and `.agents`. `node_modules`, `.git`, `target`, `dist`, `build`, `vendor`, virtualenvs, and other dependency, cache, and build directories are skipped. Other names that start with `.` are skipped."
@@ -237,6 +244,19 @@ fn display_name(name: &str, id: &str) -> String {
     } else {
         trimmed.to_string()
     }
+}
+
+fn push_path_bit(bits: &mut Vec<String>, tools: &[String], names: &[&str], arg: &str) {
+    let present: Vec<&str> = names
+        .iter()
+        .copied()
+        .filter(|name| has(tools, name))
+        .collect();
+    if present.is_empty() {
+        return;
+    }
+    let verb = if present.len() == 1 { "takes" } else { "take" };
+    bits.push(format!("`{}` {verb} `{arg}`", present.join("`, `")));
 }
 
 fn has(tools: &[String], name: &str) -> bool {

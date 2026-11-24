@@ -192,10 +192,6 @@ const FETCH_URL_TOOL_PARAMETERS = {
       description:
         "Public HTTPS URL. Only port 443. Credentials, IP literals, and private hostnames are refused.",
     },
-    lang: {
-      type: "string",
-      description: "Optional BCP 47 language tag (defaults to en-US).",
-    },
   },
   required: ["url"],
 } as const;
