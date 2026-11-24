@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Copy, Maximize2, RefreshCw, Undo2 } from "lucide-react";
+import { Check, Copy, Maximize2, Pencil, RefreshCw, Undo2 } from "lucide-react";
 import { IconButton } from "@/components/IconButton";
 import { parseShellMessage } from "@/lib/shell";
 import { useShellOutputStore } from "@/lib/shell-output";
 import { useRewindConfirmStore } from "@/lib/rewind-confirm";
+import { useComposerStore } from "@/lib/composer";
 import { useSessionsStore } from "@/lib/sessions";
 import type { ChatMessage } from "@/types/chat";
 
@@ -66,6 +67,20 @@ export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
     void useSessionsStore.getState().retryFrom(message.id);
   }, [canRewind, message.id]);
 
+  const handleEdit = useCallback(() => {
+    if (!canRewind) return;
+    const text = message.content;
+    const attachments = message.attachments ?? [];
+    void (async () => {
+      const rewound = await useSessionsStore.getState().rewindTo(message.id);
+      if (!rewound) return;
+      const composer = useComposerStore.getState();
+      composer.setValue(text);
+      composer.setAttachments(attachments);
+      document.querySelector<HTMLTextAreaElement>(".chat-composer__field textarea")?.focus();
+    })();
+  }, [canRewind, message.attachments, message.content, message.id]);
+
   const handleExpand = useCallback(() => {
     if (!canExpand || !activeSessionId) return;
     const { command } = parseShellMessage(message.content);
@@ -107,6 +122,15 @@ export const MessageActions = ({ message }: MessageActionsProps): ReactNode => {
           onClick={handleRewind}
         >
           <Undo2 size={14} strokeWidth={1.5} />
+        </IconButton>
+      ) : null}
+      {canRewind ? (
+        <IconButton
+          label={t("chat.message.edit")}
+          className="chat-message__action chat-message__action--edit"
+          onClick={handleEdit}
+        >
+          <Pencil size={14} strokeWidth={1.5} />
         </IconButton>
       ) : null}
       {canRewind ? (

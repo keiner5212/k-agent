@@ -94,6 +94,11 @@ export const useComposerFocusKeys = (
 
       if (event.key === "Enter") {
         if (event.shiftKey) return;
+        if (useComposerStore.getState().value.trim().length === 0) {
+          event.preventDefault();
+          field.focus();
+          return;
+        }
         if (isActivateTarget(event.target)) return;
         event.preventDefault();
         field.focus();

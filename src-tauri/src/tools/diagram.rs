@@ -383,13 +383,12 @@ fn limit_provider_data(app: &AppHandle) -> bool {
 }
 
 fn node_available() -> bool {
-    crate::compat::exec::command("node", &["--version".to_string()])
-        .stdin(std::process::Stdio::null())
+    let mut cmd = crate::compat::exec::command("node", &["--version".to_string()]);
+    cmd.stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
+        .stderr(std::process::Stdio::null());
+    crate::utils::console::hide_console(&mut cmd);
+    cmd.status().map(|status| status.success()).unwrap_or(false)
 }
 
 fn checker_script(app: &AppHandle) -> Option<PathBuf> {
@@ -417,6 +416,7 @@ async fn parse_source(script: &Path, source: &str) -> Result<(), String> {
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .kill_on_drop(true);
+    crate::utils::console::hide_console(command.as_std_mut());
     let mut child = command
         .spawn()
         .map_err(|error| format!("node failed to start: {error}"))?;

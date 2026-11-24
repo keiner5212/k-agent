@@ -10,7 +10,7 @@ mod skill;
 mod write;
 
 pub mod ask_user;
-mod background;
+pub mod background;
 pub(crate) mod bash;
 mod create_folder;
 mod delete;

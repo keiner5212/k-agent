@@ -5,6 +5,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useSkillsStore } from "@/lib/skills";
 import { hydrateWorkspaceConfig } from "@/lib/workspace-config";
 import { useWorkspaceFilesStore } from "@/lib/workspace-files";
+import { BackgroundDock } from "./BackgroundDock";
 import { ChangeBar } from "./ChangeBar";
 import { useRepoInfo } from "./use-repo-info";
 
@@ -65,6 +66,7 @@ export const ContextStrip = (): ReactNode => {
             <span className="context-strip__chip-value">{repo.branch}</span>
           </span>
         ) : null}
+        <BackgroundDock />
         <ChangeBar />
       </div>
     </footer>

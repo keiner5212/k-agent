@@ -8,6 +8,30 @@ section. The release draft uses that section as its body.
 The entries say what changed and why it mattered, in the words of the person who
 had to live with it.
 
+## [0.2.7] - 2026-11-24
+
+### Fixed
+
+- Images from read and page shot fit the preview. A tall or wide shot stays inside the dialog, and the tool row shows a bounded thumb.
+- Rewind, retry, and edit are visible on a user message again. Edit rewinds and puts the same text back in the composer.
+- Enter on an empty composer focuses the composer. A focused button no longer opens.
+- The dollar estimate keeps what compact removed. The ring still shows the context that remains.
+- The change bar counts lines against the first version of each file in the session. A file created here stays additions until a line from that start is gone.
+- Bash no longer writes, moves, or deletes files. Those commands name the tool that can rewind. A tool the agent does not have tells the user they may have switched agents.
+- Dialog glass blurs only the top dialog, and only after the open animation. Linux no longer flickers a transforming blur, and stacked dialogs do not each pay for a blur.
+
+### Added
+
+- Action commands show that they are running. Compact, undo, and redo during a reply ask whether to interrupt or wait.
+- A background process is listed while the turn runs and is stopped when the turn ends. Start it again on the next turn if it is still needed.
+- A running bash call can be opened, and the output updates while the command is still running.
+- Chats of 40 messages or more window the transcript so a long thread does not lay out every message.
+- fetch_url renders a script shell in WebKit on Linux when the static extract is empty, so a client-rendered page can still yield text.
+- The unmerged shell and Windows console work from pull request 71 is in this branch. A shell command no longer shows the thinking line, the bubble shows the command and its output together, and Windows release builds do not open a console for the app or its child processes.
+- The model catalog adds Claude Fable 5.2, DeepSeek Flash, and Gemini 4 Carbon, Hydrogen, and Neon from the current official model pages.
+- The Rust audit can pass again. `cookie` and `url` moved to the patched releases, and `zip` moved to 9 so the archive reader checks entry names.
+- The CI runs when a commit lands on `dev` or `main`. A pull request no longer starts a second run.
+
 ## [0.2.6] - 2026-10-31
 
 ### Fixed

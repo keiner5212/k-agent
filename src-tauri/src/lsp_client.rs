@@ -166,6 +166,7 @@ fn spawn_server(spec: &LanguageServerSpec, dir: &Path, command: &str) -> Result<
         cmd.env(key, value);
     }
     crate::compat::process::protect(cmd.as_std_mut());
+    crate::utils::console::hide_console(cmd.as_std_mut());
     let child = cmd
         .spawn()
         .map_err(|error| LspError::Io(error.to_string()))?;

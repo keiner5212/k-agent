@@ -168,7 +168,6 @@ export const ChatThread = (): ReactNode => {
   const messages = useSessionsStore(selectActiveMessages);
   const modelContext = useSessionsStore((state) => selectActiveSession(state)?.modelContext);
   const sendingSessionIds = useSessionsStore((state) => state.sendingSessionIds);
-  const shellRunningSessionIds = useSessionsStore((state) => state.shellRunningSessionIds);
   const activeSessionId = useSessionsStore((state) => state.activeSessionId);
   const error = useSessionsStore((state) => state.error);
   const canRetry = useSessionsStore((state) => state.canRetry);
@@ -176,9 +175,7 @@ export const ChatThread = (): ReactNode => {
     Object.values(state.byCallId).some((item) => item.sessionId === activeSessionId),
   );
   // Only the turn of the chat that is on screen makes it busy.
-  const busy =
-    sendingSessionIds.includes(activeSessionId ?? "") ||
-    shellRunningSessionIds.includes(activeSessionId ?? "");
+  const busy = sendingSessionIds.includes(activeSessionId ?? "");
   const waiting =
     busy &&
     !error &&

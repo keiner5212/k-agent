@@ -804,6 +804,7 @@ async fn run_cmd(
 ) -> Result<(), LspError> {
     let mut cmd = tokio::process::Command::new(program);
     cmd.args(args);
+    crate::utils::console::hide_console(cmd.as_std_mut());
     let path = crate::compat::shell::command_search_path();
     if !path.is_empty() {
         cmd.env("PATH", path);

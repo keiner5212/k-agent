@@ -126,7 +126,7 @@ async fn fetch(args: &FetchArgs, ctx: &ToolContext<'_>) -> Result<String, String
     let session = BrowserSession::with_policy(args.lang.as_deref().unwrap_or("en-US"), policy);
     let fetched = session.get(&canonical, "none", None).await?;
     let parsed = ContentParser::parse_with(&fetched.html, &fetched.final_url, policy);
-    let cached = CachedResponse {
+    let mut cached = CachedResponse {
         title: parsed.title.clone(),
         description: parsed.description.clone(),
         content: parsed.content.clone(),
@@ -140,8 +140,44 @@ async fn fetch(args: &FetchArgs, ctx: &ToolContext<'_>) -> Result<String, String
             .collect(),
         cached_at_secs: now_secs(),
     };
+    if needs_rendered_text(&fetched.html, &cached.content) {
+        if let Some(app) = ctx.app {
+            if let Ok(rendered) = crate::browser::read_page_text(app, &fetched.final_url).await {
+                let rendered_len = rendered.text.trim().chars().count();
+                if rendered_len > cached.content.trim().chars().count() {
+                    if !rendered.title.trim().is_empty() {
+                        cached.title = rendered.title;
+                    }
+                    cached.content = rendered.text.chars().take(16_000).collect();
+                    if !rendered.links.is_empty() {
+                        cached.links = rendered
+                            .links
+                            .into_iter()
+                            .take(8)
+                            .map(|(href, text)| CachedLink { href, text })
+                            .collect();
+                    }
+                }
+            }
+        }
+    }
     write_cache(ctx.app, &canonical, &cached);
     Ok(render(&canonical, &cached))
+}
+
+pub(crate) fn needs_rendered_text(html: &str, content: &str) -> bool {
+    if content.trim().chars().count() >= 400 {
+        return false;
+    }
+    let lower = html.to_ascii_lowercase();
+    if !lower.contains("<script") {
+        return false;
+    }
+    lower.contains("id=\"root\"")
+        || lower.contains("id='root'")
+        || lower.contains("id=\"app\"")
+        || lower.contains("id='app'")
+        || content.trim().is_empty()
 }
 
 fn render(url: &str, body: &CachedResponse) -> String {
@@ -739,6 +775,18 @@ impl ContentParser {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn renders_an_empty_script_shell() {
+        let html =
+            "<html><body><div id=\"root\"></div><script src=\"/app.js\"></script></body></html>";
+        assert!(needs_rendered_text(html, ""));
+        assert!(!needs_rendered_text(html, &"x".repeat(400)));
+        assert!(!needs_rendered_text(
+            "<p>A short note.</p>",
+            "A short note."
+        ));
+    }
 
     #[test]
     fn canonicalize_url_rejects_non_https() {

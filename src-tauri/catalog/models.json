@@ -7245,6 +7245,29 @@
     }
   },
   {
+    "id": "claude-fable-5-2",
+    "displayName": "Claude Fable 5.2",
+    "family": "claude-fable",
+    "knowledge": "2026-06",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 128000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 8,
+      "output": 40,
+      "cacheRead": 0.2
+    },
+    "request": {
+      "known": false,
+      "native": ["anthropic"]
+    }
+  },
+  {
     "id": "claude-haiku-4-5",
     "displayName": "Claude Haiku 4.5",
     "family": "claude-haiku",
@@ -11080,6 +11103,30 @@
     "request": {
       "known": false,
       "native": ["openai"]
+    }
+  },
+  {
+    "id": "deepseek-flash",
+    "displayName": "DeepSeek Flash",
+    "family": "deepseek-flash",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 384000,
+    "input": ["text", "image"],
+    "output": ["text"],
+    "reasoning": true,
+    "toolCall": true,
+    "structuredOutput": true,
+    "attachment": true,
+    "multimodal": true,
+    "cost": {
+      "input": 0.15,
+      "output": 0.6,
+      "cacheRead": 0.003
+    },
+    "attachmentTypes": ["image", "text", "document"],
+    "request": {
+      "known": false,
+      "native": ["openai", "anthropic"]
     }
   },
   {
@@ -17453,6 +17500,57 @@
     "attachment": true,
     "multimodal": true,
     "effortLevels": ["low", "medium", "high"],
+    "attachmentTypes": ["image", "video", "audio", "pdf"],
+    "request": {
+      "known": false,
+      "native": ["gemini"]
+    }
+  },
+  {
+    "id": "gemini-4-carbon",
+    "displayName": "Gemini 4 Carbon",
+    "family": "gemini",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "video", "audio", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "attachment": true,
+    "multimodal": true,
+    "attachmentTypes": ["image", "video", "audio", "pdf"],
+    "request": {
+      "known": false,
+      "native": ["gemini"]
+    }
+  },
+  {
+    "id": "gemini-4-hydrogen",
+    "displayName": "Gemini 4 Hydrogen",
+    "family": "gemini",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "video", "audio", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "attachment": true,
+    "multimodal": true,
+    "attachmentTypes": ["image", "video", "audio", "pdf"],
+    "request": {
+      "known": false,
+      "native": ["gemini"]
+    }
+  },
+  {
+    "id": "gemini-4-neon",
+    "displayName": "Gemini 4 Neon",
+    "family": "gemini",
+    "contextWindow": 1000000,
+    "maxOutputTokens": 65536,
+    "input": ["text", "image", "video", "audio", "pdf"],
+    "output": ["text"],
+    "reasoning": true,
+    "attachment": true,
+    "multimodal": true,
     "attachmentTypes": ["image", "video", "audio", "pdf"],
     "request": {
       "known": false,

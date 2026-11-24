@@ -1,4 +1,5 @@
 import { Fragment, memo, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, FileText, Film } from "lucide-react";
@@ -9,6 +10,7 @@ import type { ModelContext } from "@/types/sessions";
 import { AttachmentPreviewDialog } from "./AttachmentPreviewDialog";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { MessageActions } from "./MessageActions";
+import { ShellMessage } from "./ShellMessage";
 import { ThinkingBlock, thinkingIsLive } from "./ThinkingBlock";
 import { ToolCallsBlock } from "./ToolCallsBlock";
 import { useChatStick } from "./use-chat-stick";
@@ -84,15 +86,17 @@ const MessageBody = memo(function MessageBody({
   message,
   sessionId,
   omittedCallIds,
+  followTail,
 }: {
   message: ChatMessage;
   sessionId: string | null;
   omittedCallIds?: ReadonlySet<string>;
+  followTail: boolean;
 }): ReactNode {
   if (message.kind === "shell") {
     return (
       <>
-        <pre className="chat-message__content chat-message__shell">{message.content}</pre>
+        <ShellMessage message={message} followTail={followTail} />
         <InterruptedFooter interrupted={message.interrupted ?? false} />
       </>
     );
@@ -241,6 +245,15 @@ export const ChatTranscript = ({
       {t("chat.compact.notice")}
     </p>
   ) : null;
+  const scrollerRef = useRef<HTMLElement | null>(null);
+  const virtual = messages.length >= 40;
+  const virtualizer = useVirtualizer({
+    count: virtual ? messages.length : 0,
+    getScrollElement: () => scrollerRef.current,
+    estimateSize: () => 120,
+    overscan: 8,
+    getItemKey: (index) => messages[index]?.id ?? String(index),
+  });
   const pinKey = `${sessionId ?? ""}:${newestUserId ?? ""}`;
   const pinnedKey = useRef<string | null>(null);
   const stickReady = useRef(false);
@@ -259,41 +272,103 @@ export const ChatTranscript = ({
 
   return (
     <>
-      <section ref={scrollRef} className="chat-thread chat-thread--active" aria-live="polite">
+      <section
+        ref={(node) => {
+          scrollerRef.current = node;
+          scrollRef(node);
+        }}
+        className="chat-thread chat-thread--active"
+        aria-live="polite"
+      >
         <div ref={contentRef} className="chat-thread__messages">
           {compacted && !modelContext?.throughId ? notice : null}
-          {messages.map((message) => {
-            const fromParent = peer === "parent" && message.role === "user";
-            const dropped = forgotten.has(message.id);
-            return (
-              <Fragment key={message.id}>
-                <article
-                  className={messageClass(message, fromParent)}
-                  data-role={fromParent ? "parent" : message.role}
-                >
-                  {fromParent ? (
-                    <span className="chat-message__kicker">{t("chat.tools.taskParent")}</span>
-                  ) : null}
-                  {dropped ? (
-                    <span className="chat-message__kicker">{t("chat.compact.omitted")}</span>
-                  ) : null}
-                  <MessageBody
-                    message={message}
-                    sessionId={sessionId}
-                    omittedCallIds={omittedCallIds}
-                  />
-                  {message.role === "assistant" &&
-                  message.kind !== "shell" &&
-                  !message.streaming &&
-                  typeof message.turnMs === "number" ? (
-                    <span className="chat-turn-time">{formatTurnDuration(message.turnMs, t)}</span>
-                  ) : null}
-                  {actions ? <MessageActions message={message} /> : null}
-                </article>
-                {modelContext?.throughId === message.id ? notice : null}
-              </Fragment>
-            );
-          })}
+          {virtual ? (
+            <div
+              className="chat-thread__window"
+              style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+            >
+              {virtualizer.getVirtualItems().map((item) => {
+                const message = messages[item.index];
+                if (!message) return null;
+                const fromParent = peer === "parent" && message.role === "user";
+                const dropped = forgotten.has(message.id);
+                return (
+                  <div
+                    key={item.key}
+                    data-index={item.index}
+                    ref={virtualizer.measureElement}
+                    className="chat-thread__window-item"
+                    style={{ transform: `translateY(${item.start}px)` }}
+                  >
+                    <article
+                      className={messageClass(message, fromParent)}
+                      data-role={fromParent ? "parent" : message.role}
+                    >
+                      {fromParent ? (
+                        <span className="chat-message__kicker">{t("chat.tools.taskParent")}</span>
+                      ) : null}
+                      {dropped ? (
+                        <span className="chat-message__kicker">{t("chat.compact.omitted")}</span>
+                      ) : null}
+                      <MessageBody
+                        message={message}
+                        sessionId={sessionId}
+                        omittedCallIds={omittedCallIds}
+                        followTail={isAtBottom}
+                      />
+                      {message.role === "assistant" &&
+                      message.kind !== "shell" &&
+                      !message.streaming &&
+                      typeof message.turnMs === "number" ? (
+                        <span className="chat-turn-time">
+                          {formatTurnDuration(message.turnMs, t)}
+                        </span>
+                      ) : null}
+                      {actions ? <MessageActions message={message} /> : null}
+                    </article>
+                    {modelContext?.throughId === message.id ? notice : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+          {virtual
+            ? null
+            : messages.map((message) => {
+                const fromParent = peer === "parent" && message.role === "user";
+                const dropped = forgotten.has(message.id);
+                return (
+                  <Fragment key={message.id}>
+                    <article
+                      className={messageClass(message, fromParent)}
+                      data-role={fromParent ? "parent" : message.role}
+                    >
+                      {fromParent ? (
+                        <span className="chat-message__kicker">{t("chat.tools.taskParent")}</span>
+                      ) : null}
+                      {dropped ? (
+                        <span className="chat-message__kicker">{t("chat.compact.omitted")}</span>
+                      ) : null}
+                      <MessageBody
+                        message={message}
+                        sessionId={sessionId}
+                        omittedCallIds={omittedCallIds}
+                        followTail={isAtBottom}
+                      />
+                      {message.role === "assistant" &&
+                      message.kind !== "shell" &&
+                      !message.streaming &&
+                      typeof message.turnMs === "number" ? (
+                        <span className="chat-turn-time">
+                          {formatTurnDuration(message.turnMs, t)}
+                        </span>
+                      ) : null}
+                      {actions ? <MessageActions message={message} /> : null}
+                    </article>
+                    {modelContext?.throughId === message.id ? notice : null}
+                  </Fragment>
+                );
+              })}
           {children}
         </div>
       </section>
