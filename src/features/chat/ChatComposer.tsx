@@ -32,7 +32,6 @@ import { useComposerStore } from "@/lib/composer";
 import { resolveSelectedModel } from "@/lib/context-usage";
 import { isTauri } from "@/lib/platform";
 import { useProvidersStore } from "@/lib/providers";
-import { useRewindConfirmStore } from "@/lib/rewind-confirm";
 import { matchActionSlashCommand, withPromptCommands } from "@/lib/slash-commands";
 import { useSelectionStore } from "@/lib/selected-model";
 import { useSettingsStore } from "@/lib/settings";
@@ -70,7 +69,6 @@ export const ChatComposer = (): ReactNode => {
   const sendMessage = useChatStore((state) => state.send);
   const runShell = useSessionsStore((state) => state.runShell);
   const enqueue = useSessionsStore((state) => state.enqueue);
-  const requestRewind = useRewindConfirmStore((state) => state.requestRewind);
   const keybindings = useSettingsStore((state) => state.keybindings);
   const appGenerationModel = useSettingsStore((state) => state.appGenerationModel);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -96,33 +94,32 @@ export const ChatComposer = (): ReactNode => {
   // chat, so a turn in flight must not turn the button off.
   const canImprove = !shellMode && isTauri() && Boolean(generationModel) && value.trim().length > 0;
 
-  const runSlashAction = useCallback(
-    (commandId: string): void => {
-      if (commandId === "undo") {
-        requestRewind();
-        return;
+  const pendingCommand = useSessionsStore((state) => state.pendingCommand);
+  const actionChoice = useSessionsStore((state) => state.actionChoice);
+  const runSlashAction = useCallback((commandId: string): void => {
+    if (commandId === "help") {
+      const sessionId = useSessionsStore.getState().activeSessionId;
+      if (sessionId) {
+        useSessionsStore.setState({ pendingCommand: { sessionId, commandId: "help" } });
       }
-      if (commandId === "redo") {
-        void useSessionsStore.getState().redo();
-        return;
-      }
-      if (commandId === "stop") {
-        void useSessionsStore.getState().interruptActiveTask();
-        return;
-      }
-      if (commandId === "compact") {
-        void useSessionsStore.getState().compactActive();
-        return;
-      }
-      if (commandId === "help") {
-        void openExternalUrl(HELP_ISSUES_URL).catch((error: unknown) => {
+      void openExternalUrl(HELP_ISSUES_URL)
+        .catch((error: unknown) => {
           console.warn("openExternalUrl failed", error);
+        })
+        .finally(() => {
+          useSessionsStore.setState({ pendingCommand: null });
         });
-        return;
-      }
-    },
-    [requestRewind],
-  );
+      return;
+    }
+    if (
+      commandId === "undo" ||
+      commandId === "redo" ||
+      commandId === "stop" ||
+      commandId === "compact"
+    ) {
+      useSessionsStore.getState().offerAction(commandId);
+    }
+  }, []);
 
   useEffect(() => {
     if (attachments.length === 0) return;
@@ -348,6 +345,32 @@ export const ChatComposer = (): ReactNode => {
         <StreamRate />
         <ContextUsage />
       </div>
+      {pendingCommand ? (
+        <p className="chat-command-status" role="status">
+          {t(`chat.commands.pending.${pendingCommand.commandId}`)}
+        </p>
+      ) : null}
+      {actionChoice ? (
+        <div className="chat-command-choice" role="group">
+          <p className="chat-command-choice__text">
+            {t("chat.commands.busy", { command: `/${actionChoice.commandId}` })}
+          </p>
+          <button
+            type="button"
+            className="chat-command-choice__button"
+            onClick={() => useSessionsStore.getState().resolveActionChoice(true)}
+          >
+            {t("chat.commands.interrupt")}
+          </button>
+          <button
+            type="button"
+            className="chat-command-choice__button"
+            onClick={() => useSessionsStore.getState().resolveActionChoice(false)}
+          >
+            {t("chat.commands.wait")}
+          </button>
+        </div>
+      ) : null}
       <ComposerQueue />
       {!shellMode ? <ComposerAttachments /> : null}
       {attachError ? <p className="chat-composer__attach-error">{attachError}</p> : null}

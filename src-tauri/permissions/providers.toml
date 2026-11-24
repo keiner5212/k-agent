@@ -65,6 +65,9 @@ permissions = [
   "allow-summarize-conversation",
   "allow-generate-app-content",
   "allow-run-shell-command",
+  "allow-list-background-processes",
+  "allow-read-background-log",
+  "allow-stop-background-process",
 ]
 
 [[permission]]
@@ -411,6 +414,21 @@ commands.allow = ["generate_app_content"]
 identifier = "allow-run-shell-command"
 description = "Run a shell command inside the workspace."
 commands.allow = ["run_shell_command"]
+
+[[permission]]
+identifier = "allow-list-background-processes"
+description = "List background processes started in a chat."
+commands.allow = ["list_background_processes"]
+
+[[permission]]
+identifier = "allow-read-background-log"
+description = "Read the log of a background process."
+commands.allow = ["read_background_log"]
+
+[[permission]]
+identifier = "allow-stop-background-process"
+description = "Stop a background process started in a chat."
+commands.allow = ["stop_background_process"]
 
 [[permission]]
 identifier = "allow-cancel-running-task"

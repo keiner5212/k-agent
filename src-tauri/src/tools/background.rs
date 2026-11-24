@@ -19,12 +19,13 @@ pub const NAME: &str = "background";
 const DESCRIPTION: &str = "Start one command in the workspace and keep it running until this turn ends, then kill it. Use this for a dev server or preview. Do not use bash for that. Do not append &, nohup, or disown. The command is the process itself, for example `npm run dev`. Returns the pid and output from the first 1200ms. The process is killed when the turn ends. Do not kill that pid. Do not use bash to stop it.";
 
 const STARTUP_WAIT: Duration = Duration::from_millis(1200);
-const OUTPUT_CAP: usize = 8_000;
+const LOG_CAP: usize = 256 * 1024;
+const TOOL_OUTPUT_CAP: usize = 8_000;
 
 pub struct BackgroundTool;
 
 pub struct TurnSlot {
-    procs: Mutex<Vec<RunningProc>>,
+    pids: Mutex<Vec<u32>>,
     reads: Mutex<HashSet<String>>,
     noted: Mutex<Vec<crate::checkpoints::NotedFile>>,
 }
@@ -44,7 +45,7 @@ enum Launch {
 impl TurnSlot {
     pub fn start() -> Arc<Self> {
         Arc::new(Self {
-            procs: Mutex::new(Vec::new()),
+            pids: Mutex::new(Vec::new()),
             reads: Mutex::new(HashSet::new()),
             noted: Mutex::new(Vec::new()),
         })
@@ -84,32 +85,29 @@ impl TurnSlot {
         }
     }
 
-    fn track(&self, proc: RunningProc) {
-        match self.procs.lock() {
-            Ok(mut procs) => procs.push(proc),
-            Err(poisoned) => poisoned.into_inner().push(proc),
+    pub fn note_pid(&self, pid: u32) {
+        if pid == 0 {
+            return;
+        }
+        match self.pids.lock() {
+            Ok(mut pids) => pids.push(pid),
+            Err(poisoned) => poisoned.into_inner().push(pid),
         }
     }
 
     pub fn owns_pid(&self, pid: u32) -> bool {
-        if pid == 0 {
-            return false;
-        }
-        match self.procs.lock() {
-            Ok(procs) => procs.iter().any(|proc| proc.pid == pid),
-            Err(poisoned) => poisoned.into_inner().iter().any(|proc| proc.pid == pid),
-        }
+        registry_owns(pid)
     }
 }
 
 impl Drop for TurnSlot {
     fn drop(&mut self) {
-        let procs = match self.procs.lock() {
-            Ok(mut procs) => std::mem::take(&mut *procs),
+        let pids = match self.pids.lock() {
+            Ok(mut pids) => std::mem::take(&mut *pids),
             Err(poisoned) => std::mem::take(&mut *poisoned.into_inner()),
         };
-        for proc in procs {
-            drop(proc);
+        for pid in pids {
+            let _ = stop_pid(pid);
         }
     }
 }
@@ -187,7 +185,9 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
             };
             let pid = proc.child.id();
             let output = snapshot(&proc.output);
-            turn.track(proc);
+            let session_id = ctx.session_id.clone().unwrap_or_default();
+            register(&session_id, command, proc);
+            turn.note_pid(pid);
             running_outcome(pid, &output)
         }
     }
@@ -202,6 +202,9 @@ async fn authorize(command: &str, ctx: &ToolContext<'_>) -> Result<(), Box<ToolO
         bash::Decision::Background => Err(Box::new(error_outcome(
             "background keeps the process until the turn ends. Do not use &, nohup, or disown.",
         ))),
+        bash::Decision::FileEdit(tool) => {
+            Err(Box::new(error_outcome(&bash::file_edit_message(tool))))
+        }
         bash::Decision::Run | bash::Decision::Allowed => Ok(()),
         bash::Decision::Confirm => {
             if bash::shell_session_granted(ctx) {
@@ -317,12 +320,15 @@ fn append_capped(output: &Mutex<String>, text: &str) {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),
     };
-    if guard.len() >= OUTPUT_CAP {
+    guard.push_str(text);
+    if guard.len() <= LOG_CAP {
         return;
     }
-    let room = OUTPUT_CAP - guard.len();
-    let take = text.chars().take(room).collect::<String>();
-    guard.push_str(&take);
+    let mut drop_to = guard.len() - LOG_CAP;
+    while drop_to < guard.len() && !guard.is_char_boundary(drop_to) {
+        drop_to += 1;
+    }
+    guard.drain(..drop_to);
 }
 
 fn snapshot(output: &Mutex<String>) -> String {
@@ -332,7 +338,19 @@ fn snapshot(output: &Mutex<String>) -> String {
     }
 }
 
+fn tool_output(output: &str) -> String {
+    if output.len() <= TOOL_OUTPUT_CAP {
+        return output.to_string();
+    }
+    let mut start = output.len() - TOOL_OUTPUT_CAP;
+    while start < output.len() && !output.is_char_boundary(start) {
+        start += 1;
+    }
+    output[start..].to_string()
+}
+
 fn running_outcome(pid: u32, output: &str) -> ToolOutcome {
+    let output = tool_output(output);
     let text = toon_doc(&[
         ("status", ToonValue::Str("running")),
         ("pid", ToonValue::Int(pid as i64)),
@@ -342,7 +360,7 @@ fn running_outcome(pid: u32, output: &str) -> ToolOutcome {
                 "killed when this turn ends. Do not kill this pid. Do not use bash to stop it.",
             ),
         ),
-        ("output", ToonValue::Block(output)),
+        ("output", ToonValue::Block(&output)),
     ]);
     ToolOutcome {
         text,
@@ -395,6 +413,118 @@ fn error_outcome(message: &str) -> ToolOutcome {
     }
 }
 
+struct LiveProc {
+    session_id: String,
+    command: String,
+    proc: RunningProc,
+}
+
+fn registry() -> &'static Mutex<Vec<LiveProc>> {
+    static REGISTRY: std::sync::OnceLock<Mutex<Vec<LiveProc>>> = std::sync::OnceLock::new();
+    REGISTRY.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+fn register(session_id: &str, command: &str, proc: RunningProc) {
+    let live = LiveProc {
+        session_id: session_id.to_string(),
+        command: command.to_string(),
+        proc,
+    };
+    match registry().lock() {
+        Ok(mut procs) => procs.push(live),
+        Err(poisoned) => poisoned.into_inner().push(live),
+    }
+}
+
+fn registry_owns(pid: u32) -> bool {
+    if pid == 0 {
+        return false;
+    }
+    match registry().lock() {
+        Ok(procs) => procs.iter().any(|live| live.proc.pid == pid),
+        Err(poisoned) => poisoned
+            .into_inner()
+            .iter()
+            .any(|live| live.proc.pid == pid),
+    }
+}
+
+pub fn stop_all() {
+    let procs = match registry().lock() {
+        Ok(mut procs) => std::mem::take(&mut *procs),
+        Err(poisoned) => std::mem::take(&mut *poisoned.into_inner()),
+    };
+    drop(procs);
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackgroundProcess {
+    pub pid: u32,
+    pub command: String,
+    pub running: bool,
+}
+
+#[tauri::command]
+pub fn list_background_processes(session_id: String) -> Vec<BackgroundProcess> {
+    let mut guard = match registry().lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    guard
+        .iter_mut()
+        .filter(|live| live.session_id == session_id)
+        .map(|live| {
+            let running = matches!(live.proc.child.try_wait(), Ok(None));
+            BackgroundProcess {
+                pid: live.proc.pid,
+                command: live.command.clone(),
+                running,
+            }
+        })
+        .collect()
+}
+
+#[tauri::command]
+pub fn read_background_log(session_id: String, pid: u32) -> Result<String, String> {
+    let guard = match registry().lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    guard
+        .iter()
+        .find(|live| live.session_id == session_id && live.proc.pid == pid)
+        .map(|live| snapshot(&live.proc.output))
+        .ok_or_else(|| "background process is not running.".to_string())
+}
+
+#[tauri::command]
+pub fn stop_background_process(session_id: String, pid: u32) -> Result<(), String> {
+    let mut guard = match registry().lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    let index = guard
+        .iter()
+        .position(|live| live.session_id == session_id && live.proc.pid == pid)
+        .ok_or_else(|| "background process is not running.".to_string())?;
+    drop(guard.remove(index));
+    Ok(())
+}
+
+fn stop_pid(pid: u32) -> Result<(), String> {
+    let mut guard = match registry().lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    let index = guard
+        .iter()
+        .position(|live| live.proc.pid == pid)
+        .ok_or_else(|| "background process is not running.".to_string())?;
+    drop(guard.remove(index));
+    Ok(())
+}
+
 fn grant_shell_session_from(ctx: &ToolContext<'_>) {
     super::bash::grant_shell_session(ctx.session_id.as_deref());
 }
@@ -429,8 +559,10 @@ mod tests {
             panic!("sleep should still be running");
         };
         let pid = proc.child.id();
+        register("session", "exec sleep 30", proc);
         let turn = TurnSlot::start();
-        turn.track(proc);
+        turn.note_pid(pid);
+        assert!(process_alive(pid));
         drop(turn);
         assert!(!process_alive(pid));
     }

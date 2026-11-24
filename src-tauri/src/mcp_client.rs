@@ -54,6 +54,7 @@ async fn probe_stdio(server: &McpServer) -> Result<Vec<McpToolSummary>, McpServe
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .kill_on_drop(true);
+    crate::utils::console::hide_console(child.as_std_mut());
     if let Some(cwd) = server
         .cwd
         .as_deref()
@@ -586,6 +587,7 @@ async fn call_stdio(
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .kill_on_drop(true);
+    crate::utils::console::hide_console(child.as_std_mut());
     if let Some(cwd) = server
         .cwd
         .as_deref()

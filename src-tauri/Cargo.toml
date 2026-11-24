@@ -1,6 +1,6 @@
 [package]
 name = "k-agent"
-version = "0.2.6"
+version = "0.2.7"
 description = "AI coding model orchestrator"
 authors = ["k-agent"]
 edition = "2021"

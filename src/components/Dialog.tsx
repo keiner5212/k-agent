@@ -1,9 +1,17 @@
 import { X } from "lucide-react";
-import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "./IconButton";
-import { popDialog, pushDialog } from "@/lib/dialog-stack";
+import { popDialog, pushDialog, subscribeDialogs, topDialogId } from "@/lib/dialog-stack";
 
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -43,9 +51,14 @@ export const Dialog = ({
 }: DialogProps): ReactNode => {
   const { t } = useTranslation();
   const titleId = useId();
+  const stackId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
   const [present, setPresent] = useState(open);
   const [phase, setPhase] = useState<DialogPhase>(open ? "open" : "closed");
+  const [settled, setSettled] = useState(open);
+  const topId = useSyncExternalStore(subscribeDialogs, topDialogId, () => null);
+  const isTop = topId === stackId;
 
   useEffect(() => {
     if (open) {
@@ -54,8 +67,10 @@ export const Dialog = ({
         setPresent(true);
         if (!motionEnabled()) {
           setPhase("open");
+          setSettled(true);
           return;
         }
+        setSettled(false);
         setPhase("closed");
         inner = requestAnimationFrame(() => setPhase("open"));
       });
@@ -75,9 +90,24 @@ export const Dialog = ({
   useEffect(() => {
     if (!open) return;
     const close = (): void => onOpenChange(false);
-    pushDialog(close);
-    return () => popDialog(close);
-  }, [open, onOpenChange]);
+    pushDialog(close, stackId);
+    return () => {
+      popDialog(close);
+    };
+  }, [open, onOpenChange, stackId]);
+
+  useEffect(() => {
+    if (!open || phase !== "open" || !motionEnabled()) return;
+    const surface = surfaceRef.current;
+    if (!surface) return;
+    const finish = (): void => setSettled(true);
+    surface.addEventListener("transitionend", finish);
+    const fallback = window.setTimeout(finish, 320);
+    return () => {
+      surface.removeEventListener("transitionend", finish);
+      window.clearTimeout(fallback);
+    };
+  }, [open, phase]);
 
   useEffect(() => {
     if (!open || !present) return;
@@ -121,10 +151,15 @@ export const Dialog = ({
   if (!present || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="dialog-root" data-state={phase}>
+    <div
+      className="dialog-root"
+      data-state={phase}
+      data-top={isTop ? "true" : "false"}
+      data-settled={settled ? "true" : "false"}
+    >
       <div className="dialog-overlay" onClick={() => onOpenChange(false)} />
       <div className="dialog-slot" data-size={size} data-placement={placement} style={surfaceStyle}>
-        <div className="dialog-surface">
+        <div ref={surfaceRef} className="dialog-surface">
           <div
             ref={panelRef}
             className="dialog-panel"

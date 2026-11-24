@@ -260,7 +260,7 @@ const buildToolChoice = (agent: AgentMeta, shape: PromptShape, readBeforeEdit: b
   );
   if (hasTool(agent, "background")) {
     lines.push(
-      "A process that must stay up uses `background`, not `bash`. That process is killed when the turn ends. Do not kill its pid.",
+      "A process that must stay up uses `background`, not `bash`. That process is killed when the turn ends. Do not kill its pid. Start it again on a later turn if it is still needed. Do not edit files with `bash`. A shell write cannot be rewound. If a tool is not enabled for this agent, stop and tell the user. They may have switched agents.",
     );
   }
   return tagged("tools", lines.join("\n"), shape);
