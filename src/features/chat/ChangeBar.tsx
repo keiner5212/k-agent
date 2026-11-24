@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { FileDiff } from "lucide-react";
 import { Dialog } from "@/components/Dialog";
@@ -7,6 +7,7 @@ import { ReadOnlyEditorDialog } from "@/features/chat/ReadOnlyEditorDialog";
 import { runDiffLinesJob } from "@/lib/jobs";
 import {
   collectSessionChanges,
+  netLineChange,
   readSessionFileRevision,
   type SessionChangedFile,
 } from "@/lib/session-files";
@@ -23,7 +24,39 @@ export const ChangeBar = (): ReactNode => {
   } | null>(null);
   const sessionId = useSessionsStore((state) => state.activeSessionId);
   const messages = useSessionsStore(selectActiveMessages);
-  const files = collectSessionChanges(messages);
+  const anchors = collectSessionChanges(messages);
+  const [files, setFiles] = useState<SessionChangedFile[]>(anchors);
+  const anchorKey = anchors
+    .map((file) => `${file.path}:${file.firstCallId}:${file.callId}:${file.deleted}`)
+    .join("\n");
+  useEffect(() => {
+    let alive = true;
+    const current = collectSessionChanges(selectActiveMessages(useSessionsStore.getState()));
+    void (async () => {
+      const next: SessionChangedFile[] = [];
+      for (const file of current) {
+        if (!sessionId) {
+          next.push(file);
+          continue;
+        }
+        try {
+          const before = await readSessionFileRevision(sessionId, file.firstCallId, "before");
+          const after = file.deleted
+            ? { content: "" }
+            : await readSessionFileRevision(sessionId, file.callId, "after");
+          const net = netLineChange(before.content, after.content);
+          if (net.added === 0 && net.removed === 0) continue;
+          next.push({ ...file, added: net.added, removed: net.removed });
+        } catch {
+          next.push(file);
+        }
+      }
+      if (alive) setFiles(next);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [anchorKey, sessionId]);
   const added = files.reduce((sum, file) => sum + file.added, 0);
   const removed = files.reduce((sum, file) => sum + file.removed, 0);
   const lines = added + removed;
@@ -32,8 +65,10 @@ export const ChangeBar = (): ReactNode => {
     if (!sessionId) return;
     try {
       const [before, after] = await Promise.all([
-        readSessionFileRevision(sessionId, file.callId, "before"),
-        readSessionFileRevision(sessionId, file.callId, "after"),
+        readSessionFileRevision(sessionId, file.firstCallId, "before"),
+        file.deleted
+          ? Promise.resolve({ content: "" })
+          : readSessionFileRevision(sessionId, file.callId, "after"),
       ]);
       const packed = (await runDiffLinesJob(before.content, after.content)).value;
       setDiff({

@@ -366,8 +366,9 @@ fn spawn_windows(command: &mut Command) -> std::io::Result<Child> {
     use std::os::windows::process::CommandExt;
 
     const CREATE_SUSPENDED: u32 = 0x0000_0004;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-    command.creation_flags(CREATE_SUSPENDED);
+    command.creation_flags(CREATE_SUSPENDED | CREATE_NO_WINDOW);
     let mut child = command.spawn()?;
     unsafe {
         windows_job::assign(windows::Win32::Foundation::HANDLE(child.as_raw_handle()));

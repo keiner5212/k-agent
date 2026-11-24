@@ -1,7 +1,7 @@
 use std::io::Read;
 use std::process::{Command, Stdio};
-use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
@@ -12,7 +12,7 @@ use super::{
 
 pub const NAME: &str = "bash";
 
-const DESCRIPTION: &str = "Run one shell command in the workspace and wait for it to finish. `description` is required on every call, including safe, allowed, and blocked commands: one short sentence, what this command does and why. Exact blockedCommands never run. Exact allowedCommands run without a prompt. Destructive commands, real file redirects, and non-local network commands wait for the user. `2>&1` and redirects to `/dev/null` do not ask. curl to localhost, 127.0.0.1, or ::1 does not ask for a local read (silent, head, fail, timeout, header, literal body, or output to /dev/null). Any other curl flag, a config file, a proxy, an upload, a redirect, or a second command waits for the user. Do not start a dev server here. Use background for a process that must stay up until the turn ends. Do not kill a pid returned by background. That process is stopped when the turn ends. Do not use &, nohup, or disown. Do not list, read, search, write, edit, or delete files here. Use glob, read, grep, write, edit, create_folder, and delete. bash is for install, build, test, and git. Output is capped.";
+const DESCRIPTION: &str = "Run one shell command in the workspace and wait for it to finish. `description` is required on every call, including safe, allowed, and blocked commands: one short sentence, what this command does and why. Exact blockedCommands never run. Exact allowedCommands run without a prompt. Destructive commands, real file redirects, and non-local network commands wait for the user. `2>&1` and redirects to `/dev/null` do not ask. curl to localhost, 127.0.0.1, or ::1 does not ask for a local read (silent, head, fail, timeout, header, literal body, or output to /dev/null). Any other curl flag, a config file, a proxy, an upload, a redirect, or a second command waits for the user. Do not start a dev server here. Use background for a process that must stay up until the turn ends. Do not kill a pid returned by background. That process is stopped when the turn ends. Do not edit files here. A shell write cannot be rewound. If the file tool is not enabled, tell the user they may have switched agents. Do not use &, nohup, or disown. Do not list, read, search, write, edit, or delete files here. Use glob, read, grep, write, edit, create_folder, and delete. bash is for install, build, test, and git. Output is capped.";
 
 const MAX_OUTPUT_CHARS: usize = 50_000;
 const TIMEOUT: Duration = Duration::from_secs(30);
@@ -35,6 +35,7 @@ pub enum Decision {
     Confirm,
     Empty,
     Background,
+    FileEdit(&'static str),
 }
 
 pub struct BashTool;
@@ -74,6 +75,7 @@ impl Tool for BashTool {
             Decision::Background => error_outcome(
                 "bash does not start background jobs. Do not use &, nohup, or disown.",
             ),
+            Decision::FileEdit(tool) => error_outcome(&file_edit_message(tool)),
             Decision::Confirm => {
                 error_outcome("bash: a dangerous command must run on the async dispatch path.")
             }
@@ -98,6 +100,7 @@ pub async fn execute_async(arguments: &str, ctx: &ToolContext<'_>) -> ToolOutcom
         Decision::Background => {
             error_outcome("bash does not start background jobs. Do not use &, nohup, or disown.")
         }
+        Decision::FileEdit(tool) => error_outcome(&file_edit_message(tool)),
         Decision::Confirm => {
             if shell_session_granted(ctx) {
                 return run_command(ctx, command);
@@ -194,6 +197,9 @@ fn classify_at(command: &str, allowed: &[String], blocked: &[String], depth: u32
         return Decision::Background;
     }
     let (segments, nested) = compound_segments(trimmed);
+    if let Some(tool) = file_edit_tool(trimmed, &segments, &nested) {
+        return Decision::FileEdit(tool);
+    }
     if !segments.is_empty()
         && segments
             .iter()
@@ -216,6 +222,7 @@ fn classify_at(command: &str, allowed: &[String], blocked: &[String], depth: u32
             Decision::Blocked => return Decision::Blocked,
             Decision::Background => return Decision::Background,
             Decision::Confirm => return Decision::Confirm,
+            Decision::FileEdit(tool) => return Decision::FileEdit(tool),
             Decision::Empty | Decision::Run | Decision::Allowed => {}
         }
     }
@@ -259,6 +266,68 @@ fn nested_bodies(segments: &[String], nested: &[String]) -> Vec<String> {
         }
     }
     out
+}
+
+pub(crate) fn file_edit_message(tool: &str) -> String {
+    format!(
+        "bash refused: this edits files. Use `{tool}`. A shell write cannot be rewound. If this agent does not include `{tool}`, tell the user. They may have switched agents."
+    )
+}
+
+fn file_edit_tool(command: &str, segments: &[String], nested: &[String]) -> Option<&'static str> {
+    if let Some(tool) = file_edit_segment(command) {
+        return Some(tool);
+    }
+    for segment in segments {
+        if let Some(tool) = file_edit_segment(segment) {
+            return Some(tool);
+        }
+    }
+    for body in nested_bodies(segments, nested) {
+        if body.trim().is_empty() || body.trim() == command.trim() {
+            continue;
+        }
+        if let Some(tool) = file_edit_segment(&body) {
+            return Some(tool);
+        }
+    }
+    None
+}
+
+fn file_edit_segment(segment: &str) -> Option<&'static str> {
+    if has_file_redirect(segment) {
+        return Some("write");
+    }
+    let tokens = tokenize(segment);
+    let name = command_name(&tokens)?.to_ascii_lowercase();
+    let base = crate::compat::shell::base_command_name(&name);
+    if base == "tee" {
+        return Some("write");
+    }
+    if base == "mkdir" {
+        return Some("create_folder");
+    }
+    if matches!(base.as_str(), "rm" | "rmdir") {
+        return Some("delete");
+    }
+    if matches!(base.as_str(), "mv" | "cp" | "touch" | "truncate") {
+        return Some("write");
+    }
+    if base == "sed"
+        && tokens
+            .iter()
+            .any(|token| token == "-i" || token.starts_with("-i"))
+    {
+        return Some("edit");
+    }
+    if base == "perl"
+        && tokens.iter().any(|token| {
+            token == "-i" || token == "-pi" || token.starts_with("-pi") || token.starts_with("-i")
+        })
+    {
+        return Some("edit");
+    }
+    None
 }
 
 fn segment_outer_dangerous(segment: &str, full: &str) -> bool {
@@ -1112,21 +1181,27 @@ fn run_command(ctx: &ToolContext<'_>, command: &str) -> ToolOutcome {
     };
     let stdout_pipe = child.stdout.take();
     let stderr_pipe = child.stderr.take();
-    let stdout_task = std::thread::spawn(move || {
-        let mut buf = String::new();
-        if let Some(mut pipe) = stdout_pipe {
-            let _ = pipe.read_to_string(&mut buf);
+    let stdout_buf = Arc::new(Mutex::new(String::new()));
+    let stderr_buf = Arc::new(Mutex::new(String::new()));
+    let stdout_task = std::thread::spawn({
+        let buf = stdout_buf.clone();
+        move || {
+            if let Some(pipe) = stdout_pipe {
+                drain_pipe(pipe, &buf);
+            }
         }
-        buf
     });
-    let stderr_task = std::thread::spawn(move || {
-        let mut buf = String::new();
-        if let Some(mut pipe) = stderr_pipe {
-            let _ = pipe.read_to_string(&mut buf);
+    let stderr_task = std::thread::spawn({
+        let buf = stderr_buf.clone();
+        move || {
+            if let Some(pipe) = stderr_pipe {
+                drain_pipe(pipe, &buf);
+            }
         }
-        buf
     });
     let started = std::time::Instant::now();
+    let mut last_emit = String::new();
+    let mut last_emit_at = started;
     let status = loop {
         if started.elapsed() > TIMEOUT {
             let _ = child.kill();
@@ -1137,6 +1212,12 @@ fn run_command(ctx: &ToolContext<'_>, command: &str) -> ToolOutcome {
                 "bash timed out after 30s.",
                 login.fallback.as_deref(),
             ));
+        }
+        let snap = live_output(&stdout_buf, &stderr_buf);
+        if snap != last_emit && last_emit_at.elapsed() >= Duration::from_millis(150) {
+            last_emit = snap.clone();
+            last_emit_at = Instant::now();
+            emit_live_output(ctx, &clip(&snap));
         }
         match child.try_wait() {
             Ok(Some(status)) => break status,
@@ -1152,8 +1233,10 @@ fn run_command(ctx: &ToolContext<'_>, command: &str) -> ToolOutcome {
             }
         }
     };
-    let stdout = stdout_task.join().unwrap_or_default();
-    let stderr = stderr_task.join().unwrap_or_default();
+    let _ = stdout_task.join();
+    let _ = stderr_task.join();
+    let stdout = lock_string(&stdout_buf);
+    let stderr = lock_string(&stderr_buf);
     let code = status.code().unwrap_or(-1);
     let output = clip(&format!(
         "{}{}",
@@ -1194,6 +1277,61 @@ fn run_command(ctx: &ToolContext<'_>, command: &str) -> ToolOutcome {
 
 fn default_shell() -> String {
     crate::compat::shell::default_shell().program
+}
+
+fn drain_pipe(mut pipe: impl Read, buf: &Mutex<String>) {
+    let mut tmp = [0u8; 1024];
+    loop {
+        match pipe.read(&mut tmp) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => {
+                let text = String::from_utf8_lossy(&tmp[..n]);
+                let mut guard = match buf.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                guard.push_str(&text);
+            }
+        }
+    }
+}
+
+fn lock_string(buf: &Mutex<String>) -> String {
+    match buf.lock() {
+        Ok(guard) => guard.clone(),
+        Err(poisoned) => poisoned.into_inner().clone(),
+    }
+}
+
+fn live_output(stdout: &Mutex<String>, stderr: &Mutex<String>) -> String {
+    let out = lock_string(stdout);
+    let err = lock_string(stderr);
+    if err.is_empty() {
+        out
+    } else if out.is_empty() {
+        err
+    } else {
+        format!("{out}\n{err}")
+    }
+}
+
+fn emit_live_output(ctx: &ToolContext<'_>, text: &str) {
+    if text.is_empty() {
+        return;
+    }
+    let Some(channel) = ctx.on_chunk else {
+        return;
+    };
+    let payload = json!({
+        "id": ctx.call_id,
+        "name": NAME,
+        "output": text,
+    })
+    .to_string();
+    let _ = channel.send(crate::chat::ChatChunk {
+        kind: "tool_result".into(),
+        text: payload,
+    });
 }
 
 fn clip(text: &str) -> String {
@@ -1267,8 +1405,11 @@ mod tests {
 
     #[test]
     fn rm_and_redirects_need_confirm() {
-        assert_eq!(classify("rm file", &[], &[]), Decision::Confirm);
-        assert_eq!(classify("echo hi > out", &[], &[]), Decision::Confirm);
+        assert_eq!(classify("rm file", &[], &[]), Decision::FileEdit("delete"));
+        assert_eq!(
+            classify("echo hi > out", &[], &[]),
+            Decision::FileEdit("write")
+        );
         assert_eq!(
             classify("npm run build 2>&1 | tail -20", &[], &[]),
             Decision::Run
@@ -1414,9 +1555,7 @@ mod tests {
             &ctx,
         );
         assert!(
-            described
-                .text
-                .contains("dangerous command must run on the async dispatch path"),
+            described.text.contains("Use `delete`"),
             "{}",
             described.text
         );
@@ -1426,23 +1565,63 @@ mod tests {
     fn compound_segments_are_classified() {
         let cases: &[(&str, &[&str], &[&str], Decision)] = &[
             ("git status && git diff", &[], &[], Decision::Run),
-            ("git status && rm -rf foo", &[], &[], Decision::Confirm),
-            ("bash -c \"rm -rf foo\"", &[], &[], Decision::Confirm),
-            ("bash -c\"rm -rf foo\"", &[], &[], Decision::Confirm),
-            ("sh -c \"rm -rf foo\"", &[], &[], Decision::Confirm),
-            ("zsh -lc \"rm -rf foo\"", &[], &[], Decision::Confirm),
-            ("bash -lc \"rm -rf foo\"", &[], &[], Decision::Confirm),
+            (
+                "git status && rm -rf foo",
+                &[],
+                &[],
+                Decision::FileEdit("delete"),
+            ),
+            (
+                "bash -c \"rm -rf foo\"",
+                &[],
+                &[],
+                Decision::FileEdit("delete"),
+            ),
+            (
+                "bash -c\"rm -rf foo\"",
+                &[],
+                &[],
+                Decision::FileEdit("delete"),
+            ),
+            (
+                "sh -c \"rm -rf foo\"",
+                &[],
+                &[],
+                Decision::FileEdit("delete"),
+            ),
+            (
+                "zsh -lc \"rm -rf foo\"",
+                &[],
+                &[],
+                Decision::FileEdit("delete"),
+            ),
+            (
+                "bash -lc \"rm -rf foo\"",
+                &[],
+                &[],
+                Decision::FileEdit("delete"),
+            ),
             ("echo \"rm -rf foo\"", &[], &[], Decision::Run),
             ("echo \"a; rm -rf foo\"", &[], &[], Decision::Run),
             ("echo 'a; rm -rf foo'", &[], &[], Decision::Run),
             ("cmd >/dev/null", &[], &[], Decision::Run),
-            ("cmd > out.txt", &[], &[], Decision::Confirm),
-            ("echo $(rm -rf foo)", &[], &[], Decision::Confirm),
-            ("echo \"$(rm -rf foo)\"", &[], &[], Decision::Confirm),
+            ("cmd > out.txt", &[], &[], Decision::FileEdit("write")),
+            ("echo $(rm -rf foo)", &[], &[], Decision::FileEdit("delete")),
+            (
+                "echo \"$(rm -rf foo)\"",
+                &[],
+                &[],
+                Decision::FileEdit("delete"),
+            ),
             ("echo '$(rm -rf foo)'", &[], &[], Decision::Run),
-            ("echo `rm -rf foo`", &[], &[], Decision::Confirm),
+            ("echo `rm -rf foo`", &[], &[], Decision::FileEdit("delete")),
             ("git status || git diff", &[], &[], Decision::Run),
-            ("git status || rm -rf foo", &[], &[], Decision::Confirm),
+            (
+                "git status || rm -rf foo",
+                &[],
+                &[],
+                Decision::FileEdit("delete"),
+            ),
             (
                 "git status && git diff",
                 &["git status", "git diff"],

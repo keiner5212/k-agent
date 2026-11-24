@@ -895,6 +895,7 @@
       "copyCode": "Copiar codigo",
       "copied": "Copiado",
       "rewind": "Retroceder el historial hasta este mensaje",
+      "edit": "Deshacer y editar este mensaje",
       "retry": "Deshacer y enviar este mensaje de nuevo"
     },
     "diagram": {
@@ -1107,6 +1108,18 @@
       "notice": "Contexto compactado. Los turnos marcados siguen en el chat. El modelo ya no los ve.",
       "omitted": "omitido"
     },
+    "commands": {
+      "pending": {
+        "compact": "Compactando el contexto...",
+        "undo": "Retrocediendo el chat...",
+        "redo": "Restaurando el ultimo turno...",
+        "stop": "Deteniendo la respuesta...",
+        "help": "Abriendo la ayuda..."
+      },
+      "busy": "El chat esta respondiendo. {{command}} puede esperar o interrumpir.",
+      "interrupt": "Interrumpir y ejecutar",
+      "wait": "Ejecutar al terminar este turno"
+    },
     "error": {
       "empty": "El modelo devolvio una respuesta vacia.",
       "network": "No se pudo contactar al modelo.",
@@ -1250,6 +1263,10 @@
       "todoTitle": "Tareas",
       "bashTitle": "Shell",
       "backgroundTitle": "Segundo plano",
+      "backgroundDetail": "Se detiene al terminar el turno.",
+      "backgroundLogs": "Registros",
+      "backgroundStop": "Detener",
+      "backgroundEmpty": "Aun no hay salida.",
       "grepTitle": "Busqueda",
       "fetchTitle": "Pagina",
       "searchTitle": "Busqueda",

@@ -36,12 +36,14 @@ import {
 import {
   buildContextUsage,
   resolveVisionModel,
+  estimateMessageCostUsd,
   estimateToolDefinitionTokens,
   loadedSkillNamesFromMessages,
   resolveSelectedModel,
 } from "@/lib/context-usage";
 import { estimateTokensFromText } from "@/lib/jobs-handlers";
 import { useProvidersStore } from "@/lib/providers";
+import { useRewindConfirmStore } from "@/lib/rewind-confirm";
 import {
   applySystemReminder,
   FALLBACK_CONTEXT_WINDOW,
@@ -90,6 +92,7 @@ import {
 
 export const INTERRUPT_ARM_MS = 2000;
 const STREAM_PAINT_MS = 100;
+const SHELL_REVEAL_DELAY_MS = 150;
 
 export type QueuedMessage = {
   id: string;
@@ -449,6 +452,23 @@ const resolveSendRequest = () => {
 
 type CompactOutcome = "compacted" | "skipped" | "failed";
 
+export type ActionCommandId = "undo" | "redo" | "stop" | "compact" | "help";
+
+export type PendingCommand = {
+  sessionId: string;
+  commandId: ActionCommandId;
+};
+
+const beginCommand = (sessionId: string, commandId: ActionCommandId): void => {
+  useSessionsStore.setState({ pendingCommand: { sessionId, commandId } });
+};
+
+const endCommand = (): void => {
+  if (useSessionsStore.getState().pendingCommand) {
+    useSessionsStore.setState({ pendingCommand: null });
+  }
+};
+
 const sameIds = (left: readonly string[], right: readonly string[]): boolean =>
   left.length === right.length && left.every((id, index) => id === right[index]);
 
@@ -456,6 +476,7 @@ const storeModelContext = (
   sessionId: string,
   previous: ChatMessage[],
   context: ModelContext,
+  spentDelta = 0,
 ): { messages: ChatMessage[]; outcome: CompactOutcome } => {
   const stamp = previous.map((message) => message.id).join("\n");
   const state = useSessionsStore.getState();
@@ -467,11 +488,15 @@ const storeModelContext = (
       outcome: "failed",
     };
   }
-  const nextSessions = patchActiveSession(state.sessions, sessionId, (item) => ({
-    ...item,
-    modelContext: context,
-    updatedAt: Date.now(),
-  }));
+  const nextSessions = patchActiveSession(state.sessions, sessionId, (item) => {
+    const spentUsd = (item.spentUsd ?? 0) + (spentDelta > 0 ? spentDelta : 0);
+    return {
+      ...item,
+      modelContext: context,
+      updatedAt: Date.now(),
+      ...(spentUsd > 0 ? { spentUsd } : {}),
+    };
+  });
   useSessionsStore.setState({ sessions: nextSessions });
   void persistSnapshot(snapshotFromState(nextSessions, state.activeSessionId ?? sessionId));
   return { messages: projectModelMessages(current, context), outcome: "compacted" };
@@ -508,6 +533,12 @@ const compactHistory = async (
       },
     });
   const usage = usageOf(view);
+  const pricedModel = resolveSelectedModel(providers, selection);
+  const pricedVision = resolveVisionModel(providers, selection);
+  const priceOf = (items: readonly ChatMessage[]): number =>
+    estimateMessageCostUsd([...items], pricedModel?.cost, 0, pricedVision);
+  const spentFor = (context: ModelContext): number =>
+    Math.max(0, priceOf(view) - priceOf(projectModelMessages(messages, context)));
   if (!force && usage.percent < contextSummarizePercent)
     return { messages: view, outcome: "skipped" };
   const tailBudget = force
@@ -538,11 +569,12 @@ const compactHistory = async (
     const omittedCallIds = omittedOf(view);
     const previous = storedContext?.omittedCallIds ?? [];
     if (sameIds(omittedCallIds, previous)) return { messages: view, outcome: "skipped" };
-    return storeModelContext(sessionId, messages, {
+    const keptContext = {
       summary: storedContext?.summary ?? "",
       throughId: storedContext?.throughId ?? "",
       omittedCallIds,
-    });
+    };
+    return storeModelContext(sessionId, messages, keptContext, spentFor(keptContext));
   }
   const transcript = summaryTranscript(head);
   if (transcript.length === 0) return { messages: view, outcome: "skipped" };
@@ -563,11 +595,12 @@ const compactHistory = async (
       ? `<conversation-summary>\n${summary}\n</conversation-summary>\n\n${kept}`
       : `<conversation-summary>\n${summary}\n</conversation-summary>`;
     const throughId = realHead[realHead.length - 1]?.id ?? storedContext?.throughId ?? "";
-    return storeModelContext(sessionId, messages, {
+    const nextContext = {
       summary: summaryBody,
       throughId,
       omittedCallIds: omittedOf(tail),
-    });
+    };
+    return storeModelContext(sessionId, messages, nextContext, spentFor(nextContext));
   } catch (error) {
     console.warn("context summarize failed", error);
     return { messages: view, outcome: "failed" };
@@ -705,6 +738,12 @@ type SessionsStore = {
   queued: QueuedMessage[];
   error?: string;
   canRetry: boolean;
+  pendingCommand: PendingCommand | null;
+  actionChoice: PendingCommand | null;
+  queuedAction: PendingCommand | null;
+  offerAction: (commandId: ActionCommandId) => void;
+  resolveActionChoice: (interrupt: boolean) => void;
+  drainQueuedAction: (sessionId: string) => Promise<void>;
   hydrate: () => Promise<void>;
   focusWorkspace: () => Promise<void>;
   forgetBlankSessions: () => void;
@@ -748,6 +787,9 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
   interruptArmedAt: null,
   queued: [],
   canRetry: false,
+  pendingCommand: null,
+  actionChoice: null,
+  queuedAction: null,
 
   hydrate: async () => {
     if (get().hydrated) return;
@@ -1489,6 +1531,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
         if (finished && !finished.interrupted) {
           void notifyResponseFinished(finished.content);
         }
+        await get().drainQueuedAction(sessionId);
         get().flushQueued();
       }
       return true;
@@ -1524,6 +1567,7 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
           canRetry: !cancelled,
         });
         void persistSnapshot(snapshotFromState(nextSessions, sessionId));
+        await get().drainQueuedAction(sessionId);
         get().flushQueued();
       }
       return true;
@@ -1620,6 +1664,58 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     get().flushQueued();
   },
 
+  offerAction: (commandId) => {
+    if (get().pendingCommand) return;
+    const sessionId = get().activeSessionId;
+    if (!sessionId) return;
+    if (
+      (commandId === "undo" || commandId === "redo" || commandId === "compact") &&
+      isSessionBusy(get(), sessionId)
+    ) {
+      set({ actionChoice: { sessionId, commandId } });
+      return;
+    }
+    set({ actionChoice: null });
+    if (commandId === "undo") {
+      useRewindConfirmStore.getState().requestRewind();
+      return;
+    }
+    if (commandId === "redo") {
+      void get().redo();
+      return;
+    }
+    if (commandId === "stop") {
+      void get().interruptActiveTask();
+      return;
+    }
+    if (commandId === "compact") {
+      void get().compactActive();
+    }
+  },
+
+  resolveActionChoice: (interrupt) => {
+    const choice = get().actionChoice;
+    if (!choice) return;
+    set({ actionChoice: null, queuedAction: choice });
+    if (interrupt) void get().interruptActiveTask();
+  },
+
+  drainQueuedAction: async (sessionId) => {
+    const queued = get().queuedAction;
+    if (!queued || queued.sessionId !== sessionId) return;
+    if (isSessionBusy(get(), sessionId)) return;
+    set({ queuedAction: null });
+    if (queued.commandId === "undo") {
+      useRewindConfirmStore.getState().requestRewind();
+      return;
+    }
+    if (queued.commandId === "redo") {
+      await get().redo();
+      return;
+    }
+    if (queued.commandId === "compact") await get().compactActive();
+  },
+
   interruptActiveTask: async () => {
     const state = get();
     const active = state.activeSessionId;
@@ -1629,12 +1725,14 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       state.sendingSessionIds[0] ??
       state.shellRunningSessionIds[0];
     if (!sessionId) return false;
+    beginCommand(sessionId, "stop");
     try {
       await invoke<boolean>("cancel_running_task", { sessionId });
     } catch (error) {
       console.warn("cancel_running_task failed", error);
     }
     set({ interruptArmedAt: null });
+    endCommand();
     return true;
   },
 
@@ -1651,63 +1749,68 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     const sessionId = activeSessionId;
     if (!sessionId) return false;
     if (isSessionBusy(get(), sessionId)) return false;
-    const session = sessions.find((item) => item.id === sessionId);
-    if (!session) return false;
-    const messages = sessionMessages(session);
-    const index = messages.findIndex((message) => message.id === messageId);
-    if (index < 0 || messages[index]?.role !== "user") return false;
-    const removed = messages.slice(index);
-    const kept = messages.slice(0, index);
-    const turnIds = new Set(
-      removed.filter((message) => message.role === "user").map((message) => message.id),
-    );
-    const checkpoints = (session.fileCheckpoints ?? []).filter((checkpoint) =>
-      turnIds.has(checkpoint.turnId),
-    );
-    let skipped: string[] = [];
-    if (isTauri() && checkpoints.length > 0) {
-      try {
-        const outcomes = await rollbackCheckpoints(sessionId, checkpoints, "before");
-        skipped = outcomes.filter((item) => !item.restored).map((item) => item.path);
-      } catch (error) {
-        set({ error: ipcErrorMessage(error) });
+    beginCommand(sessionId, "undo");
+    try {
+      const session = sessions.find((item) => item.id === sessionId);
+      if (!session) return false;
+      const messages = sessionMessages(session);
+      const index = messages.findIndex((message) => message.id === messageId);
+      if (index < 0 || messages[index]?.role !== "user") return false;
+      const removed = messages.slice(index);
+      const kept = messages.slice(0, index);
+      const turnIds = new Set(
+        removed.filter((message) => message.role === "user").map((message) => message.id),
+      );
+      const checkpoints = (session.fileCheckpoints ?? []).filter((checkpoint) =>
+        turnIds.has(checkpoint.turnId),
+      );
+      let skipped: string[] = [];
+      if (isTauri() && checkpoints.length > 0) {
+        try {
+          const outcomes = await rollbackCheckpoints(sessionId, checkpoints, "before");
+          skipped = outcomes.filter((item) => !item.restored).map((item) => item.path);
+        } catch (error) {
+          set({ error: ipcErrorMessage(error) });
+          return false;
+        }
+      }
+      if (isSessionBusy(get(), sessionId)) {
+        await putCheckpointBack(sessionId, checkpoints, "after");
         return false;
       }
+      const currentTodos = cloneTodos(session.todos ?? todosFromMessages(messages));
+      const restoredTodos = todosFromMessages(kept);
+      const nextSessions = sortSessions(
+        patchActiveSession(get().sessions, sessionId, (item) => ({
+          ...item,
+          messages: kept,
+          preview: previewFromMessages(kept),
+          updatedAt: Date.now(),
+          todos: restoredTodos,
+          fileCheckpoints: (item.fileCheckpoints ?? []).filter(
+            (checkpoint) => !turnIds.has(checkpoint.turnId),
+          ),
+          redo: {
+            messages: removed,
+            checkpoints,
+            todos: currentTodos,
+            ...(session.modelContext ? { modelContext: session.modelContext } : {}),
+          },
+          modelContext: trimModelContext(session.modelContext, kept),
+        })),
+      );
+      set({
+        sessions: nextSessions,
+        error:
+          skipped.length > 0
+            ? i18n.t("chat.rewind.skipped", { paths: skipped.join(", ") })
+            : undefined,
+      });
+      void persistSnapshot(snapshotFromState(nextSessions, sessionId));
+      return true;
+    } finally {
+      endCommand();
     }
-    if (isSessionBusy(get(), sessionId)) {
-      await putCheckpointBack(sessionId, checkpoints, "after");
-      return false;
-    }
-    const currentTodos = cloneTodos(session.todos ?? todosFromMessages(messages));
-    const restoredTodos = todosFromMessages(kept);
-    const nextSessions = sortSessions(
-      patchActiveSession(get().sessions, sessionId, (item) => ({
-        ...item,
-        messages: kept,
-        preview: previewFromMessages(kept),
-        updatedAt: Date.now(),
-        todos: restoredTodos,
-        fileCheckpoints: (item.fileCheckpoints ?? []).filter(
-          (checkpoint) => !turnIds.has(checkpoint.turnId),
-        ),
-        redo: {
-          messages: removed,
-          checkpoints,
-          todos: currentTodos,
-          ...(session.modelContext ? { modelContext: session.modelContext } : {}),
-        },
-        modelContext: trimModelContext(session.modelContext, kept),
-      })),
-    );
-    set({
-      sessions: nextSessions,
-      error:
-        skipped.length > 0
-          ? i18n.t("chat.rewind.skipped", { paths: skipped.join(", ") })
-          : undefined,
-    });
-    void persistSnapshot(snapshotFromState(nextSessions, sessionId));
-    return true;
   },
 
   redo: async () => {
@@ -1715,47 +1818,52 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     const sessionId = activeSessionId;
     if (!sessionId) return false;
     if (isSessionBusy(get(), sessionId)) return false;
-    const session = sessions.find((item) => item.id === sessionId);
-    const redo = session?.redo;
-    if (!session || !redo || redo.messages.length === 0) return false;
-    let skipped: string[] = [];
-    if (isTauri() && redo.checkpoints.length > 0) {
-      try {
-        const outcomes = await rollbackCheckpoints(sessionId, redo.checkpoints, "after");
-        skipped = outcomes.filter((item) => !item.restored).map((item) => item.path);
-      } catch (error) {
-        set({ error: ipcErrorMessage(error) });
+    beginCommand(sessionId, "redo");
+    try {
+      const session = sessions.find((item) => item.id === sessionId);
+      const redo = session?.redo;
+      if (!session || !redo || redo.messages.length === 0) return false;
+      let skipped: string[] = [];
+      if (isTauri() && redo.checkpoints.length > 0) {
+        try {
+          const outcomes = await rollbackCheckpoints(sessionId, redo.checkpoints, "after");
+          skipped = outcomes.filter((item) => !item.restored).map((item) => item.path);
+        } catch (error) {
+          set({ error: ipcErrorMessage(error) });
+          return false;
+        }
+      }
+      if (isSessionBusy(get(), sessionId)) {
+        await putCheckpointBack(sessionId, redo.checkpoints, "before");
         return false;
       }
+      const nextSessions = sortSessions(
+        patchActiveSession(get().sessions, sessionId, (item) => {
+          const messages = [...sessionMessages(item), ...redo.messages];
+          return {
+            ...item,
+            messages,
+            preview: previewFromMessages(messages),
+            updatedAt: Date.now(),
+            todos: redo.todos !== undefined ? cloneTodos(redo.todos) : item.todos,
+            fileCheckpoints: [...(item.fileCheckpoints ?? []), ...redo.checkpoints],
+            modelContext: redo.modelContext ?? item.modelContext,
+            redo: undefined,
+          };
+        }),
+      );
+      set({
+        sessions: nextSessions,
+        error:
+          skipped.length > 0
+            ? i18n.t("chat.rewind.skipped", { paths: skipped.join(", ") })
+            : undefined,
+      });
+      void persistSnapshot(snapshotFromState(nextSessions, sessionId));
+      return true;
+    } finally {
+      endCommand();
     }
-    if (isSessionBusy(get(), sessionId)) {
-      await putCheckpointBack(sessionId, redo.checkpoints, "before");
-      return false;
-    }
-    const nextSessions = sortSessions(
-      patchActiveSession(get().sessions, sessionId, (item) => {
-        const messages = [...sessionMessages(item), ...redo.messages];
-        return {
-          ...item,
-          messages,
-          preview: previewFromMessages(messages),
-          updatedAt: Date.now(),
-          todos: redo.todos !== undefined ? cloneTodos(redo.todos) : item.todos,
-          fileCheckpoints: [...(item.fileCheckpoints ?? []), ...redo.checkpoints],
-          modelContext: redo.modelContext ?? item.modelContext,
-          redo: undefined,
-        };
-      }),
-    );
-    set({
-      sessions: nextSessions,
-      error:
-        skipped.length > 0
-          ? i18n.t("chat.rewind.skipped", { paths: skipped.join(", ") })
-          : undefined,
-    });
-    void persistSnapshot(snapshotFromState(nextSessions, sessionId));
-    return true;
   },
 
   retryFrom: async (messageId) => {
@@ -1842,25 +1950,71 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     const now = Date.now();
     const isFirstMessage = sessionMessages(latest).length === 0;
     const userMessageId = nextId();
-    const userMessage: ChatMessage = {
-      id: userMessageId,
-      role: "user",
-      kind: "shell",
-      content: formatShellMessage(resolvedCommand, i18n.t("chat.shell.running")),
+    const upsertShellMessage = (
+      content: string,
+      streaming: boolean,
+      options: { shellAiSummary?: string; preview?: string } = {},
+    ): SessionRecord[] => {
+      const nextSessions = sortSessions(
+        patchActiveSession(get().sessions, sessionId, (session) => {
+          const messages = sessionMessages(session).slice();
+          const idx = messages.findIndex((message) => message.id === userMessageId);
+          const current = idx >= 0 ? messages[idx] : undefined;
+          const summary = options.shellAiSummary;
+          if (current) {
+            messages[idx] = {
+              ...current,
+              content,
+              streaming,
+              ...(summary === undefined ? {} : { shellAiSummary: summary }),
+            };
+          } else {
+            messages.push({
+              id: userMessageId,
+              role: "user",
+              kind: "shell",
+              content,
+              streaming,
+              ...(summary === undefined ? {} : { shellAiSummary: summary }),
+            });
+          }
+          return {
+            ...session,
+            preview: options.preview ?? resolvedCommand,
+            updatedAt: Date.now(),
+            messages,
+          };
+        }),
+      );
+      set({
+        sessions: nextSessions,
+        ...(stickActive ? { activeSessionId: sessionId } : {}),
+      });
+      return nextSessions;
     };
-    const withUser = sortSessions(
+    const withPreview = sortSessions(
       patchActiveSession(get().sessions, sessionId, (session) => ({
         ...session,
         preview: resolvedCommand,
         updatedAt: now,
-        messages: [...sessionMessages(session), userMessage],
       })),
     );
     set({
-      sessions: withUser,
+      sessions: withPreview,
       ...(stickActive ? { activeSessionId: sessionId } : {}),
     });
-    void persistSnapshot(snapshotFromState(withUser, get().activeSessionId ?? sessionId));
+    let revealTimer = 0;
+    const clearRevealTimer = (): void => {
+      if (revealTimer === 0) return;
+      window.clearTimeout(revealTimer);
+      revealTimer = 0;
+    };
+    revealTimer = window.setTimeout(() => {
+      revealTimer = 0;
+      if (!get().shellRunningSessionIds.includes(sessionId)) return;
+      const next = upsertShellMessage(formatShellMessage(resolvedCommand, ""), true);
+      void persistSnapshot(snapshotFromState(next, get().activeSessionId ?? sessionId));
+    }, SHELL_REVEAL_DELAY_MS);
 
     if (isFirstMessage && !latest.title) {
       void generateSessionTitle(sessionId, trimmed).then((title) => {
@@ -1884,22 +2038,12 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       if (streamBuffer.stderr.length > 0) {
         parts.push(`stderr:\n${streamBuffer.stderr.replace(/\n$/, "")}`);
       }
-      if (parts.length === 0) return i18n.t("chat.shell.running");
       return parts.join("\n\n");
     };
 
     const applyShellStream = (): void => {
-      const content = formatShellMessage(resolvedCommand, displayStream());
-      const nextSessions = patchActiveSession(get().sessions, sessionId, (session) => {
-        const messages = session.messages.slice();
-        const idx = messages.findIndex((message) => message.id === userMessageId);
-        if (idx < 0) return session;
-        const current = messages[idx];
-        if (!current) return session;
-        messages[idx] = { ...current, content, streaming: true };
-        return { ...session, preview: resolvedCommand, messages };
-      });
-      set({ sessions: nextSessions });
+      clearRevealTimer();
+      upsertShellMessage(formatShellMessage(resolvedCommand, displayStream()), true);
     };
 
     let streamFrame = 0;
@@ -1918,28 +2062,11 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
     };
 
     const applyShellMessage = (content: string, shellAiSummary?: string, error?: string): void => {
-      const nextSessions = sortSessions(
-        patchActiveSession(get().sessions, sessionId, (session) => {
-          const messages = session.messages.slice();
-          const idx = messages.findIndex((message) => message.id === userMessageId);
-          if (idx >= 0) {
-            const current = messages[idx];
-            if (!current) return session;
-            messages[idx] = {
-              ...current,
-              content,
-              shellAiSummary,
-              streaming: false,
-            };
-          }
-          return {
-            ...session,
-            preview: content,
-            updatedAt: Date.now(),
-            messages,
-          };
-        }),
-      );
+      clearRevealTimer();
+      const nextSessions = upsertShellMessage(content, false, {
+        ...(shellAiSummary === undefined ? {} : { shellAiSummary }),
+        preview: content,
+      });
       const stillRunning = get().shellRunningSessionIds.includes(sessionId);
       const left = get().shellRunningSessionIds.filter((id) => id !== sessionId);
       set({
@@ -1951,7 +2078,11 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       });
       const active = get().activeSessionId ?? sessionId;
       void persistSnapshot(snapshotFromState(nextSessions, active));
-      if (stillRunning) get().flushQueued();
+      if (stillRunning) {
+        void get()
+          .drainQueuedAction(sessionId)
+          .finally(() => get().flushQueued());
+      }
     };
 
     const onChunk = new Channel<ShellChunk>();
@@ -2033,26 +2164,31 @@ export const useSessionsStore = create<SessionsStore>((set, get) => ({
       set({ error: i18n.t("chat.compact.busy"), canRetry: false });
       return;
     }
-    const selection = useSelectionStore.getState().selection;
-    const session = get().sessions.find((item) => item.id === sessionId);
-    if (!selection || !session) {
-      set({ error: i18n.t("chat.compact.failed"), canRetry: false });
-      return;
+    beginCommand(sessionId, "compact");
+    try {
+      const selection = useSelectionStore.getState().selection;
+      const session = get().sessions.find((item) => item.id === sessionId);
+      if (!selection || !session) {
+        set({ error: i18n.t("chat.compact.failed"), canRetry: false });
+        return;
+      }
+      set({ error: undefined, canRetry: false });
+      const result = await compactHistory(
+        sessionId,
+        sessionMessages(session),
+        "",
+        [],
+        selection,
+        true,
+      );
+      if (result.outcome === "compacted") return;
+      set({
+        error: i18n.t(result.outcome === "failed" ? "chat.compact.failed" : "chat.compact.nothing"),
+        canRetry: false,
+      });
+    } finally {
+      endCommand();
     }
-    set({ error: undefined, canRetry: false });
-    const result = await compactHistory(
-      sessionId,
-      sessionMessages(session),
-      "",
-      [],
-      selection,
-      true,
-    );
-    if (result.outcome === "compacted") return;
-    set({
-      error: i18n.t(result.outcome === "failed" ? "chat.compact.failed" : "chat.compact.nothing"),
-      canRetry: false,
-    });
   },
 
   rewindLastUserMessage: () => {

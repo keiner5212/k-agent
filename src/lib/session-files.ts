@@ -6,6 +6,8 @@ export type SessionChangedFile = {
   added: number;
   removed: number;
   callId: string;
+  firstCallId: string;
+  deleted: boolean;
 };
 
 const escapeRegex = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -62,7 +64,64 @@ type PathState = {
   added: number;
   removed: number;
   callId: string;
+  firstCallId: string;
   deleted: boolean;
+};
+
+export const netLineChange = (
+  before: string,
+  after: string,
+): { added: number; removed: number } => {
+  if (before === after) return { added: 0, removed: 0 };
+  if (before.length === 0) return { added: lineCount(after), removed: 0 };
+  if (after.length === 0) return { added: 0, removed: lineCount(before) };
+  const oldLines = before.split("\n");
+  const newLines = after.split("\n");
+  if (oldLines.length * newLines.length > 4_000_000) {
+    return spanLineChange(oldLines, newLines);
+  }
+  const shared = lcsLength(oldLines, newLines);
+  return { added: newLines.length - shared, removed: oldLines.length - shared };
+};
+
+const lineCount = (text: string): number => (text.length === 0 ? 0 : text.split("\n").length);
+
+const lcsLength = (left: string[], right: string[]): number => {
+  const [short, long] = left.length <= right.length ? [left, right] : [right, left];
+  let prev = new Array<number>(short.length + 1).fill(0);
+  let curr = new Array<number>(short.length + 1).fill(0);
+  for (const line of long) {
+    for (let index = 0; index < short.length; index += 1) {
+      const other = short[index];
+      curr[index + 1] = line === other ? prev[index] + 1 : Math.max(curr[index], prev[index + 1]);
+    }
+    const swap = prev;
+    prev = curr;
+    curr = swap;
+    curr.fill(0);
+  }
+  return prev[short.length] ?? 0;
+};
+
+const spanLineChange = (
+  oldLines: string[],
+  newLines: string[],
+): { added: number; removed: number } => {
+  let start = 0;
+  while (
+    start < oldLines.length &&
+    start < newLines.length &&
+    oldLines[start] === newLines[start]
+  ) {
+    start += 1;
+  }
+  let oldEnd = oldLines.length;
+  let newEnd = newLines.length;
+  while (oldEnd > start && newEnd > start && oldLines[oldEnd - 1] === newLines[newEnd - 1]) {
+    oldEnd -= 1;
+    newEnd -= 1;
+  }
+  return { added: newEnd - start, removed: oldEnd - start };
 };
 
 export const collectSessionChanges = (messages: ChatMessage[]): SessionChangedFile[] => {
@@ -74,7 +133,13 @@ export const collectSessionChanges = (messages: ChatMessage[]): SessionChangedFi
         const path = call.display.path;
         let state = byPath.get(path);
         if (!state) {
-          state = { added: 0, removed: 0, callId: call.id, deleted: false };
+          state = {
+            added: 0,
+            removed: 0,
+            callId: call.id,
+            firstCallId: call.id,
+            deleted: false,
+          };
           byPath.set(path, state);
         }
         if (call.name === "delete") {
@@ -85,6 +150,7 @@ export const collectSessionChanges = (messages: ChatMessage[]): SessionChangedFi
             state.added = 0;
             state.removed = 0;
             state.deleted = false;
+            state.firstCallId = call.id;
           }
           state.added += call.display.added ?? 0;
           state.removed += call.display.removed ?? 0;
@@ -95,5 +161,12 @@ export const collectSessionChanges = (messages: ChatMessage[]): SessionChangedFi
   }
   return [...byPath.entries()]
     .filter(([, state]) => state.deleted || state.added > 0 || state.removed > 0)
-    .map(([path, { added, removed, callId }]) => ({ path, added, removed, callId }));
+    .map(([path, state]) => ({
+      path,
+      added: state.added,
+      removed: state.removed,
+      callId: state.callId,
+      firstCallId: state.firstCallId,
+      deleted: state.deleted,
+    }));
 };

@@ -44,6 +44,7 @@ export type SessionRecord = {
   fileCheckpoints?: TurnCheckpoint[];
   redo?: RedoRecord;
   modelContext?: ModelContext;
+  spentUsd?: number;
 };
 
 export type SessionSummary = Pick<SessionRecord, "id" | "title" | "preview" | "updatedAt">;

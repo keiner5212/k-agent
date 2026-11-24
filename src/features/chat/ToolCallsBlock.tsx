@@ -307,9 +307,23 @@ const toolSummary = (call: ChatToolCall): string => {
 const summaryText = (value: string): string =>
   value.length > SUMMARY_MAX ? `${value.slice(0, SUMMARY_MAX - 3)}...` : value;
 
+const imageCaption = (call: ChatToolCall): string => {
+  const width = toonFieldValue(call.output ?? "", "width");
+  const height = toonFieldValue(call.output ?? "", "height");
+  const path = call.display?.path?.trim() ?? "";
+  const size = width && height ? `${width} x ${height}` : "";
+  return [path, size].filter((part) => part.length > 0).join(" ");
+};
+
+const bashWatchValue = (calls: ChatToolCall[], watchId: string | null): string => {
+  if (!watchId) return "";
+  return calls.find((call) => (call.id ?? call.name) === watchId)?.output ?? "";
+};
+
 const callIsRunning = (call: ChatToolCall, pending: boolean | undefined): boolean => {
   if (!pending) return false;
   if (call.display?.status) return false;
+  if (call.name === "bash") return true;
   return (call.output?.length ?? 0) === 0;
 };
 
@@ -321,7 +335,12 @@ const ToolCallsBlock = ({
 }: ToolCallsBlockProps): ReactNode => {
   const { t } = useTranslation();
   const [preview, setPreview] = useState<PreviewState | null>(null);
-  const [image, setImage] = useState<{ titleKey: string; data: string } | null>(null);
+  const [bashWatchId, setBashWatchId] = useState<string | null>(null);
+  const [image, setImage] = useState<{
+    titleKey: string;
+    data: string;
+    caption: string;
+  } | null>(null);
   const [taskSessionId, setTaskSessionId] = useState<string | null>(null);
   const selection = useSelectionStore((state) => state.selection);
   const providers = useProvidersStore((state) => state.providers);
@@ -331,6 +350,10 @@ const ToolCallsBlock = ({
   if (calls.length === 0) return null;
 
   const openPreview = async (call: ChatToolCall): Promise<void> => {
+    if (call.name === "bash") {
+      setBashWatchId(call.id ?? call.name);
+      return;
+    }
     const display = call.display;
     if (call.name === "task" && display?.childSessionId) {
       setTaskSessionId(display.childSessionId);
@@ -392,7 +415,7 @@ const ToolCallsBlock = ({
     }
     const titleKey = TOOL_TITLE[call.name] ?? "chat.tools.outputTitle";
     if (display?.imageData) {
-      setImage({ titleKey, data: display.imageData });
+      setImage({ titleKey, data: display.imageData, caption: imageCaption(call) });
       return;
     }
     const raw = call.output ?? "";
@@ -428,6 +451,7 @@ const ToolCallsBlock = ({
           const bashDescription = call.name === "bash" ? argString(call, "description") : "";
           const runningCall = callIsRunning(call, pending);
           const canOpen =
+            call.name === "bash" ||
             Boolean(call.output) ||
             Boolean(display?.imageData) ||
             Boolean(display?.childSessionId) ||
@@ -514,11 +538,37 @@ const ToolCallsBlock = ({
               {bashDescription ? (
                 <span className="chat-tools__detail">{bashDescription}</span>
               ) : null}
+              {call.name === "background" ? (
+                <span className="chat-tools__detail">{t("chat.tools.backgroundDetail")}</span>
+              ) : null}
+              {display?.imageData ? (
+                <button
+                  type="button"
+                  className="chat-tools__thumb"
+                  onClick={() => {
+                    setImage({
+                      titleKey: TOOL_TITLE[call.name] ?? "chat.tools.shotTitle",
+                      data: display.imageData ?? "",
+                      caption: imageCaption(call),
+                    });
+                  }}
+                >
+                  <img alt="" src={`data:image/png;base64,${display.imageData}`} />
+                </button>
+              ) : null}
               <LspNotes display={display} cleanLabel={t("chat.tools.lspClean")} />
             </li>
           );
         })}
       </ul>
+      <ReadOnlyEditorDialog
+        open={bashWatchId !== null}
+        titleKey="chat.tools.bashTitle"
+        value={bashWatchValue(calls, bashWatchId) || t("chat.shell.running")}
+        onOpenChange={(open) => {
+          if (!open) setBashWatchId(null);
+        }}
+      />
       <ReadOnlyEditorDialog
         open={preview !== null}
         titleKey={preview?.titleKey ?? "chat.tools.outputTitle"}
@@ -541,11 +591,16 @@ const ToolCallsBlock = ({
         size="wide"
       >
         {image ? (
-          <img
-            className="tool-result-dialog__image"
-            alt=""
-            src={`data:image/png;base64,${image.data}`}
-          />
+          <div className="attachment-preview">
+            {image.caption ? <p className="attachment-preview__name">{image.caption}</p> : null}
+            <div className="attachment-preview__stage">
+              <img
+                className="attachment-preview__image"
+                alt=""
+                src={`data:image/png;base64,${image.data}`}
+              />
+            </div>
+          </div>
         ) : null}
       </Dialog>
       <TaskChatDialog

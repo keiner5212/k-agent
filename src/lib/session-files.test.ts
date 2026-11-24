@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { collectSessionChanges, diffEditorValue, toonFieldValue } from "./session-files";
+import {
+  collectSessionChanges,
+  diffEditorValue,
+  netLineChange,
+  toonFieldValue,
+} from "./session-files";
 import type { ChatMessage } from "@/types/chat";
 
 describe("toonFieldValue", () => {
@@ -54,6 +59,12 @@ describe("toonFieldValue", () => {
       ],
     };
     expect(collectSessionChanges([message]).map((file) => file.path)).toEqual(["src/a.ts"]);
+  });
+
+  it("counts a created file as additions against an empty start", () => {
+    expect(netLineChange("", "one\ntwo\nthree")).toEqual({ added: 3, removed: 0 });
+    expect(netLineChange("keep\nold", "keep\nnew\nextra")).toEqual({ added: 2, removed: 1 });
+    expect(netLineChange("gone\nstill", "")).toEqual({ added: 0, removed: 2 });
   });
 
   it("does not match a key that is a prefix of another key", () => {

@@ -283,8 +283,21 @@ pub fn origin_allows(url: &reqwest::Url) -> Vec<String> {
     allows
 }
 
+fn view_gate() -> &'static tokio::sync::Mutex<()> {
+    static GATE: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+    GATE.get_or_init(|| tokio::sync::Mutex::new(()))
+}
+
+#[derive(Debug)]
+pub struct RenderedPage {
+    pub title: String,
+    pub text: String,
+    pub links: Vec<(String, String)>,
+}
+
 /// Capture one viewport of a page and return the PNG bytes.
 pub async fn capture(app: &tauri::AppHandle, shot: &ShotArgs) -> Result<Vec<u8>, String> {
+    let _gate = view_gate().lock().await;
     #[cfg(target_os = "linux")]
     {
         webkit::capture(app, shot).await
@@ -297,6 +310,57 @@ pub async fn capture(app: &tauri::AppHandle, shot: &ShotArgs) -> Result<Vec<u8>,
             crate::compat::os_name()
         ))
     }
+}
+
+/// Load a public page in WebKit and return the text after scripts run.
+pub async fn read_page_text(app: &tauri::AppHandle, url: &str) -> Result<RenderedPage, String> {
+    let _gate = view_gate().lock().await;
+    #[cfg(target_os = "linux")]
+    {
+        let raw = webkit::read_text(app, url).await?;
+        parse_rendered(&raw)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (app, url);
+        Err(format!(
+            "rendered fetch needs WebKit and runs on Linux only. This host is {}.",
+            crate::compat::os_name()
+        ))
+    }
+}
+
+fn parse_rendered(raw: &str) -> Result<RenderedPage, String> {
+    let parsed: serde_json::Value =
+        serde_json::from_str(raw).map_err(|error| format!("rendered page: {error}"))?;
+    let title = parsed
+        .get("title")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .to_string();
+    let text = parsed
+        .get("text")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .to_string();
+    let mut links = Vec::new();
+    if let Some(items) = parsed.get("links").and_then(|value| value.as_array()) {
+        for item in items.iter().take(8) {
+            let href = item
+                .get("href")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            if href.is_empty() {
+                continue;
+            }
+            let label = item
+                .get("text")
+                .and_then(|value| value.as_str())
+                .unwrap_or("");
+            links.push((href.to_string(), label.to_string()));
+        }
+    }
+    Ok(RenderedPage { title, text, links })
 }
 
 #[cfg(target_os = "linux")]

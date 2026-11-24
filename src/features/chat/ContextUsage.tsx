@@ -171,7 +171,8 @@ export const ContextUsage = (): ReactNode => {
     visibleBuckets.length > 0
       ? visibleBuckets
       : usage.buckets.filter((item) => item.id === "conversation");
-  const cost = formatUsageCost(usage.costUsd);
+  const spentUsd = useSessionsStore((state) => selectActiveSession(state)?.spentUsd ?? 0);
+  const cost = formatUsageCost(spentUsd + usage.costUsd);
   const usedLabel = formatUsageTokens(usage.usedTokens);
   const windowLabel =
     usage.windowTokens > 0 ? formatUsageTokens(usage.windowTokens) : formatContextWindow(undefined);

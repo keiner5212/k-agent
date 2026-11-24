@@ -895,6 +895,7 @@
       "copyCode": "Copy code",
       "copied": "Copied",
       "rewind": "Rewind history up to this message",
+      "edit": "Undo and edit this message",
       "retry": "Undo and send this message again"
     },
     "diagram": {
@@ -1107,6 +1108,18 @@
       "notice": "Context compacted. Marked turns stay in the chat. The model no longer sees them.",
       "omitted": "omitted"
     },
+    "commands": {
+      "pending": {
+        "compact": "Compacting context...",
+        "undo": "Rewinding the chat...",
+        "redo": "Restoring the last turn...",
+        "stop": "Stopping the reply...",
+        "help": "Opening help..."
+      },
+      "busy": "The chat is replying. {{command}} can wait, or it can interrupt.",
+      "interrupt": "Interrupt and run",
+      "wait": "Run when this turn ends"
+    },
     "error": {
       "empty": "The model returned an empty response.",
       "network": "Could not reach the model.",
@@ -1250,6 +1263,10 @@
       "todoTitle": "Todos",
       "bashTitle": "Shell",
       "backgroundTitle": "Background",
+      "backgroundDetail": "Stops when this turn ends.",
+      "backgroundLogs": "Logs",
+      "backgroundStop": "Stop",
+      "backgroundEmpty": "No output yet.",
       "grepTitle": "Search",
       "fetchTitle": "Page",
       "searchTitle": "Search",

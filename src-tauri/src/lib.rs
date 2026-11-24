@@ -566,6 +566,7 @@ fn quit_without_webkit_teardown() -> ! {
 }
 
 fn kill_child_processes() {
+    tools::background::stop_all();
     #[cfg(target_os = "linux")]
     kill_descendants(std::process::id());
     compat::process::kill_own_process_group();
@@ -760,6 +761,9 @@ pub fn run() {
             upsert_provider_model,
             delete_provider_model,
             set_model_favorite,
+            tools::background::list_background_processes,
+            tools::background::read_background_log,
+            tools::background::stop_background_process,
             skills::list_skills,
             skills::read_skill_meta,
             skills::read_skill_file,

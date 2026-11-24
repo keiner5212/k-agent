@@ -67,6 +67,12 @@ pub struct SessionRecord {
     pub redo: Option<RedoRecord>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model_context: Option<ModelContext>,
+    #[serde(default, skip_serializing_if = "spent_is_zero")]
+    pub spent_usd: f64,
+}
+
+fn spent_is_zero(value: &f64) -> bool {
+    *value == 0.0
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -233,6 +239,7 @@ fn empty_snapshot() -> SessionsSnapshot {
             file_checkpoints: Vec::new(),
             redo: None,
             model_context: None,
+            spent_usd: 0.0,
         }],
     }
 }
@@ -439,6 +446,7 @@ pub fn write_child_session(
         file_checkpoints: Vec::new(),
         redo: None,
         model_context: None,
+        spent_usd: 0.0,
     };
     write_session_record(app, &mut session)?;
     Ok(id)
@@ -508,6 +516,7 @@ pub(crate) fn read_session_record(
             file_checkpoints: Vec::new(),
             redo: None,
             model_context: None,
+            spent_usd: 0.0,
         });
     }
     let raw = std::fs::read_to_string(&path).map_err(|e| SessionError::Io(e.to_string()))?;

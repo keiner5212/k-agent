@@ -1,7 +1,7 @@
 {
   "name": "k-agent",
   "private": true,
-  "version": "0.2.6",
+  "version": "0.2.7",
   "type": "module",
   "description": "AI coding model orchestrator desktop app",
   "packageManager": "pnpm@11.2.2",
@@ -26,6 +26,7 @@
     "bundle:mermaid-check": "node node_modules/esbuild/bin/esbuild scripts/mermaid-check.mjs --bundle --platform=node --format=cjs --outfile=src-tauri/resources/mermaid-check.cjs"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.28",
     "@tauri-apps/api": "2.12.4",
     "@tauri-apps/plugin-clipboard-manager": "2.5.0",
     "@tauri-apps/plugin-dialog": "2.8.3",

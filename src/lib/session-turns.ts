@@ -42,6 +42,7 @@ type LooseSession = {
   fileCheckpoints?: unknown;
   redo?: unknown;
   modelContext?: unknown;
+  spentUsd?: unknown;
 };
 
 export const sessionMessages = (
@@ -210,6 +211,11 @@ const sanitizeRedo = (value: unknown): RedoRecord | undefined => {
   };
 };
 
+const settleShellMessages = (messages: ChatMessage[]): ChatMessage[] =>
+  messages.map((message) =>
+    message.kind === "shell" && message.streaming ? { ...message, streaming: false } : message,
+  );
+
 export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => {
   const fileCheckpoints = sanitizeCheckpoints(session.fileCheckpoints);
   const redo = sanitizeRedo(session.redo);
@@ -219,7 +225,7 @@ export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => {
     title: session.title ?? "",
     preview: session.preview ?? "",
     updatedAt: typeof session.updatedAt === "number" ? session.updatedAt : 0,
-    messages: sessionMessages(session),
+    messages: settleShellMessages(sessionMessages(session)),
     todos: sanitizeTodoItems(session.todos),
     todosHistory: sanitizeTodoHistory(session.todosHistory),
     outsideWorkspaceAllowed: session.outsideWorkspaceAllowed === true,
@@ -232,6 +238,11 @@ export const sanitizeSessionRecord = (session: LooseSession): SessionRecord => {
     ...(fileCheckpoints.length > 0 ? { fileCheckpoints } : {}),
     ...(redo && redo.messages.length > 0 ? { redo } : {}),
     ...(modelContext ? { modelContext } : {}),
+    ...(typeof session.spentUsd === "number" &&
+    Number.isFinite(session.spentUsd) &&
+    session.spentUsd > 0
+      ? { spentUsd: session.spentUsd }
+      : {}),
   };
 };
 

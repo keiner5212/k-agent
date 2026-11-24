@@ -484,6 +484,96 @@ fn encode_crop(
     Ok(png)
 }
 
+const READ_SCRIPT: &str = "(function(){var links=[];var nodes=document.querySelectorAll('a[href]');for(var i=0;i<nodes.length&&links.length<8;i++){var text=(nodes[i].innerText||'').replace(/\\s+/g,' ').trim();if(!nodes[i].href)continue;links.push({href:nodes[i].href,text:text.slice(0,160)});}var body=document.body?(document.body.innerText||''):'';return JSON.stringify({title:document.title||'',text:body.slice(0,16000),links:links});})()";
+
+pub async fn read_text(app: &tauri::AppHandle, url: &str) -> Result<String, String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let url = url.to_string();
+    let app = app.clone();
+    app.run_on_main_thread(move || {
+        let _ = read_shoot(url, tx);
+    })
+    .map_err(|error| format!("rendered fetch main thread: {error}"))?;
+    match tokio::time::timeout(Duration::from_secs(8), rx).await {
+        Ok(Ok(result)) => result,
+        Ok(Err(_)) => Err("rendered fetch was dropped.".into()),
+        Err(_) => Err("rendered fetch timed out.".into()),
+    }
+}
+
+fn read_shoot(
+    url: String,
+    tx: tokio::sync::oneshot::Sender<Result<String, String>>,
+) -> Result<(), String> {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use gtk::prelude::*;
+    use webkit2gtk::WebViewExt;
+    use webkit2gtk::{LoadEvent, WebView};
+
+    let window = gtk::Window::new(gtk::WindowType::Toplevel);
+    place_hidden(&window, 1280, 800);
+    let view = WebView::new();
+    window.add(&view);
+    window.show_all();
+    let state = Rc::new(RefCell::new(Some(tx)));
+    let cleanup = state.clone();
+    let cleanup_window = window.clone();
+    glib::timeout_add_local(Duration::from_secs(8), move || {
+        if cleanup.borrow_mut().take().is_some() {
+            unsafe { cleanup_window.destroy() };
+        }
+        glib::ControlFlow::Break
+    });
+    let started = std::cell::Cell::new(false);
+    view.connect_load_changed(move |view, event| {
+        if event != LoadEvent::Finished || started.get() {
+            return;
+        }
+        let current = view
+            .uri()
+            .map(|value| value.to_string())
+            .unwrap_or_default();
+        if current.is_empty() || current.starts_with("about:") {
+            return;
+        }
+        started.set(true);
+        let shot = view.clone();
+        let done = state.clone();
+        let host = window.clone();
+        glib::timeout_add_local(Duration::from_millis(1200), move || {
+            let sender = done.clone();
+            let host = host.clone();
+            shot.evaluate_javascript(
+                READ_SCRIPT,
+                None,
+                None,
+                None::<&gio::Cancellable>,
+                move |result| {
+                    let text = match result {
+                        Ok(value) => value.to_string(),
+                        Err(error) => {
+                            if let Some(tx) = sender.borrow_mut().take() {
+                                let _ = tx.send(Err(format!("rendered fetch script: {error}")));
+                            }
+                            unsafe { host.destroy() };
+                            return;
+                        }
+                    };
+                    if let Some(tx) = sender.borrow_mut().take() {
+                        let _ = tx.send(Ok(text.to_string()));
+                    }
+                    unsafe { host.destroy() };
+                },
+            );
+            glib::ControlFlow::Break
+        });
+    });
+    view.load_uri(&url);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
