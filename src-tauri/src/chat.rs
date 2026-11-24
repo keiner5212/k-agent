@@ -936,13 +936,24 @@ fn anthropic_tool_content(result: &ToolResultTurn) -> serde_json::Value {
     json!(parts)
 }
 
+fn gemini_wire_id(id: &str) -> Option<&str> {
+    let id = id.trim();
+    if id.is_empty() || id.starts_with("call_") {
+        None
+    } else {
+        Some(id)
+    }
+}
+
 fn gemini_tool_result(result: &ToolResultTurn) -> serde_json::Value {
-    let mut parts = vec![json!({
-        "functionResponse": {
-            "name": result.name,
-            "response": { "output": result.content },
-        }
-    })];
+    let mut response = json!({
+        "name": result.name,
+        "response": { "output": result.content },
+    });
+    if let Some(id) = gemini_wire_id(&result.call_id) {
+        response["id"] = json!(id);
+    }
+    let mut parts = vec![json!({ "functionResponse": response })];
     if let Some(png) = &result.image_png {
         parts.push(json!({
             "inlineData": {
@@ -1069,12 +1080,14 @@ fn gemini_contents(turns: &[Turn]) -> serde_json::Value {
                     .map(|call| call.thought_signature.as_str())
             });
             for call in &turn.tool_calls {
-                let mut part = json!({
-                    "functionCall": {
-                        "name": call.name,
-                        "args": json_object_input(&call.arguments),
-                    }
+                let mut function_call = json!({
+                    "name": call.name,
+                    "args": json_object_input(&call.arguments),
                 });
+                if let Some(id) = gemini_wire_id(&call.id) {
+                    function_call["id"] = json!(id);
+                }
+                let mut part = json!({ "functionCall": function_call });
                 let signature = nonempty_text(Some(&call.thought_signature)).or(fallback_signature);
                 if let Some(signature) = signature {
                     part["thoughtSignature"] = json!(signature);
@@ -1619,9 +1632,14 @@ fn gemini_delta_pair(value: &serde_json::Value) -> StreamDelta {
             } else {
                 serde_json::to_string(&args).unwrap_or_else(|_| args.to_string())
             };
+            let id = call
+                .get("id")
+                .and_then(|item| item.as_str())
+                .unwrap_or("")
+                .to_string();
             tools.push(StreamToolDelta {
                 index: tools.len(),
-                id: String::new(),
+                id,
                 name,
                 arguments,
                 thought_signature: if part_signature.is_empty() {
@@ -2055,9 +2073,6 @@ async fn send_gemini_like(
         generation["topP"] = json!(DEFAULT_TOP_P);
     }
     apply_gemini_like_reasoning(&mut generation, call);
-    if tools_enabled(call) && generation.get("thinkingConfig").is_none() {
-        generation["thinkingConfig"] = json!({ "includeThoughts": true });
-    }
     let mut body = json!({
         "contents": gemini_contents(call.turns),
         "generationConfig": generation,
@@ -2116,8 +2131,13 @@ async fn send_gemini_like(
             }
             if let Some(call) = part.function_call {
                 let arguments = json_object_text_from_value(&call.args);
+                let id = if call.id.trim().is_empty() {
+                    tools::new_tool_call_id()
+                } else {
+                    call.id
+                };
                 tool_calls.push(ModelToolCall {
-                    id: format!("gemini_{}_{}", call.name, tool_calls.len()),
+                    id,
                     name: call.name,
                     arguments,
                     thought_signature: if part_signature.is_empty() {
@@ -3801,6 +3821,8 @@ struct GeminiPart {
 
 #[derive(Deserialize)]
 struct GeminiFunctionCall {
+    #[serde(default)]
+    id: String,
     name: String,
     #[serde(default)]
     args: serde_json::Value,

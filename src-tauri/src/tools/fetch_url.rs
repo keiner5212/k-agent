@@ -1,4 +1,4 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use super::{toon_doc, Tool, ToolContext, ToolDisplay, ToolOutcome, ToolSpec, Too
 
 pub const NAME: &str = "fetch_url";
 
-const DESCRIPTION: &str = "Read one public page as title, short text, and up to 8 links. Content is capped at 16000 characters. HTTPS by default. Public HTTP is allowed only when HTTP fetch is enabled in settings. Loopback and private hosts stay blocked. A repeat of the same URL within 1 hour is served from cache. Use after internet_search, or when a URL is already known. This does not search the web.";
+const DESCRIPTION: &str = "Read one public page as title, short text, and up to 8 links. Content is capped at 16000 characters. HTTPS by default. Public HTTP is allowed only when HTTP fetch is enabled in settings. Loopback and private hosts stay blocked. A repeat of the same URL within 1 hour is served from cache. A short script shell is rendered once. Do not fetch that URL again to get more text. Use after internet_search, or when a URL is already known. This does not search the web.";
 
 const FALLBACK_CHROME_MAJOR: &str = "153";
 const FALLBACK_CHROME_FULL_VERSION: &str = "153.0.6903.58";
@@ -46,8 +46,6 @@ const BLOCKED_SUFFIXES: &[&str] = &[
 #[serde(rename_all = "camelCase")]
 struct FetchArgs {
     url: String,
-    #[serde(default)]
-    lang: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,10 +76,6 @@ impl Tool for FetchUrlTool {
                     "url": {
                         "type": "string",
                         "description": "Public URL to fetch. HTTPS by default. Public HTTP is accepted only when HTTP fetch is enabled in settings. Default ports only. Credentials, IP literals, loopback, and private or metadata hostnames are refused."
-                    },
-                    "lang": {
-                        "type": "string",
-                        "description": "Optional BCP 47 language tag (for example en-US, es-ES). Defaults to en-US. Sets the Accept-Language header."
                     }
                 },
                 "required": ["url"]
@@ -123,7 +117,7 @@ async fn fetch(args: &FetchArgs, ctx: &ToolContext<'_>) -> Result<String, String
     if let Some(cached) = read_cache(ctx.app, &canonical) {
         return Ok(render(&canonical, &cached));
     }
-    let session = BrowserSession::with_policy(args.lang.as_deref().unwrap_or("en-US"), policy);
+    let session = BrowserSession::with_policy("en-US", policy);
     let fetched = session.get(&canonical, "none", None).await?;
     let parsed = ContentParser::parse_with(&fetched.html, &fetched.final_url, policy);
     let mut cached = CachedResponse {
@@ -161,7 +155,9 @@ async fn fetch(args: &FetchArgs, ctx: &ToolContext<'_>) -> Result<String, String
             }
         }
     }
-    write_cache(ctx.app, &canonical, &cached);
+    if !cached.content.trim().is_empty() {
+        write_cache(ctx.app, &canonical, &cached);
+    }
     Ok(render(&canonical, &cached))
 }
 
@@ -302,73 +298,6 @@ fn is_ip_literal(host: &str) -> bool {
         }
     }
     if !host.is_empty() && host.chars().all(|c| c.is_ascii_digit() || c == '.') {
-        return true;
-    }
-    false
-}
-
-#[allow(dead_code)]
-fn is_private_address(address: &str) -> bool {
-    let cleaned = address.split('%').next().unwrap_or(address);
-    match cleaned.parse::<IpAddr>() {
-        Ok(IpAddr::V4(v4)) => is_private_v4(v4),
-        Ok(IpAddr::V6(v6)) => is_private_v6(v6),
-        Err(_) => true,
-    }
-}
-
-fn is_private_v4(ip: Ipv4Addr) -> bool {
-    let octets = ip.octets();
-    let [a, b, c] = [octets[0], octets[1], octets[2]];
-    if a == 0 || a == 10 || a == 127 {
-        return true;
-    }
-    if a == 169 && b == 254 {
-        return true;
-    }
-    if a == 172 && (16..=31).contains(&b) {
-        return true;
-    }
-    if a == 192 && b == 168 {
-        return true;
-    }
-    if a == 192 && b == 0 && (c == 0 || c == 2) {
-        return true;
-    }
-    if a == 100 && (64..=127).contains(&b) {
-        return true;
-    }
-    if a == 198 && (b == 18 || b == 19) {
-        return true;
-    }
-    if a == 198 && b == 51 && c == 100 {
-        return true;
-    }
-    if a == 203 && b == 0 && c == 113 {
-        return true;
-    }
-    if a >= 224 {
-        return true;
-    }
-    false
-}
-
-fn is_private_v6(ip: Ipv6Addr) -> bool {
-    if ip.is_loopback() || ip.is_unspecified() {
-        return true;
-    }
-    let segments = ip.segments();
-    let head = segments[0];
-    if (0xfc00..=0xfdff).contains(&head) {
-        return true;
-    }
-    if (0xfe80..=0xfeff).contains(&head) {
-        return true;
-    }
-    if head >= 0xff00 {
-        return true;
-    }
-    if head == 0x2001 && segments[1] == 0x0db8 {
         return true;
     }
     false
@@ -672,14 +601,6 @@ fn parse_args(args: &Value) -> Result<(), String> {
     if url.is_empty() {
         return Err(r"fetch_url requires a string `url`.".into());
     }
-    if let Some(lang) = args.get("lang").and_then(Value::as_str) {
-        if lang.len() > 35 {
-            return Err(r"fetch_url `lang` exceeds 35 chars.".into());
-        }
-        if lang.chars().any(|c| c.is_control()) {
-            return Err(r"fetch_url `lang` contains control characters.".into());
-        }
-    }
     Ok(())
 }
 
@@ -692,11 +613,7 @@ fn parse_args_str(arguments: &str) -> Result<FetchArgs, String> {
         .and_then(Value::as_str)
         .ok_or_else(|| r"fetch_url requires a string `url`.".to_string())?
         .to_string();
-    let lang = value
-        .get("lang")
-        .and_then(Value::as_str)
-        .map(str::to_string);
-    Ok(FetchArgs { url, lang })
+    Ok(FetchArgs { url })
 }
 
 fn now_secs() -> u64 {
@@ -834,17 +751,6 @@ mod tests {
     fn canonicalize_url_accepts_normal_https() {
         let canonical = canonicalize_url("https://example.com/path").unwrap();
         assert_eq!(canonical, "https://example.com/path");
-    }
-
-    #[test]
-    fn is_private_v4_catches_rfc1918_and_metadata() {
-        assert!(is_private_v4(Ipv4Addr::new(10, 0, 0, 1)));
-        assert!(is_private_v4(Ipv4Addr::new(172, 16, 0, 1)));
-        assert!(is_private_v4(Ipv4Addr::new(192, 168, 1, 1)));
-        assert!(is_private_v4(Ipv4Addr::new(169, 254, 169, 254)));
-        assert!(is_private_v4(Ipv4Addr::new(127, 0, 0, 1)));
-        assert!(!is_private_v4(Ipv4Addr::new(8, 8, 8, 8)));
-        assert!(!is_private_v4(Ipv4Addr::new(1, 1, 1, 1)));
     }
 
     #[test]

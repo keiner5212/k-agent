@@ -3,6 +3,10 @@ fn main() {
     #[cfg(target_os = "linux")]
     {
         std::env::set_var("WINIT_UNIX_APP_ID", "dev.kagent.app");
+        // WebKitGTK 2.54 Skia compositor flashes the last frame of a CSS transition.
+        if std::env::var_os("WEBKIT_USE_SKIA_FOR_COMPOSITION").is_none() {
+            std::env::set_var("WEBKIT_USE_SKIA_FOR_COMPOSITION", "0");
+        }
     }
     #[cfg(unix)]
     detach_from_terminal();

@@ -23,6 +23,10 @@
   opacity: 1;
 }
 
+.dialog-root[data-top="false"] .dialog-overlay {
+  display: none;
+}
+
 .dialog-slot {
   position: relative;
   z-index: 1;

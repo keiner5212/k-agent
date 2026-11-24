@@ -221,6 +221,18 @@ const buildToolChoice = (agent: AgentMeta, shape: PromptShape, readBeforeEdit: b
       "Search file contents with `grep`. To limit which files are searched, pass `glob` to `grep` (`*.ts`, or `!*.json` to exclude). Do not run `grep` or `rg` in the shell.",
     );
   }
+  const take = (names: string[], arg: string): string =>
+    `\`${names.join("`, `")}\` ${names.length === 1 ? "takes" : "take"} \`${arg}\``;
+  const filePath = ["read", "write", "edit", "lsp"].filter((id) => hasTool(agent, id));
+  const dirPath = ["glob", "create_folder"].filter((id) => hasTool(agent, id));
+  const pathArg = ["delete", "grep"].filter((id) => hasTool(agent, id));
+  const pathLines: string[] = [];
+  if (filePath.length > 0) pathLines.push(take(filePath, "filePath"));
+  if (dirPath.length > 0) pathLines.push(take(dirPath, "dirPath"));
+  if (pathArg.length > 0) pathLines.push(take(pathArg, "path"));
+  if (pathLines.length > 0) {
+    lines.push(`Path arguments differ. ${pathLines.join(". ")}.`);
+  }
   if (hasTool(agent, "glob") || hasTool(agent, "grep")) {
     lines.push(
       "Readable hidden directories are `.github` and `.agents`. Do not read or search `node_modules`, `.git`, `target`, `dist`, `build`, `vendor`, virtualenvs, or other dependency, cache, and build directories. Those are skipped. Other names that start with `.` are skipped.",
@@ -252,16 +264,25 @@ const buildToolChoice = (agent: AgentMeta, shape: PromptShape, readBeforeEdit: b
   }
   if (hasTool(agent, "create_folder")) lines.push("Make a directory with `create_folder`.");
   if (hasTool(agent, "delete")) lines.push("Remove a file or empty directory with `delete`.");
-  lines.push(
-    "`bash` is for a command that must run and finish, such as install, build, test, or git. It starts in the workspace. Do not `cd` to the home directory or the app config directory to find the project.",
-  );
-  lines.push(
-    "Install project dependencies into the project environment. Do not install packages into the system or the user site.",
-  );
+  if (hasTool(agent, "bash")) {
+    lines.push(
+      "`bash` is for a command that must run and finish, such as install, build, test, or git. It starts in the workspace. Do not `cd` to the home directory or the app config directory to find the project.",
+    );
+    lines.push(
+      "Install project dependencies into the project environment. Do not install packages into the system or the user site.",
+    );
+  }
   if (hasTool(agent, "background")) {
     lines.push(
       "A process that must stay up uses `background`, not `bash`. That process is killed when the turn ends. Do not kill its pid. Start it again on a later turn if it is still needed. Do not edit files with `bash`. A shell write cannot be rewound. If a tool is not enabled for this agent, stop and tell the user. They may have switched agents.",
     );
+  }
+  if (hasTool(agent, "internet_search")) {
+    lines.push(
+      "Find current public pages with `internet_search`, then `fetch_url` on the one best URL. Do not answer from a snippet. Do not fetch every result.",
+    );
+  } else if (hasTool(agent, "fetch_url")) {
+    lines.push("`fetch_url` reads one public URL. It does not search the web.");
   }
   return tagged("tools", lines.join("\n"), shape);
 };
@@ -350,7 +371,7 @@ export const composeAgentSystem = (
   if (workspaceSkills.length > 0) parts.push(workspaceSkills);
   if (hasTool(agent, "ask_user")) parts.push(tagged("clarify", CLARIFY, shape));
   if (hasTool(agent, "todowrite")) parts.push(tagged("todos", TODOS, shape));
-  if (hasTool(agent, "bash")) parts.push(buildToolChoice(agent, shape, readBeforeEdit));
+  parts.push(buildToolChoice(agent, shape, readBeforeEdit));
   const agents = buildAgentRoster(agent, roster, shape);
   if (agents.length > 0) parts.push(agents);
   const personality = agent.personality.trim();

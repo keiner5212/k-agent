@@ -53,12 +53,10 @@ export const Dialog = ({
   const titleId = useId();
   const stackId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
-  const surfaceRef = useRef<HTMLDivElement>(null);
   const [present, setPresent] = useState(open);
   const [phase, setPhase] = useState<DialogPhase>(open ? "open" : "closed");
-  const [settled, setSettled] = useState(open);
   const topId = useSyncExternalStore(subscribeDialogs, topDialogId, () => null);
-  const isTop = topId === stackId;
+  const isTop = topId === null || topId === stackId;
 
   useEffect(() => {
     if (open) {
@@ -67,10 +65,8 @@ export const Dialog = ({
         setPresent(true);
         if (!motionEnabled()) {
           setPhase("open");
-          setSettled(true);
           return;
         }
-        setSettled(false);
         setPhase("closed");
         inner = requestAnimationFrame(() => setPhase("open"));
       });
@@ -91,23 +87,8 @@ export const Dialog = ({
     if (!open) return;
     const close = (): void => onOpenChange(false);
     pushDialog(close, stackId);
-    return () => {
-      popDialog(close);
-    };
+    return () => popDialog(close);
   }, [open, onOpenChange, stackId]);
-
-  useEffect(() => {
-    if (!open || phase !== "open" || !motionEnabled()) return;
-    const surface = surfaceRef.current;
-    if (!surface) return;
-    const finish = (): void => setSettled(true);
-    surface.addEventListener("transitionend", finish);
-    const fallback = window.setTimeout(finish, 320);
-    return () => {
-      surface.removeEventListener("transitionend", finish);
-      window.clearTimeout(fallback);
-    };
-  }, [open, phase]);
 
   useEffect(() => {
     if (!open || !present) return;
@@ -151,15 +132,10 @@ export const Dialog = ({
   if (!present || typeof document === "undefined") return null;
 
   return createPortal(
-    <div
-      className="dialog-root"
-      data-state={phase}
-      data-top={isTop ? "true" : "false"}
-      data-settled={settled ? "true" : "false"}
-    >
+    <div className="dialog-root" data-state={phase} data-top={isTop ? "true" : "false"}>
       <div className="dialog-overlay" onClick={() => onOpenChange(false)} />
       <div className="dialog-slot" data-size={size} data-placement={placement} style={surfaceStyle}>
-        <div ref={surfaceRef} className="dialog-surface">
+        <div className="dialog-surface">
           <div
             ref={panelRef}
             className="dialog-panel"

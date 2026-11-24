@@ -1,11 +1,12 @@
 # internet_search
 
-Search the public web and return titles, URLs, sites, and snippets. Bing is tried first; if Bing's results look off-topic, blocked, or unavailable, DuckDuckGo HTML is used as a fallback.
+Search the public web and return titles, URLs, sites, and snippets. Each call starts on Bing or DuckDuckGo HTML, alternating, and uses the other engine only when the first page is off-topic, blocked, or empty.
 
 ## Does
 
-- Calls Bing with the same Chrome 153 navigation profile used by `fetch_url`, including a warm-up GET to `bing.com` so the search request carries a `Referer`, host cookies, and `sec-fetch-site: same-origin`.
-- Falls back to DuckDuckGo HTML when Bing's results fail the relevance check, when Bing returns an `unusual traffic` or captcha response, or when Bing's network call errors. A separate browser session is used for DuckDuckGo so Bing cookies are not sent there.
+- Alternates the first engine across calls so one host is not hit every time. A relevant first page does not call the other engine.
+- Calls Bing with the same Chrome navigation profile used by `fetch_url`. The Bing home page is fetched once, and only when that call actually uses Bing, so the search request can carry a `Referer` and host cookies.
+- Uses a separate browser session for DuckDuckGo so Bing cookies are not sent there. DuckDuckGo is the first engine on every other call, and the fallback when Bing fails the relevance check, returns an `unusual traffic` or captcha response, or errors.
 - Unwraps Bing's `/ck/a` redirects (base64 + `-` / `_` substitution, including the `?!&&` query form) and DuckDuckGo's `/l/?uddg=` redirects, including protocol-relative `//duckduckgo.com` links, so result URLs are the canonical target.
 - Drops tracker query params (`utm_*`, `fbclid`, `gclid`, `mc_eid`, `yclid`) from result URLs.
 - Filters every result URL through the same guard used by `fetch_url`. With HTTP fetch off, only `https://` on port 443 is kept. With it on, public `http://` on port 80 is kept too. Loopback, private hosts, IP literals, and tracker params are removed.

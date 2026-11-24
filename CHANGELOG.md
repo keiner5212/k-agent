@@ -8,6 +8,20 @@ section. The release draft uses that section as its body.
 The entries say what changed and why it mattered, in the words of the person who
 had to live with it.
 
+## [0.2.8] - 2026-11-24
+
+### Fixed
+
+- A background process stays on the status bar only while it is still running, and it leaves when the turn ends.
+- The dialog scrim blurs the page behind it a little harder, and only the top dialog paints that scrim.
+- Linux starts WebKit with the classic compositor. WebKitGTK 2.54 flashes the last frame of a CSS transition, and holding the blur until the animation ends did not stop it.
+- Web search alternates Bing and DuckDuckGo. The second engine runs only when the first page is unusable.
+- An empty `fetch_url` page is not cached for an hour. `fetch_url` no longer takes a language. A thin script page is rendered once.
+- The plan agent gets the tool instructions. Those lines used to appear only when `bash` was enabled.
+- Tool instructions name the path argument each tool takes, and `grep` no longer reads as if `count` were an argument.
+- Gemini 4 sends a thinking level instead of a bare thought flag. A thought flag on a model that has no thinking config made the request fail. A function call id from Gemini is sent back with the tool result.
+- `fetch_url` no longer carries the unused private-address classifier. IP literals were already rejected before it ran.
+
 ## [0.2.7] - 2026-11-24
 
 ### Fixed

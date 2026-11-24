@@ -16,29 +16,46 @@ type BackgroundProcess = {
 export const BackgroundDock = (): ReactNode => {
   const { t } = useTranslation();
   const sessionId = useSessionsStore((state) => state.activeSessionId);
+  const turnLive = useSessionsStore(
+    (state) => sessionId !== null && state.sendingSessionIds.includes(sessionId),
+  );
   const [processes, setProcesses] = useState<BackgroundProcess[]>([]);
   const [openPid, setOpenPid] = useState<number | null>(null);
   const [log, setLog] = useState("");
+  const watch = `${sessionId ?? ""}:${turnLive ? "1" : "0"}`;
+  const [tracked, setTracked] = useState(watch);
+  if (tracked !== watch) {
+    setTracked(watch);
+    setProcesses([]);
+    setOpenPid(null);
+  }
 
   useEffect(() => {
-    if (!sessionId || !isTauri()) return;
+    if (!sessionId || !isTauri() || !turnLive) return;
     let alive = true;
     const load = (): void => {
       void invoke<BackgroundProcess[]>("list_background_processes", { sessionId })
         .then((items) => {
-          if (alive) setProcesses(items);
+          if (!alive) return;
+          const running = items.filter((item) => item.running);
+          setProcesses(running);
+          setOpenPid((current) =>
+            current !== null && running.some((item) => item.pid === current) ? current : null,
+          );
         })
         .catch(() => {
-          if (alive) setProcesses([]);
+          if (!alive) return;
+          setProcesses([]);
+          setOpenPid(null);
         });
     };
     load();
-    const timer = window.setInterval(load, 2000);
+    const timer = window.setInterval(load, 1000);
     return () => {
       alive = false;
       window.clearInterval(timer);
     };
-  }, [sessionId]);
+  }, [sessionId, turnLive]);
 
   useEffect(() => {
     if (!sessionId || openPid === null || !isTauri()) return;
@@ -60,7 +77,7 @@ export const BackgroundDock = (): ReactNode => {
     };
   }, [openPid, sessionId]);
 
-  const visible = !sessionId || !isTauri() ? [] : processes;
+  const visible = !sessionId || !isTauri() || !turnLive || tracked !== watch ? [] : processes;
   if (visible.length === 0) return null;
   const open = visible.find((item) => item.pid === openPid) ?? null;
 
@@ -76,7 +93,7 @@ export const BackgroundDock = (): ReactNode => {
         >
           <SquareTerminal size={12} strokeWidth={1.5} />
           <span className="context-strip__chip-value">
-            {item.command} {item.running ? item.pid : t("chat.tools.backgroundStop")}
+            {item.command} {item.pid}
           </span>
         </button>
       ))}
@@ -93,8 +110,10 @@ export const BackgroundDock = (): ReactNode => {
             <GlassButton
               type="button"
               onClick={() => {
-                void invoke("stop_background_process", { sessionId, pid: open.pid }).finally(() => {
+                const pid = open.pid;
+                void invoke("stop_background_process", { sessionId, pid }).finally(() => {
                   setOpenPid(null);
+                  setProcesses((items) => items.filter((item) => item.pid !== pid));
                 });
               }}
             >
