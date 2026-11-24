@@ -388,10 +388,7 @@ fn node_available() -> bool {
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
     crate::utils::console::hide_console(&mut cmd);
-    cmd
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false)
+    cmd.status().map(|status| status.success()).unwrap_or(false)
 }
 
 fn checker_script(app: &AppHandle) -> Option<PathBuf> {
