@@ -8,6 +8,16 @@ section. The release draft uses that section as its body.
 The entries say what changed and why it mattered, in the words of the person who
 had to live with it.
 
+## [0.2.9] - 2026-11-24
+
+### Fixed
+
+- A covered dialog stays under the one in front. Its scrim and outside click no longer jump to a dialog that is behind.
+
+### Added
+
+- Window animations can be turned off on their own. Dialogs, menus, and the composer mode switch stop moving, and the other motion stays.
+
 ## [0.2.8] - 2026-11-24
 
 ### Fixed

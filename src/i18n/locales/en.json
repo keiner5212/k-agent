@@ -213,6 +213,10 @@
       "label": "Disable animations",
       "description": "Turn off all transitions and motion. Also follows your system reduce-motion setting."
     },
+    "windowAnimations": {
+      "label": "Disable window animations",
+      "description": "Skips open and close motion for dialogs, menus, and the composer mode switch. Loading and message motion stay on. Use this when those transitions flash the window."
+    },
     "fontFamily": {
       "label": "Font",
       "description": "Choose the interface typeface from fonts installed on this system. Code blocks stay monospace.",

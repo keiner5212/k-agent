@@ -213,6 +213,10 @@
       "label": "Desactivar animaciones",
       "description": "Apaga todas las transiciones y movimientos. También respeta el ajuste de reducir movimiento del sistema."
     },
+    "windowAnimations": {
+      "label": "Desactivar animaciones de ventana",
+      "description": "Quita el movimiento de abrir y cerrar de los dialogos, menus y el cambio de modo del compositor. La carga y los mensajes siguen animados. Usalo si esas transiciones parpadean la ventana."
+    },
     "fontFamily": {
       "label": "Fuente",
       "description": "Elige la tipografía de la interfaz entre las fuentes instaladas en este sistema. Los bloques de código siguen en monoespaciada.",

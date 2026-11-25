@@ -6,6 +6,7 @@ import {
   COMMAND_LIST_MAX_ITEMS,
   COMMAND_LIST_MAX_LENGTH,
   DEFAULT_ANIMATIONS_ENABLED,
+  DEFAULT_WINDOW_ANIMATIONS_ENABLED,
   DEFAULT_CHAT_BACKGROUND_IMAGE,
   DEFAULT_CHAT_BACKGROUND_OPACITY,
   DEFAULT_FONT_FAMILY,
@@ -268,6 +269,10 @@ const sanitizeSettings = (raw: unknown): Settings => {
     minimizeToTray: sanitizeBoolean(obj.minimizeToTray, DEFAULT_SETTINGS.minimizeToTray),
     translucencyEnabled: sanitizeBoolean(obj.translucencyEnabled, DEFAULT_TRANSLUCENCY_ENABLED),
     animationsEnabled: sanitizeBoolean(obj.animationsEnabled, DEFAULT_ANIMATIONS_ENABLED),
+    windowAnimationsEnabled: sanitizeBoolean(
+      obj.windowAnimationsEnabled,
+      DEFAULT_WINDOW_ANIMATIONS_ENABLED,
+    ),
     rememberWindowSize: sanitizeBoolean(
       obj.rememberWindowSize,
       DEFAULT_SETTINGS.rememberWindowSize,
@@ -331,6 +336,7 @@ export type SettingsStore = Settings & {
   setMinimizeToTray: (enabled: boolean) => void;
   setTranslucencyEnabled: (enabled: boolean) => void;
   setAnimationsEnabled: (enabled: boolean) => void;
+  setWindowAnimationsEnabled: (enabled: boolean) => void;
   setRememberWindowSize: (enabled: boolean) => void;
   setWindowBounds: (bounds: WindowBounds) => void;
   setTextScale: (scale: TextScale) => void;
@@ -398,6 +404,11 @@ const applyAnimations = (enabled: boolean): void => {
   document.documentElement.dataset.animations = enabled ? "enabled" : "disabled";
 };
 
+const applyWindowAnimations = (enabled: boolean): void => {
+  if (typeof document === "undefined") return;
+  document.documentElement.dataset.windowAnimations = enabled ? "enabled" : "disabled";
+};
+
 const applyTextScale = (scale: TextScale): void => {
   if (typeof document === "undefined") return;
   document.documentElement.style.setProperty("--text-scale", String(scale));
@@ -423,6 +434,12 @@ const systemPrefersReducedMotion = (): boolean => {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 };
 
+const applyMotion = (animationsEnabled: boolean, windowAnimationsEnabled: boolean): void => {
+  const motion = animationsEnabled && !systemPrefersReducedMotion();
+  applyAnimations(motion);
+  applyWindowAnimations(motion && windowAnimationsEnabled);
+};
+
 const applyChatBackground = (url: string | null, opacity: number): void => {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
@@ -438,7 +455,7 @@ const applyChatBackground = (url: string | null, opacity: number): void => {
 const applyChrome = (settings: Settings, chatBackgroundUrl: string | null): void => {
   applyTheme(settings.theme);
   applyTranslucency(settings.translucencyEnabled);
-  applyAnimations(settings.animationsEnabled && !systemPrefersReducedMotion());
+  applyMotion(settings.animationsEnabled, settings.windowAnimationsEnabled);
   applyTextScale(settings.textScale);
   applyFontFamily(settings.fontFamily);
   applyChatBackground(chatBackgroundUrl, settings.chatBackgroundOpacity);
@@ -459,6 +476,7 @@ const snapshot = (state: SettingsStore): Settings => ({
   minimizeToTray: state.minimizeToTray,
   translucencyEnabled: state.translucencyEnabled,
   animationsEnabled: state.animationsEnabled,
+  windowAnimationsEnabled: state.windowAnimationsEnabled,
   rememberWindowSize: state.rememberWindowSize,
   windowBounds: state.windowBounds,
   textScale: state.textScale,
@@ -568,8 +586,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   },
 
   setAnimationsEnabled: (enabled) => {
-    applyAnimations(enabled && !systemPrefersReducedMotion());
+    applyMotion(enabled, get().windowAnimationsEnabled);
     set({ animationsEnabled: enabled });
+    void persist(snapshot(get()));
+  },
+
+  setWindowAnimationsEnabled: (enabled) => {
+    applyMotion(get().animationsEnabled, enabled);
+    set({ windowAnimationsEnabled: enabled });
     void persist(snapshot(get()));
   },
 
