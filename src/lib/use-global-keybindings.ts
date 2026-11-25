@@ -12,8 +12,7 @@ const isVisible = (el: HTMLElement): boolean =>
   el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
 
 const topVisibleSearchInput = (): HTMLInputElement | null => {
-  const dialogs = document.querySelectorAll(".dialog-root");
-  const topDialog = dialogs.length > 0 ? dialogs[dialogs.length - 1] : null;
+  const topDialog = document.querySelector(".dialog-root[data-top='true']");
   const scope: ParentNode = topDialog ?? document;
   const inputs = [...scope.querySelectorAll<HTMLInputElement>('input[type="search"]')];
   for (let index = inputs.length - 1; index >= 0; index -= 1) {

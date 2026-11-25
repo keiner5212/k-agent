@@ -83,7 +83,7 @@ Theme, translucency, animations, and text scale go through `applyChrome`. Hydrat
 
 `maxWorkerCores`: `0` = auto (all logical CPUs). Else clamp `1..=hardwareThreadCount()`. Sync into `src/lib/worker-cores.ts` on hydrate and on change. Heavy work leases cores with `acquireWorkerCores(label, want)` and always `release()`. Never exceed the configured limit. Never wait for cores (UI must not stall). Grant `min(want, available, limit)` with a floor of 1 so IO still proceeds. Use the full remaining pool when the job is actually parallel (model detail fetch, bundled workspace config list). Shallow IO (one directory, one font scan) leases 1.
 
-Disable-style toggles (`translucencyEnabled`, `animationsEnabled`): copy says Disable X; `checked` is `!enabled`. Other toggles are positive (`checked === enabled`).
+Disable-style toggles (`translucencyEnabled`, `animationsEnabled`, `windowAnimationsEnabled`): copy says Disable X; `checked` is `!enabled`. Other toggles are positive (`checked === enabled`).
 
 Dynamic select options (core counts) are built in `SettingItem`, not in the static registry.
 

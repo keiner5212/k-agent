@@ -2,16 +2,24 @@ import { X } from "lucide-react";
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "./IconButton";
-import { popDialog, pushDialog, subscribeDialogs, topDialogId } from "@/lib/dialog-stack";
+import {
+  bindDialog,
+  markDialogClosing,
+  releaseDialog,
+  subscribeDialogs,
+  topDialogId,
+} from "@/lib/dialog-stack";
 
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -22,9 +30,11 @@ type DialogPhase = "open" | "closed";
 
 const EXIT_MS = 240;
 
-const motionEnabled = (): boolean => {
+const windowMotionEnabled = (): boolean => {
   if (typeof document === "undefined") return false;
-  if (document.documentElement.dataset.animations === "disabled") return false;
+  const root = document.documentElement;
+  if (root.dataset.animations === "disabled") return false;
+  if (root.dataset.windowAnimations === "disabled") return false;
   return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 };
 
@@ -53,17 +63,22 @@ export const Dialog = ({
   const titleId = useId();
   const stackId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const onOpenChangeRef = useRef(onOpenChange);
   const [present, setPresent] = useState(open);
   const [phase, setPhase] = useState<DialogPhase>(open ? "open" : "closed");
-  const topId = useSyncExternalStore(subscribeDialogs, topDialogId, () => null);
+  const topId = useSyncExternalStore(subscribeDialogs, topDialogId, topDialogId);
   const isTop = topId === null || topId === stackId;
+
+  useLayoutEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  }, [onOpenChange]);
 
   useEffect(() => {
     if (open) {
       let inner = 0;
       const outer = requestAnimationFrame(() => {
         setPresent(true);
-        if (!motionEnabled()) {
+        if (!windowMotionEnabled()) {
           setPhase("open");
           return;
         }
@@ -75,23 +90,23 @@ export const Dialog = ({
         cancelAnimationFrame(inner);
       };
     }
+    markDialogClosing(stackId);
     const closeFrame = window.setTimeout(() => setPhase("closed"), 0);
-    const unmount = window.setTimeout(() => setPresent(false), motionEnabled() ? EXIT_MS : 0);
+    const unmount = window.setTimeout(() => setPresent(false), windowMotionEnabled() ? EXIT_MS : 0);
     return () => {
       window.clearTimeout(closeFrame);
       window.clearTimeout(unmount);
     };
-  }, [open]);
+  }, [open, stackId]);
+
+  useLayoutEffect(() => {
+    if (!present) return;
+    bindDialog(stackId, () => onOpenChangeRef.current(false));
+    return () => releaseDialog(stackId);
+  }, [present, stackId]);
 
   useEffect(() => {
-    if (!open) return;
-    const close = (): void => onOpenChange(false);
-    pushDialog(close, stackId);
-    return () => popDialog(close);
-  }, [open, onOpenChange, stackId]);
-
-  useEffect(() => {
-    if (!open || !present) return;
+    if (!open || !present || !isTop) return;
     const previous = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -127,20 +142,34 @@ export const Dialog = ({
       document.body.style.overflow = previousOverflow;
       if (previous instanceof HTMLElement) previous.focus();
     };
-  }, [open, present]);
+  }, [open, present, isTop]);
 
   if (!present || typeof document === "undefined") return null;
 
+  const onScrimMouseDown = (event: ReactMouseEvent<HTMLDivElement>): void => {
+    if (!isTop) return;
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.closest(".dialog-surface")) return;
+    onOpenChange(false);
+  };
+
   return createPortal(
-    <div className="dialog-root" data-state={phase} data-top={isTop ? "true" : "false"}>
-      <div className="dialog-overlay" onClick={() => onOpenChange(false)} />
+    <div
+      className="dialog-root"
+      data-state={phase}
+      data-top={isTop ? "true" : "false"}
+      inert={!isTop ? true : undefined}
+      onMouseDown={onScrimMouseDown}
+    >
+      <div className="dialog-overlay" />
       <div className="dialog-slot" data-size={size} data-placement={placement} style={surfaceStyle}>
         <div className="dialog-surface">
           <div
             ref={panelRef}
             className="dialog-panel"
             role="dialog"
-            aria-modal="true"
+            aria-modal={isTop}
             aria-labelledby={titleId}
           >
             <div className="dialog-header">
