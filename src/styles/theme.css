@@ -230,6 +230,15 @@
   transition-delay: 0ms !important;
 }
 
+:root[data-window-animations="disabled"] .dialog-overlay,
+:root[data-window-animations="disabled"] .dialog-surface,
+:root[data-window-animations="disabled"] .select-menu,
+:root[data-window-animations="disabled"] .settings-pane,
+:root[data-window-animations="disabled"] .composer-shell-chip--enter {
+  animation: none;
+  transition: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

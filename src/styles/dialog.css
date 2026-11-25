@@ -23,8 +23,17 @@
   opacity: 1;
 }
 
-.dialog-root[data-top="false"] .dialog-overlay {
+.dialog-root[data-top="false"] {
+  visibility: hidden;
+  pointer-events: none;
+  content-visibility: hidden;
+}
+
+.dialog-root[data-top="false"] .dialog-overlay,
+.dialog-root[data-top="false"] .dialog-surface::before {
   display: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .dialog-slot {

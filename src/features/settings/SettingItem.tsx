@@ -199,6 +199,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const fontFamily = useSettingsStore((state) => state.fontFamily);
   const translucencyEnabled = useSettingsStore((state) => state.translucencyEnabled);
   const animationsEnabled = useSettingsStore((state) => state.animationsEnabled);
+  const windowAnimationsEnabled = useSettingsStore((state) => state.windowAnimationsEnabled);
   const minimizeToTray = useSettingsStore((state) => state.minimizeToTray);
   const rememberWindowSize = useSettingsStore((state) => state.rememberWindowSize);
   const maxWorkerCores = useSettingsStore((state) => state.maxWorkerCores);
@@ -255,6 +256,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
   const loadProviders = useProvidersStore((state) => state.load);
   const setTranslucencyEnabled = useSettingsStore((state) => state.setTranslucencyEnabled);
   const setAnimationsEnabled = useSettingsStore((state) => state.setAnimationsEnabled);
+  const setWindowAnimationsEnabled = useSettingsStore((state) => state.setWindowAnimationsEnabled);
   const setMinimizeToTray = useSettingsStore((state) => state.setMinimizeToTray);
   const setRememberWindowSize = useSettingsStore((state) => state.setRememberWindowSize);
   const [systemFonts, setSystemFonts] = useState<string[]>([]);
@@ -375,6 +377,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
             checked={toggleChecked(item.id, {
               translucencyEnabled,
               animationsEnabled,
+              windowAnimationsEnabled,
               minimizeToTray,
               rememberWindowSize,
               forceResponseLanguage,
@@ -392,6 +395,7 @@ export const SettingItem = ({ item, query }: SettingItemProps): ReactNode => {
               onToggleChange(item.id, next, {
                 setTranslucencyEnabled,
                 setAnimationsEnabled,
+                setWindowAnimationsEnabled,
                 setMinimizeToTray,
                 setRememberWindowSize,
                 setForceResponseLanguage,
@@ -579,6 +583,7 @@ const fontFamilyOptions = (
 type ToggleState = {
   translucencyEnabled: boolean;
   animationsEnabled: boolean;
+  windowAnimationsEnabled: boolean;
   minimizeToTray: boolean;
   rememberWindowSize: boolean;
   forceResponseLanguage: boolean;
@@ -694,6 +699,8 @@ const toggleChecked = (id: string, state: ToggleState): boolean => {
       return !state.translucencyEnabled;
     case "animationsEnabled":
       return !state.animationsEnabled;
+    case "windowAnimationsEnabled":
+      return !state.windowAnimationsEnabled;
     case "minimizeToTray":
       return state.minimizeToTray;
     case "rememberWindowSize":
@@ -729,6 +736,7 @@ const onToggleChange = (
   setters: {
     setTranslucencyEnabled: (v: boolean) => void;
     setAnimationsEnabled: (v: boolean) => void;
+    setWindowAnimationsEnabled: (v: boolean) => void;
     setMinimizeToTray: (v: boolean) => void;
     setRememberWindowSize: (v: boolean) => void;
     setForceResponseLanguage: (v: boolean) => void;
@@ -749,6 +757,9 @@ const onToggleChange = (
       return;
     case "animationsEnabled":
       setters.setAnimationsEnabled(!next);
+      return;
+    case "windowAnimationsEnabled":
+      setters.setWindowAnimationsEnabled(!next);
       return;
     case "minimizeToTray":
       setters.setMinimizeToTray(next);

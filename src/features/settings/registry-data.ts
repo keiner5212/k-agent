@@ -121,6 +121,23 @@ export const SETTINGS_REGISTRY: readonly SettingsSectionDef[] = [
         keywords: ["motion", "transition", "animaciones"],
       },
       {
+        id: "windowAnimationsEnabled",
+        type: "toggle",
+        titleKey: "settings.windowAnimations.label",
+        descriptionKey: "settings.windowAnimations.description",
+        keywords: [
+          "window",
+          "dialog",
+          "modal",
+          "composer",
+          "linux",
+          "flicker",
+          "ventana",
+          "dialogo",
+          "compositor",
+        ],
+      },
+      {
         id: "chatBackgroundImage",
         type: "imagePicker",
         titleKey: "settings.chatBackgroundImage.label",

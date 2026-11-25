@@ -9,6 +9,7 @@ export const DEFAULT_THEME: AppTheme = "dark";
 export const DEFAULT_MINIMIZE_TO_TRAY = false;
 export const DEFAULT_TRANSLUCENCY_ENABLED = true;
 export const DEFAULT_ANIMATIONS_ENABLED = true;
+export const DEFAULT_WINDOW_ANIMATIONS_ENABLED = true;
 
 export type TextScale = 0.5 | 0.6 | 0.7 | 0.8 | 0.875 | 0.92 | 1 | 1.125 | 1.25 | 1.4;
 
@@ -144,6 +145,7 @@ export type Settings = {
   minimizeToTray: boolean;
   translucencyEnabled: boolean;
   animationsEnabled: boolean;
+  windowAnimationsEnabled: boolean;
   rememberWindowSize: boolean;
   windowBounds: WindowBounds;
   textScale: TextScale;
@@ -184,6 +186,7 @@ export const DEFAULT_SETTINGS: Settings = {
   minimizeToTray: DEFAULT_MINIMIZE_TO_TRAY,
   translucencyEnabled: DEFAULT_TRANSLUCENCY_ENABLED,
   animationsEnabled: DEFAULT_ANIMATIONS_ENABLED,
+  windowAnimationsEnabled: DEFAULT_WINDOW_ANIMATIONS_ENABLED,
   rememberWindowSize: DEFAULT_REMEMBER_WINDOW_SIZE,
   windowBounds: DEFAULT_WINDOW_BOUNDS,
   textScale: DEFAULT_TEXT_SCALE,
